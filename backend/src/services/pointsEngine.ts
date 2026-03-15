@@ -131,9 +131,11 @@ export function calculatePoints(prediction: PredictionInput, match: MatchResult)
   return breakdown;
 }
 
-// Streak bonus: +2 pts once streak reaches 3 or more correct predictions in a row
+// Streak bonus: +2 pts when the result of this prediction would reach 3+ in a row.
+// currentStreak is the streak BEFORE this prediction.
+// When currentStreak >= 2, a correct prediction makes it 3+ → bonus applies.
 export function applyStreakBonus(basePoints: number, currentStreak: number): number {
-  if (currentStreak >= 3 && basePoints > 0) {
+  if (currentStreak >= 2 && basePoints > 0) {
     return basePoints + 2;
   }
   return basePoints;

@@ -375,6 +375,9 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
     );
   }
 
+  const baseTotal = breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0);
+  const streakBonus = (prediction.points_earned ?? 0) - baseTotal;
+
   return (
     <div className="space-y-1">
       {breakdown.map(tier => (
@@ -393,6 +396,16 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
           </span>
         </div>
       ))}
+      {streakBonus > 0 && (
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25">
+          <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+            <span>⚡</span>
+            <span>Streak Bonus</span>
+            <span className="text-yellow-400/60 font-normal">· 3 in a row</span>
+          </span>
+          <span className="font-bold tabular-nums text-yellow-400">+{streakBonus}</span>
+        </div>
+      )}
     </div>
   );
 }

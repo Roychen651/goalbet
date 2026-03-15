@@ -72,6 +72,24 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             {match.round && ` · R${match.round}`}
           </span>
           <div className="flex items-center gap-2 shrink-0">
+            {hasPrediction && isFinished && prediction?.is_resolved && (prediction?.points_earned ?? 0) > 0 && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.7 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-1 bg-accent-green/12 border border-accent-green/25 rounded-full px-2 py-0.5 text-accent-green text-xs font-bold"
+              >
+                +{prediction.points_earned} {t('pts')}
+              </motion.span>
+            )}
+            {hasPrediction && isFinished && prediction?.is_resolved && (prediction?.points_earned ?? 0) === 0 && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.7 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-white/25 text-xs"
+              >
+                0 {t('pts')}
+              </motion.span>
+            )}
             {hasPrediction && !isFinished && (
               <motion.span
                 initial={{ opacity: 0, scale: 0.7 }}

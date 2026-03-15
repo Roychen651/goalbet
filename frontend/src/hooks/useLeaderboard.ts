@@ -33,7 +33,7 @@ async function fetchGroupLeaderboard(
 
   // 3. Merge — every member gets an entry; non-leaderboard members get 0s
   const sortField = type === 'weekly' ? 'weekly_points'
-    : type === 'lastWeek' ? 'weekly_points'  // fall back — no last_week col yet
+    : type === 'lastWeek' ? 'last_week_points'
     : 'total_points';
 
   const merged: LeaderboardEntryWithProfile[] = (profilesRes.data ?? []).map(profile => {
@@ -46,6 +46,7 @@ async function fetchGroupLeaderboard(
       avatar_url: profile.avatar_url,
       total_points: lb?.total_points ?? 0,
       weekly_points: lb?.weekly_points ?? 0,
+      last_week_points: lb?.last_week_points ?? 0,
       predictions_made: lb?.predictions_made ?? 0,
       correct_predictions: lb?.correct_predictions ?? 0,
       current_streak: lb?.current_streak ?? 0,

@@ -419,26 +419,37 @@ function TierBreakdownRow({ tier, prediction, match, delay }: {
     }
   })();
 
+  const isPending = tier.pending === true;
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay }}
       className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs ${
-        tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : 'bg-white/3 border border-white/5'
+        tier.earned
+          ? 'bg-accent-green/8 border border-accent-green/15'
+          : isPending
+            ? 'bg-blue-500/6 border border-blue-500/15'
+            : 'bg-white/3 border border-white/5'
       }`}
     >
-      <span className={`flex items-center gap-1.5 min-w-0 ${tier.earned ? 'text-accent-green' : 'text-text-muted opacity-60'}`}>
-        <span className="shrink-0">{tier.earned ? '✓' : '✗'}</span>
+      <span className={`flex items-center gap-1.5 min-w-0 ${
+        tier.earned ? 'text-accent-green' : isPending ? 'text-blue-400 opacity-70' : 'text-text-muted opacity-60'
+      }`}>
+        <span className="shrink-0">{tier.earned ? '✓' : isPending ? '…' : '✗'}</span>
         <span className="shrink-0">{tier.label}</span>
         {predDetail && (
-          <span className={`truncate font-semibold ${tier.earned ? 'text-accent-green' : 'text-white/40'}`}>
+          <span className={`truncate font-semibold ${tier.earned ? 'text-accent-green' : isPending ? 'text-blue-300/60' : 'text-white/40'}`}>
             · {predDetail}
           </span>
         )}
+        {isPending && <span className="text-[9px] text-blue-400/60 shrink-0">pending</span>}
       </span>
-      <span className={`shrink-0 font-bold tabular-nums ${tier.earned ? 'text-accent-green' : 'text-text-muted opacity-40'}`}>
-        {tier.earned ? `+${tier.pts}` : '0'}
+      <span className={`shrink-0 font-bold tabular-nums ${
+        tier.earned ? 'text-accent-green' : isPending ? 'text-blue-400/50' : 'text-text-muted opacity-40'
+      }`}>
+        {tier.earned ? `+${tier.pts}` : isPending ? '?' : '0'}
       </span>
     </motion.div>
   );
@@ -531,6 +542,27 @@ function LockedPrediction({
               delay={i * 0.05}
             />
           ))}
+          {/* Streak bonus row — shown when points_earned exceeds the sum of base tiers */}
+          {(() => {
+            const baseTotal = breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0);
+            const streakBonus = (prediction.points_earned ?? 0) - baseTotal;
+            if (streakBonus <= 0) return null;
+            return (
+              <motion.div
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: breakdown.length * 0.05 }}
+                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25"
+              >
+                <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+                  <span>⚡</span>
+                  <span>Streak Bonus</span>
+                  <span className="text-yellow-400/60 font-normal">· 3 in a row</span>
+                </span>
+                <span className="font-bold tabular-nums text-yellow-400">+{streakBonus}</span>
+              </motion.div>
+            );
+          })()}
         </div>
       ) : liveBreakdown && liveBreakdown.length > 0 ? (
         /* Live in-progress: show tier-by-tier potential with user's prediction */

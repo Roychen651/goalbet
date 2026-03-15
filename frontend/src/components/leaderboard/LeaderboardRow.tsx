@@ -7,7 +7,7 @@ import { useLangStore } from '../../stores/langStore';
 interface LeaderboardRowProps {
   entry: LeaderboardEntryWithProfile;
   isCurrentUser: boolean;
-  type: 'total' | 'weekly';
+  type: 'total' | 'weekly' | 'lastWeek';
   onClick?: () => void;
 }
 
@@ -15,7 +15,9 @@ const RANK_MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: LeaderboardRowProps) {
   const { t } = useLangStore();
-  const points = type === 'weekly' ? entry.weekly_points : entry.total_points;
+  const points = type === 'weekly' ? entry.weekly_points
+    : type === 'lastWeek' ? (entry.last_week_points ?? 0)
+    : entry.total_points;
   const medal = RANK_MEDALS[entry.rank];
 
   return (

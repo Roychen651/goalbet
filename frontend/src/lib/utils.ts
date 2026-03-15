@@ -130,6 +130,8 @@ export interface TierResult {
   label: string;
   pts: number;
   earned: boolean;
+  /** True when the outcome is not yet knowable (e.g. HT score missing during 2H) */
+  pending?: boolean;
 }
 
 // Live breakdown — same logic but works for in-progress matches using current score.
@@ -152,7 +154,10 @@ export function calcLiveBreakdown(prediction: Prediction, match: Match): TierRes
     effectiveHtAway = 0;
   }
 
-  return _computeBreakdown(prediction, match.home_score, match.away_score, effectiveHtHome, effectiveHtAway);
+  // If we're in 2H and still don't know the HT score, mark HT tier as pending (not wrong)
+  const htPending = match.status === '2H' && effectiveHtHome === null;
+
+  return _computeBreakdown(prediction, match.home_score, match.away_score, effectiveHtHome, effectiveHtAway, htPending);
 }
 
 export function calcBreakdown(prediction: Prediction, match: Match): TierResult[] | null {
@@ -166,6 +171,7 @@ function _computeBreakdown(
   awayScore: number,
   htHome: number | null,
   htAway: number | null,
+  htPending = false,
 ): TierResult[] {
   const actualOutcome = homeScore > awayScore ? 'H' : homeScore < awayScore ? 'A' : 'D';
   const totalGoals = homeScore + awayScore;
@@ -194,12 +200,17 @@ function _computeBreakdown(
   }
 
   if (prediction.predicted_halftime_outcome !== null) {
-    let earned = false;
-    if (htHome !== null && htAway !== null) {
-      const actualHT = htHome > htAway ? 'H' : htHome < htAway ? 'A' : 'D';
-      earned = prediction.predicted_halftime_outcome === actualHT;
+    if (htPending) {
+      // HT score not yet known (match is in 2H but DB halftime is null) — show as pending
+      results.push({ key: 'ht', label: 'Half Time', pts: 4, earned: false, pending: true });
+    } else {
+      let earned = false;
+      if (htHome !== null && htAway !== null) {
+        const actualHT = htHome > htAway ? 'H' : htHome < htAway ? 'A' : 'D';
+        earned = prediction.predicted_halftime_outcome === actualHT;
+      }
+      results.push({ key: 'ht', label: 'Half Time', pts: 4, earned });
     }
-    results.push({ key: 'ht', label: 'Half Time', pts: 4, earned });
   }
 
   if (prediction.predicted_btts !== null) {

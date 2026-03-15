@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
-import { fetchLeagueMatches, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
+import { fetchLeagueMatches, fetchMatchHalftimeScore, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
 import { DBMatch } from './sportsdb';
 import { calculatePoints, applyStreakBonus } from './pointsEngine';
 import { logger } from '../lib/logger';
@@ -10,6 +10,9 @@ interface PendingMatch {
   league_id: number;
   home_score: number | null;
   away_score: number | null;
+  status: string;
+  halftime_home: number | null;
+  halftime_away: number | null;
 }
 
 interface Prediction {
@@ -36,7 +39,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
 
   const { data, error } = await supabaseAdmin
     .from('matches')
-    .select('id, external_id, league_id, home_score, away_score')
+    .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away')
     .not('status', 'in', '("FT","PST","CANC")')
     .lt('kickoff_time', slightlyAhead);
 
@@ -56,12 +59,18 @@ async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): P
     display_clock: scoreData.display_clock ?? null,
   };
 
-  // Only update halftime scores if ESPN returned them — never overwrite a valid value with null.
-  // ESPN sometimes doesn't return linescores for in-progress 2H matches even though the
-  // half-time score is already known. Overwriting with null would break HT prediction scoring.
+  // Capture halftime score — three sources, in priority order:
+  // 1. ESPN linescores (explicit, most reliable)
+  // 2. When status is HT, the current home_score IS the halftime score (goals through 45')
+  // 3. 1H→2H inference (handled in checkAndUpdateScores before calling here)
+  // Never overwrite a valid halftime value with null.
   if (scoreData.halftime_home !== null && scoreData.halftime_away !== null) {
     payload.halftime_home = scoreData.halftime_home;
     payload.halftime_away = scoreData.halftime_away;
+  } else if (scoreData.status === 'HT' && scoreData.home_score !== null) {
+    // At halftime status, the current score IS the halftime score
+    payload.halftime_home = scoreData.home_score;
+    payload.halftime_away = scoreData.away_score;
   }
 
   let { error } = await supabaseAdmin
@@ -132,9 +141,10 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
         continue; // do NOT update leaderboard if prediction update failed
       }
 
-      // Update leaderboard — properly track best_streak
+      // Update leaderboard — streak resets to 0 after the bonus (every 3rd correct in a row)
       const isCorrect = breakdown.correct_prediction;
-      const newStreak = isCorrect ? currentStreak + 1 : 0;
+      const bonusEarned = isCorrect && currentStreak >= 2; // bonus was applied → reset cycle
+      const newStreak = isCorrect && !bonusEarned ? currentStreak + 1 : 0;
       const prevBestStreak = lbData?.best_streak ?? 0;
       const existingLB = {
         total_points: lbData?.total_points ?? 0,
@@ -206,23 +216,46 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
           continue;
         }
 
-        if (freshData.status === 'FT' || freshData.status === 'PST' || freshData.status === 'CANC') {
-          await updateMatchScore(match.id, freshData);
+        // ── Three-layer HT score capture ────────────────────────────────────
+        // Layer 1 (handled in updateMatchScore): ESPN linescores non-null → saved directly
+        // Layer 2: 1H/HT → 2H transition — infer from the DB score at end of first half
+        // Layer 3: Already in 2H with null halftime → ESPN summary endpoint fallback
+        let effectiveData = freshData;
 
-          if (freshData.status === 'FT' && freshData.home_score !== null && freshData.away_score !== null) {
+        if (freshData.status === '2H' && freshData.halftime_home === null && match.halftime_home === null) {
+          if (match.status === '1H' || match.status === 'HT') {
+            // Layer 2: transition just happened — DB score was the HT score
+            if (match.home_score !== null) {
+              effectiveData = { ...freshData, halftime_home: match.home_score, halftime_away: match.away_score };
+              logger.info(`[scoreUpdater] Layer 2 HT infer for match ${match.id}: ${match.home_score}-${match.away_score}`);
+            }
+          } else {
+            // Layer 3: already in 2H, DB never captured HT — try ESPN summary endpoint
+            const summaryHT = await fetchMatchHalftimeScore(match.external_id, match.league_id);
+            if (summaryHT) {
+              effectiveData = { ...freshData, ...summaryHT };
+              logger.info(`[scoreUpdater] Layer 3 HT from summary for match ${match.id}: ${summaryHT.halftime_home}-${summaryHT.halftime_away}`);
+            }
+          }
+        }
+
+        if (effectiveData.status === 'FT' || effectiveData.status === 'PST' || effectiveData.status === 'CANC') {
+          await updateMatchScore(match.id, effectiveData);
+
+          if (effectiveData.status === 'FT' && effectiveData.home_score !== null && effectiveData.away_score !== null) {
             const count = await resolveMatchPredictions(match.id, {
-              home_score: freshData.home_score,
-              away_score: freshData.away_score,
-              halftime_home: freshData.halftime_home,
-              halftime_away: freshData.halftime_away,
+              home_score: effectiveData.home_score,
+              away_score: effectiveData.away_score,
+              halftime_home: effectiveData.halftime_home,
+              halftime_away: effectiveData.halftime_away,
             });
             totalResolved += count;
-            logger.info(`[scoreUpdater] Match ${match.id}: ${freshData.home_score}-${freshData.away_score}, resolved ${count} predictions`);
+            logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
           }
         } else {
-          // Still in progress — update live score
-          await updateMatchScore(match.id, freshData);
-          logger.debug(`[scoreUpdater] Match ${match.id} in progress: ${freshData.home_score ?? 0}-${freshData.away_score ?? 0} (${freshData.status})`);
+          // Still in progress — update live score (with inferred HT if applicable)
+          await updateMatchScore(match.id, effectiveData);
+          logger.debug(`[scoreUpdater] Match ${match.id} in progress: ${effectiveData.home_score ?? 0}-${effectiveData.away_score ?? 0} (${effectiveData.status})`);
         }
       }
     } catch (err) {
@@ -270,10 +303,9 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
 }
 
 export async function resetWeeklyPoints(): Promise<void> {
-  logger.info('[scoreUpdater] Resetting weekly points for all users');
-  const { error } = await supabaseAdmin
-    .from('leaderboard')
-    .update({ weekly_points: 0 });
+  logger.info('[scoreUpdater] Resetting weekly points (saving last_week_points first)');
+  // Atomically: last_week_points = weekly_points, weekly_points = 0
+  const { error } = await supabaseAdmin.rpc('reset_weekly_points');
 
   if (error) {
     logger.error('[scoreUpdater] Failed to reset weekly points:', error);

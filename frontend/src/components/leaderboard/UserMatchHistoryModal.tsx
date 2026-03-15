@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase, Prediction, Match } from '../../lib/supabase';
 import { Avatar } from '../ui/Avatar';
-import { MatchStatusBadge } from '../matches/MatchStatusBadge';
-import { formatKickoffTime } from '../../lib/utils';
+import { formatKickoffTime, calcBreakdown } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
+import { LeaderboardType } from '../../hooks/useLeaderboard';
 
 interface UserInfo {
   user_id: string;
@@ -19,30 +19,79 @@ interface PredictionWithMatch extends Prediction {
 interface UserMatchHistoryModalProps {
   user: UserInfo;
   groupId: string;
+  type: LeaderboardType;
   onClose: () => void;
 }
 
-export function UserMatchHistoryModal({ user, groupId, onClose }: UserMatchHistoryModalProps) {
+// Week = Sunday 00:00 UTC → Saturday 23:59:59 UTC
+function getWeekBounds(type: LeaderboardType): { start: number | null; end: number | null } {
+  if (type === 'total') return { start: null, end: null };
+
+  const now = new Date();
+  const dayOfWeek = now.getUTCDay(); // 0=Sun, 6=Sat
+
+  const thisSunday = new Date(now);
+  thisSunday.setUTCDate(now.getUTCDate() - dayOfWeek);
+  thisSunday.setUTCHours(0, 0, 0, 0);
+
+  if (type === 'weekly') {
+    return { start: thisSunday.getTime(), end: null };
+  } else {
+    const lastSunday = new Date(thisSunday);
+    lastSunday.setUTCDate(thisSunday.getUTCDate() - 7);
+    const lastSaturday = new Date(thisSunday.getTime() - 1);
+    return { start: lastSunday.getTime(), end: lastSaturday.getTime() };
+  }
+}
+
+export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatchHistoryModalProps) {
   const { t } = useLangStore();
   const [history, setHistory] = useState<PredictionWithMatch[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     supabase
       .from('predictions')
-      .select('id, match_id, points_earned, is_resolved, match:matches(id, home_team, away_team, kickoff_time, status, home_score, away_score)')
+      .select(`
+        id, match_id, points_earned, is_resolved,
+        predicted_outcome, predicted_home_score, predicted_away_score,
+        predicted_halftime_outcome, predicted_halftime_home, predicted_halftime_away,
+        predicted_btts, predicted_over_under,
+        match:matches(id, home_team, away_team, kickoff_time, status, home_score, away_score, halftime_home, halftime_away)
+      `)
       .eq('user_id', user.user_id)
       .eq('group_id', groupId)
       .eq('is_resolved', true)
       .order('created_at', { ascending: false })
-      .limit(30)
+      .limit(100)
       .then(({ data }) => {
-        setHistory((data as unknown as PredictionWithMatch[]) || []);
+        const all = (data as unknown as PredictionWithMatch[]) || [];
+        const { start, end } = getWeekBounds(type);
+        const filtered = all.filter(p => {
+          const kickoff = new Date(p.match?.kickoff_time ?? 0).getTime();
+          if (start && kickoff < start) return false;
+          if (end && kickoff > end) return false;
+          return true;
+        });
+        setHistory(filtered);
         setLoading(false);
       });
-  }, [user.user_id, groupId]);
+  }, [user.user_id, groupId, type]);
+
+  // Compute base pts (via calcBreakdown) vs points_earned (which may include streak bonus)
+  const predRows = history.map(pred => {
+    const breakdown = calcBreakdown(pred, pred.match);
+    const baseTotal = breakdown
+      ? breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0)
+      : (pred.points_earned ?? 0);
+    const streakBonus = (pred.points_earned ?? 0) - baseTotal;
+    return { pred, baseTotal, streakBonus };
+  });
 
   const totalPoints = history.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
+  const periodLabel = type === 'weekly' ? t('thisWeek') : type === 'lastWeek' ? t('lastWeek') : t('allTime');
+  const streakRows = predRows.filter(r => r.streakBonus > 0);
 
   return (
     <motion.div
@@ -69,7 +118,9 @@ export function UserMatchHistoryModal({ user, groupId, onClose }: UserMatchHisto
               <Avatar src={user.avatar_url} name={user.username} size="md" />
               <div>
                 <p className="text-white font-semibold text-sm">{user.username}</p>
-                <p className="text-text-muted text-xs">{totalPoints} {t('pts')} from {history.length} matches</p>
+                <p className="text-text-muted text-xs">
+                  {totalPoints} {t('pts')} · {history.length} {t('matches')} · {periodLabel}
+                </p>
               </div>
             </div>
             <button
@@ -85,34 +136,74 @@ export function UserMatchHistoryModal({ user, groupId, onClose }: UserMatchHisto
             {loading ? (
               <div className="py-8 text-center text-text-muted text-sm">Loading...</div>
             ) : history.length === 0 ? (
-              <div className="py-8 text-center text-text-muted text-sm">No resolved predictions yet</div>
+              <div className="py-8 text-center text-text-muted text-sm">
+                No resolved predictions for {periodLabel.toLowerCase()}
+              </div>
             ) : (
-              history.map((pred, i) => (
-                <motion.div
-                  key={pred.id}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm ${
-                    pred.points_earned > 0 ? 'bg-accent-green/6 border border-accent-green/12' : 'bg-white/3 border border-white/5'
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white/90 text-xs font-medium truncate">
-                      {pred.match?.home_team} vs {pred.match?.away_team}
+              <>
+                {predRows.map(({ pred, baseTotal, streakBonus }, i) => (
+                  <motion.div
+                    key={pred.id}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm ${
+                      baseTotal > 0
+                        ? 'bg-accent-green/6 border border-accent-green/12'
+                        : 'bg-white/3 border border-white/5'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-white/90 text-xs font-medium truncate">
+                          {pred.match?.home_team} vs {pred.match?.away_team}
+                        </span>
+                        {streakBonus > 0 && (
+                          <span
+                            className="text-yellow-400 text-xs shrink-0"
+                            title="This match triggered a streak bonus!"
+                          >
+                            ⚡
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-text-muted text-[10px]">
+                          {formatKickoffTime(pred.match?.kickoff_time ?? '').date}
+                        </span>
+                        {pred.match?.home_score !== null && pred.match?.away_score !== null && (
+                          <span className="text-white/40 text-[10px]">
+                            {pred.match.home_score}–{pred.match.away_score}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-text-muted text-[10px]">{formatKickoffTime(pred.match?.kickoff_time ?? '').date}</span>
-                      {pred.match?.home_score !== null && pred.match?.away_score !== null && (
-                        <span className="text-white/40 text-[10px]">{pred.match.home_score}–{pred.match.away_score}</span>
-                      )}
+                    <div className={`font-bebas text-lg shrink-0 ${baseTotal > 0 ? 'text-accent-green' : 'text-white/25'}`}>
+                      {baseTotal > 0 ? `+${baseTotal}` : '0'}
                     </div>
-                  </div>
-                  <div className={`font-bebas text-lg shrink-0 ${pred.points_earned > 0 ? 'text-accent-green' : 'text-white/25'}`}>
-                    {pred.points_earned > 0 ? `+${pred.points_earned}` : '0'}
-                  </div>
-                </motion.div>
-              ))
+                  </motion.div>
+                ))}
+
+                {/* Streak bonus rows — one per match that triggered a streak */}
+                {streakRows.map(({ pred, streakBonus }, i) => (
+                  <motion.div
+                    key={`streak-${pred.id}`}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: predRows.length * 0.04 + i * 0.04 }}
+                    className="flex items-center justify-between px-3 py-2 rounded-xl text-xs bg-yellow-500/10 border border-yellow-500/25"
+                  >
+                    <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+                      <span>⚡</span>
+                      <span>Streak Bonus</span>
+                      <span className="text-yellow-400/60 font-normal">· 3 in a row</span>
+                    </span>
+                    <span className="font-bebas text-lg font-bold tabular-nums text-yellow-400">
+                      +{streakBonus}
+                    </span>
+                  </motion.div>
+                ))}
+              </>
             )}
           </div>
         </div>

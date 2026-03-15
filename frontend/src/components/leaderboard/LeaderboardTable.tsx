@@ -9,7 +9,7 @@ interface LeaderboardTableProps {
   entries: LeaderboardEntryWithProfile[];
   loading: boolean;
   currentUserId: string | undefined;
-  type: 'total' | 'weekly';
+  type: 'total' | 'weekly' | 'lastWeek';
   onUserClick?: (entry: LeaderboardEntryWithProfile) => void;
 }
 

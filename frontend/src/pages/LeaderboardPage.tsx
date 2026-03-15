@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useLeaderboard, LeaderboardType } from '../hooks/useLeaderboard';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useLangStore } from '../stores/langStore';
+import { supabase } from '../lib/supabase';
 import { LeaderboardTable } from '../components/leaderboard/LeaderboardTable';
 import { UserMatchHistoryModal } from '../components/leaderboard/UserMatchHistoryModal';
 import { GlassCard } from '../components/ui/GlassCard';
@@ -16,9 +17,27 @@ interface SelectedUser {
   avatar_url: string | null;
 }
 
+// Sun–Sat week boundaries in ms
+function getWeekBoundsMs(type: 'weekly' | 'lastWeek'): { start: number; end: number | null } {
+  const now = new Date();
+  const dow = now.getUTCDay(); // 0=Sun
+  const thisSunday = new Date(now);
+  thisSunday.setUTCDate(now.getUTCDate() - dow);
+  thisSunday.setUTCHours(0, 0, 0, 0);
+
+  if (type === 'weekly') {
+    return { start: thisSunday.getTime(), end: null };
+  } else {
+    const lastSunday = new Date(thisSunday);
+    lastSunday.setUTCDate(thisSunday.getUTCDate() - 7);
+    return { start: lastSunday.getTime(), end: thisSunday.getTime() - 1 };
+  }
+}
+
 export function LeaderboardPage() {
   const [type, setType] = useState<LeaderboardType>('total');
   const [selectedUser, setSelectedUser] = useState<SelectedUser | null>(null);
+  const [periodStats, setPeriodStats] = useState<{ made: number; correct: number } | null>(null);
   const { entries, loading } = useLeaderboard(type);
   const { user } = useAuthStore();
   const { groups, activeGroupId } = useGroupStore();
@@ -26,8 +45,33 @@ export function LeaderboardPage() {
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const currentUserEntry = entries.find(e => e.user_id === user?.id);
 
-  // Check if last_week_points field exists in data
-  const hasLastWeekField = entries.length > 0 && 'last_week_points' in entries[0];
+  // Fetch period-specific predictions for the stats card hit rate
+  useEffect(() => {
+    if (!user?.id || !activeGroupId) return;
+
+    if (type === 'total') {
+      setPeriodStats(null); // use leaderboard row values
+      return;
+    }
+
+    const { start, end } = getWeekBoundsMs(type);
+
+    supabase
+      .from('predictions')
+      .select('id, points_earned, match:matches(kickoff_time)')
+      .eq('user_id', user.id)
+      .eq('group_id', activeGroupId)
+      .eq('is_resolved', true)
+      .then(({ data }) => {
+        const preds = (data ?? []).filter(p => {
+          const match = p.match as unknown as { kickoff_time: string } | null;
+          const kickoff = new Date(match?.kickoff_time ?? 0).getTime();
+          return kickoff >= start && (end === null || kickoff <= end);
+        });
+        const correct = preds.filter(p => (p.points_earned ?? 0) > 0).length;
+        setPeriodStats({ made: preds.length, correct });
+      });
+  }, [user?.id, activeGroupId, type]);
 
   const TABS: { key: LeaderboardType; label: string }[] = [
     { key: 'total', label: t('allTime') },
@@ -37,12 +81,30 @@ export function LeaderboardPage() {
 
   const getPoints = (entry: LeaderboardEntryWithProfile) => {
     if (type === 'weekly') return entry.weekly_points;
-    if (type === 'lastWeek') return (entry as unknown as Record<string, unknown>)['last_week_points'] as number ?? entry.weekly_points;
+    if (type === 'lastWeek') return entry.last_week_points ?? 0;
     return entry.total_points;
   };
 
-  // Resolve type prop for LeaderboardTable (only supports 'total' | 'weekly')
-  const tableType: 'total' | 'weekly' = type === 'lastWeek' ? 'weekly' : type;
+  const pointsSub = type === 'weekly' ? t('thisWeek').toLowerCase()
+    : type === 'lastWeek' ? t('lastWeek').toLowerCase()
+    : t('allTime').toLowerCase();
+
+  // Hit rate: period-specific when on weekly/lastWeek, all-time on total
+  const hitMade = periodStats !== null ? periodStats.made : (currentUserEntry?.predictions_made ?? 0);
+  const hitCorrect = periodStats !== null ? periodStats.correct : (currentUserEntry?.correct_predictions ?? 0);
+  const hitDisplay = hitMade > 0 ? `${hitCorrect}/${hitMade}` : '—';
+
+  // Streak: always current, but hide on lastWeek (not meaningful for past week)
+  const streak = currentUserEntry?.current_streak ?? 0;
+  const streakSub = streak >= 3
+    ? '+2 pts bonus active'
+    : streak === 2
+      ? '1 more = +2 pts bonus!'
+      : streak === 1
+        ? '2 more for bonus'
+        : '—';
+
+  const streakSubHighlight = streak >= 2;
 
   return (
     <div className="space-y-4">
@@ -69,36 +131,57 @@ export function LeaderboardPage() {
         ))}
       </div>
 
-      {/* Your rank summary */}
+      {/* Your rank summary — fully period-aware */}
       {currentUserEntry && (
         <GlassCard variant="elevated" className="p-4 grid grid-cols-4 gap-2">
-          {[
-            { label: t('yourRank'), value: `#${currentUserEntry.rank}`, highlight: true, sub: undefined },
-            { label: t('points'), value: getPoints(currentUserEntry), sub: 'total' },
-            {
-              label: 'Hit Rate',
-              value: currentUserEntry.predictions_made > 0
-                ? `${currentUserEntry.correct_predictions}/${currentUserEntry.predictions_made}`
-                : '—',
-              sub: 'correct · picks',
-            },
-            { label: t('streak'), value: currentUserEntry.current_streak > 0 ? `🔥${currentUserEntry.current_streak}` : '—', sub: 'in a row' },
-          ].map(item => (
-            <div key={item.label} className="text-center">
-              <div className="text-text-muted text-[10px] uppercase tracking-wider mb-1">{item.label}</div>
-              <div className={cn('font-bebas text-xl sm:text-2xl', item.highlight ? 'text-accent-green text-glow-green' : 'text-white')}>
-                {item.value}
-              </div>
-              {item.sub && <div className="text-white/25 text-[9px] mt-0.5 leading-tight">{item.sub}</div>}
+          <div className="text-center" title={`Your rank ${pointsSub}`}>
+            <div className="text-text-muted text-[10px] uppercase tracking-wider mb-1">{t('yourRank')}</div>
+            <div className="font-bebas text-xl sm:text-2xl text-accent-green text-glow-green">
+              #{currentUserEntry.rank}
             </div>
-          ))}
-        </GlassCard>
-      )}
+            <div className="text-white/25 text-[9px] mt-0.5 leading-tight">{pointsSub}</div>
+          </div>
 
-      {/* Last week coming soon notice */}
-      {type === 'lastWeek' && !hasLastWeekField && entries.length > 0 && (
-        <GlassCard className="p-4 text-center">
-          <p className="text-text-muted text-sm">Coming soon — will track from next Monday</p>
+          <div className="text-center" title={`Points earned ${pointsSub}`}>
+            <div className="text-text-muted text-[10px] uppercase tracking-wider mb-1">{t('points')}</div>
+            <div className="font-bebas text-xl sm:text-2xl text-white">
+              {getPoints(currentUserEntry)}
+            </div>
+            <div className="text-white/25 text-[9px] mt-0.5 leading-tight">{pointsSub}</div>
+          </div>
+
+          <div className="text-center" title={`Correct picks out of resolved predictions ${pointsSub}`}>
+            <div className="text-text-muted text-[10px] uppercase tracking-wider mb-1">Hit Rate</div>
+            <div className="font-bebas text-xl sm:text-2xl text-white">{hitDisplay}</div>
+            <div className="text-white/25 text-[9px] mt-0.5 leading-tight">
+              {periodStats !== null ? pointsSub : 'all time'}
+            </div>
+          </div>
+
+          <div
+            className="text-center"
+            title="Get 3 correct predictions in a row to earn a +2 pts bonus. Streak resets after bonus is awarded — then earn it again!"
+          >
+            <div className="text-text-muted text-[10px] uppercase tracking-wider mb-1">{t('streak')}</div>
+            {type === 'lastWeek' ? (
+              <>
+                <div className="font-bebas text-xl sm:text-2xl text-white/30">—</div>
+                <div className="text-white/25 text-[9px] mt-0.5 leading-tight">past week</div>
+              </>
+            ) : (
+              <>
+                <div className="font-bebas text-xl sm:text-2xl text-white">
+                  {streak > 0 ? `🔥${streak}` : '—'}
+                </div>
+                <div className={cn(
+                  'text-[9px] mt-0.5 leading-tight',
+                  streakSubHighlight ? 'text-accent-green font-semibold' : 'text-white/25'
+                )}>
+                  {streak > 0 ? streakSub : '3× = ⚡+2 pts'}
+                </div>
+              </>
+            )}
+          </div>
         </GlassCard>
       )}
 
@@ -106,7 +189,7 @@ export function LeaderboardPage() {
         entries={entries}
         loading={loading}
         currentUserId={user?.id}
-        type={tableType}
+        type={type}
         onUserClick={(entry) => setSelectedUser({ user_id: entry.user_id, username: entry.username, avatar_url: entry.avatar_url ?? null })}
       />
 
@@ -115,6 +198,7 @@ export function LeaderboardPage() {
           <UserMatchHistoryModal
             user={selectedUser}
             groupId={activeGroupId}
+            type={type}
             onClose={() => setSelectedUser(null)}
           />
         )}

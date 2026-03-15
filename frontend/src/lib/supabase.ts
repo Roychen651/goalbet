@@ -106,6 +106,7 @@ export type Database = {
           group_id: string;
           total_points: number;
           weekly_points: number;
+          last_week_points: number;
           predictions_made: number;
           correct_predictions: number;
           current_streak: number;

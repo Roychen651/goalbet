@@ -36,8 +36,8 @@ export function startScheduler(): void {
     }
   }, 30_000);
 
-  // Weekly points reset every Monday at 00:00 UTC
-  cron.schedule('0 0 * * 1', async () => {
+  // Weekly points reset every Sunday at 00:00 UTC (week = Sun 00:00 → Sat 23:59 UTC)
+  cron.schedule('0 0 * * 0', async () => {
     logger.info('[scheduler] Running weekly points reset');
     try {
       await resetWeeklyPoints();

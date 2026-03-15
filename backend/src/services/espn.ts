@@ -95,6 +95,59 @@ function buildDisplayClock(statusName: string, state: string, displayClock: stri
   return null;
 }
 
+/**
+ * Fetch halftime scores from the ESPN event summary endpoint.
+ * This endpoint returns per-period linescores even for in-progress 2H matches,
+ * whereas the scoreboard endpoint sometimes returns null linescores during live play.
+ * Used as a fallback when halftime_home is still null for a 2H match.
+ */
+export async function fetchMatchHalftimeScore(
+  externalId: string,
+  leagueId: number,
+): Promise<{ halftime_home: number; halftime_away: number } | null> {
+  const slug = LEAGUE_ESPN_MAP[leagueId];
+  if (!slug) return null;
+
+  // external_id is "espn_<numericId>" — extract the numeric part
+  const eventId = externalId.replace(/^espn_/, '');
+  if (!eventId || !/^\d+$/.test(eventId)) return null;
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
+
+  try {
+    const { data } = await axios.get(url, {
+      timeout: 8_000,
+      headers: { 'User-Agent': 'GoalBet/1.0' },
+    });
+
+    // Try primary source: header.competitions[0].competitors linescores
+    const comp = data?.header?.competitions?.[0];
+    const competitors = (comp?.competitors as Record<string, unknown>[] | undefined) ?? [];
+    const home = competitors.find(c => (c as Record<string, unknown>).homeAway === 'home') as Record<string, unknown> | undefined;
+    const away = competitors.find(c => (c as Record<string, unknown>).homeAway === 'away') as Record<string, unknown> | undefined;
+
+    const getP1Score = (competitor: Record<string, unknown> | undefined): number | null => {
+      if (!competitor) return null;
+      const ls = competitor.linescores as Record<string, unknown>[] | undefined;
+      if (!ls || ls.length === 0) return null;
+      const v = ls[0]?.value ?? ls[0]?.displayValue ?? ls[0]?.score;
+      if (v === undefined || v === null) return null;
+      const n = parseInt(String(v), 10);
+      return isNaN(n) ? null : n;
+    };
+
+    const htHome = getP1Score(home);
+    const htAway = getP1Score(away);
+    if (htHome !== null && htAway !== null) {
+      return { halftime_home: htHome, halftime_away: htAway };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchLeagueMatches(
   leagueId: number,
   daysBack = 7,
