@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, LeaderboardEntryWithProfile } from '../lib/supabase';
+import { supabase, LeaderboardEntryWithProfile, Match, Prediction } from '../lib/supabase';
 import { useGroupStore } from '../stores/groupStore';
+import { calcLiveBreakdown } from '../lib/utils';
 
 export type LeaderboardType = 'total' | 'weekly' | 'lastWeek';
 
@@ -59,14 +60,58 @@ async function fetchGroupLeaderboard(
 
   // Sort by chosen field desc, then total_points, then username
   merged.sort((a, b) => {
-    const aVal = (a as Record<string, unknown>)[sortField] as number ?? 0;
-    const bVal = (b as Record<string, unknown>)[sortField] as number ?? 0;
+    const aVal = (a as unknown as Record<string, unknown>)[sortField] as number ?? 0;
+    const bVal = (b as unknown as Record<string, unknown>)[sortField] as number ?? 0;
     if (bVal !== aVal) return bVal - aVal;
     if (b.total_points !== a.total_points) return b.total_points - a.total_points;
     return a.username.localeCompare(b.username);
   });
 
-  return merged.map((e, i) => ({ ...e, rank: i + 1 }));
+  const ranked = merged.map((e, i) => ({ ...e, rank: i + 1 }));
+
+  // Overlay live points: fetch live matches + their unresolved predictions for this group
+  try {
+    const { data: liveMatches } = await supabase
+      .from('matches')
+      .select('*')
+      .in('status', ['1H', 'HT', '2H'])
+      .not('home_score', 'is', null);
+
+    if (liveMatches && liveMatches.length > 0) {
+      const liveMatchIds = liveMatches.map((m: Match) => m.id);
+      const { data: livePreds } = await supabase
+        .from('predictions')
+        .select('*')
+        .eq('group_id', groupId)
+        .in('match_id', liveMatchIds)
+        .eq('is_resolved', false);
+
+      if (livePreds && livePreds.length > 0) {
+        const matchMap = new Map(liveMatches.map((m: Match) => [m.id, m]));
+        const predsByUser = new Map<string, Prediction[]>();
+        for (const pred of livePreds as Prediction[]) {
+          if (!predsByUser.has(pred.user_id)) predsByUser.set(pred.user_id, []);
+          predsByUser.get(pred.user_id)!.push(pred);
+        }
+        for (const entry of ranked) {
+          const userPreds = predsByUser.get(entry.user_id) ?? [];
+          let live = 0;
+          for (const pred of userPreds) {
+            const match = matchMap.get(pred.match_id) as Match | undefined;
+            if (match) {
+              const breakdown = calcLiveBreakdown(pred, match);
+              live += breakdown?.filter(r => r.earned).reduce((s, r) => s + r.pts, 0) ?? 0;
+            }
+          }
+          entry.live_points = live;
+        }
+      }
+    }
+  } catch {
+    // live overlay is best-effort — don't break leaderboard if it fails
+  }
+
+  return ranked;
 }
 
 export function useLeaderboard(type: LeaderboardType = 'total') {
@@ -98,13 +143,25 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
     if (!activeGroupId) return;
     channelRef.current?.unsubscribe();
     channelRef.current = supabase
-      .channel(`leaderboard-${activeGroupId}`)
+      .channel(`leaderboard-live-${activeGroupId}`)
+      // Re-fetch when leaderboard rows change (points resolved)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'leaderboard',
         filter: `group_id=eq.${activeGroupId}`,
       }, () => { fetchLeaderboard(); })
+      // Re-fetch when a live match score updates (recalculate live points)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'matches',
+      }, (payload) => {
+        const updated = payload.new as { status: string };
+        if (['1H', 'HT', '2H'].includes(updated.status)) {
+          fetchLeaderboard();
+        }
+      })
       .subscribe();
   }, [activeGroupId, fetchLeaderboard]);
 

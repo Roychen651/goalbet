@@ -56,8 +56,16 @@ export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: Leaderbo
         <div className="text-end">
           <div className={cn('font-bebas tracking-wider text-xl', entry.rank === 1 ? 'text-accent-green text-glow-green' : 'text-white')}>
             {points}
+            {(entry.live_points ?? 0) > 0 && (
+              <span className="text-blue-400 text-sm ms-1">+{entry.live_points}</span>
+            )}
           </div>
-          <div className="text-text-muted text-xs">{formatPoints(points)}</div>
+          <div className="text-text-muted text-xs flex items-center gap-1 justify-end">
+            {(entry.live_points ?? 0) > 0 && (
+              <span className="text-blue-400/70 text-[9px] leading-none">🔴 live</span>
+            )}
+            <span>{formatPoints(points)}</span>
+          </div>
         </div>
         {onClick && <span className="text-white/20 text-xs">›</span>}
       </div>

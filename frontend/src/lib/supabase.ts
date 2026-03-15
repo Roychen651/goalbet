@@ -131,4 +131,5 @@ export interface LeaderboardEntryWithProfile extends LeaderboardEntry {
   username: string;
   avatar_url: string | null;
   accuracy: number;
+  live_points?: number; // potential points from unresolved live predictions right now
 }

@@ -71,16 +71,28 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [predId]);
 
-  // Auto-derive outcome from exact score — prevents logically impossible combinations
-  // (e.g. predicting 3-2 but selecting "Away" as winner)
-  const scoreDerivedOutcome = deriveOutcomeFromScore(homeScore, awayScore);
+  // Auto-derive outcome, BTTS, and Over/Under from exact score
+  // These three are mathematically determined once both score fields are filled
   const hasExactScore = homeScore !== '' && awayScore !== '';
+  const scoreDerivedOutcome = deriveOutcomeFromScore(homeScore, awayScore);
+  const scoreDerivedBTTS = hasExactScore
+    ? parseInt(homeScore) > 0 && parseInt(awayScore) > 0
+    : null;
+  const scoreDerivedOU = hasExactScore
+    ? (parseInt(homeScore) + parseInt(awayScore)) > 2.5 ? 'over' as const : 'under' as const
+    : null;
 
   useEffect(() => {
-    if (scoreDerivedOutcome !== null) {
-      setOutcome(scoreDerivedOutcome);
-    }
+    if (scoreDerivedOutcome !== null) setOutcome(scoreDerivedOutcome);
   }, [scoreDerivedOutcome]);
+
+  useEffect(() => {
+    if (scoreDerivedBTTS !== null) { setBtts(scoreDerivedBTTS); setSaved(false); }
+  }, [scoreDerivedBTTS]);
+
+  useEffect(() => {
+    if (scoreDerivedOU !== null) { setOverUnder(scoreDerivedOU); setSaved(false); }
+  }, [scoreDerivedOU]);
 
   const handleSubmit = async () => {
     await onSave({
@@ -160,6 +172,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
           yesLabel={t('yes')}
           noLabel={t('no')}
           color={TIER_COLORS[3]}
+          lockedByScore={hasExactScore}
         />
       ),
     },
@@ -175,6 +188,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
           yesLabel={t('over25')}
           noLabel={t('under25')}
           color={TIER_COLORS[4]}
+          lockedByScore={hasExactScore}
         />
       ),
     },
@@ -343,30 +357,38 @@ function ScoreInput({ value, onChange }: { value: string; onChange: (v: string) 
 }
 
 function BoolPicker({
-  value, onChange, yesLabel, noLabel, color,
+  value, onChange, yesLabel, noLabel, color, lockedByScore,
 }: {
   value: boolean | null;
   onChange: (v: boolean | null) => void;
   yesLabel: string;
   noLabel: string;
   color: typeof TIER_COLORS[number];
+  lockedByScore?: boolean;
 }) {
   return (
     <div className="grid grid-cols-2 gap-1.5">
       {([true, false] as const).map((v) => (
         <button
           key={String(v)}
-          onClick={() => onChange(value === v ? null : v)}
+          onClick={() => { if (!lockedByScore) onChange(value === v ? null : v); }}
+          disabled={lockedByScore}
           className={cn(
             'py-2 rounded-lg text-sm font-semibold transition-all duration-150 border',
             value === v
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
+            lockedByScore && value !== v && 'opacity-40 cursor-not-allowed',
           )}
         >
           {v ? yesLabel : noLabel}
         </button>
       ))}
+      {lockedByScore && (
+        <div className="col-span-2 text-center text-xs text-text-muted opacity-60 mt-0.5">
+          ↑ auto from score
+        </div>
+      )}
     </div>
   );
 }
