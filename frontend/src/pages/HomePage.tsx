@@ -29,11 +29,17 @@ export function HomePage() {
   const { openModal, addToast } = useUIStore();
   const { t } = useLangStore();
 
+  const now = Date.now();
+  const liveCount = matches.filter(m =>
+    ['1H', 'HT', '2H'].includes(m.status) ||
+    (m.status === 'NS' && new Date(m.kickoff_time).getTime() < now)
+  ).length;
+
   const TABS = [
-    { id: 'all' as Tab, label: t('all') },
-    { id: 'upcoming' as Tab, label: t('upcoming') },
-    { id: 'live' as Tab, label: t('live') },
-    { id: 'completed' as Tab, label: t('results') },
+    { id: 'all' as Tab, label: t('all'), badge: null },
+    { id: 'upcoming' as Tab, label: t('upcoming'), badge: null },
+    { id: 'live' as Tab, label: t('live'), badge: liveCount > 0 ? liveCount : null },
+    { id: 'completed' as Tab, label: t('results'), badge: null },
   ];
 
   const handleSavePrediction = async (data: PredictionData) => {
@@ -121,22 +127,32 @@ export function HomePage() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-white/5 rounded-xl p-1">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              'flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-150',
-              activeTab === tab.id
-                ? 'bg-accent-green text-bg-base shadow-glow-green-sm'
-                : 'text-text-muted hover:text-white'
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Tabs — sticky so they stay visible while scrolling */}
+      <div className="sticky top-[52px] sm:top-0 z-20 -mx-4 px-4 py-2 backdrop-blur-md bg-bg-base/85">
+        <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'relative flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-150',
+                activeTab === tab.id
+                  ? 'bg-accent-green text-bg-base shadow-glow-green-sm'
+                  : 'text-text-muted hover:text-white'
+              )}
+            >
+              {tab.label}
+              {tab.badge && (
+                <span className={cn(
+                  'absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center',
+                  activeTab === tab.id ? 'bg-bg-base text-accent-green' : 'bg-accent-green text-bg-base'
+                )}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Match feed */}
