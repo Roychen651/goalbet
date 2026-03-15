@@ -58,7 +58,7 @@ export function LeaderboardPage() {
 
     supabase
       .from('predictions')
-      .select('id, points_earned, match:matches(kickoff_time)')
+      .select('id, points_earned, predicted_outcome, match:matches(kickoff_time, home_score, away_score, status)')
       .eq('user_id', user.id)
       .eq('group_id', activeGroupId)
       .eq('is_resolved', true)
@@ -68,7 +68,13 @@ export function LeaderboardPage() {
           const kickoff = new Date(match?.kickoff_time ?? 0).getTime();
           return kickoff >= start && (end === null || kickoff <= end);
         });
-        const correct = preds.filter(p => (p.points_earned ?? 0) > 0).length;
+        // Hit rate counts only Full Time Result predictions that were correct
+        const correct = preds.filter(p => {
+          const match = p.match as unknown as { home_score: number; away_score: number; status: string } | null;
+          if (!match || match.status !== 'FT' || !p.predicted_outcome) return false;
+          const actual = match.home_score > match.away_score ? 'H' : match.home_score < match.away_score ? 'A' : 'D';
+          return (p.predicted_outcome as string) === actual;
+        }).length;
         setPeriodStats({ made: preds.length, correct });
       });
   }, [user?.id, activeGroupId, type]);

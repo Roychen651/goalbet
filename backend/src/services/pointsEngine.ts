@@ -87,7 +87,7 @@ export function calculatePoints(prediction: PredictionInput, match: MatchResult)
   // Combined with tier1, getting exact score right = 3 + 7 = 10 pts.
   if (exactScoreCorrect) {
     breakdown.tier2_exact_score = 7;
-    breakdown.correct_prediction = true;
+    // correct_prediction intentionally NOT set here — only FT result drives hit-rate/streak
   }
 
   // ── Tier 3: Half-time result (4 pts) ─────────────────────────────────────
@@ -99,14 +99,14 @@ export function calculatePoints(prediction: PredictionInput, match: MatchResult)
     const actualHT = deriveOutcome(match.halftime_home, match.halftime_away);
     if (prediction.predicted_halftime_outcome === actualHT) {
       breakdown.tier3_halftime = 4;
-      breakdown.correct_prediction = true;
+      // correct_prediction intentionally NOT set here — only FT result drives hit-rate/streak
     }
   }
 
   // ── Tier 5: Both Teams to Score (2 pts) ──────────────────────────────────
   if (prediction.predicted_btts !== null && prediction.predicted_btts === actualBTTS) {
     breakdown.tier5_btts = 2;
-    breakdown.correct_prediction = true;
+    // correct_prediction intentionally NOT set here — only FT result drives hit-rate/streak
   }
 
   // ── Tier 6: Over/Under 2.5 goals (3 pts) ─────────────────────────────────
@@ -117,7 +117,7 @@ export function calculatePoints(prediction: PredictionInput, match: MatchResult)
       (prediction.predicted_over_under === 'under' && !isOver)
     ) {
       breakdown.tier6_over_under = 3;
-      breakdown.correct_prediction = true;
+      // correct_prediction intentionally NOT set here — only FT result drives hit-rate/streak
     }
   }
 
