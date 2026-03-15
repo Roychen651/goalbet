@@ -142,26 +142,17 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
   const subscribeToLeaderboard = useCallback(() => {
     if (!activeGroupId) return;
     channelRef.current?.unsubscribe();
+    // Only subscribe to leaderboard row changes (real points awarded by backend).
+    // Do NOT subscribe to match updates — the backend polls every 30s and fires
+    // dozens of match UPDATEs which would cause constant re-fetches and re-renders.
     channelRef.current = supabase
-      .channel(`leaderboard-live-${activeGroupId}`)
-      // Re-fetch when leaderboard rows change (points resolved)
+      .channel(`leaderboard-${activeGroupId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'leaderboard',
         filter: `group_id=eq.${activeGroupId}`,
       }, () => { fetchLeaderboard(); })
-      // Re-fetch when a live match score updates (recalculate live points)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'matches',
-      }, (payload) => {
-        const updated = payload.new as { status: string };
-        if (['1H', 'HT', '2H'].includes(updated.status)) {
-          fetchLeaderboard();
-        }
-      })
       .subscribe();
   }, [activeGroupId, fetchLeaderboard]);
 
