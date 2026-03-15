@@ -10,6 +10,7 @@ import { JoinGroupModal } from '../groups/JoinGroupModal';
 import { useUIStore } from '../../stores/uiStore';
 import { useLangStore } from '../../stores/langStore';
 import { useNewPointsAlert } from '../../hooks/useNewPointsAlert';
+import { WelcomeAnimation } from '../ui/WelcomeAnimation';
 
 export function AppShell() {
   const { activeModal, closeModal, addToast } = useUIStore();
@@ -45,6 +46,7 @@ export function AppShell() {
       <ToastContainer />
       {activeModal === 'createGroup' && <CreateGroupModal onClose={closeModal} />}
       {activeModal === 'joinGroup' && <JoinGroupModal onClose={closeModal} />}
+      <WelcomeAnimation />
     </div>
   );
 }

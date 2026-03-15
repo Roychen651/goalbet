@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { ROUTES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { useGroupStore } from '../../stores/groupStore';
@@ -21,9 +22,20 @@ export function Sidebar() {
     <aside className="hidden sm:flex flex-col w-60 shrink-0 h-screen sticky top-0 border-e border-white/8 py-6 px-4 glass">
       {/* Logo */}
       <div className="mb-8 px-2">
-        <div className="font-bebas text-3xl tracking-widest text-white">
-          Goal<span className="text-accent-green">Bet</span>
-        </div>
+        <motion.div
+          className="font-bebas text-3xl tracking-widest cursor-default"
+          whileHover={{ scale: 1.04 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        >
+          <span className="text-white">Goal</span>
+          <motion.span
+            className="text-accent-green"
+            animate={{ textShadow: ['0 0 8px rgba(0,255,135,0.3)', '0 0 20px rgba(0,255,135,0.7)', '0 0 8px rgba(0,255,135,0.3)'] }}
+            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            Bet
+          </motion.span>
+        </motion.div>
         {activeGroup && (
           <div className="text-text-muted text-xs mt-1 truncate">{activeGroup.name}</div>
         )}
