@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, fetchMatchHalftimeScore, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
-import { calculatePoints, applyStreakBonus } from './pointsEngine';
+import { calculatePoints, calcStreakBonus } from './pointsEngine';
 import { logger } from '../lib/logger';
 
 interface PendingMatch {
@@ -155,14 +155,18 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
 
       const currentStreak = lbData?.current_streak ?? 0;
 
-      // Calculate points using pure function
+      // Calculate base points + streak bonus separately
+      // Streak bonus: +2 only when FT result is correct AND streak was already >= 2
+      // (meaning this correct prediction makes it 3+ in a row)
       const breakdown = calculatePoints(prediction, matchResult);
-      const finalPoints = applyStreakBonus(breakdown.total, currentStreak);
+      const isCorrect = breakdown.correct_prediction;
+      const streakBonusEarned = calcStreakBonus(isCorrect, currentStreak);
+      const finalPoints = breakdown.total + streakBonusEarned;
 
-      // Mark prediction as resolved — MUST succeed before updating leaderboard
+      // Mark prediction as resolved, storing the exact streak bonus for display
       const { error: predUpdateError } = await supabaseAdmin
         .from('predictions')
-        .update({ points_earned: finalPoints, is_resolved: true })
+        .update({ points_earned: finalPoints, is_resolved: true, streak_bonus_earned: streakBonusEarned })
         .eq('id', prediction.id);
 
       if (predUpdateError) {
@@ -170,10 +174,9 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
         continue; // do NOT update leaderboard if prediction update failed
       }
 
-      // Update leaderboard — streak resets to 0 after the bonus (every 3rd correct in a row)
-      const isCorrect = breakdown.correct_prediction;
-      const bonusEarned = isCorrect && currentStreak >= 2; // bonus was applied → reset cycle
-      const newStreak = isCorrect && !bonusEarned ? currentStreak + 1 : 0;
+      // Streak management: increment on correct FT result, reset on incorrect.
+      // No reset after bonus — streak grows continuously while player keeps winning.
+      const newStreak = isCorrect ? currentStreak + 1 : 0;
       const prevBestStreak = lbData?.best_streak ?? 0;
       const existingLB = {
         total_points: lbData?.total_points ?? 0,
@@ -198,7 +201,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
         });
 
       resolved++;
-      logger.debug(`[scoreUpdater] Resolved prediction ${prediction.id}: ${finalPoints} pts (streak: ${currentStreak}→${newStreak})`);
+      logger.debug(`[scoreUpdater] Resolved prediction ${prediction.id}: ${finalPoints} pts (streak: ${currentStreak}→${newStreak}, bonus: ${streakBonusEarned})`);
     } catch (err) {
       logger.error(`[scoreUpdater] Failed to resolve prediction ${prediction.id}:`, err);
     }

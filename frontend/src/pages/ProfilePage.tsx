@@ -399,28 +399,48 @@ function StatCard({ label, value, highlight, sub, info }: { label: string; value
 function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; match: Match }) {
   const { t } = useLangStore();
   const breakdown = calcBreakdown(prediction, match);
-  const outcomeLabel = (v: 'H' | 'D' | 'A' | null) =>
-    v === 'H' ? t('home') : v === 'A' ? t('away') : v === 'D' ? t('draw') : '—';
+  const streakBonus = prediction.streak_bonus_earned ?? 0;
+
+  // Short team name for outcome labels (last word, e.g. "Real Sociedad" → "Sociedad")
+  const teamLabel = (outcome: 'H' | 'D' | 'A' | null) =>
+    outcome === 'H' ? (match.home_team.split(' ').pop() ?? t('home'))
+    : outcome === 'A' ? (match.away_team.split(' ').pop() ?? t('away'))
+    : outcome === 'D' ? t('draw') : null;
+
+  // Detail string for each predicted tier
+  const tierDetail = (key: string): string | null => {
+    switch (key) {
+      case 'result': return prediction.predicted_outcome ? teamLabel(prediction.predicted_outcome) : null;
+      case 'score': return prediction.predicted_home_score !== null
+        ? `${prediction.predicted_home_score}–${prediction.predicted_away_score}` : null;
+      case 'ht': return prediction.predicted_halftime_outcome ? teamLabel(prediction.predicted_halftime_outcome) : null;
+      case 'btts': return prediction.predicted_btts !== null ? (prediction.predicted_btts ? t('yes') : t('no')) : null;
+      case 'ou': return prediction.predicted_over_under
+        ? (prediction.predicted_over_under === 'over' ? t('over25') : t('under25')) : null;
+      default: return null;
+    }
+  };
 
   if (!breakdown) {
+    // Match not FT yet — show what was predicted without ✓/✗
     return (
       <div className="grid grid-cols-2 gap-1.5 text-sm">
         {prediction.predicted_outcome && (
           <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
             <span className="text-white/40 text-xs">{t('result')}</span>
-            <span className="text-white text-sm font-semibold mt-0.5">{outcomeLabel(prediction.predicted_outcome)}</span>
+            <span className="text-white text-sm font-semibold mt-0.5">{teamLabel(prediction.predicted_outcome)}</span>
           </div>
         )}
         {prediction.predicted_home_score !== null && prediction.predicted_away_score !== null && (
           <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
             <span className="text-white/40 text-xs">{t('score')}</span>
-            <span className="text-white text-sm font-semibold mt-0.5">{prediction.predicted_home_score} — {prediction.predicted_away_score}</span>
+            <span className="text-white text-sm font-semibold mt-0.5">{prediction.predicted_home_score}–{prediction.predicted_away_score}</span>
           </div>
         )}
         {prediction.predicted_halftime_outcome && (
           <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
             <span className="text-white/40 text-xs">{t('halfTimeResult')}</span>
-            <span className="text-white text-sm font-semibold mt-0.5">{outcomeLabel(prediction.predicted_halftime_outcome)}</span>
+            <span className="text-white text-sm font-semibold mt-0.5">{teamLabel(prediction.predicted_halftime_outcome)}</span>
           </div>
         )}
         {prediction.predicted_btts !== null && (
@@ -439,22 +459,27 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
     );
   }
 
-  const baseTotal = breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0);
-  const streakBonus = (prediction.points_earned ?? 0) - baseTotal;
-
   return (
     <div className="space-y-1">
-      {breakdown.map(tier => (
-        <div key={tier.key} className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs ${tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : 'bg-white/3 border border-white/5'}`}>
-          <span className={`flex items-center gap-1.5 ${tier.earned ? 'text-accent-green' : 'text-white/35'}`}>
-            <span>{tier.earned ? '✓' : '✗'}</span>
-            <span>{tier.label}</span>
-          </span>
-          <span className={tier.earned ? 'text-accent-green font-semibold' : 'text-white/20'}>
-            {tier.earned ? `+${tier.pts}` : '0'}
-          </span>
-        </div>
-      ))}
+      {breakdown.map(tier => {
+        const detail = tierDetail(tier.key);
+        return (
+          <div key={tier.key} className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs ${tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : 'bg-white/3 border border-white/5'}`}>
+            <span className={`flex items-center gap-1.5 min-w-0 ${tier.earned ? 'text-accent-green' : 'text-white/35'}`}>
+              <span className="shrink-0">{tier.earned ? '✓' : '✗'}</span>
+              <span className="shrink-0">{tier.label}</span>
+              {detail && (
+                <span className={`truncate font-semibold ${tier.earned ? 'text-accent-green' : 'text-white/40'}`}>
+                  · {detail}
+                </span>
+              )}
+            </span>
+            <span className={`shrink-0 ${tier.earned ? 'text-accent-green font-semibold' : 'text-white/20'}`}>
+              {tier.earned ? `+${tier.pts}` : '0'}
+            </span>
+          </div>
+        );
+      })}
       {streakBonus > 0 && (
         <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25">
           <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">

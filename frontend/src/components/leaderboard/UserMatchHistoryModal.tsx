@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { supabase, Prediction, Match } from '../../lib/supabase';
 import { Avatar } from '../ui/Avatar';
 import { formatKickoffTime, calcBreakdown } from '../../lib/utils';
@@ -85,7 +85,7 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
     const baseTotal = breakdown
       ? breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0)
       : (pred.points_earned ?? 0);
-    const streakBonus = (pred.points_earned ?? 0) - baseTotal;
+    const streakBonus = pred.streak_bonus_earned ?? 0;
     return { pred, baseTotal, streakBonus };
   });
 

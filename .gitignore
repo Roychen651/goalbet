@@ -36,3 +36,4 @@ Thumbs.db
 supabase/.branches
 supabase/.temp
 supabase/docker/volumes
+.secrets-local

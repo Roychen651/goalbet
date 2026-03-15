@@ -542,10 +542,9 @@ function LockedPrediction({
               delay={i * 0.05}
             />
           ))}
-          {/* Streak bonus row — shown when points_earned exceeds the sum of base tiers */}
+          {/* Streak bonus row — shown when a streak bonus was recorded at resolution */}
           {(() => {
-            const baseTotal = breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0);
-            const streakBonus = (prediction.points_earned ?? 0) - baseTotal;
+            const streakBonus = prediction.streak_bonus_earned ?? 0;
             if (streakBonus <= 0) return null;
             return (
               <motion.div

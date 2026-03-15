@@ -131,12 +131,10 @@ export function calculatePoints(prediction: PredictionInput, match: MatchResult)
   return breakdown;
 }
 
-// Streak bonus: +2 pts when the result of this prediction would reach 3+ in a row.
-// currentStreak is the streak BEFORE this prediction.
-// When currentStreak >= 2, a correct prediction makes it 3+ → bonus applies.
-export function applyStreakBonus(basePoints: number, currentStreak: number): number {
-  if (currentStreak >= 2 && basePoints > 0) {
-    return basePoints + 2;
-  }
-  return basePoints;
+// Streak bonus: +2 pts when a CORRECT FT-result prediction extends the streak to 3+.
+// isCorrect = breakdown.correct_prediction (FT result only — NOT btts/OU/halftime).
+// currentStreak is the streak BEFORE this prediction is counted.
+// Returns the bonus amount (0 or 2) so the caller can store it separately.
+export function calcStreakBonus(isCorrect: boolean, currentStreak: number): number {
+  return isCorrect && currentStreak >= 2 ? 2 : 0;
 }

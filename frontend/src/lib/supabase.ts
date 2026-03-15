@@ -93,10 +93,11 @@ export type Database = {
           predicted_btts: boolean | null;
           predicted_over_under: 'over' | 'under' | null;
           points_earned: number;
+          streak_bonus_earned: number;
           is_resolved: boolean;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['predictions']['Row'], 'id' | 'created_at' | 'points_earned' | 'is_resolved'>;
+        Insert: Omit<Database['public']['Tables']['predictions']['Row'], 'id' | 'created_at' | 'points_earned' | 'streak_bonus_earned' | 'is_resolved'>;
         Update: Partial<Database['public']['Tables']['predictions']['Insert']>;
       };
       leaderboard: {
