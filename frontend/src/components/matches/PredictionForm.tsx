@@ -46,6 +46,9 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
   const [overUnder, setOverUnder] = useState<'over' | 'under' | null>(existingPrediction?.predicted_over_under ?? null);
   const [saved, setSaved] = useState(!!existingPrediction);
 
+  // Sync form values only when the prediction ID changes (new prediction loaded),
+  // not on every re-render of the parent — prevents overwriting user's in-progress edits.
+  const predId = existingPrediction?.id;
   useEffect(() => {
     if (existingPrediction) {
       setOutcome(existingPrediction.predicted_outcome ?? null);
@@ -56,12 +59,8 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
       setOverUnder(existingPrediction.predicted_over_under ?? null);
       setSaved(true);
     }
-  }, [existingPrediction]);
-
-  // Mark as unsaved when any value changes
-  useEffect(() => {
-    setSaved(false);
-  }, [outcome, homeScore, awayScore, htOutcome, btts, overUnder]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [predId]);
 
   const handleSubmit = async () => {
     await onSave({
@@ -309,7 +308,8 @@ function ScoreInput({ value, onChange }: { value: string; onChange: (v: string) 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder="0"
-      className="flex-1 py-2 text-center text-xl font-bebas tracking-wider rounded-lg border bg-white/4 border-white/8 text-white placeholder:text-white/20 focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
+      className="flex-1 py-2 text-center text-xl font-bebas tracking-wider rounded-lg border bg-transparent border-white/15 text-white placeholder:text-white/25 focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
+      style={{ WebkitAppearance: 'none' }}
     />
   );
 }

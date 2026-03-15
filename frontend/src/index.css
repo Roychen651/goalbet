@@ -6,17 +6,39 @@
    CSS Custom Properties — GoalBet Design System
    ============================================================ */
 :root {
-  --bg-base: #080d0a;
-  --bg-surface: rgba(255, 255, 255, 0.03);
-  --bg-card: rgba(255, 255, 255, 0.06);
-  --accent-green: #00ff87;
-  --accent-orange: #ff6b35;
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-bright: rgba(255, 255, 255, 0.15);
+  /* ─── Dark mode (default) ─── */
+  --color-bg-base: #080d0a;
+  --color-bg-surface: rgba(255, 255, 255, 0.03);
+  --color-bg-card: rgba(255, 255, 255, 0.06);
+  --color-accent-green: #00ff87;
+  --color-accent-orange: #ff6b35;
+  --color-text-primary: #ffffff;
+  --color-text-muted: rgba(255, 255, 255, 0.5);
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-bright: rgba(255, 255, 255, 0.15);
+  /* legacy aliases */
+  --bg-base: var(--color-bg-base);
+  --accent-green: var(--color-accent-green);
+  --accent-orange: var(--color-accent-orange);
   --glow-green: 0 0 20px rgba(0, 255, 135, 0.3);
   --glow-orange: 0 0 20px rgba(255, 107, 53, 0.3);
+}
+
+/* ─── Light mode ─── */
+html.light {
+  color-scheme: light;
+  --color-bg-base: #edf5f0;
+  --color-bg-surface: rgba(0, 0, 0, 0.02);
+  --color-bg-card: rgba(0, 0, 0, 0.04);
+  --color-accent-green: #00b85c;
+  --color-accent-orange: #e8551f;
+  --color-text-primary: #0d1810;
+  --color-text-muted: rgba(13, 24, 16, 0.5);
+  --color-border-subtle: rgba(0, 0, 0, 0.08);
+  --color-border-bright: rgba(0, 0, 0, 0.15);
+  --bg-base: var(--color-bg-base);
+  --accent-green: var(--color-accent-green);
+  --glow-green: 0 0 20px rgba(0, 184, 92, 0.3);
 }
 
 /* ============================================================
@@ -28,8 +50,8 @@
 
 html {
   font-family: 'DM Sans', system-ui, sans-serif;
-  background-color: var(--bg-base);
-  color: var(--text-primary);
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scrollbar-width: thin;
@@ -42,7 +64,7 @@ html {
 body {
   margin: 0;
   min-height: 100dvh;
-  background-color: var(--bg-base);
+  background-color: var(--color-bg-base);
   background-image:
     /* Top green aurora — goalbet brand glow */
     radial-gradient(ellipse 90% 55% at 50% -10%, rgba(0, 255, 135, 0.07) 0%, transparent 70%),
@@ -163,8 +185,16 @@ body::before {
 }
 
 /* ============================================================
-   Input styling override for dark theme
+   Input styling — prevent browser white background
    ============================================================ */
+input[type="number"],
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  background-color: transparent;
+  color-scheme: dark;
+}
+
 input[type="number"] {
   -moz-appearance: textfield;
 }
@@ -192,4 +222,81 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .animate-card-in {
   animation: cardEntrance 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ============================================================
+   Light mode overrides
+   ============================================================ */
+html.light body {
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(0, 200, 100, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at -10% 100%, rgba(255, 107, 53, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 110% 100%, rgba(56, 128, 255, 0.03) 0%, transparent 60%);
+}
+
+html.light body::before {
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 50%, rgba(180, 220, 195, 0.35) 100%);
+}
+
+html.light .glass {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+html.light .glass-hover:hover {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* Text: white → dark */
+html.light .text-white       { color: #0d1810; }
+html.light .text-white\/90   { color: rgba(13, 24, 16, 0.9); }
+html.light .text-white\/80   { color: rgba(13, 24, 16, 0.8); }
+html.light .text-white\/70   { color: rgba(13, 24, 16, 0.7); }
+html.light .text-white\/60   { color: rgba(13, 24, 16, 0.6); }
+html.light .text-white\/50   { color: rgba(13, 24, 16, 0.5); }
+html.light .text-white\/40   { color: rgba(13, 24, 16, 0.4); }
+html.light .text-white\/35   { color: rgba(13, 24, 16, 0.35); }
+html.light .text-white\/30   { color: rgba(13, 24, 16, 0.3); }
+html.light .text-white\/25   { color: rgba(13, 24, 16, 0.25); }
+html.light .text-white\/20   { color: rgba(13, 24, 16, 0.2); }
+html.light .text-white\/15   { color: rgba(13, 24, 16, 0.15); }
+html.light .text-white\/10   { color: rgba(13, 24, 16, 0.1); }
+
+/* Backgrounds: white/alpha → black/alpha */
+html.light .bg-white\/2  { background-color: rgba(0, 0, 0, 0.02); }
+html.light .bg-white\/3  { background-color: rgba(0, 0, 0, 0.03); }
+html.light .bg-white\/4  { background-color: rgba(0, 0, 0, 0.04); }
+html.light .bg-white\/5  { background-color: rgba(0, 0, 0, 0.05); }
+html.light .bg-white\/6  { background-color: rgba(0, 0, 0, 0.06); }
+html.light .bg-white\/7  { background-color: rgba(0, 0, 0, 0.07); }
+html.light .bg-white\/8  { background-color: rgba(0, 0, 0, 0.08); }
+html.light .bg-white\/10 { background-color: rgba(0, 0, 0, 0.10); }
+html.light .bg-white\/12 { background-color: rgba(0, 0, 0, 0.12); }
+html.light .bg-white\/15 { background-color: rgba(0, 0, 0, 0.15); }
+html.light .bg-white\/20 { background-color: rgba(0, 0, 0, 0.20); }
+
+/* Borders: white/alpha → black/alpha */
+html.light .border-white\/5  { border-color: rgba(0, 0, 0, 0.05); }
+html.light .border-white\/6  { border-color: rgba(0, 0, 0, 0.06); }
+html.light .border-white\/7  { border-color: rgba(0, 0, 0, 0.07); }
+html.light .border-white\/8  { border-color: rgba(0, 0, 0, 0.08); }
+html.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.10); }
+html.light .border-white\/12 { border-color: rgba(0, 0, 0, 0.12); }
+html.light .border-white\/15 { border-color: rgba(0, 0, 0, 0.15); }
+html.light .border-white\/20 { border-color: rgba(0, 0, 0, 0.20); }
+
+/* Inputs in light mode */
+html.light input[type="number"],
+html.light input[type="text"],
+html.light input[type="email"],
+html.light input[type="password"] {
+  color-scheme: light;
+  color: #0d1810;
+}
+
+/* Scrollbar */
+html.light {
+  scrollbar-color: rgba(0,0,0,0.15) transparent;
 }

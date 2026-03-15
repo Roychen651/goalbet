@@ -8,15 +8,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        'bg-base': '#0a0a0f',
-        'bg-surface': 'rgba(255,255,255,0.03)',
-        'bg-card': 'rgba(255,255,255,0.06)',
-        'accent-green': '#00ff87',
-        'accent-orange': '#ff6b35',
-        'text-primary': '#ffffff',
-        'text-muted': 'rgba(255,255,255,0.5)',
-        'border-subtle': 'rgba(255,255,255,0.08)',
-        'border-bright': 'rgba(255,255,255,0.15)',
+        'bg-base': 'var(--color-bg-base)',
+        'bg-surface': 'var(--color-bg-surface)',
+        'bg-card': 'var(--color-bg-card)',
+        'accent-green': 'var(--color-accent-green)',
+        'accent-orange': 'var(--color-accent-orange)',
+        'text-primary': 'var(--color-text-primary)',
+        'text-muted': 'var(--color-text-muted)',
+        'border-subtle': 'var(--color-border-subtle)',
+        'border-bright': 'var(--color-border-bright)',
       },
       fontFamily: {
         bebas: ['"Bebas Neue"', 'sans-serif'],

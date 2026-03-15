@@ -59,7 +59,11 @@ export function formatKickoffTime(kickoffTime: string): {
   if (lockDiffMs > 0) {
     const lockMins = Math.ceil(lockDiffMs / 60000);
     const lockHours = Math.floor(lockMins / 60);
-    if (lockHours >= 1) {
+    const lockDays = Math.floor(lockHours / 24);
+    const remainHours = lockHours % 24;
+    if (lockDays >= 1) {
+      lockCountdown = remainHours > 0 ? `${lockDays}d ${remainHours}h` : `${lockDays}d`;
+    } else if (lockHours >= 1) {
       lockCountdown = `${lockHours}h ${lockMins % 60}m`;
     } else {
       lockCountdown = `${lockMins}m`;

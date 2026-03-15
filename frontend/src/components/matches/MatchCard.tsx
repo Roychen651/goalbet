@@ -5,7 +5,7 @@ import { GlassCard } from '../ui/GlassCard';
 import { MatchStatusBadge } from './MatchStatusBadge';
 import { PredictionForm, PredictionData } from './PredictionForm';
 import { cn, formatKickoffTime } from '../../lib/utils';
-import { LIVE_STATUSES, FINISHED_STATUSES } from '../../lib/constants';
+import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 
 interface MatchCardProps {
@@ -23,6 +23,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const isFinished = FINISHED_STATUSES.includes(match.status);
   const hasPrediction = !!prediction;
   const { date, time, countdown, lockCountdown } = formatKickoffTime(match.kickoff_time);
+  const leagueBadge = FOOTBALL_LEAGUES.find(l => l.id === match.league_id)?.badge;
 
   return (
     <GlassCard
@@ -78,6 +79,9 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
               </motion.span>
             ) : (
               <div className="flex flex-col items-center gap-0.5">
+                {leagueBadge && (
+                  <span className="text-base leading-none mb-0.5" title={match.league_name}>{leagueBadge}</span>
+                )}
                 <span className="text-text-muted text-xs">{date}</span>
                 <span className="text-white font-semibold text-sm">{time}</span>
                 {countdown && (

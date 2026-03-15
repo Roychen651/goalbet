@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useUIStore } from '../stores/uiStore';
 import { useLangStore } from '../stores/langStore';
 import { useMatchSync } from '../hooks/useMatchSync';
+import { useThemeStore } from '../stores/themeStore';
 import { GlassCard } from '../components/ui/GlassCard';
 import { NeonButton } from '../components/ui/NeonButton';
 import { InviteCodeDisplay } from '../components/groups/InviteCodeDisplay';
@@ -21,6 +22,7 @@ export function SettingsPage() {
   const [leavingGroupId, setLeavingGroupId] = useState<string | null>(null);
   const [confirmLeaveId, setConfirmLeaveId] = useState<string | null>(null);
 
+  const { theme, setTheme } = useThemeStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const { syncing, lastSynced, triggerSync } = useMatchSync(
     activeGroup?.active_leagues ?? [],
@@ -66,6 +68,28 @@ export function SettingsPage() {
   return (
     <div className="space-y-5">
       <h1 className="font-bebas text-2xl tracking-wider text-white">{t('settings')}</h1>
+
+      {/* Appearance — dark / light */}
+      <section>
+        <h2 className="text-text-muted text-xs uppercase tracking-wider mb-2">{t('appearance')}</h2>
+        <GlassCard className="p-3 flex items-center gap-2">
+          {(['dark', 'light'] as const).map(mode => (
+            <button
+              key={mode}
+              onClick={() => setTheme(mode)}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all border',
+                theme === mode
+                  ? 'bg-accent-green/15 border-accent-green text-accent-green'
+                  : 'bg-white/5 border-white/10 text-text-muted hover:bg-white/8 hover:text-white'
+              )}
+            >
+              <span>{mode === 'dark' ? '🌙' : '☀️'}</span>
+              <span>{t(mode === 'dark' ? 'darkMode' : 'lightMode')}</span>
+            </button>
+          ))}
+        </GlassCard>
+      </section>
 
       {!activeGroup ? (
         <GlassCard className="p-5 text-center space-y-4">

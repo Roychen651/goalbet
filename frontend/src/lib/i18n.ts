@@ -158,6 +158,11 @@ export const translations = {
     fullTime_status: 'Full Time',
     postponed_status: 'Postponed',
     cancelled_status: 'Cancelled',
+
+    // Theme
+    appearance: 'Appearance',
+    darkMode: 'Dark',
+    lightMode: 'Light',
   },
 
   he: {
@@ -314,6 +319,11 @@ export const translations = {
     fullTime_status: 'סיום',
     postponed_status: 'נדחה',
     cancelled_status: 'בוטל',
+
+    // Theme
+    appearance: 'מראה',
+    darkMode: 'כהה',
+    lightMode: 'בהיר',
   },
 } as const;
 
