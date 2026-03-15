@@ -542,24 +542,44 @@ function LockedPrediction({
               delay={i * 0.05}
             />
           ))}
-          {/* Streak bonus row — shown when a streak bonus was recorded at resolution */}
+          {/* Bonus rows — streak bonus (stored) + any unexplained gap (e.g. HT data changed) */}
           {(() => {
             const streakBonus = prediction.streak_bonus_earned ?? 0;
-            if (streakBonus <= 0) return null;
+            const baseTotal = breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0);
+            const unexplained = Math.max(0, (prediction.points_earned ?? 0) - baseTotal - streakBonus);
             return (
-              <motion.div
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: breakdown.length * 0.05 }}
-                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25"
-              >
-                <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
-                  <span>⚡</span>
-                  <span>{t('streakBonus')}</span>
-                  <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
-                </span>
-                <span className="font-bold tabular-nums text-yellow-400">+{streakBonus}</span>
-              </motion.div>
+              <>
+                {streakBonus > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: breakdown.length * 0.05 }}
+                    className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25"
+                  >
+                    <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+                      <span>⚡</span>
+                      <span>{t('streakBonus')}</span>
+                      <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
+                    </span>
+                    <span className="font-bold tabular-nums text-yellow-400">+{streakBonus}</span>
+                  </motion.div>
+                )}
+                {unexplained > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: (breakdown.length + 1) * 0.05 }}
+                    className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25"
+                  >
+                    <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+                      <span>⚡</span>
+                      <span>{t('streakBonus')}</span>
+                      <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
+                    </span>
+                    <span className="font-bold tabular-nums text-yellow-400">+{unexplained}</span>
+                  </motion.div>
+                )}
+              </>
             );
           })()}
         </div>

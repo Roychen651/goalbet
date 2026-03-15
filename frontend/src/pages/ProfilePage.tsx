@@ -400,6 +400,8 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
   const { t } = useLangStore();
   const breakdown = calcBreakdown(prediction, match);
   const streakBonus = prediction.streak_bonus_earned ?? 0;
+  const baseTotal = breakdown ? breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0) : 0;
+  const unexplained = breakdown ? Math.max(0, (prediction.points_earned ?? 0) - baseTotal - streakBonus) : 0;
 
   // Short team name for outcome labels (last word, e.g. "Real Sociedad" → "Sociedad")
   const teamLabel = (outcome: 'H' | 'D' | 'A' | null) =>
@@ -487,6 +489,15 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
             <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
           </span>
           <span className="font-bold tabular-nums text-yellow-400">+{streakBonus}</span>
+        </div>
+      )}
+      {unexplained > 0 && (
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25">
+          <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+            <span>⚡</span><span>{t('streakBonus')}</span>
+            <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
+          </span>
+          <span className="font-bold tabular-nums text-yellow-400">+{unexplained}</span>
         </div>
       )}
     </div>

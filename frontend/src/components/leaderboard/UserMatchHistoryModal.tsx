@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase, Prediction, Match } from '../../lib/supabase';
 import { Avatar } from '../ui/Avatar';
-import { formatKickoffTime, calcBreakdown } from '../../lib/utils';
+import { formatKickoffTime } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
 import { LeaderboardType } from '../../hooks/useLeaderboard';
 
@@ -81,11 +81,11 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
 
   // Compute base pts (via calcBreakdown) vs points_earned (which may include streak bonus)
   const predRows = history.map(pred => {
-    const breakdown = calcBreakdown(pred, pred.match);
-    const baseTotal = breakdown
-      ? breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0)
-      : (pred.points_earned ?? 0);
     const streakBonus = pred.streak_bonus_earned ?? 0;
+    // baseTotal = all non-streak points actually earned (pts_earned minus streak bonus).
+    // Using points_earned directly (not recalculated from DB) ensures the number is
+    // always accurate even if halftime data was later corrected in the DB.
+    const baseTotal = (pred.points_earned ?? 0) - streakBonus;
     return { pred, baseTotal, streakBonus };
   });
 
