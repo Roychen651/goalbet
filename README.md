@@ -3,7 +3,7 @@
 > **A full-stack football prediction game for friend groups.**
 > Predict match outcomes across 5 tiers, compete on a live leaderboard, and earn streak bonuses — all free, no real money.
 
-![CI](https://github.com/roychen/goalbet/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Roychen651/goalbet/actions/workflows/ci.yml/badge.svg)
 
 ---
 
@@ -108,7 +108,7 @@ goalbet/
 ### 1. Clone & install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/goalbet.git
+git clone https://github.com/Roychen651/goalbet.git
 cd goalbet
 
 cd frontend && npm install
