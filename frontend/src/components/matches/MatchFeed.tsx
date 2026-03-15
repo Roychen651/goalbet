@@ -75,10 +75,10 @@ export function MatchFeed({
         const aPred = predictions.has(a.id) ? 0 : 1;
         const bPred = predictions.has(b.id) ? 0 : 1;
         if (aPred !== bPred) return aPred - bPred;
-        // Then by kickoff time
+        // Then by kickoff time — descending in Results tab (latest match first), ascending otherwise
         const tA = new Date(a.kickoff_time).getTime();
         const tB = new Date(b.kickoff_time).getTime();
-        if (tA !== tB) return tA - tB;
+        if (tA !== tB) return activeTab === 'completed' ? tB - tA : tA - tB;
         return a.league_id - b.league_id;
       });
     }

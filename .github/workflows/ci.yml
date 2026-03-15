@@ -79,7 +79,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Skip all migration steps when secrets haven't been added to GitHub yet.
+      # Add SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD
+      # in: GitHub repo → Settings → Secrets and variables → Actions
+      - name: Check secrets are configured
+        id: secrets
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          PASS: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$REF" ] && [ -n "$PASS" ]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+            echo "✅ Supabase secrets found — will deploy migrations"
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+            echo "::notice::Supabase secrets not configured yet. Migrations skipped. Add SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD to GitHub Secrets to enable auto-deploy."
+          fi
+
       - name: Setup Supabase CLI
+        if: steps.secrets.outputs.ok == 'true'
         uses: supabase/setup-cli@v1
         with:
           version: latest
@@ -89,6 +108,7 @@ jobs:
       # New migrations (012+) will be applied automatically by db push below.
       # Uses ON CONFLICT DO NOTHING — safe to run repeatedly.
       - name: Sync existing migration history
+        if: steps.secrets.outputs.ok == 'true'
         run: |
           psql "$DB_URL" <<'SQL'
             CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (
@@ -116,6 +136,7 @@ jobs:
 
       # Push any new migration files (012, 013, ...) that aren't in history yet
       - name: Apply pending migrations
+        if: steps.secrets.outputs.ok == 'true'
         run: |
           supabase db push \
             --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" \
