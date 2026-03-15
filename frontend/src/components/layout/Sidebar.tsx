@@ -18,7 +18,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="hidden sm:flex flex-col w-60 shrink-0 h-screen sticky top-0 border-e border-white/8 py-6 px-4">
+    <aside className="hidden sm:flex flex-col w-60 shrink-0 h-screen sticky top-0 border-e border-white/8 py-6 px-4 glass">
       {/* Logo */}
       <div className="mb-8 px-2">
         <div className="font-bebas text-3xl tracking-widest text-white">

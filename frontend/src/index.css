@@ -108,8 +108,8 @@ body::after {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(0, 255, 135, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 135, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(0, 255, 135, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 135, 0.06) 1px, transparent 1px);
   background-size: 60px 60px;
   pointer-events: none;
   z-index: 0;
@@ -281,8 +281,8 @@ html.light body::before {
 
 html.light body::after {
   background-image:
-    linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(0, 100, 60, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 100, 60, 0.09) 1px, transparent 1px);
   background-size: 60px 60px;
 }
 
@@ -298,42 +298,42 @@ html.light .glass-hover:hover {
 }
 
 /* Text: white → dark */
-html.light .text-white       { color: #0d1810; }
-html.light .text-white\/90   { color: rgba(13, 24, 16, 0.9); }
-html.light .text-white\/80   { color: rgba(13, 24, 16, 0.8); }
-html.light .text-white\/70   { color: rgba(13, 24, 16, 0.7); }
-html.light .text-white\/60   { color: rgba(13, 24, 16, 0.6); }
-html.light .text-white\/50   { color: rgba(13, 24, 16, 0.5); }
-html.light .text-white\/40   { color: rgba(13, 24, 16, 0.4); }
-html.light .text-white\/35   { color: rgba(13, 24, 16, 0.35); }
-html.light .text-white\/30   { color: rgba(13, 24, 16, 0.3); }
-html.light .text-white\/25   { color: rgba(13, 24, 16, 0.25); }
-html.light .text-white\/20   { color: rgba(13, 24, 16, 0.2); }
-html.light .text-white\/15   { color: rgba(13, 24, 16, 0.15); }
-html.light .text-white\/10   { color: rgba(13, 24, 16, 0.1); }
+html.light .text-white       { color: #0d1810 !important; }
+html.light .text-white\/90   { color: rgba(13, 24, 16, 0.9) !important; }
+html.light .text-white\/80   { color: rgba(13, 24, 16, 0.8) !important; }
+html.light .text-white\/70   { color: rgba(13, 24, 16, 0.7) !important; }
+html.light .text-white\/60   { color: rgba(13, 24, 16, 0.6) !important; }
+html.light .text-white\/50   { color: rgba(13, 24, 16, 0.5) !important; }
+html.light .text-white\/40   { color: rgba(13, 24, 16, 0.4) !important; }
+html.light .text-white\/35   { color: rgba(13, 24, 16, 0.35) !important; }
+html.light .text-white\/30   { color: rgba(13, 24, 16, 0.3) !important; }
+html.light .text-white\/25   { color: rgba(13, 24, 16, 0.25) !important; }
+html.light .text-white\/20   { color: rgba(13, 24, 16, 0.2) !important; }
+html.light .text-white\/15   { color: rgba(13, 24, 16, 0.15) !important; }
+html.light .text-white\/10   { color: rgba(13, 24, 16, 0.1) !important; }
 
 /* Backgrounds: white/alpha → black/alpha */
-html.light .bg-white\/2  { background-color: rgba(0, 0, 0, 0.02); }
-html.light .bg-white\/3  { background-color: rgba(0, 0, 0, 0.03); }
-html.light .bg-white\/4  { background-color: rgba(0, 0, 0, 0.04); }
-html.light .bg-white\/5  { background-color: rgba(0, 0, 0, 0.05); }
-html.light .bg-white\/6  { background-color: rgba(0, 0, 0, 0.06); }
-html.light .bg-white\/7  { background-color: rgba(0, 0, 0, 0.07); }
-html.light .bg-white\/8  { background-color: rgba(0, 0, 0, 0.08); }
-html.light .bg-white\/10 { background-color: rgba(0, 0, 0, 0.10); }
-html.light .bg-white\/12 { background-color: rgba(0, 0, 0, 0.12); }
-html.light .bg-white\/15 { background-color: rgba(0, 0, 0, 0.15); }
-html.light .bg-white\/20 { background-color: rgba(0, 0, 0, 0.20); }
+html.light .bg-white\/2  { background-color: rgba(0, 0, 0, 0.02) !important; }
+html.light .bg-white\/3  { background-color: rgba(0, 0, 0, 0.03) !important; }
+html.light .bg-white\/4  { background-color: rgba(0, 0, 0, 0.04) !important; }
+html.light .bg-white\/5  { background-color: rgba(0, 0, 0, 0.05) !important; }
+html.light .bg-white\/6  { background-color: rgba(0, 0, 0, 0.06) !important; }
+html.light .bg-white\/7  { background-color: rgba(0, 0, 0, 0.07) !important; }
+html.light .bg-white\/8  { background-color: rgba(0, 0, 0, 0.08) !important; }
+html.light .bg-white\/10 { background-color: rgba(0, 0, 0, 0.10) !important; }
+html.light .bg-white\/12 { background-color: rgba(0, 0, 0, 0.12) !important; }
+html.light .bg-white\/15 { background-color: rgba(0, 0, 0, 0.15) !important; }
+html.light .bg-white\/20 { background-color: rgba(0, 0, 0, 0.20) !important; }
 
 /* Borders: white/alpha → black/alpha */
-html.light .border-white\/5  { border-color: rgba(0, 0, 0, 0.05); }
-html.light .border-white\/6  { border-color: rgba(0, 0, 0, 0.06); }
-html.light .border-white\/7  { border-color: rgba(0, 0, 0, 0.07); }
-html.light .border-white\/8  { border-color: rgba(0, 0, 0, 0.08); }
-html.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.10); }
-html.light .border-white\/12 { border-color: rgba(0, 0, 0, 0.12); }
-html.light .border-white\/15 { border-color: rgba(0, 0, 0, 0.15); }
-html.light .border-white\/20 { border-color: rgba(0, 0, 0, 0.20); }
+html.light .border-white\/5  { border-color: rgba(0, 0, 0, 0.05) !important; }
+html.light .border-white\/6  { border-color: rgba(0, 0, 0, 0.06) !important; }
+html.light .border-white\/7  { border-color: rgba(0, 0, 0, 0.07) !important; }
+html.light .border-white\/8  { border-color: rgba(0, 0, 0, 0.08) !important; }
+html.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.10) !important; }
+html.light .border-white\/12 { border-color: rgba(0, 0, 0, 0.12) !important; }
+html.light .border-white\/15 { border-color: rgba(0, 0, 0, 0.15) !important; }
+html.light .border-white\/20 { border-color: rgba(0, 0, 0, 0.20) !important; }
 
 /* Ghost button text color in light mode */
 html.light .btn-ghost-text {

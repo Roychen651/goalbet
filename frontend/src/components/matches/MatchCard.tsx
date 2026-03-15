@@ -83,7 +83,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
               <div className="flex flex-col items-center gap-0.5">
                 {leagueEspnId !== null ? (
                   <img
-                    src={`https://a.espncdn.com/i/leaguelogos/soccer/500/${leagueEspnId}.png`}
+                    src={`https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500/${leagueEspnId}.png&h=80&w=80`}
                     className="w-6 h-6 object-contain mb-0.5"
                     alt={match.league_name}
                     title={match.league_name}
