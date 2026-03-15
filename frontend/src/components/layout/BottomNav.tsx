@@ -56,7 +56,6 @@ export function BottomNav() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === ROUTES.HOME}
                 className={({ isActive }) => cn(
                   'flex-1 flex flex-col items-center justify-center py-3 gap-0.5 transition-colors',
                   isActive ? 'text-accent-green' : 'text-text-muted'
