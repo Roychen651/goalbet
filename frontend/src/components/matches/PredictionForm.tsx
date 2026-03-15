@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { NeonButton } from '../ui/NeonButton';
-import { cn, isMatchLocked, calcBreakdown } from '../../lib/utils';
+import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
+import { LIVE_STATUSES } from '../../lib/constants';
 import { POINTS } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 
@@ -370,6 +371,57 @@ function BoolPicker({
   );
 }
 
+// Shows what user predicted + whether it's correct/earning for a single tier
+function TierBreakdownRow({ tier, prediction, match, delay }: {
+  tier: import('../../lib/utils').TierResult;
+  prediction: Prediction;
+  match: Match;
+  delay: number;
+}) {
+  const { t } = useLangStore();
+  const outcomeLabel = (v: 'H' | 'D' | 'A' | null) =>
+    v === 'H' ? match.home_team.split(' ').pop() || t('home')
+    : v === 'A' ? match.away_team.split(' ').pop() || t('away')
+    : v === 'D' ? t('draw') : null;
+
+  const predDetail = (() => {
+    switch (tier.key) {
+      case 'result': return prediction.predicted_outcome ? outcomeLabel(prediction.predicted_outcome) : null;
+      case 'score': return prediction.predicted_home_score !== null
+        ? `${prediction.predicted_home_score}–${prediction.predicted_away_score}` : null;
+      case 'ht': return prediction.predicted_halftime_outcome ? outcomeLabel(prediction.predicted_halftime_outcome) : null;
+      case 'btts': return prediction.predicted_btts !== null ? (prediction.predicted_btts ? t('yes') : t('no')) : null;
+      case 'ou': return prediction.predicted_over_under
+        ? (prediction.predicted_over_under === 'over' ? t('over25') : t('under25')) : null;
+      default: return null;
+    }
+  })();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay }}
+      className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs ${
+        tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : 'bg-white/3 border border-white/5'
+      }`}
+    >
+      <span className={`flex items-center gap-1.5 min-w-0 ${tier.earned ? 'text-accent-green' : 'text-text-muted opacity-60'}`}>
+        <span className="shrink-0">{tier.earned ? '✓' : '✗'}</span>
+        <span className="shrink-0">{tier.label}</span>
+        {predDetail && (
+          <span className={`truncate font-semibold ${tier.earned ? 'text-accent-green' : 'text-white/40'}`}>
+            · {predDetail}
+          </span>
+        )}
+      </span>
+      <span className={`shrink-0 font-bold tabular-nums ${tier.earned ? 'text-accent-green' : 'text-text-muted opacity-40'}`}>
+        {tier.earned ? `+${tier.pts}` : '0'}
+      </span>
+    </motion.div>
+  );
+}
+
 function LockedPrediction({
   match, prediction, resolved,
 }: {
@@ -388,11 +440,20 @@ function LockedPrediction({
   const outcomeLabel = (v: 'H' | 'D' | 'A' | null) =>
     v === 'H' ? t('home') : v === 'A' ? t('away') : v === 'D' ? t('draw') : '—';
 
+  const isLive = LIVE_STATUSES.includes(match.status);
+  const isPastKickoffNS = match.status === 'NS' && new Date(match.kickoff_time).getTime() < Date.now();
+  const isInProgress = isLive || isPastKickoffNS;
+  const hasLiveScore = match.home_score !== null && match.away_score !== null;
+
   const breakdown = resolved ? calcBreakdown(prediction, match) : null;
+  const liveBreakdown = !resolved && isInProgress && hasLiveScore
+    ? calcLiveBreakdown(prediction, match)
+    : null;
+  const livePotential = liveBreakdown ? liveBreakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0) : 0;
 
   return (
     <div className="space-y-2">
-      {/* Points earned banner */}
+      {/* Points earned banner (resolved) */}
       {resolved && (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -409,31 +470,61 @@ function LockedPrediction({
         </motion.div>
       )}
 
+      {/* Live potential points banner */}
+      {liveBreakdown && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-accent-green/8 border border-accent-green/25"
+        >
+          <div className="flex items-center gap-2">
+            <motion.span
+              animate={{ opacity: [1, 0.4, 1] }}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              className="w-2 h-2 rounded-full bg-accent-green shrink-0"
+            />
+            <div className="flex flex-col">
+              <span className="text-[11px] text-accent-green/70 font-medium leading-tight">Live • If final score</span>
+              <span className="text-xs text-white/70 font-semibold">{match.home_score} — {match.away_score}</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="text-[10px] text-white/30 leading-tight">you collect</span>
+            <span className={`text-xl font-bebas tracking-wide ${livePotential > 0 ? 'text-accent-green' : 'text-text-muted opacity-40'}`}>
+              {livePotential > 0 ? `+${livePotential}` : '0'} <span className="text-sm">pts</span>
+            </span>
+          </div>
+        </motion.div>
+      )}
+
       {/* Per-tier breakdown when resolved */}
       {breakdown && breakdown.length > 0 ? (
         <div className="space-y-1">
           {breakdown.map((tier, i) => (
-            <motion.div
+            <TierBreakdownRow
               key={tier.key}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs ${
-                tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : 'bg-white/3 border border-white/5'
-              }`}
-            >
-              <span className={`flex items-center gap-1.5 ${tier.earned ? 'text-accent-green' : 'text-text-muted opacity-60'}`}>
-                <span>{tier.earned ? '✓' : '✗'}</span>
-                <span>{tier.label}</span>
-              </span>
-              <span className={tier.earned ? 'text-accent-green font-semibold' : 'text-text-muted opacity-40'}>
-                {tier.earned ? `+${tier.pts}` : `0`}
-              </span>
-            </motion.div>
+              tier={tier}
+              prediction={prediction}
+              match={match}
+              delay={i * 0.05}
+            />
+          ))}
+        </div>
+      ) : liveBreakdown && liveBreakdown.length > 0 ? (
+        /* Live in-progress: show tier-by-tier potential with user's prediction */
+        <div className="space-y-1">
+          {liveBreakdown.map((tier, i) => (
+            <TierBreakdownRow
+              key={tier.key}
+              tier={tier}
+              prediction={prediction}
+              match={match}
+              delay={i * 0.05}
+            />
           ))}
         </div>
       ) : (
-        /* Non-resolved: show what was predicted */
+        /* Non-resolved, no live score: show what was predicted */
         <div className="grid grid-cols-2 gap-1.5 text-sm">
           {prediction.predicted_outcome && (
             <Pill label={t('result')} value={outcomeLabel(prediction.predicted_outcome)} />

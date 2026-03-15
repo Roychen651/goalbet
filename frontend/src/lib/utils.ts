@@ -73,6 +73,31 @@ export function formatKickoffTime(kickoffTime: string): {
   return { date, time, relative, countdown, lockCountdown };
 }
 
+// Return a live clock label for a match in progress.
+// Uses DB display_clock when available, otherwise estimates from kickoff time.
+export function getLiveClock(match: { status: string; kickoff_time: string; display_clock?: string | null }): string | null {
+  if (match.status === 'HT') return 'HT';
+  if (match.status === 'FT') return null;
+  if (match.status === 'NS') {
+    // stalled NS past kickoff — estimate
+    const minsSinceKickoff = Math.floor((Date.now() - new Date(match.kickoff_time).getTime()) / 60000);
+    if (minsSinceKickoff < 0) return null;
+    return `~${Math.min(minsSinceKickoff, 90)}'`;
+  }
+  // DB clock from ESPN (if column migrated)
+  if (match.display_clock) return match.display_clock;
+
+  // For 1H we can estimate reliably: started at kickoff
+  if (match.status === '1H') {
+    const minsSince = Math.floor((Date.now() - new Date(match.kickoff_time).getTime()) / 60000);
+    return `${Math.min(minsSince, 45)}'`;
+  }
+  // For 2H we cannot estimate accurately — HT break length varies (15-25 min)
+  // Show period label until ESPN display_clock is available
+  if (match.status === '2H') return '2H';
+  return null;
+}
+
 // Lock predictions 15 minutes before kickoff
 export function isMatchLocked(kickoffTime: string): boolean {
   const lockAt = new Date(kickoffTime).getTime() - 15 * 60 * 1000;
@@ -106,30 +131,50 @@ export interface TierResult {
   earned: boolean;
 }
 
+// Live breakdown — same logic but works for in-progress matches using current score.
+// Returns null if match has no score data yet.
+export function calcLiveBreakdown(prediction: Prediction, match: Match): TierResult[] | null {
+  if (match.home_score === null || match.away_score === null) return null;
+  if (!['1H', 'HT', '2H', 'NS'].includes(match.status)) return null;
+
+  // For 1H: the current score IS the provisional HT score — if the half ended now,
+  // this would be the halftime result. Show HT prediction as currently correct/wrong.
+  const effectiveHtHome = match.status === '1H' ? match.home_score : match.halftime_home;
+  const effectiveHtAway = match.status === '1H' ? match.away_score : match.halftime_away;
+
+  return _computeBreakdown(prediction, match.home_score, match.away_score, effectiveHtHome, effectiveHtAway);
+}
+
 export function calcBreakdown(prediction: Prediction, match: Match): TierResult[] | null {
   if (match.home_score === null || match.away_score === null || match.status !== 'FT') return null;
+  return _computeBreakdown(prediction, match.home_score, match.away_score, match.halftime_home, match.halftime_away);
+}
 
-  const actualOutcome = match.home_score > match.away_score ? 'H'
-    : match.home_score < match.away_score ? 'A' : 'D';
-  const totalGoals = match.home_score + match.away_score;
-  const actualBTTS = match.home_score > 0 && match.away_score > 0;
+function _computeBreakdown(
+  prediction: Prediction,
+  homeScore: number,
+  awayScore: number,
+  htHome: number | null,
+  htAway: number | null,
+): TierResult[] {
+  const actualOutcome = homeScore > awayScore ? 'H' : homeScore < awayScore ? 'A' : 'D';
+  const totalGoals = homeScore + awayScore;
+  const actualBTTS = homeScore > 0 && awayScore > 0;
 
   const exactScoreCorrect =
     prediction.predicted_home_score !== null &&
     prediction.predicted_away_score !== null &&
-    prediction.predicted_home_score === match.home_score &&
-    prediction.predicted_away_score === match.away_score;
+    prediction.predicted_home_score === homeScore &&
+    prediction.predicted_away_score === awayScore;
 
   const results: TierResult[] = [];
 
   if (prediction.predicted_outcome !== null) {
-    // Only award outcome if explicitly predicted correctly, OR exact score is right and outcome wasn't wrongly guessed
     const impliedOutcomeFromScore = exactScoreCorrect && prediction.predicted_outcome === actualOutcome;
     const earned = prediction.predicted_outcome === actualOutcome || (exactScoreCorrect && impliedOutcomeFromScore);
     results.push({ key: 'result', label: 'Result', pts: 3, earned });
   }
 
-  // If exact score is correct and no outcome was predicted, show an implicit outcome row
   if (prediction.predicted_outcome === null && exactScoreCorrect) {
     results.push({ key: 'result', label: 'Result (implied)', pts: 3, earned: true });
   }
@@ -140,9 +185,8 @@ export function calcBreakdown(prediction: Prediction, match: Match): TierResult[
 
   if (prediction.predicted_halftime_outcome !== null) {
     let earned = false;
-    if (match.halftime_home !== null && match.halftime_away !== null) {
-      const actualHT = match.halftime_home > match.halftime_away ? 'H'
-        : match.halftime_home < match.halftime_away ? 'A' : 'D';
+    if (htHome !== null && htAway !== null) {
+      const actualHT = htHome > htAway ? 'H' : htHome < htAway ? 'A' : 'D';
       earned = prediction.predicted_halftime_outcome === actualHT;
     }
     results.push({ key: 'ht', label: 'Half Time', pts: 4, earned });
@@ -161,3 +205,4 @@ export function calcBreakdown(prediction: Prediction, match: Match): TierResult[
 
   return results;
 }
+

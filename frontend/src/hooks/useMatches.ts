@@ -9,26 +9,47 @@ const COMPLETED_DAYS = 7;  // show results from last 7 days
 
 async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Promise<Match[]> {
   const now = new Date();
+  // Buffer: NS matches up to 3h past kickoff are shown as "live/in-progress"
+  // because the backend may not have polled TheSportsDB yet to flip them to 1H/HT/2H.
+  const liveBufferStart = new Date(now.getTime() - 3 * 3600_000).toISOString();
 
   if (statusFilter === 'live') {
-    const { data, error } = await supabase
-      .from('matches')
-      .select('*')
-      .in('league_id', leagueIds)
-      .in('status', ['1H', 'HT', '2H'])
-      .order('kickoff_time', { ascending: true });
-    if (error) throw error;
-    return (data as Match[]) ?? [];
+    // Fetch actual live statuses + NS matches that should be playing (started up to 3h ago)
+    const [liveRes, stalledRes] = await Promise.all([
+      supabase
+        .from('matches').select('*')
+        .in('league_id', leagueIds)
+        .in('status', ['1H', 'HT', '2H'])
+        .order('kickoff_time', { ascending: true }),
+      supabase
+        .from('matches').select('*')
+        .in('league_id', leagueIds)
+        .eq('status', 'NS')
+        .gte('kickoff_time', liveBufferStart)
+        .lte('kickoff_time', now.toISOString())
+        .order('kickoff_time', { ascending: true }),
+    ]);
+    if (liveRes.error) throw liveRes.error;
+    if (stalledRes.error) throw stalledRes.error;
+    const seen = new Set<string>();
+    const all: Match[] = [];
+    for (const m of [...(liveRes.data ?? []), ...(stalledRes.data ?? [])] as Match[]) {
+      if (!seen.has(m.id)) { seen.add(m.id); all.push(m); }
+    }
+    all.sort((a, b) => new Date(a.kickoff_time).getTime() - new Date(b.kickoff_time).getTime());
+    return all;
   }
 
   if (statusFilter === 'upcoming') {
+    // Include NS matches from liveBufferStart so a match that just kicked off
+    // (but backend hasn't updated status yet) still appears here instead of vanishing.
     const cutoff = new Date(now.getTime() + UPCOMING_DAYS * 86400_000).toISOString();
     const { data, error } = await supabase
       .from('matches')
       .select('*')
       .in('league_id', leagueIds)
       .eq('status', 'NS')
-      .gte('kickoff_time', now.toISOString())
+      .gte('kickoff_time', liveBufferStart)
       .lte('kickoff_time', cutoff)
       .order('kickoff_time', { ascending: true })
       .limit(150);
@@ -54,11 +75,20 @@ async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Pr
   const upcomingCutoff = new Date(now.getTime() + UPCOMING_DAYS * 86400_000).toISOString();
   const completedSince = new Date(now.getTime() - COMPLETED_DAYS * 86400_000).toISOString();
 
-  const [liveRes, upcomingRes, completedRes] = await Promise.all([
+  const [liveRes, stalledNsRes, upcomingRes, completedRes] = await Promise.all([
     supabase
       .from('matches').select('*')
       .in('league_id', leagueIds)
       .in('status', ['1H', 'HT', '2H'])
+      .order('kickoff_time', { ascending: true }).limit(30),
+
+    // NS matches past kickoff (backend hasn't updated status yet) — show as live-ish
+    supabase
+      .from('matches').select('*')
+      .in('league_id', leagueIds)
+      .eq('status', 'NS')
+      .gte('kickoff_time', liveBufferStart)
+      .lte('kickoff_time', now.toISOString())
       .order('kickoff_time', { ascending: true }).limit(30),
 
     supabase
@@ -78,6 +108,7 @@ async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Pr
   ]);
 
   if (liveRes.error) throw liveRes.error;
+  if (stalledNsRes.error) throw stalledNsRes.error;
   if (upcomingRes.error) throw upcomingRes.error;
   if (completedRes.error) throw completedRes.error;
 
@@ -86,21 +117,27 @@ async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Pr
   const all: Match[] = [];
   for (const m of [
     ...(liveRes.data ?? []),
+    ...(stalledNsRes.data ?? []),
     ...(upcomingRes.data ?? []),
     ...(completedRes.data ?? []),
   ] as Match[]) {
     if (!seen.has(m.id)) { seen.add(m.id); all.push(m); }
   }
 
-  // Sort: live first, then upcoming ascending, then completed descending
+  // Sort: live first, then upcoming by (kickoff asc, league_id asc), then completed desc
+  // Grouping by league_id within same kickoff time keeps e.g. all EPL games together
   const liveSet = new Set(['1H', 'HT', '2H']);
   const doneSet = new Set(['FT', 'PST', 'CANC']);
   all.sort((a, b) => {
-    const aLive = liveSet.has(a.status), bLive = liveSet.has(b.status);
+    const aLive = liveSet.has(a.status) || (a.status === 'NS' && new Date(a.kickoff_time).getTime() < Date.now());
+    const bLive = liveSet.has(b.status) || (b.status === 'NS' && new Date(b.kickoff_time).getTime() < Date.now());
     const aDone = doneSet.has(a.status), bDone = doneSet.has(b.status);
     if (aLive !== bLive) return aLive ? -1 : 1;
     if (aDone !== bDone) return aDone ? 1 : -1;
-    return new Date(a.kickoff_time).getTime() - new Date(b.kickoff_time).getTime();
+    const timeDiff = new Date(a.kickoff_time).getTime() - new Date(b.kickoff_time).getTime();
+    if (timeDiff !== 0) return timeDiff;
+    // Same kickoff time — group by league so same-competition games are adjacent
+    return a.league_id - b.league_id;
   });
 
   return all;

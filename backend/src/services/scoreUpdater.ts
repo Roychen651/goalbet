@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
-import { fetchLeagueMatches, LEAGUE_ESPN_MAP } from './espn';
+import { fetchLeagueMatches, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
 import { DBMatch } from './sportsdb';
 import { calculatePoints, applyStreakBonus } from './pointsEngine';
 import { logger } from '../lib/logger';
@@ -27,15 +27,18 @@ interface Prediction {
   predicted_over_under: 'over' | 'under' | null;
 }
 
-// Find matches that should have finished but aren't marked FT yet
+// Find all matches that have kicked off and aren't finished yet.
+// This covers both live in-progress matches (need score update) and
+// expected-finished matches (need resolution). We start from 2 min before kickoff
+// to handle early-start edge cases.
 async function getPendingMatches(): Promise<PendingMatch[]> {
-  const cutoffTime = new Date(Date.now() - 100 * 60 * 1000).toISOString(); // 100 min ago
+  const slightlyAhead = new Date(Date.now() + 2 * 60 * 1000).toISOString(); // 2 min ahead
 
   const { data, error } = await supabaseAdmin
     .from('matches')
     .select('id, external_id, league_id, home_score, away_score')
     .not('status', 'in', '("FT","PST","CANC")')
-    .lt('kickoff_time', cutoffTime);
+    .lt('kickoff_time', slightlyAhead);
 
   if (error) {
     logger.error('[scoreUpdater] Failed to fetch pending matches:', error);
@@ -45,17 +48,26 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   return data || [];
 }
 
-async function updateMatchScore(matchId: string, scoreData: DBMatch): Promise<void> {
-  const { error } = await supabaseAdmin
+async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): Promise<void> {
+  const payload: Record<string, unknown> = {
+    status: scoreData.status,
+    home_score: scoreData.home_score,
+    away_score: scoreData.away_score,
+    halftime_home: scoreData.halftime_home,
+    halftime_away: scoreData.halftime_away,
+    display_clock: scoreData.display_clock ?? null,
+  };
+
+  let { error } = await supabaseAdmin
     .from('matches')
-    .update({
-      status: scoreData.status,
-      home_score: scoreData.home_score,
-      away_score: scoreData.away_score,
-      halftime_home: scoreData.halftime_home,
-      halftime_away: scoreData.halftime_away,
-    })
+    .update(payload)
     .eq('id', matchId);
+
+  if (error?.message?.includes('display_clock')) {
+    // Column not yet migrated — retry without clock field
+    delete payload.display_clock;
+    ({ error } = await supabaseAdmin.from('matches').update(payload).eq('id', matchId));
+  }
 
   if (error) {
     logger.error(`[scoreUpdater] Failed to update match ${matchId}:`, error);
@@ -174,7 +186,7 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
 
     try {
       // Fetch recent ESPN data for this league (past 3 days is enough for score resolution)
-      const recentMatches = await fetchLeagueMatches(leagueId, 3, 0);
+      const recentMatches = await fetchLeagueMatches(leagueId, 3, 1); // 1 day ahead catches early kickoffs
 
       for (const match of matches) {
         const freshData = recentMatches.find(e => e.external_id === match.external_id);

@@ -133,10 +133,10 @@ export function ProfilePage() {
         variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } }}
       >
         {[
-          { label: t('totalPoints'), value: totalPoints, highlight: true },
-          { label: t('predictions'), value: history.length },
-          { label: t('accuracy'), value: formatAccuracy(correct.length, resolved.length) },
-          { label: t('correct'), value: `${correct.length}/${resolved.length}` },
+          { label: t('totalPoints'), value: totalPoints, highlight: true, sub: 'all time' },
+          { label: t('predictions'), value: history.length, sub: 'placed' },
+          { label: t('accuracy'), value: formatAccuracy(correct.length, resolved.length), sub: 'pts earned / resolved' },
+          { label: t('correct'), value: `${correct.length}/${resolved.length}`, sub: 'scored any points' },
         ].map(stat => (
           <motion.div
             key={stat.label}
@@ -147,7 +147,7 @@ export function ProfilePage() {
             whileHover={{ scale: 1.04, y: -3 }}
             transition={{ type: 'spring', stiffness: 300 }}
           >
-            <StatCard label={stat.label} value={stat.value} highlight={stat.highlight} />
+            <StatCard label={stat.label} value={stat.value} highlight={stat.highlight} sub={stat.sub} />
           </motion.div>
         ))}
       </motion.div>
@@ -266,13 +266,14 @@ export function ProfilePage() {
   );
 }
 
-function StatCard({ label, value, highlight }: { label: string; value: string | number; highlight?: boolean }) {
+function StatCard({ label, value, highlight, sub }: { label: string; value: string | number; highlight?: boolean; sub?: string }) {
   return (
     <GlassCard className="p-4 text-center">
       <div className="text-text-muted text-xs uppercase tracking-wider mb-1">{label}</div>
       <div className={`font-bebas text-2xl tracking-wider ${highlight ? 'text-accent-green text-glow-green' : 'text-white'}`}>
         {value}
       </div>
+      {sub && <div className="text-white/20 text-[10px] mt-0.5 leading-tight">{sub}</div>}
     </GlassCard>
   );
 }
@@ -284,7 +285,7 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
     v === 'H' ? t('home') : v === 'A' ? t('away') : v === 'D' ? t('draw') : '—';
 
   if (!breakdown) {
-    // Not yet resolved — show what was predicted
+    // Not yet resolved — show all predicted tiers
     return (
       <div className="grid grid-cols-2 gap-1.5 text-sm">
         {prediction.predicted_outcome && (
@@ -297,6 +298,24 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
           <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
             <span className="text-white/40 text-xs">{t('score')}</span>
             <span className="text-white text-sm font-semibold mt-0.5">{prediction.predicted_home_score} — {prediction.predicted_away_score}</span>
+          </div>
+        )}
+        {prediction.predicted_halftime_outcome && (
+          <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
+            <span className="text-white/40 text-xs">{t('halfTimeResult')}</span>
+            <span className="text-white text-sm font-semibold mt-0.5">{outcomeLabel(prediction.predicted_halftime_outcome)}</span>
+          </div>
+        )}
+        {prediction.predicted_btts !== null && (
+          <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
+            <span className="text-white/40 text-xs">{t('btts')}</span>
+            <span className="text-white text-sm font-semibold mt-0.5">{prediction.predicted_btts ? t('yes') : t('no')}</span>
+          </div>
+        )}
+        {prediction.predicted_over_under && (
+          <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
+            <span className="text-white/40 text-xs">{t('goals')}</span>
+            <span className="text-white text-sm font-semibold mt-0.5">{prediction.predicted_over_under === 'over' ? t('over25') : t('under25')}</span>
           </div>
         )}
       </div>

@@ -4,6 +4,71 @@ import { useGroupStore } from '../stores/groupStore';
 
 export type LeaderboardType = 'total' | 'weekly' | 'lastWeek';
 
+// Fetch leaderboard using direct table queries — shows ALL group members including 0-point users.
+// Does not depend on the get_group_leaderboard RPC being up to date.
+async function fetchGroupLeaderboard(
+  groupId: string,
+  type: LeaderboardType,
+): Promise<LeaderboardEntryWithProfile[]> {
+  // 1. Get all group members
+  const { data: members, error: membersErr } = await supabase
+    .from('group_members')
+    .select('user_id')
+    .eq('group_id', groupId);
+  if (membersErr) throw membersErr;
+
+  const userIds = (members ?? []).map(m => m.user_id);
+  if (userIds.length === 0) return [];
+
+  // 2. Fetch profiles + leaderboard rows in parallel
+  const [profilesRes, lbRes] = await Promise.all([
+    supabase.from('profiles').select('id, username, avatar_url').in('id', userIds),
+    supabase.from('leaderboard').select('*').eq('group_id', groupId),
+  ]);
+  if (profilesRes.error) throw profilesRes.error;
+  if (lbRes.error) throw lbRes.error;
+
+  const lbMap = new Map((lbRes.data ?? []).map(l => [l.user_id, l]));
+
+  // 3. Merge — every member gets an entry; non-leaderboard members get 0s
+  const sortField = type === 'weekly' ? 'weekly_points'
+    : type === 'lastWeek' ? 'weekly_points'  // fall back — no last_week col yet
+    : 'total_points';
+
+  const merged: LeaderboardEntryWithProfile[] = (profilesRes.data ?? []).map(profile => {
+    const lb = lbMap.get(profile.id);
+    return {
+      id: lb?.id ?? profile.id,
+      user_id: profile.id,
+      group_id: groupId,
+      username: profile.username,
+      avatar_url: profile.avatar_url,
+      total_points: lb?.total_points ?? 0,
+      weekly_points: lb?.weekly_points ?? 0,
+      predictions_made: lb?.predictions_made ?? 0,
+      correct_predictions: lb?.correct_predictions ?? 0,
+      current_streak: lb?.current_streak ?? 0,
+      best_streak: lb?.best_streak ?? 0,
+      updated_at: lb?.updated_at ?? new Date().toISOString(),
+      accuracy: lb?.predictions_made
+        ? Math.round((lb.correct_predictions / lb.predictions_made) * 1000) / 10
+        : 0,
+      rank: 0,
+    };
+  });
+
+  // Sort by chosen field desc, then total_points, then username
+  merged.sort((a, b) => {
+    const aVal = (a as Record<string, unknown>)[sortField] as number ?? 0;
+    const bVal = (b as Record<string, unknown>)[sortField] as number ?? 0;
+    if (bVal !== aVal) return bVal - aVal;
+    if (b.total_points !== a.total_points) return b.total_points - a.total_points;
+    return a.username.localeCompare(b.username);
+  });
+
+  return merged.map((e, i) => ({ ...e, rank: i + 1 }));
+}
+
 export function useLeaderboard(type: LeaderboardType = 'total') {
   const [entries, setEntries] = useState<LeaderboardEntryWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,34 +84,11 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
 
     setLoading(true);
     try {
-      // Use the helper function we defined in migrations
-      const { data, error } = await supabase
-        .rpc('get_group_leaderboard', { p_group_id: activeGroupId });
-
-      if (error) throw error;
-
-      let sortField: keyof LeaderboardEntryWithProfile;
-      if (type === 'weekly') {
-        sortField = 'weekly_points';
-      } else if (type === 'lastWeek') {
-        // Use last_week_points if available, otherwise fall back to weekly_points
-        const sample = (data || [])[0] as Record<string, unknown> | undefined;
-        sortField = (sample && 'last_week_points' in sample)
-          ? 'last_week_points' as keyof LeaderboardEntryWithProfile
-          : 'weekly_points';
-      } else {
-        sortField = 'total_points';
-      }
-
-      const sorted = [...(data || [])]
-        .sort((a, b) => {
-          const aVal = (a as Record<string, unknown>)[sortField as string] as number ?? 0;
-          const bVal = (b as Record<string, unknown>)[sortField as string] as number ?? 0;
-          return bVal - aVal;
-        })
-        .map((entry, idx) => ({ ...entry, rank: idx + 1 }));
-
-      setEntries(sorted as LeaderboardEntryWithProfile[]);
+      const data = await fetchGroupLeaderboard(activeGroupId, type);
+      setEntries(data);
+    } catch (err) {
+      console.error('[useLeaderboard] fetch failed:', err);
+      setEntries([]);
     } finally {
       setLoading(false);
     }
@@ -54,11 +96,7 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
 
   const subscribeToLeaderboard = useCallback(() => {
     if (!activeGroupId) return;
-
-    if (channelRef.current) {
-      channelRef.current.unsubscribe();
-    }
-
+    channelRef.current?.unsubscribe();
     channelRef.current = supabase
       .channel(`leaderboard-${activeGroupId}`)
       .on('postgres_changes', {
@@ -66,10 +104,7 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
         schema: 'public',
         table: 'leaderboard',
         filter: `group_id=eq.${activeGroupId}`,
-      }, () => {
-        // Re-fetch on any leaderboard change
-        fetchLeaderboard();
-      })
+      }, () => { fetchLeaderboard(); })
       .subscribe();
   }, [activeGroupId, fetchLeaderboard]);
 
@@ -78,18 +113,13 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
     subscribeToLeaderboard();
 
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchLeaderboard();
-        subscribeToLeaderboard();
-      }
+      if (!document.hidden) { fetchLeaderboard(); subscribeToLeaderboard(); }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-      }
+      channelRef.current?.unsubscribe();
     };
   }, [fetchLeaderboard, subscribeToLeaderboard]);
 

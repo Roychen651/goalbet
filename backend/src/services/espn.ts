@@ -7,6 +7,8 @@ import axios from 'axios';
 import { logger } from '../lib/logger';
 import { DBMatch } from './sportsdb';
 
+export type DBMatchWithClock = DBMatch & { display_clock: string | null };
+
 // Map our internal TheSportsDB league IDs → ESPN league slugs
 export const LEAGUE_ESPN_MAP: Record<number, string> = {
   4328: 'eng.1',           // Premier League
@@ -26,23 +28,33 @@ export const LEAGUE_ESPN_MAP: Record<number, string> = {
   // Israeli Premier League (4354) has no ESPN coverage — skipped
 };
 
-function mapEspnStatus(statusName: string, period: number): string {
+function mapEspnStatus(statusName: string, period: number, state: string): string {
   switch (statusName) {
     case 'STATUS_FINAL':
     case 'STATUS_FULL_TIME':
     case 'STATUS_FULL_PEN':
     case 'STATUS_FULL_ET':
+    case 'STATUS_FINAL_AET':
+    case 'STATUS_FINAL_PK':
+    case 'STATUS_RESULT_OF_LEG':
       return 'FT';
     case 'STATUS_HALFTIME':
       return 'HT';
     case 'STATUS_IN_PROGRESS':
+    case 'STATUS_LIVE':
       return period <= 1 ? '1H' : '2H';
     case 'STATUS_POSTPONED':
+    case 'STATUS_DELAY':
+    case 'STATUS_RAIN_DELAY':
       return 'PST';
     case 'STATUS_CANCELED':
     case 'STATUS_CANCELLED':
+    case 'STATUS_ABANDONED':
       return 'CANC';
     default:
+      // Fall back to ESPN state ('pre' | 'in' | 'post') if status name is unrecognised
+      if (state === 'in') return period <= 1 ? '1H' : '2H';
+      if (state === 'post') return 'FT';
       return 'NS';
   }
 }
@@ -60,11 +72,26 @@ function formatDate(d: Date): string {
   return `${y}${m}${day}`;
 }
 
+function buildDisplayClock(statusName: string, state: string, displayClock: string | undefined, period: number): string | null {
+  if (state === 'pre') return null;
+  if (statusName === 'STATUS_HALFTIME') return 'HT';
+  if (statusName === 'STATUS_FINAL' || state === 'post') return null;
+  if (displayClock) {
+    // ESPN gives "MM:SS" elapsed time (e.g. "48:23", "45:00+", "90:00+")
+    // Extract leading integer as the minute
+    const m = displayClock.match(/^(\d+)/);
+    if (m) return `${parseInt(m[1])}'`;
+  }
+  // Fallback: period label only
+  if (state === 'in') return period <= 1 ? '1H' : '2H';
+  return null;
+}
+
 export async function fetchLeagueMatches(
   leagueId: number,
   daysBack = 7,
   daysAhead = 14,
-): Promise<DBMatch[]> {
+): Promise<DBMatchWithClock[]> {
   const slug = LEAGUE_ESPN_MAP[leagueId];
   if (!slug) {
     logger.warn(`[ESPN] No slug for league ${leagueId}, skipping`);
@@ -91,7 +118,7 @@ export async function fetchLeagueMatches(
     }
 
     const leagueName: string = (data.leagues?.[0]?.name as string) ?? slug;
-    const matches: DBMatch[] = [];
+    const matches: DBMatchWithClock[] = [];
 
     for (const event of events as Record<string, unknown>[]) {
       try {
@@ -112,7 +139,24 @@ export async function fetchLeagueMatches(
         const homeTeam = home.team as Record<string, unknown>;
         const awayTeam = away.team as Record<string, unknown>;
 
-        const matchStatus = mapEspnStatus(statusName, period);
+        const matchStatus = mapEspnStatus(statusName, period, state);
+        const espnClock = (status?.displayClock as string | undefined);
+        const displayClock = buildDisplayClock(statusName, state, espnClock, period);
+
+        // Extract halftime scores from ESPN linescores (available after HT and in 2H/FT)
+        // linescores[0] = 1st half score, linescores[1] = 2nd half score
+        const homeLinescores = (home.linescores as Record<string, unknown>[] | undefined) ?? [];
+        const awayLinescores = (away.linescores as Record<string, unknown>[] | undefined) ?? [];
+        const parseLineScore = (ls: Record<string, unknown>[]): number | null => {
+          const v = ls[0]?.value ?? ls[0]?.displayValue;
+          if (v === undefined || v === null) return null;
+          const n = parseInt(String(v), 10);
+          return isNaN(n) ? null : n;
+        };
+        const htHome = parseLineScore(homeLinescores);
+        const htAway = parseLineScore(awayLinescores);
+        // Only record HT scores if match is at HT, 2H, or FT (linescores are populated after 1H ends)
+        const htAvailable = ['HT', '2H', 'FT'].includes(matchStatus) && htHome !== null && htAway !== null;
 
         matches.push({
           external_id: `espn_${event.id}`,
@@ -126,10 +170,11 @@ export async function fetchLeagueMatches(
           status: matchStatus,
           home_score: parseScore(home.score as string, state),
           away_score: parseScore(away.score as string, state),
-          halftime_home: null, // not available in ESPN scoreboard
-          halftime_away: null,
+          halftime_home: htAvailable ? htHome : null,
+          halftime_away: htAvailable ? htAway : null,
           season: (data.leagues?.[0]?.season?.displayName as string) ?? null,
           round: null,
+          display_clock: displayClock,
         });
       } catch (err) {
         logger.debug(`[ESPN] Skipped event ${(event as Record<string, unknown>).id}: ${err}`);

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ROUTES } from '../../lib/constants';
@@ -5,10 +6,12 @@ import { cn } from '../../lib/utils';
 import { useGroupStore } from '../../stores/groupStore';
 import { useLangStore } from '../../stores/langStore';
 import { LangToggle } from '../ui/LangToggle';
+import { PolicyModal } from '../ui/PolicyModal';
 
 export function Sidebar() {
   const { groups, activeGroupId } = useGroupStore();
   const { t } = useLangStore();
+  const [showPolicy, setShowPolicy] = useState(false);
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
   const NAV_ITEMS = [
@@ -64,7 +67,14 @@ export function Sidebar() {
           GoalBet v1.0<br/>
           <span className="opacity-70">© Roy Chen 2026</span>
         </div>
+        <button
+          onClick={() => setShowPolicy(true)}
+          className="text-text-muted text-[11px] opacity-40 hover:opacity-70 transition-opacity text-start"
+        >
+          {t('policyTerms')}
+        </button>
       </div>
+      {showPolicy && <PolicyModal onClose={() => setShowPolicy(false)} />}
     </aside>
   );
 }

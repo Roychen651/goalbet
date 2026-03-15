@@ -4,7 +4,7 @@ import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
 import { MatchStatusBadge } from './MatchStatusBadge';
 import { PredictionForm, PredictionData } from './PredictionForm';
-import { cn, formatKickoffTime } from '../../lib/utils';
+import { cn, formatKickoffTime, getLiveClock } from '../../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import { useLiveClock } from '../../hooks/useLiveClock';
@@ -25,10 +25,19 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   useLiveClock(20_000);
   const isLive = LIVE_STATUSES.includes(match.status);
   const isFinished = FINISHED_STATUSES.includes(match.status);
+  // NS match that has passed kickoff — backend hasn't updated status yet
+  const isPastKickoffNS = match.status === 'NS' && new Date(match.kickoff_time).getTime() < Date.now();
+  const isInProgress = isLive || isPastKickoffNS;
+  const liveClock = isInProgress ? getLiveClock(match) : null;
+  // "refreshed X ago" — how stale is the DB data
+  const updatedAgoSecs = Math.floor((Date.now() - new Date(match.updated_at).getTime()) / 1000);
+  const updatedAgoLabel = updatedAgoSecs < 60
+    ? `${updatedAgoSecs}s ago`
+    : `${Math.floor(updatedAgoSecs / 60)}m ago`;
   const hasPrediction = !!prediction;
   const { date, time, countdown, lockCountdown } = formatKickoffTime(match.kickoff_time);
   // True when kickoff is within the next 5 minutes
-  const startingSoon = !isLive && !isFinished && (() => {
+  const startingSoon = !isLive && !isFinished && !isPastKickoffNS && (() => {
     const diffMs = new Date(match.kickoff_time).getTime() - Date.now();
     return diffMs > 0 && diffMs < 5 * 60 * 1000;
   })();
@@ -39,7 +48,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   return (
     <GlassCard
       as="article"
-      variant={isLive ? 'live' : 'default'}
+      variant={isLive || isPastKickoffNS ? 'live' : 'default'}
       className="overflow-hidden"
     >
       {/* Card header */}
@@ -78,16 +87,52 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
           />
 
           <div className="flex-1 flex flex-col items-center">
-            {isLive || isFinished ? (
-              <motion.span
-                key={`${match.home_score}-${match.away_score}`}
-                initial={{ scale: 1.15 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                className="text-2xl font-bebas tracking-widest text-white"
-              >
-                {match.home_score ?? 0} — {match.away_score ?? 0}
-              </motion.span>
+            {isLive || isFinished || (isPastKickoffNS && match.home_score !== null) ? (
+              <div className="flex flex-col items-center gap-0.5">
+                <motion.span
+                  key={`${match.home_score}-${match.away_score}`}
+                  initial={{ scale: 1.15 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                  className="text-2xl font-bebas tracking-widest text-white"
+                >
+                  {match.home_score ?? 0} — {match.away_score ?? 0}
+                </motion.span>
+                {isInProgress && liveClock && (
+                  <motion.span
+                    key={liveClock}
+                    animate={{ opacity: [1, 0.5, 1] }}
+                    transition={{ duration: 1.6, repeat: Infinity }}
+                    className="text-xs font-bold text-accent-green tracking-wider"
+                  >
+                    {liveClock}
+                  </motion.span>
+                )}
+                {isInProgress && (
+                  <span className="text-[9px] text-white/25 mt-0.5">
+                    ↻ {updatedAgoLabel}
+                  </span>
+                )}
+              </div>
+            ) : isPastKickoffNS ? (
+              // Kicked off but backend hasn't polled ESPN yet
+              <div className="flex flex-col items-center gap-1">
+                <motion.span
+                  animate={{ opacity: [1, 0.3, 1] }}
+                  transition={{ duration: 1.2, repeat: Infinity }}
+                  className="text-xl font-bebas tracking-widest text-accent-green"
+                >
+                  — —
+                </motion.span>
+                <motion.span
+                  animate={{ opacity: [1, 0.4, 1] }}
+                  transition={{ duration: 1.4, repeat: Infinity }}
+                  className="text-[10px] text-accent-green/70"
+                >
+                  {liveClock ?? t('live_status')}
+                </motion.span>
+                <span className="text-[9px] text-white/25">↻ {updatedAgoLabel}</span>
+              </div>
             ) : (
               <div className="flex flex-col items-center gap-0.5">
                 {leagueEspnId !== null ? (
@@ -131,7 +176,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
               </span>
             )}
             {/* Lock countdown — shown only for upcoming matches not yet locked */}
-            {!isLive && !isFinished && lockCountdown && (
+            {!isLive && !isFinished && !isPastKickoffNS && lockCountdown && (
               <span className="text-orange-400/80 text-[10px] mt-0.5 flex items-center gap-0.5">
                 <span>🔒</span>
                 <span>{lockCountdown}</span>
@@ -204,7 +249,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
               <PredictionForm
                 match={match}
                 existingPrediction={prediction}
-                onSave={onSavePrediction}
+                onSave={async (data) => { await onSavePrediction(data); setExpanded(false); }}
                 saving={savingMatchId === match.id}
               />
             </div>

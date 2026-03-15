@@ -70,6 +70,7 @@ export type Database = {
           away_score: number | null;
           halftime_home: number | null;
           halftime_away: number | null;
+          display_clock: string | null;
           season: string | null;
           round: string | null;
           updated_at: string;

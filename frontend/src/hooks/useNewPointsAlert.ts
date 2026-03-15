@@ -27,6 +27,8 @@ export function useNewPointsAlert(): NewPointsAlert {
 
   useEffect(() => {
     if (!user || !activeGroupId) return;
+
+    // Initial fetch
     supabase
       .from('leaderboard')
       .select('total_points')
@@ -36,6 +38,26 @@ export function useNewPointsAlert(): NewPointsAlert {
       .then(({ data }) => {
         if (data) setCurrentPoints(data.total_points);
       });
+
+    // Real-time subscription — fires when backend resolves predictions and updates leaderboard
+    const channel = supabase
+      .channel(`leaderboard-alert-${user.id}-${activeGroupId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'leaderboard',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const pts = (payload.new as { total_points: number }).total_points;
+          setCurrentPoints(pts);
+        }
+      )
+      .subscribe();
+
+    return () => { channel.unsubscribe(); };
   }, [user?.id, activeGroupId]);
 
   const hasNew = currentPoints !== null && currentPoints > lastSeen;

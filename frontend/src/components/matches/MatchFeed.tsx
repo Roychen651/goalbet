@@ -25,18 +25,26 @@ export function MatchFeed({
 
   const filteredMatches = useMemo(() => {
     let filtered = [...matches];
+    const now = Date.now();
+    // NS match past kickoff — backend hasn't polled status yet but game is in progress
+    const isStalledNS = (m: Match) => m.status === 'NS' && new Date(m.kickoff_time).getTime() < now;
+
     if (activeTab === 'upcoming') {
-      filtered = filtered.filter(m => m.status === 'NS' && new Date(m.kickoff_time) > new Date());
+      // Upcoming = NS with future kickoff only (stalled NS go to live)
+      filtered = filtered.filter(m => m.status === 'NS' && !isStalledNS(m));
     } else if (activeTab === 'live') {
-      filtered = filtered.filter(m => LIVE_STATUSES.includes(m.status));
+      // Live = actual live statuses + NS matches that have passed kickoff
+      filtered = filtered.filter(m => LIVE_STATUSES.includes(m.status) || isStalledNS(m));
     } else if (activeTab === 'completed') {
       filtered = filtered.filter(m => FINISHED_STATUSES.includes(m.status));
     }
     return filtered;
   }, [matches, activeTab]);
 
-  // Group by date
+  // Group by date, then within each date sort by (kickoff asc, league asc)
+  // so same-competition games are always adjacent
   const groupedByDate = useMemo(() => {
+    const now = Date.now();
     const groups = new Map<string, Match[]>();
     for (const match of filteredMatches) {
       const date = new Date(match.kickoff_time).toLocaleDateString(undefined, {
@@ -45,8 +53,25 @@ export function MatchFeed({
       if (!groups.has(date)) groups.set(date, []);
       groups.get(date)!.push(match);
     }
+    // Sort each day's matches: live first → predicted first → kickoff time → league
+    for (const [, dayMatches] of groups) {
+      dayMatches.sort((a, b) => {
+        const isStalledNS = (m: Match) => m.status === 'NS' && new Date(m.kickoff_time).getTime() < now;
+        const aLive = LIVE_STATUSES.includes(a.status) || isStalledNS(a);
+        const bLive = LIVE_STATUSES.includes(b.status) || isStalledNS(b);
+        if (aLive !== bLive) return aLive ? -1 : 1;
+        // Among same live/not-live bucket: predicted matches first
+        const aPred = predictions.has(a.id) ? 0 : 1;
+        const bPred = predictions.has(b.id) ? 0 : 1;
+        if (aPred !== bPred) return aPred - bPred;
+        const tA = new Date(a.kickoff_time).getTime();
+        const tB = new Date(b.kickoff_time).getTime();
+        if (tA !== tB) return tA - tB;
+        return a.league_id - b.league_id;
+      });
+    }
     return groups;
-  }, [filteredMatches]);
+  }, [filteredMatches, predictions]);
 
   if (loading) return <PageLoader />;
 

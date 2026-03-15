@@ -9,6 +9,7 @@ import { GlassCard } from '../components/ui/GlassCard';
 import { NeonButton } from '../components/ui/NeonButton';
 import { InviteCodeDisplay } from '../components/groups/InviteCodeDisplay';
 import { GroupMembersList } from '../components/groups/GroupMembersList';
+import { PolicyModal } from '../components/ui/PolicyModal';
 import { FOOTBALL_LEAGUES } from '../lib/constants';
 import { cn } from '../lib/utils';
 
@@ -18,6 +19,7 @@ export function SettingsPage() {
   const { addToast, openModal } = useUIStore();
   const { t } = useLangStore();
   const [savingLeagues, setSavingLeagues] = useState(false);
+  const [showPolicy, setShowPolicy] = useState(false);
   const [leavingGroupId, setLeavingGroupId] = useState<string | null>(null);
   const [confirmLeaveId, setConfirmLeaveId] = useState<string | null>(null);
 
@@ -236,6 +238,18 @@ export function SettingsPage() {
           </section>
         </>
       )}
+
+      {/* Policy — visible on mobile (sidebar not shown) */}
+      <div className="sm:hidden pt-2 text-center">
+        <button
+          onClick={() => setShowPolicy(true)}
+          className="text-text-muted text-xs opacity-40 hover:opacity-70 transition-opacity"
+        >
+          {t('policyTerms')}
+        </button>
+      </div>
+
+      {showPolicy && <PolicyModal onClose={() => setShowPolicy(false)} />}
     </div>
   );
 }

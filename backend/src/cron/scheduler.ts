@@ -3,6 +3,8 @@ import { syncAllActiveLeagues } from '../services/matchSync';
 import { checkAndUpdateScores, resetWeeklyPoints } from '../services/scoreUpdater';
 import { logger } from '../lib/logger';
 
+let livePollerRunning = false;
+
 export function startScheduler(): void {
   logger.info('[scheduler] Starting cron jobs...');
 
@@ -16,18 +18,23 @@ export function startScheduler(): void {
     }
   });
 
-  // Score resolution every 60 seconds — checks if pending matches have finished
-  // Smart: only makes API calls when matches are expected to have finished
-  cron.schedule('* * * * *', async () => {
+  // Live score poller — runs every 30 seconds using setInterval.
+  // Polls ESPN for any match that has kicked off and isn't finished yet.
+  // This gives ~30s latency on live score updates.
+  setInterval(async () => {
+    if (livePollerRunning) return; // skip if previous run still in progress
+    livePollerRunning = true;
     try {
       const result = await checkAndUpdateScores();
       if (result.checked > 0) {
-        logger.info(`[scheduler] Score update: checked=${result.checked} resolved=${result.resolved}`);
+        logger.info(`[scheduler] Live poll: checked=${result.checked} resolved=${result.resolved}`);
       }
     } catch (err) {
-      logger.error('[scheduler] Score update failed:', err);
+      logger.error('[scheduler] Live poll failed:', err);
+    } finally {
+      livePollerRunning = false;
     }
-  });
+  }, 30_000);
 
   // Weekly points reset every Monday at 00:00 UTC
   cron.schedule('0 0 * * 1', async () => {

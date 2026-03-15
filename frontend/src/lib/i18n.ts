@@ -164,6 +164,9 @@ export const translations = {
     appearance: 'Appearance',
     darkMode: 'Dark',
     lightMode: 'Light',
+
+    // Policy
+    policyTerms: 'Policy & Terms',
   },
 
   he: {
@@ -326,6 +329,9 @@ export const translations = {
     appearance: 'מראה',
     darkMode: 'כהה',
     lightMode: 'בהיר',
+
+    // Policy
+    policyTerms: 'מדיניות ותנאים',
   },
 } as const;
 
