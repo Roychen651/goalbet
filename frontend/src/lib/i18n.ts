@@ -1,0 +1,320 @@
+// GoalBet i18n — English & Hebrew
+// All UI strings in one place
+
+export type Language = 'en' | 'he';
+
+export const translations = {
+  en: {
+    // App
+    appName: 'GoalBet',
+    appTagline: 'Predict. Compete. Win.',
+    appDescription: 'The football prediction game for you and your friends. Free. Fun. No real money.',
+
+    // Login
+    continueWithGoogle: 'Continue with Google',
+    signingIn: 'Signing in...',
+    multiTierPredictions: 'Multi-tier\nPredictions',
+    liveLeaderboard: 'Live\nLeaderboard',
+    streakBonuses: 'Streak\nBonuses',
+
+    // Setup modal
+    setupRequired: 'Setup Required',
+    setupDescription: 'To use GoalBet, you need to connect a Supabase project. Follow these steps:',
+    setupStep1: '1. Create a free project at supabase.com',
+    setupStep2: '2. Run the 3 SQL migration files in the SQL Editor',
+    setupStep3: '3. Enable Google OAuth in Auth → Providers',
+    setupStep4: '4. Replace .env.local with your real Supabase URL and anon key',
+    setupStep5: '5. Restart the dev server',
+    viewReadme: 'View README for full instructions',
+    gotIt: 'Got it',
+
+    // Nav
+    matches: 'Matches',
+    standings: 'Standings',
+    profile: 'Profile',
+    settings: 'Settings',
+    leaderboard: 'Leaderboard',
+    myProfile: 'My Profile',
+
+    // Home
+    matchDay: 'Match Day',
+    noGroupTitle: 'Welcome to GoalBet',
+    noGroupDesc: 'Join or create a group with friends to start predicting matches and competing on the leaderboard.',
+    createGroup: 'Create Group',
+    joinGroup: 'Join Group',
+    all: 'All',
+    upcoming: 'Upcoming',
+    live: 'Live',
+    results: 'Results',
+
+    // Match
+    noLiveMatches: 'No live matches right now',
+    noMatches: 'No matches found',
+    noUpcomingDesc: 'No upcoming matches in your selected leagues. Try adding more leagues in Settings.',
+    noLiveDesc: 'Check back when matches are in progress.',
+    noMatchesDesc: 'No matches to show. Matches are synced daily.',
+    predicted: '✓ Predicted',
+    halfTime: 'HT',
+    startingNow: 'Starting now',
+
+    // Prediction form
+    fullTimeResult: 'Full Time Result',
+    exactScore: 'Exact Score',
+    halfTimeResult: 'Half Time Result',
+    bothTeamsToScore: 'Both Teams to Score',
+    totalGoals: 'Total Goals',
+    lockInPrediction: 'Lock In Prediction',
+    predictionSaved: '✓ Prediction Saved — Update',
+    predictionLocked: 'No prediction made for this match',
+    result: 'Result',
+    score: 'Score',
+    btts: 'BTTS',
+    goals: 'Goals',
+    home: 'Home',
+    draw: 'Draw',
+    away: 'Away',
+    yes: 'Yes',
+    no: 'No',
+    over25: 'Over 2.5',
+    under25: 'Under 2.5',
+    ptsEarned: 'pts earned',
+    noPoints: 'No points this time',
+    pts: 'pts',
+    editPrediction: 'tap to edit',
+
+    // Leaderboard
+    allTime: 'All Time',
+    thisWeek: 'This Week',
+    yourRank: 'Your Rank',
+    points: 'Points',
+    accuracy: 'Accuracy',
+    streak: 'Streak',
+    picks: 'picks',
+    accurate: 'accurate',
+    noLeaderboardData: 'No data yet',
+    noLeaderboardDesc: 'Start predicting matches to appear on the leaderboard.',
+
+    // Profile
+    totalPoints: 'Total Points',
+    predictions: 'Predictions',
+    correct: 'Correct',
+    predictionHistory: 'Prediction History',
+    noPredictions: 'No predictions yet. Start on the Matches tab!',
+    signOut: 'Sign Out',
+
+    // Settings
+    inviteFriends: 'Invite Friends',
+    inviteCode: 'Invite Code',
+    copyAndShare: '📋 Copy & Share',
+    copied: '✓ Copied',
+    switchGroup: 'Switch Group',
+    leagues: 'leagues',
+    activeLeagues: 'Active Leagues',
+    save: 'Save',
+    moreGroups: 'More Groups',
+    newGroup: '+ New Group',
+    joinGroupShort: '→ Join Group',
+    noGroupYet: "You're not in any group yet.",
+
+    // Group modals
+    createGroupTitle: 'Create Group',
+    createGroupDesc: 'Create a private group and share the invite code with friends',
+    groupName: 'Group Name',
+    groupNamePlaceholder: 'e.g. The Boys, Office League...',
+    selected: 'selected',
+    cancel: 'Cancel',
+    joinGroupTitle: 'Join Group',
+    joinGroupDesc: 'Enter the 8-character invite code from your friend',
+    join: 'Join Group',
+
+    // Group members
+    groupMembers: 'Group Members',
+    noMembers: 'No members yet',
+    leaveGroup: 'Leave Group',
+    leaveGroupConfirm: 'Are you sure you want to leave this group?',
+    confirmLeave: 'Yes, Leave',
+    deleteGroup: 'Delete Group',
+
+    // Avatar
+    chooseAvatar: 'Choose Avatar',
+    googlePhoto: 'Google Photo',
+    saveAvatar: 'Save Avatar',
+    avatarSaved: 'Avatar updated!',
+
+    // Toasts
+    groupCreated: 'created! Invite code:',
+    joinedGroup: 'Joined',
+    leftGroup: 'You left the group',
+    leaguesSaved: 'League preferences saved',
+    predictionSavedToast: 'Prediction saved!',
+    copySuccess: 'Invite link copied!',
+    failedLoadMatches: 'Failed to load matches',
+    retry: 'Retry',
+
+    // Status
+    upcoming_status: 'Upcoming',
+    live_status: 'Live',
+    halfTime_status: 'Half Time',
+    fullTime_status: 'Full Time',
+    postponed_status: 'Postponed',
+    cancelled_status: 'Cancelled',
+  },
+
+  he: {
+    // App
+    appName: 'GoalBet',
+    appTagline: 'נבא. התחרה. נצח.',
+    appDescription: 'משחק ניבוי כדורגל לך ולחברים שלך. בחינם. כיפי. ללא כסף אמיתי.',
+
+    // Login
+    continueWithGoogle: 'כניסה עם Google',
+    signingIn: 'מתחבר...',
+    multiTierPredictions: 'ניבויים\nמרובי שלבים',
+    liveLeaderboard: 'טבלה\nבזמן אמת',
+    streakBonuses: 'בונוסי\nרצף',
+
+    // Setup modal
+    setupRequired: 'נדרשת הגדרה',
+    setupDescription: 'כדי להשתמש ב-GoalBet, יש לחבר פרויקט Supabase. עקוב אחר השלבים הבאים:',
+    setupStep1: '1. צור פרויקט חינמי בsupabase.com',
+    setupStep2: '2. הרץ את 3 קבצי ה-SQL במעבד השאילתות',
+    setupStep3: '3. הפעל Google OAuth בAuthentication → Providers',
+    setupStep4: '4. החלף את .env.local עם ה-URL המאת שלך',
+    setupStep5: '5. הפעל מחדש את שרת הפיתוח',
+    viewReadme: 'הצג README להוראות מלאות',
+    gotIt: 'הבנתי',
+
+    // Nav
+    matches: 'משחקים',
+    standings: 'טבלה',
+    profile: 'פרופיל',
+    settings: 'הגדרות',
+    leaderboard: 'דירוג',
+    myProfile: 'הפרופיל שלי',
+
+    // Home
+    matchDay: 'יום משחק',
+    noGroupTitle: 'ברוך הבא ל-GoalBet',
+    noGroupDesc: 'הצטרף או צור קבוצה עם חברים כדי להתחיל לנבא משחקים ולהתחרות בטבלת הדירוג.',
+    createGroup: 'צור קבוצה',
+    joinGroup: 'הצטרף לקבוצה',
+    all: 'הכל',
+    upcoming: 'עתידיים',
+    live: 'חי',
+    results: 'תוצאות',
+
+    // Match
+    noLiveMatches: 'אין משחקים חיים כרגע',
+    noMatches: 'לא נמצאו משחקים',
+    noUpcomingDesc: 'אין משחקים עתידיים בליגות שבחרת. נסה להוסיף ליגות נוספות בהגדרות.',
+    noLiveDesc: 'חזור כשמשחקים יתקיימו.',
+    noMatchesDesc: 'אין משחקים להצגה. המשחקים מסונכרנים מדי יום.',
+    predicted: '✓ נובא',
+    halfTime: 'הפסקה',
+    startingNow: 'מתחיל עכשיו',
+
+    // Prediction form
+    fullTimeResult: 'תוצאה סופית',
+    exactScore: 'תוצאה מדויקת',
+    halfTimeResult: 'תוצאת הפסקה',
+    bothTeamsToScore: 'שתי הקבוצות מבקיעות',
+    totalGoals: 'סה"כ שערים',
+    lockInPrediction: 'נעל ניבוי',
+    predictionSaved: '✓ ניבוי נשמר — עדכן',
+    predictionLocked: 'לא בוצע ניבוי למשחק זה',
+    result: 'תוצאה',
+    score: 'סקור',
+    btts: 'שתיים מבקיעות',
+    goals: 'שערים',
+    home: 'בית',
+    draw: 'תיקו',
+    away: 'חוץ',
+    yes: 'כן',
+    no: 'לא',
+    over25: 'מעל 2.5',
+    under25: 'מתחת ל-2.5',
+    ptsEarned: 'נק׳ הושגו',
+    noPoints: 'אין נקודות הפעם',
+    pts: 'נק׳',
+    editPrediction: 'לחץ לעריכה',
+
+    // Leaderboard
+    allTime: 'כל הזמנים',
+    thisWeek: 'השבוע',
+    yourRank: 'הדירוג שלך',
+    points: 'נקודות',
+    accuracy: 'דיוק',
+    streak: 'רצף',
+    picks: 'ניבויים',
+    accurate: 'מדויקים',
+    noLeaderboardData: 'אין נתונים עדיין',
+    noLeaderboardDesc: 'התחל לנבא משחקים כדי להופיע בטבלת הדירוג.',
+
+    // Profile
+    totalPoints: 'סה"כ נקודות',
+    predictions: 'ניבויים',
+    correct: 'נכון',
+    predictionHistory: 'היסטוריית ניבויים',
+    noPredictions: 'אין ניבויים עדיין. התחל בלשונית המשחקים!',
+    signOut: 'התנתק',
+
+    // Settings
+    inviteFriends: 'הזמן חברים',
+    inviteCode: 'קוד הזמנה',
+    copyAndShare: '📋 העתק ושתף',
+    copied: '✓ הועתק',
+    switchGroup: 'החלף קבוצה',
+    leagues: 'ליגות',
+    activeLeagues: 'ליגות פעילות',
+    save: 'שמור',
+    moreGroups: 'קבוצות נוספות',
+    newGroup: '+ קבוצה חדשה',
+    joinGroupShort: '→ הצטרף לקבוצה',
+    noGroupYet: 'אתה עדיין לא בשום קבוצה.',
+
+    // Group modals
+    createGroupTitle: 'צור קבוצה',
+    createGroupDesc: 'צור קבוצה פרטית ושתף את קוד ההזמנה עם חברים',
+    groupName: 'שם הקבוצה',
+    groupNamePlaceholder: 'לדוגמה: החבר\'ה, ליגת המשרד...',
+    selected: 'נבחרו',
+    cancel: 'ביטול',
+    joinGroupTitle: 'הצטרף לקבוצה',
+    joinGroupDesc: 'הזן את קוד ההזמנה בן 8 תווים מהחבר שלך',
+    join: 'הצטרף לקבוצה',
+
+    // Group members
+    groupMembers: 'חברי הקבוצה',
+    noMembers: 'אין חברים עדיין',
+    leaveGroup: 'עזוב קבוצה',
+    leaveGroupConfirm: 'האם אתה בטוח שאתה רוצה לעזוב?',
+    confirmLeave: 'כן, עזוב',
+    deleteGroup: 'מחק קבוצה',
+
+    // Avatar
+    chooseAvatar: 'בחר אווטר',
+    googlePhoto: 'תמונת Google',
+    saveAvatar: 'שמור אווטר',
+    avatarSaved: 'האווטר עודכן!',
+
+    // Toasts
+    groupCreated: 'נוצרה! קוד הזמנה:',
+    joinedGroup: 'הצטרפת ל-',
+    leftGroup: 'עזבת את הקבוצה',
+    leaguesSaved: 'העדפות הליגה נשמרו',
+    predictionSavedToast: 'הניבוי נשמר!',
+    copySuccess: 'קישור ההזמנה הועתק!',
+    failedLoadMatches: 'טעינת משחקים נכשלה',
+    retry: 'נסה שוב',
+
+    // Status
+    upcoming_status: 'עתידי',
+    live_status: 'חי',
+    halfTime_status: 'הפסקה',
+    fullTime_status: 'סיום',
+    postponed_status: 'נדחה',
+    cancelled_status: 'בוטל',
+  },
+} as const;
+
+export type TranslationKey = keyof typeof translations.en;

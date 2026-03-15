@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   CSS Custom Properties — GoalBet Design System
+   ============================================================ */
+:root {
+  --bg-base: #080d0a;
+  --bg-surface: rgba(255, 255, 255, 0.03);
+  --bg-card: rgba(255, 255, 255, 0.06);
+  --accent-green: #00ff87;
+  --accent-orange: #ff6b35;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-bright: rgba(255, 255, 255, 0.15);
+  --glow-green: 0 0 20px rgba(0, 255, 135, 0.3);
+  --glow-orange: 0 0 20px rgba(255, 107, 53, 0.3);
+}
+
+/* ============================================================
+   Base Reset
+   ============================================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+/* ============================================================
+   Professional Football Background
+   ============================================================ */
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--bg-base);
+  background-image:
+    /* Top green aurora — goalbet brand glow */
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(0, 255, 135, 0.07) 0%, transparent 70%),
+    /* Bottom left subtle orange warmth */
+    radial-gradient(ellipse 60% 40% at -10% 100%, rgba(255, 107, 53, 0.05) 0%, transparent 60%),
+    /* Bottom right subtle blue (night match feel) */
+    radial-gradient(ellipse 60% 40% at 110% 100%, rgba(56, 128, 255, 0.04) 0%, transparent 60%),
+    /* Football pitch center circle — very subtle */
+    radial-gradient(circle 280px at 50% 45%, transparent 200px, rgba(0, 255, 135, 0.015) 200px, transparent 280px),
+    /* Pitch lines — horizontal center line */
+    linear-gradient(
+      to bottom,
+      transparent calc(45% - 0.5px),
+      rgba(0, 255, 135, 0.04) calc(45% - 0.5px),
+      rgba(0, 255, 135, 0.04) calc(45% + 0.5px),
+      transparent calc(45% + 0.5px)
+    ),
+    /* Noise grain for depth */
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+  background-attachment: fixed;
+}
+
+/* Subtle vignette overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root {
+  min-height: 100dvh;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   Scrollbar styling
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================================
+   Typography utilities
+   ============================================================ */
+.font-heading {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   Glass morphism utilities
+   ============================================================ */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-hover {
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-hover:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.13);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================================
+   Neon glow utilities
+   ============================================================ */
+.glow-green {
+  box-shadow: 0 0 20px rgba(0, 255, 135, 0.3), 0 0 40px rgba(0, 255, 135, 0.1);
+}
+
+.glow-orange {
+  box-shadow: 0 0 20px rgba(255, 107, 53, 0.3), 0 0 40px rgba(255, 107, 53, 0.1);
+}
+
+.text-glow-green {
+  text-shadow: 0 0 10px rgba(0, 255, 135, 0.5);
+}
+
+/* ============================================================
+   Live match animation
+   ============================================================ */
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00ff87;
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,255,135,0.6); }
+  50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(0,255,135,0); }
+}
+
+/* ============================================================
+   Input styling override for dark theme
+   ============================================================ */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ============================================================
+   RTL support helpers
+   ============================================================ */
+[dir="rtl"] .flip-rtl {
+  transform: scaleX(-1);
+}
+
+/* ============================================================
+   Card ambient glow effect (applied via JS/Tailwind)
+   ============================================================ */
+@keyframes cardEntrance {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-card-in {
+  animation: cardEntrance 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}

@@ -1,0 +1,63 @@
+// Football leagues from TheSportsDB (free tier)
+export const FOOTBALL_LEAGUES = [
+  // Top 5 European leagues
+  { id: 4328, name: 'Premier League', country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+  { id: 4335, name: 'La Liga', country: 'Spain', badge: '🇪🇸' },
+  { id: 4331, name: 'Bundesliga', country: 'Germany', badge: '🇩🇪' },
+  { id: 4332, name: 'Serie A', country: 'Italy', badge: '🇮🇹' },
+  { id: 4334, name: 'Ligue 1', country: 'France', badge: '🇫🇷' },
+  // European club competitions
+  { id: 4346, name: 'Champions League', country: 'Europe', badge: '⭐' },
+  { id: 4399, name: 'Europa League', country: 'Europe', badge: '🌍' },
+  { id: 4877, name: 'Conference League', country: 'Europe', badge: '🔵' },
+  // International
+  { id: 4480, name: 'World Cup', country: 'World', badge: '🌎' },
+  { id: 4467, name: 'Euro Championship', country: 'Europe', badge: '🇪🇺' },
+  { id: 4635, name: 'Nations League', country: 'Europe', badge: '🏅' },
+  // Other European leagues
+  { id: 4354, name: 'Israeli Premier League', country: 'Israel', badge: '🇮🇱' },
+  { id: 4337, name: 'Eredivisie', country: 'Netherlands', badge: '🇳🇱' },
+  { id: 4338, name: 'Süper Lig', country: 'Turkey', badge: '🇹🇷' },
+  { id: 4330, name: 'Scottish Premiership', country: 'Scotland', badge: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+  // Americas
+  { id: 4344, name: 'MLS', country: 'USA', badge: '🇺🇸' },
+  { id: 4351, name: 'Brazilian Série A', country: 'Brazil', badge: '🇧🇷' },
+  { id: 4350, name: 'Argentine Primera', country: 'Argentina', badge: '🇦🇷' },
+] as const;
+
+export type LeagueId = typeof FOOTBALL_LEAGUES[number]['id'];
+
+// Points system
+export const POINTS = {
+  TIER1_OUTCOME: 3,
+  TIER2_EXACT_SCORE: 7,
+  TIER2_EXACT_BONUS: 3, // when exact score outcome matches too
+  TIER3_HALFTIME: 4,
+  TIER5_BTTS: 2,
+  TIER6_OVER_UNDER: 3,
+  STREAK_BONUS: 2, // after 3 correct in a row
+} as const;
+
+// Match status labels
+export const MATCH_STATUS_LABEL: Record<string, string> = {
+  NS: 'Upcoming',
+  '1H': 'Live',
+  HT: 'Half Time',
+  '2H': 'Live',
+  FT: 'Full Time',
+  PST: 'Postponed',
+  CANC: 'Cancelled',
+};
+
+export const LIVE_STATUSES = ['1H', 'HT', '2H'];
+export const FINISHED_STATUSES = ['FT', 'PST', 'CANC'];
+
+// App routes
+export const ROUTES = {
+  HOME: '/',
+  LOGIN: '/login',
+  LEADERBOARD: '/leaderboard',
+  PROFILE: '/profile',
+  SETTINGS: '/settings',
+  AUTH_CALLBACK: '/auth/callback',
+} as const;
