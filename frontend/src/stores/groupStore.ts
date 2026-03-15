@@ -127,13 +127,34 @@ export const useGroupStore = create<GroupState>()(
       },
 
       joinGroup: async (inviteCode, userId) => {
+        // Ensure profile exists for new users (trigger may have failed on first login)
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error: profileCheckErr } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', user.id)
+            .single();
+          if (profileCheckErr?.code === 'PGRST116') {
+            const username =
+              user.user_metadata?.full_name ||
+              user.user_metadata?.name ||
+              user.email?.split('@')[0] ||
+              'player';
+            await supabase
+              .from('profiles')
+              .upsert({ id: user.id, username, avatar_url: user.user_metadata?.avatar_url ?? null });
+          }
+        }
+
         // Find group by invite code — uses SECURITY DEFINER RPC to bypass RLS
         // (direct table SELECT is blocked because user isn't a member yet)
         const { data: groupData, error: groupError } = await supabase
           .rpc('find_group_by_invite_code', { p_code: inviteCode });
 
         const group = (groupData as Group[] | null)?.[0] ?? null;
-        if (groupError || !group) throw new Error('Group not found. Check the invite code.');
+        if (groupError) throw new Error(`Group lookup failed: ${groupError.message}`);
+        if (!group) throw new Error('Group not found. Check the invite code.');
 
         // Check if already a member
         const { data: existing } = await supabase
@@ -159,7 +180,7 @@ export const useGroupStore = create<GroupState>()(
           .from('group_members')
           .insert({ group_id: group.id, user_id: userId });
 
-        if (joinError) throw joinError;
+        if (joinError) throw new Error(joinError.message);
 
         set(state => ({
           groups: [...state.groups, group],
