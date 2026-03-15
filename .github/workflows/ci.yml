@@ -80,21 +80,21 @@ jobs:
         uses: actions/checkout@v4
 
       # Skip all migration steps when secrets haven't been added to GitHub yet.
-      # Add SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD
-      # in: GitHub repo → Settings → Secrets and variables → Actions
+      # Only 2 secrets needed:
+      #   SUPABASE_ACCESS_TOKEN → supabase.com → your avatar → Account → Access Tokens → Generate new token
+      #   SUPABASE_PROJECT_REF  → the part of your project URL: supabase.com/dashboard/project/[THIS_PART]/...
       - name: Check secrets are configured
         id: secrets
         env:
           TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          PASS: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          if [ -n "$TOKEN" ] && [ -n "$REF" ] && [ -n "$PASS" ]; then
+          if [ -n "$TOKEN" ] && [ -n "$REF" ]; then
             echo "ok=true" >> $GITHUB_OUTPUT
             echo "✅ Supabase secrets found — will deploy migrations"
           else
             echo "ok=false" >> $GITHUB_OUTPUT
-            echo "::notice::Supabase secrets not configured yet. Migrations skipped. Add SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD to GitHub Secrets to enable auto-deploy."
+            echo "::notice::Supabase secrets not configured yet. Migrations skipped. Add SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF to GitHub Secrets to enable auto-deploy."
           fi
 
       - name: Setup Supabase CLI
@@ -103,43 +103,22 @@ jobs:
         with:
           version: latest
 
-      # Mark migrations 001–011 as already applied so the CLI never re-runs them.
-      # These were applied manually via Supabase SQL Editor.
-      # New migrations (012+) will be applied automatically by db push below.
-      # Uses ON CONFLICT DO NOTHING — safe to run repeatedly.
-      - name: Sync existing migration history
+      # Mark migrations 001–011 as already applied (they were run manually via SQL Editor).
+      # Uses the management API — no database password needed.
+      # "|| true" makes each line safe to re-run (idempotent).
+      - name: Mark existing migrations as applied
         if: steps.secrets.outputs.ok == 'true'
-        run: |
-          psql "$DB_URL" <<'SQL'
-            CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (
-              version text NOT NULL PRIMARY KEY,
-              statements text[],
-              name text
-            );
-            INSERT INTO supabase_migrations.schema_migrations (version, name)
-            VALUES
-              ('001', '001_initial_schema'),
-              ('002', '002_rls_policies'),
-              ('003', '003_functions_triggers'),
-              ('004', '004_fixes'),
-              ('005', '005_display_clock'),
-              ('006', '006_leaderboard_all_members'),
-              ('007', '007_fix_prediction_resolution'),
-              ('008', '008_last_week_points'),
-              ('009', '009_streak_bonus_backfill'),
-              ('010', '010_full_data_repair'),
-              ('011', '011_reset_group_scores')
-            ON CONFLICT (version) DO NOTHING;
-          SQL
         env:
-          DB_URL: postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co:5432/postgres
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          REF="${{ secrets.SUPABASE_PROJECT_REF }}"
+          for v in 001 002 003 004 005 006 007 008 009 010 011; do
+            supabase migration repair --status applied "$v" --project-ref "$REF" || true
+          done
 
       # Push any new migration files (012, 013, ...) that aren't in history yet
       - name: Apply pending migrations
         if: steps.secrets.outputs.ok == 'true'
-        run: |
-          supabase db push \
-            --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" \
-            --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
+        run: supabase db push --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
