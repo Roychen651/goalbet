@@ -87,10 +87,11 @@ export function getLiveClock(match: { status: string; kickoff_time: string; disp
   // DB clock from ESPN (if column migrated)
   if (match.display_clock) return match.display_clock;
 
-  // For 1H we can estimate reliably: started at kickoff
+  // For 1H we can estimate reliably: started at kickoff, capped at 45+' for stoppage
   if (match.status === '1H') {
     const minsSince = Math.floor((Date.now() - new Date(match.kickoff_time).getTime()) / 60000);
-    return `${Math.min(minsSince, 45)}'`;
+    if (minsSince > 45) return "45+'"; // in stoppage time
+    return `${minsSince}'`;
   }
   // For 2H we cannot estimate accurately — HT break length varies (15-25 min)
   // Show period label until ESPN display_clock is available

@@ -77,10 +77,18 @@ function buildDisplayClock(statusName: string, state: string, displayClock: stri
   if (statusName === 'STATUS_HALFTIME') return 'HT';
   if (statusName === 'STATUS_FINAL' || state === 'post') return null;
   if (displayClock) {
-    // ESPN gives "MM:SS" elapsed time (e.g. "48:23", "45:00+", "90:00+")
-    // Extract leading integer as the minute
+    // ESPN gives "MM:SS" elapsed (e.g. "48:23") or "MM:SS+" for stoppage time (e.g. "90:00+", "45:00+")
+    const isStoppage = displayClock.includes('+');
     const m = displayClock.match(/^(\d+)/);
-    if (m) return `${parseInt(m[1])}'`;
+    if (m) {
+      const mins = parseInt(m[1]);
+      if (isStoppage) {
+        // Show stoppage time clearly: "45+'" or "90+'"
+        const baseMin = period <= 1 ? 45 : 90;
+        return `${baseMin}+'`;
+      }
+      return `${mins}'`;
+    }
   }
   // Fallback: period label only
   if (state === 'in') return period <= 1 ? '1H' : '2H';

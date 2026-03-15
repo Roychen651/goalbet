@@ -53,19 +53,29 @@ export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: Leaderbo
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
-        <div className="text-end">
-          <div className={cn('font-bebas tracking-wider text-xl', entry.rank === 1 ? 'text-accent-green text-glow-green' : 'text-white')}>
-            {points}
-            {(entry.live_points ?? 0) > 0 && (
-              <span className="text-blue-400 text-sm ms-1">+{entry.live_points}</span>
-            )}
-          </div>
-          <div className="text-text-muted text-xs flex items-center gap-1 justify-end">
-            {(entry.live_points ?? 0) > 0 && (
-              <span className="text-blue-400/70 text-[9px] leading-none">🔴 live</span>
-            )}
-            <span>{formatPoints(points)}</span>
-          </div>
+        <div className="text-end min-w-[56px]">
+          {(entry.live_points ?? 0) > 0 ? (
+            <>
+              {/* Confirmed pts + live potential, clearly labelled */}
+              <div className="flex items-baseline gap-1 justify-end">
+                <span className={cn('font-bebas tracking-wider text-xl', entry.rank === 1 ? 'text-accent-green text-glow-green' : 'text-white')}>
+                  {points}
+                </span>
+                <span className="text-blue-400 font-bebas text-base">+{entry.live_points}</span>
+              </div>
+              <div className="flex items-center gap-1 justify-end mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 animate-pulse" />
+                <span className="text-blue-400 text-[10px] font-medium">{entry.live_points} pts live</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={cn('font-bebas tracking-wider text-xl', entry.rank === 1 ? 'text-accent-green text-glow-green' : 'text-white')}>
+                {points}
+              </div>
+              <div className="text-text-muted text-xs">{formatPoints(points)}</div>
+            </>
+          )}
         </div>
         {onClick && <span className="text-white/20 text-xs">›</span>}
       </div>
