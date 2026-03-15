@@ -65,10 +65,10 @@ jobs:
 
   # ─── Database: Apply pending migrations to production ────────────────────────
   # Runs only on push to main (not on PRs) so migrations hit production exactly once.
+  # Uses the Supabase Management API — no DB password needed.
   # Required GitHub Secrets:
   #   SUPABASE_ACCESS_TOKEN  → supabase.com → Account → Access Tokens → Generate new token
-  #   SUPABASE_PROJECT_REF   → your project ref from https://app.supabase.com/project/[REF]
-  #   SUPABASE_DB_PASSWORD   → Project Settings → Database → Database Password
+  #   SUPABASE_PROJECT_REF   → the part of your project URL: supabase.com/dashboard/project/[THIS_PART]/...
   migrate:
     name: Database — deploy migrations
     runs-on: ubuntu-latest
@@ -79,10 +79,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Skip all migration steps when secrets haven't been added to GitHub yet.
-      # Only 2 secrets needed:
-      #   SUPABASE_ACCESS_TOKEN → supabase.com → your avatar → Account → Access Tokens → Generate new token
-      #   SUPABASE_PROJECT_REF  → the part of your project URL: supabase.com/dashboard/project/[THIS_PART]/...
+      # Skip when secrets haven't been added to GitHub yet.
       - name: Check secrets are configured
         id: secrets
         env:
@@ -97,28 +94,10 @@ jobs:
             echo "::notice::Supabase secrets not configured yet. Migrations skipped. Add SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF to GitHub Secrets to enable auto-deploy."
           fi
 
-      - name: Setup Supabase CLI
-        if: steps.secrets.outputs.ok == 'true'
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      # Mark migrations 001–011 as already applied (they were run manually via SQL Editor).
-      # Uses the management API — no database password needed.
-      # "|| true" makes each line safe to re-run (idempotent).
-      - name: Mark existing migrations as applied
-        if: steps.secrets.outputs.ok == 'true'
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          REF="${{ secrets.SUPABASE_PROJECT_REF }}"
-          for v in 001 002 003 004 005 006 007 008 009 010 011; do
-            supabase migration repair --status applied "$v" --project-ref "$REF" || true
-          done
-
-      # Push any new migration files (012, 013, ...) that aren't in history yet
+      # Apply any new migration files via the Management API (no DB password needed).
       - name: Apply pending migrations
         if: steps.secrets.outputs.ok == 'true'
-        run: supabase db push --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: python3 .github/scripts/migrate.py
