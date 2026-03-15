@@ -198,6 +198,15 @@ body::after {
 /* ============================================================
    Neon glow utilities
    ============================================================ */
+/* GoalBet logo — animated green glow on "Bet" text */
+@keyframes logoBetGlow {
+  0%, 100% { text-shadow: 0 0 6px rgba(0,255,135,0.25); }
+  50%       { text-shadow: 0 0 22px rgba(0,255,135,0.80), 0 0 44px rgba(0,255,135,0.25); }
+}
+.logo-bet-glow {
+  animation: logoBetGlow 3s ease-in-out infinite;
+}
+
 .glow-green {
   box-shadow: 0 0 20px rgba(0, 255, 135, 0.3), 0 0 40px rgba(0, 255, 135, 0.1);
 }
@@ -292,7 +301,15 @@ html.light body::after {
 html.light .card-base {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  box-shadow: 0 1px 4px rgba(0, 60, 30, 0.06), 0 4px 24px rgba(0, 60, 30, 0.07);
+  box-shadow: 0 1px 4px rgba(0, 60, 30, 0.08), 0 4px 24px rgba(0, 60, 30, 0.10);
+  border-color: #c4dece !important;
+}
+
+/* Match status badge - ensure readable in light mode */
+html.light .rounded-full.border {
+  color: #1e3828;
+  border-color: rgba(0,80,40,0.18);
+  background-color: rgba(0,60,30,0.05);
 }
 
 html.light .card-elevated {
@@ -385,3 +402,15 @@ html.light {
 /* PredictionForm tier rows in light mode */
 html.light .tier-row-inactive { background-color: rgba(0, 60, 30, 0.03) !important; }
 html.light .tier-row-active   { background-color: rgba(0, 120, 61, 0.06) !important; }
+
+/* Explicit override for semantic color classes (belt-and-suspenders) */
+html.light .text-text-muted   { color: #1e3828 !important; }
+html.light .text-text-primary { color: #0f1e13 !important; }
+
+/* Nav links/buttons inherit light text by default */
+html.light a  { color: inherit; }
+
+/* Fix hover:text-white in light mode — prevent white text on light bg */
+html.light .hover\:text-white:hover      { color: #0f1e13 !important; }
+html.light .hover\:text-white\/80:hover  { color: rgba(15,30,19,0.8) !important; }
+html.light .hover\:text-white\/60:hover  { color: rgba(15,30,19,0.6) !important; }

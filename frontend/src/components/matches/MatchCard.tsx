@@ -7,6 +7,7 @@ import { PredictionForm, PredictionData } from './PredictionForm';
 import { cn, formatKickoffTime } from '../../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
+import { useLiveClock } from '../../hooks/useLiveClock';
 
 interface MatchCardProps {
   match: Match;
@@ -19,10 +20,18 @@ interface MatchCardProps {
 export function MatchCard({ match, prediction, predictors = [], onSavePrediction, savingMatchId }: MatchCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLangStore();
+  // Re-render every 20s so countdown ("6m", "1h 6m", etc.) stays accurate.
+  // This does NOT refetch data — PredictionForm and expanded state are preserved.
+  useLiveClock(20_000);
   const isLive = LIVE_STATUSES.includes(match.status);
   const isFinished = FINISHED_STATUSES.includes(match.status);
   const hasPrediction = !!prediction;
   const { date, time, countdown, lockCountdown } = formatKickoffTime(match.kickoff_time);
+  // True when kickoff is within the next 5 minutes
+  const startingSoon = !isLive && !isFinished && (() => {
+    const diffMs = new Date(match.kickoff_time).getTime() - Date.now();
+    return diffMs > 0 && diffMs < 5 * 60 * 1000;
+  })();
   const leagueInfo = FOOTBALL_LEAGUES.find(l => l.id === match.league_id);
   const leagueBadge = leagueInfo?.badge;
   const leagueEspnId = leagueInfo?.espnLogoId ?? null;
@@ -103,9 +112,17 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 ) : null}
                 <span className="text-text-muted text-xs">{date}</span>
                 <span className="text-white font-semibold text-sm">{time}</span>
-                {countdown && (
+                {startingSoon ? (
+                  <motion.span
+                    animate={{ opacity: [1, 0.4, 1] }}
+                    transition={{ duration: 0.8, repeat: Infinity }}
+                    className="text-accent-green text-xs font-semibold"
+                  >
+                    {t('startingNow')}
+                  </motion.span>
+                ) : countdown ? (
                   <span className="text-accent-green text-xs">{countdown}</span>
-                )}
+                ) : null}
               </div>
             )}
             {isFinished && match.halftime_home !== null && (

@@ -79,7 +79,8 @@ export function MatchFeed({
                 whileInView={{ opacity: 1, y: 0, scale: 1 }}
                 viewport={{ once: true, margin: '-30px' }}
                 transition={{ type: 'spring', stiffness: 85, damping: 18, delay: i * 0.06 }}
-                whileHover={{ scale: 1.005, y: -2 }}
+                whileHover={{ scale: 1.005, y: -3, rotateX: 0.6, rotateY: 0.4 }}
+                style={{ transformStyle: 'preserve-3d', perspective: 1400 }}
               >
                 <MatchCard
                   match={match}

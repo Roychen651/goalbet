@@ -28,13 +28,9 @@ export function Sidebar() {
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         >
           <span className="text-white">Goal</span>
-          <motion.span
-            className="text-accent-green"
-            animate={{ textShadow: ['0 0 8px rgba(0,255,135,0.3)', '0 0 20px rgba(0,255,135,0.7)', '0 0 8px rgba(0,255,135,0.3)'] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          >
+          <span className="text-accent-green logo-bet-glow">
             Bet
-          </motion.span>
+          </span>
         </motion.div>
         {activeGroup && (
           <div className="text-text-muted text-xs mt-1 truncate">{activeGroup.name}</div>
