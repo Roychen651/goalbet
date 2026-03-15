@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, Match } from '../lib/supabase';
 import { useGroupStore } from '../stores/groupStore';
-import { useUIStore } from '../stores/uiStore';
 
 type StatusFilter = 'all' | 'upcoming' | 'live' | 'completed';
 
@@ -151,11 +150,8 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const { activeGroupId, groups, loading: groupsLoading } = useGroupStore();
-  const { addToast } = useUIStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const activeLeagues = activeGroup?.active_leagues ?? [];
-  // Track loaded state so we don't fire goal toasts on initial load
-  const initialLoadDone = useRef(false);
   // Stable key — only changes when leagues actually change
   const leaguesKey = [...activeLeagues].sort().join(',');
 
@@ -185,7 +181,6 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
     try {
       const data = await queryMatches(activeLeagues, statusFilter);
       setMatches(data);
-      initialLoadDone.current = true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load matches');
     } finally {
@@ -194,34 +189,20 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGroupId, leaguesKey, statusFilter, groupsLoading]);
 
-  // Subscribe to live match updates + fire goal toasts
+  // Subscribe to live match updates
   const subscribeToMatches = useCallback(() => {
     channelRef.current?.unsubscribe();
     channelRef.current = supabase
       .channel(`matches-${leaguesKey}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches' }, (payload) => {
         const updated = payload.new as Match;
-        const prev = payload.old as Partial<Match>;
-
-        // Goal notification — only after initial load, only for in-progress matches
-        if (initialLoadDone.current && !['NS', 'FT', 'PST', 'CANC'].includes(updated.status)) {
-          const homeGoal = (updated.home_score ?? 0) > (prev.home_score ?? 0);
-          const awayGoal = (updated.away_score ?? 0) > (prev.away_score ?? 0);
-          if (homeGoal || awayGoal) {
-            addToast(
-              `⚽ ${updated.home_team} ${updated.home_score} — ${updated.away_score} ${updated.away_team}`,
-              'success',
-            );
-          }
-        }
-
         setMatches(prev =>
           prev.map(m => m.id === updated.id ? { ...m, ...updated } as Match : m)
         );
       })
       .subscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leaguesKey, addToast]);
+  }, [leaguesKey]);
 
   useEffect(() => {
     fetchMatches();
