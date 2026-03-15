@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, fetchMatchHalftimeScore, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
-import { DBMatch } from './sportsdb';
 import { calculatePoints, applyStreakBonus } from './pointsEngine';
 import { logger } from '../lib/logger';
 
@@ -243,11 +242,15 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
           await updateMatchScore(match.id, effectiveData);
 
           if (effectiveData.status === 'FT' && effectiveData.home_score !== null && effectiveData.away_score !== null) {
+            // If ESPN linescores are still null at FT (very rare), fall back to whatever
+            // halftime value is already stored in DB (captured earlier during 1H/HT/2H).
+            const resolveHtHome = effectiveData.halftime_home ?? match.halftime_home;
+            const resolveHtAway = effectiveData.halftime_away ?? match.halftime_away;
             const count = await resolveMatchPredictions(match.id, {
               home_score: effectiveData.home_score,
               away_score: effectiveData.away_score,
-              halftime_home: effectiveData.halftime_home,
-              halftime_away: effectiveData.halftime_away,
+              halftime_home: resolveHtHome,
+              halftime_away: resolveHtAway,
             });
             totalResolved += count;
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);

@@ -211,8 +211,7 @@ function MatchCardItem({
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, margin: '-24px' }}
       transition={{ type: 'spring', stiffness: 90, damping: 18, delay: index * 0.04 }}
-      whileHover={{ scale: 1.005, y: -2 }}
-      style={{ transformStyle: 'preserve-3d', perspective: 1400 }}
+      whileHover={{ y: -2 }}
     >
       <MatchCard
         match={match}
