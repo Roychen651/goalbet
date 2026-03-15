@@ -8,9 +8,10 @@ import { GlassCard } from '../ui/GlassCard';
 
 interface GroupMembersListProps {
   groupId: string;
+  createdBy?: string | null;
 }
 
-export function GroupMembersList({ groupId }: GroupMembersListProps) {
+export function GroupMembersList({ groupId, createdBy }: GroupMembersListProps) {
   const [members, setMembers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuthStore();
@@ -19,7 +20,6 @@ export function GroupMembersList({ groupId }: GroupMembersListProps) {
   useEffect(() => {
     if (!groupId) return;
     setLoading(true);
-
     supabase
       .from('group_members')
       .select('user_id, profiles(*)')
@@ -64,24 +64,33 @@ export function GroupMembersList({ groupId }: GroupMembersListProps) {
         animate="show"
         variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
       >
-        {members.map(member => (
-          <motion.div
-            key={member.id}
-            variants={{
-              hidden: { opacity: 0, x: -16 },
-              show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 100, damping: 18 } },
-            }}
-            className="flex items-center gap-3"
-          >
-            <Avatar src={member.avatar_url} name={member.username} size="md" />
-            <div className="flex-1 min-w-0">
-              <div className="text-white text-sm font-medium truncate">{member.username}</div>
-              {member.id === user?.id && (
-                <div className="text-accent-green text-xs">You</div>
-              )}
-            </div>
-          </motion.div>
-        ))}
+        {members.map(member => {
+          const isMe = member.id === user?.id;
+          const isGroupAdmin = member.id === createdBy;
+          return (
+            <motion.div
+              key={member.id}
+              variants={{
+                hidden: { opacity: 0, x: -16 },
+                show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 100, damping: 18 } },
+              }}
+              className="flex items-center gap-3"
+            >
+              <Avatar src={member.avatar_url} name={member.username} size="md" />
+              <div className="flex-1 min-w-0">
+                <div className="text-white text-sm font-medium truncate">{member.username}</div>
+                <div className="flex items-center gap-1.5">
+                  {isMe && <span className="text-accent-green text-xs">You</span>}
+                  {isGroupAdmin && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-md bg-yellow-500/15 border border-yellow-500/25 text-yellow-400 font-medium">
+                      Admin
+                    </span>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
       </motion.div>
     </GlassCard>
   );

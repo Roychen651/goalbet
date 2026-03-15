@@ -3,6 +3,7 @@ import { useGroupStore } from '../../stores/groupStore';
 import { useUIStore } from '../../stores/uiStore';
 import { Avatar } from '../ui/Avatar';
 import { LangToggle } from '../ui/LangToggle';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import { useAuthStore } from '../../stores/authStore';
 import { useLangStore } from '../../stores/langStore';
 import { cn } from '../../lib/utils';
@@ -35,7 +36,6 @@ export function TopBar() {
 
           {showGroupMenu && (
             <>
-              {/* Backdrop */}
               <div className="fixed inset-0 z-40" onClick={() => setShowGroupMenu(false)} />
               <div className="absolute top-full mt-2 start-0 w-52 glass rounded-xl border border-white/10 shadow-card overflow-hidden z-50">
                 {groups.map(group => (
@@ -44,38 +44,26 @@ export function TopBar() {
                     onClick={() => { setActiveGroup(group.id); setShowGroupMenu(false); }}
                     className={cn(
                       'w-full text-start px-4 py-3 text-sm transition-colors',
-                      group.id === activeGroupId
-                        ? 'text-accent-green bg-accent-green/10'
-                        : 'text-white hover:bg-white/5'
+                      group.id === activeGroupId ? 'text-accent-green bg-accent-green/10' : 'text-white hover:bg-white/5'
                     )}
                   >
                     {group.name}
                   </button>
                 ))}
                 <div className="border-t border-white/8">
-                  <button
-                    onClick={() => { openModal('createGroup'); setShowGroupMenu(false); }}
-                    className="w-full text-start px-4 py-3 text-sm text-text-muted hover:text-white hover:bg-white/5 transition-colors"
-                  >
-                    {t('newGroup')}
-                  </button>
-                  <button
-                    onClick={() => { openModal('joinGroup'); setShowGroupMenu(false); }}
-                    className="w-full text-start px-4 py-3 text-sm text-text-muted hover:text-white hover:bg-white/5 transition-colors"
-                  >
-                    {t('joinGroupShort')}
-                  </button>
+                  <button onClick={() => { openModal('createGroup'); setShowGroupMenu(false); }} className="w-full text-start px-4 py-3 text-sm text-text-muted hover:text-white hover:bg-white/5 transition-colors">{t('newGroup')}</button>
+                  <button onClick={() => { openModal('joinGroup'); setShowGroupMenu(false); }} className="w-full text-start px-4 py-3 text-sm text-text-muted hover:text-white hover:bg-white/5 transition-colors">{t('joinGroupShort')}</button>
                 </div>
               </div>
             </>
           )}
         </div>
 
+        {/* Right side: lang + theme + avatar */}
         <div className="flex items-center gap-2 shrink-0">
           <LangToggle />
-          {profile && (
-            <Avatar src={profile.avatar_url} name={profile.username} size="sm" />
-          )}
+          <ThemeToggle inline />
+          {profile && <Avatar src={profile.avatar_url} name={profile.username} size="sm" />}
         </div>
       </div>
     </header>

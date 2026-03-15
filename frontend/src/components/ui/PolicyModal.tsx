@@ -6,69 +6,21 @@ interface PolicyModalProps {
 }
 
 const SECTIONS_EN = [
-  {
-    icon: '🎮',
-    title: 'For Entertainment Only',
-    body: 'GoalBet is a free-to-play social prediction game. No real money is ever wagered, won, or lost. All points are virtual and have no monetary value whatsoever.',
-  },
-  {
-    icon: '🚫',
-    title: 'Not Gambling',
-    body: 'This platform is not a gambling service, betting exchange, or wagering platform. GoalBet does not facilitate or encourage any form of real-money gambling.',
-  },
-  {
-    icon: '👥',
-    title: 'Social & Fun',
-    body: 'GoalBet is designed to enhance the enjoyment of watching football with friends. Compete privately within your group — all results are for fun only.',
-  },
-  {
-    icon: '🔒',
-    title: 'Privacy',
-    body: 'Your data (name, avatar, predictions) is visible only to members of your group. We do not sell or share personal data with third parties.',
-  },
-  {
-    icon: '⚖️',
-    title: 'Fairness',
-    body: 'Predictions lock 15 minutes before kickoff. Points are calculated automatically based on the official final result. All users in a group follow identical rules.',
-  },
-  {
-    icon: '🧑‍💻',
-    title: 'Responsibility',
-    body: 'GoalBet is a personal project created for friends. If you encounter any issues, please contact the group administrator. Content and scores are sourced from ESPN public data.',
-  },
+  { icon: '🎮', title: 'For Entertainment Only', body: 'GoalBet is a free-to-play social prediction game. No real money is ever wagered, won, or lost. All points are virtual and have no monetary value whatsoever.' },
+  { icon: '🚫', title: 'Not Gambling', body: 'This platform is not a gambling service, betting exchange, or wagering platform. GoalBet does not facilitate or encourage any form of real-money gambling.' },
+  { icon: '👥', title: 'Social & Fun', body: 'GoalBet is designed to enhance the enjoyment of watching football with friends. Compete privately within your group — all results are for fun only.' },
+  { icon: '🔒', title: 'Privacy', body: 'Your data (name, avatar, predictions) is visible only to members of your group. We do not sell or share personal data with third parties.' },
+  { icon: '⚖️', title: 'Fairness', body: 'Predictions lock 15 minutes before kickoff. Points are calculated automatically based on the official final result. All users in a group follow identical rules.' },
+  { icon: '🧑‍💻', title: 'Responsibility', body: 'GoalBet is a personal project created for friends. If you encounter any issues, please contact the group administrator. Content and scores are sourced from ESPN public data.' },
 ];
 
 const SECTIONS_HE = [
-  {
-    icon: '🎮',
-    title: 'לבידור בלבד',
-    body: 'GoalBet הוא משחק ניבוי חברתי חינמי. לא מוימרים, לא זוכים ולא מפסידים כסף אמיתי. כל הנקודות הן וירטואליות וללא ערך כספי.',
-  },
-  {
-    icon: '🚫',
-    title: 'לא הימורים',
-    body: 'הפלטפורמה אינה שירות הימורים, בורסת הימורים או פלטפורמת ניהול הימורים. GoalBet אינו מקל או מעודד כל צורה של הימורים בכסף אמיתי.',
-  },
-  {
-    icon: '👥',
-    title: 'חברתי וכיפי',
-    body: 'GoalBet נועד להגביר את ההנאה מצפייה בכדורגל עם חברים. התחרות היא פרטית בתוך הקבוצה שלך — הכל לכיף בלבד.',
-  },
-  {
-    icon: '🔒',
-    title: 'פרטיות',
-    body: 'הנתונים שלך (שם, אווטר, ניבויים) גלויים רק לחברי הקבוצה שלך. איננו מוכרים או משתפים מידע אישי עם צדדים שלישיים.',
-  },
-  {
-    icon: '⚖️',
-    title: 'הגינות',
-    body: 'הניבויים ננעלים 15 דקות לפני הבעיטה הראשונה. הנקודות מחושבות אוטומטית לפי התוצאה הסופית הרשמית. כל המשתמשים בקבוצה פועלים לפי כללים זהים.',
-  },
-  {
-    icon: '🧑‍💻',
-    title: 'אחריות',
-    body: 'GoalBet הוא פרויקט אישי שנוצר לחברים. לכל בעיה, פנה למנהל הקבוצה. תוכן ותוצאות מגיעים ממידע ציבורי של ESPN.',
-  },
+  { icon: '🎮', title: 'לבידור בלבד', body: 'GoalBet הוא משחק ניבוי חברתי חינמי. לא מוימרים, לא זוכים ולא מפסידים כסף אמיתי. כל הנקודות הן וירטואליות וללא ערך כספי.' },
+  { icon: '🚫', title: 'לא הימורים', body: 'הפלטפורמה אינה שירות הימורים, בורסת הימורים או פלטפורמת ניהול הימורים. GoalBet אינו מקל או מעודד כל צורה של הימורים בכסף אמיתי.' },
+  { icon: '👥', title: 'חברתי וכיפי', body: 'GoalBet נועד להגביר את ההנאה מצפייה בכדורגל עם חברים. התחרות היא פרטית בתוך הקבוצה שלך — הכל לכיף בלבד.' },
+  { icon: '🔒', title: 'פרטיות', body: 'הנתונים שלך (שם, אווטר, ניבויים) גלויים רק לחברי הקבוצה שלך. איננו מוכרים או משתפים מידע אישי עם צדדים שלישיים.' },
+  { icon: '⚖️', title: 'הגינות', body: 'הניבויים ננעלים 15 דקות לפני הבעיטה הראשונה. הנקודות מחושבות אוטומטית לפי התוצאה הסופית הרשמית. כל המשתמשים בקבוצה פועלים לפי כללים זהים.' },
+  { icon: '🧑‍💻', title: 'אחריות', body: 'GoalBet הוא פרויקט אישי שנוצר לחברים. לכל בעיה, פנה למנהל הקבוצה. תוכן ותוצאות מגיעים ממידע ציבורי של ESPN.' },
 ];
 
 export function PolicyModal({ onClose }: PolicyModalProps) {
@@ -78,7 +30,6 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
 
   return (
     <AnimatePresence>
-      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -86,19 +37,18 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
         className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
         onClick={onClose}
       >
-        {/* Sheet */}
         <motion.div
           initial={{ y: 60, opacity: 0, scale: 0.97 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: 60, opacity: 0, scale: 0.97 }}
           transition={{ type: 'spring', stiffness: 260, damping: 28 }}
           onClick={e => e.stopPropagation()}
-          className="w-full sm:max-w-lg bg-[#0c1610] border border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden max-h-[88vh] flex flex-col"
+          className="w-full sm:max-w-lg bg-surface dark:bg-[#0c1610] border border-border dark:border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden max-h-[88vh] flex flex-col"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/8 shrink-0">
+          <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border dark:border-white/8 shrink-0">
             <div>
-              <h2 className="font-bebas text-xl tracking-widest text-white">
+              <h2 className="font-bebas text-xl tracking-widest text-foreground">
                 {isHe ? 'מדיניות ותנאים' : 'Policy & Terms'}
               </h2>
               <p className="text-text-muted text-xs mt-0.5">
@@ -107,7 +57,7 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-text-muted hover:text-white hover:bg-white/15 transition-colors"
+              className="w-8 h-8 rounded-full bg-black/10 dark:bg-white/8 flex items-center justify-center text-text-muted hover:text-foreground hover:bg-black/15 dark:hover:bg-white/15 transition-colors"
             >
               ✕
             </button>
@@ -121,24 +71,21 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05, type: 'spring', stiffness: 200, damping: 24 }}
-                className="flex gap-3 p-3 rounded-xl bg-white/4 border border-white/8"
+                className="flex gap-3 p-3 rounded-xl bg-black/5 dark:bg-white/4 border border-black/8 dark:border-white/8"
               >
                 <span className="text-xl shrink-0 mt-0.5">{s.icon}</span>
                 <div>
-                  <p className="text-white text-sm font-semibold mb-0.5">{s.title}</p>
+                  <p className="text-foreground text-sm font-semibold mb-0.5">{s.title}</p>
                   <p className="text-text-muted text-xs leading-relaxed">{s.body}</p>
                 </div>
               </motion.div>
             ))}
 
-            {/* Footer disclaimer */}
-            <div className="mt-2 p-3 rounded-xl bg-accent-green/5 border border-accent-green/15 text-center">
-              <p className="text-accent-green/80 text-xs font-semibold">
-                {isHe
-                  ? '🎉 GoalBet — שחק, נבא, תתחרה. תמיד חינם. תמיד לכיף.'
-                  : '🎉 GoalBet — Play. Predict. Compete. Always free. Always fun.'}
+            <div className="mt-2 p-3 rounded-xl bg-accent-green/8 border border-accent-green/20 text-center">
+              <p className="text-accent-green text-xs font-semibold">
+                {isHe ? '🎉 GoalBet — שחק, נבא, תתחרה. תמיד חינם. תמיד לכיף.' : '🎉 GoalBet — Play. Predict. Compete. Always free. Always fun.'}
               </p>
-              <p className="text-white/20 text-[10px] mt-1">© Roy Chen 2026</p>
+              <p className="text-text-muted/50 text-[10px] mt-1">© Roy Chen 2026</p>
             </div>
           </div>
         </motion.div>

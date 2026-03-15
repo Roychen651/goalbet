@@ -12,6 +12,7 @@ interface GroupState {
   joinGroup: (inviteCode: string, userId: string) => Promise<Group>;
   leaveGroup: (groupId: string, userId: string) => Promise<void>;
   updateGroupLeagues: (groupId: string, leagueIds: number[]) => Promise<void>;
+  updateGroupName: (groupId: string, name: string) => Promise<void>;
 }
 
 export const useGroupStore = create<GroupState>()(
@@ -220,6 +221,19 @@ export const useGroupStore = create<GroupState>()(
 
         if (error) throw error;
 
+        set(state => ({
+          groups: state.groups.map(g => g.id === groupId ? data : g),
+        }));
+      },
+
+      updateGroupName: async (groupId, name) => {
+        const { data, error } = await supabase
+          .from('groups')
+          .update({ name })
+          .eq('id', groupId)
+          .select()
+          .single();
+        if (error) throw error;
         set(state => ({
           groups: state.groups.map(g => g.id === groupId ? data : g),
         }));

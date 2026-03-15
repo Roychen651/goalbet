@@ -12,6 +12,7 @@ interface AuthState {
   signOut: () => Promise<void>;
   fetchProfile: () => Promise<void>;
   updateAvatar: (avatarUrl: string) => Promise<void>;
+  updateUsername: (username: string) => Promise<void>;
   init: () => () => void; // returns cleanup fn
 }
 
@@ -71,6 +72,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (data) set({ profile: data });
   },
 
+
+  updateUsername: async (username: string) => {
+    const { user } = get();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ username })
+      .eq('id', user.id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    if (data) set({ profile: data });
+  },
   signOut: async () => {
     await supabase.auth.signOut();
     set({ user: null, session: null, profile: null });
