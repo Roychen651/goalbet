@@ -30,19 +30,23 @@ export function NeonButton({
         // Variants
         variant === 'green' && [
           'bg-accent-green text-bg-base',
-          'hover:shadow-glow-green hover:scale-[1.02] active:scale-[0.98]',
+          'hover:brightness-110 hover:shadow-[0_0_25px_rgba(0,255,135,0.5)] hover:scale-[1.02]',
+          'active:scale-[0.98] active:brightness-95',
         ],
         variant === 'orange' && [
           'bg-accent-orange text-white',
-          'hover:shadow-glow-orange hover:scale-[1.02] active:scale-[0.98]',
+          'hover:shadow-glow-orange hover:scale-[1.02]',
+          'active:scale-[0.98] active:brightness-95',
         ],
         variant === 'ghost' && [
-          'bg-transparent text-white border border-[rgba(255,255,255,0.15)]',
-          'hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.25)] active:scale-[0.98]',
+          'bg-transparent btn-ghost-text text-white border border-[rgba(255,255,255,0.15)]',
+          'hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.25)]',
+          'active:scale-[0.98] active:brightness-95',
+          'transition-all duration-200',
         ],
         variant === 'danger' && [
           'bg-red-500/20 text-red-400 border border-red-500/30',
-          'hover:bg-red-500/30 active:scale-[0.98]',
+          'hover:bg-red-500/30 active:scale-[0.98] active:brightness-95',
         ],
         className
       )}

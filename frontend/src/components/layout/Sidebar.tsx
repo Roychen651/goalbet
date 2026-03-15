@@ -52,7 +52,10 @@ export function Sidebar() {
       {/* Language toggle + version */}
       <div className="flex flex-col gap-3 px-2">
         <LangToggle />
-        <div className="text-text-muted text-xs opacity-50">GoalBet v1.0</div>
+        <div className="text-text-muted text-xs opacity-50 leading-relaxed">
+          GoalBet v1.0<br/>
+          <span className="opacity-70">© Roy Chen 2026</span>
+        </div>
       </div>
     </aside>
   );

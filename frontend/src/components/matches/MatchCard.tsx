@@ -23,7 +23,9 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const isFinished = FINISHED_STATUSES.includes(match.status);
   const hasPrediction = !!prediction;
   const { date, time, countdown, lockCountdown } = formatKickoffTime(match.kickoff_time);
-  const leagueBadge = FOOTBALL_LEAGUES.find(l => l.id === match.league_id)?.badge;
+  const leagueInfo = FOOTBALL_LEAGUES.find(l => l.id === match.league_id);
+  const leagueBadge = leagueInfo?.badge;
+  const leagueEspnId = leagueInfo?.espnLogoId ?? null;
 
   return (
     <GlassCard
@@ -79,9 +81,26 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
               </motion.span>
             ) : (
               <div className="flex flex-col items-center gap-0.5">
-                {leagueBadge && (
+                {leagueEspnId !== null ? (
+                  <img
+                    src={`https://a.espncdn.com/i/leaguelogos/soccer/500/${leagueEspnId}.png`}
+                    className="w-6 h-6 object-contain mb-0.5"
+                    alt={match.league_name}
+                    title={match.league_name}
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.style.display = 'none';
+                      if (img.nextSibling === null && leagueBadge) {
+                        const span = document.createElement('span');
+                        span.textContent = leagueBadge;
+                        span.className = 'text-base leading-none mb-0.5';
+                        img.parentNode?.appendChild(span);
+                      }
+                    }}
+                  />
+                ) : leagueBadge ? (
                   <span className="text-base leading-none mb-0.5" title={match.league_name}>{leagueBadge}</span>
-                )}
+                ) : null}
                 <span className="text-text-muted text-xs">{date}</span>
                 <span className="text-white font-semibold text-sm">{time}</span>
                 {countdown && (

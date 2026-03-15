@@ -1,23 +1,35 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { BottomNav } from './BottomNav';
 import { ToastContainer } from '../ui/Toast';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import { CreateGroupModal } from '../groups/CreateGroupModal';
 import { JoinGroupModal } from '../groups/JoinGroupModal';
 import { useUIStore } from '../../stores/uiStore';
 import { useLangStore } from '../../stores/langStore';
+import { useNewPointsAlert } from '../../hooks/useNewPointsAlert';
 
 export function AppShell() {
-  const { activeModal, closeModal } = useUIStore();
+  const { activeModal, closeModal, addToast } = useUIStore();
   const { lang } = useLangStore();
+  const { hasNew, newPoints, markAsSeen } = useNewPointsAlert();
+  const prevHasNew = useRef(false);
 
   // Keep document direction in sync
   useEffect(() => {
     document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
     document.documentElement.lang = lang;
   }, [lang]);
+
+  // Points notification toast
+  useEffect(() => {
+    if (hasNew && !prevHasNew.current && newPoints > 0) {
+      addToast(`🎉 You earned +${newPoints} pts!`, 'success');
+    }
+    prevHasNew.current = hasNew;
+  }, [hasNew, newPoints, addToast]);
 
   return (
     <div className="flex min-h-screen bg-bg-base">
@@ -29,6 +41,7 @@ export function AppShell() {
         </main>
       </div>
       <BottomNav />
+      <ThemeToggle />
       <ToastContainer />
       {activeModal === 'createGroup' && <CreateGroupModal onClose={closeModal} />}
       {activeModal === 'joinGroup' && <JoinGroupModal onClose={closeModal} />}

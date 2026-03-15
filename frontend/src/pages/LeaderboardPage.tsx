@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { useLeaderboard } from '../hooks/useLeaderboard';
+import { useLeaderboard, LeaderboardType } from '../hooks/useLeaderboard';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useLangStore } from '../stores/langStore';
@@ -8,8 +8,7 @@ import { LeaderboardTable } from '../components/leaderboard/LeaderboardTable';
 import { UserMatchHistoryModal } from '../components/leaderboard/UserMatchHistoryModal';
 import { GlassCard } from '../components/ui/GlassCard';
 import { cn } from '../lib/utils';
-
-type LeaderboardType = 'total' | 'weekly';
+import { LeaderboardEntryWithProfile } from '../lib/supabase';
 
 interface SelectedUser {
   user_id: string;
@@ -27,6 +26,24 @@ export function LeaderboardPage() {
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const currentUserEntry = entries.find(e => e.user_id === user?.id);
 
+  // Check if last_week_points field exists in data
+  const hasLastWeekField = entries.length > 0 && 'last_week_points' in entries[0];
+
+  const TABS: { key: LeaderboardType; label: string }[] = [
+    { key: 'total', label: t('allTime') },
+    { key: 'weekly', label: t('thisWeek') },
+    { key: 'lastWeek', label: t('lastWeek') },
+  ];
+
+  const getPoints = (entry: LeaderboardEntryWithProfile) => {
+    if (type === 'weekly') return entry.weekly_points;
+    if (type === 'lastWeek') return (entry as unknown as Record<string, unknown>)['last_week_points'] as number ?? entry.weekly_points;
+    return entry.total_points;
+  };
+
+  // Resolve type prop for LeaderboardTable (only supports 'total' | 'weekly')
+  const tableType: 'total' | 'weekly' = type === 'lastWeek' ? 'weekly' : type;
+
   return (
     <div className="space-y-4">
       <div>
@@ -36,18 +53,18 @@ export function LeaderboardPage() {
 
       {/* Toggle */}
       <div className="flex gap-1 bg-white/5 rounded-xl p-1">
-        {(['total', 'weekly'] as const).map(tt => (
+        {TABS.map(tab => (
           <button
-            key={tt}
-            onClick={() => setType(tt)}
+            key={tab.key}
+            onClick={() => setType(tab.key)}
             className={cn(
               'flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-150',
-              type === tt
+              type === tab.key
                 ? 'bg-accent-green text-bg-base shadow-glow-green-sm'
                 : 'text-text-muted hover:text-white'
             )}
           >
-            {tt === 'total' ? t('allTime') : t('thisWeek')}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -57,7 +74,7 @@ export function LeaderboardPage() {
         <GlassCard variant="elevated" className="p-4 grid grid-cols-4 gap-2">
           {[
             { label: t('yourRank'), value: `#${currentUserEntry.rank}`, highlight: true },
-            { label: t('points'), value: type === 'weekly' ? currentUserEntry.weekly_points : currentUserEntry.total_points },
+            { label: t('points'), value: getPoints(currentUserEntry) },
             { label: t('accuracy'), value: currentUserEntry.predictions_made > 0 ? `${Math.round((currentUserEntry.correct_predictions / currentUserEntry.predictions_made) * 100)}%` : '—' },
             { label: t('streak'), value: currentUserEntry.current_streak > 0 ? `🔥${currentUserEntry.current_streak}` : '—' },
           ].map(item => (
@@ -71,11 +88,18 @@ export function LeaderboardPage() {
         </GlassCard>
       )}
 
+      {/* Last week coming soon notice */}
+      {type === 'lastWeek' && !hasLastWeekField && entries.length > 0 && (
+        <GlassCard className="p-4 text-center">
+          <p className="text-text-muted text-sm">Coming soon — will track from next Monday</p>
+        </GlassCard>
+      )}
+
       <LeaderboardTable
         entries={entries}
         loading={loading}
         currentUserId={user?.id}
-        type={type}
+        type={tableType}
         onUserClick={(entry) => setSelectedUser({ user_id: entry.user_id, username: entry.username, avatar_url: entry.avatar_url ?? null })}
       />
 

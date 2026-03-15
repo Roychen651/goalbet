@@ -85,6 +85,7 @@ export const translations = {
     // Leaderboard
     allTime: 'All Time',
     thisWeek: 'This Week',
+    lastWeek: 'Last Week',
     yourRank: 'Your Rank',
     points: 'Points',
     accuracy: 'Accuracy',
@@ -246,6 +247,7 @@ export const translations = {
     // Leaderboard
     allTime: 'כל הזמנים',
     thisWeek: 'השבוע',
+    lastWeek: 'שבוע שעבר',
     yourRank: 'הדירוג שלך',
     points: 'נקודות',
     accuracy: 'דיוק',

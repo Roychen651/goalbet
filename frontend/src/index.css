@@ -22,6 +22,13 @@
   --accent-orange: var(--color-accent-orange);
   --glow-green: 0 0 20px rgba(0, 255, 135, 0.3);
   --glow-orange: 0 0 20px rgba(255, 107, 53, 0.3);
+  /* card semantic vars (dark defaults) */
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-elevated-bg: rgba(255, 255, 255, 0.08);
+  --card-elevated-border: rgba(255, 255, 255, 0.12);
+  --card-hover-bg: rgba(255, 255, 255, 0.08);
+  --card-hover-border: rgba(255, 255, 255, 0.15);
 }
 
 /* ─── Light mode ─── */
@@ -29,7 +36,7 @@ html.light {
   color-scheme: light;
   --color-bg-base: #edf5f0;
   --color-bg-surface: rgba(0, 0, 0, 0.02);
-  --color-bg-card: rgba(0, 0, 0, 0.04);
+  --color-bg-card: rgba(255, 255, 255, 0.85);
   --color-accent-green: #00b85c;
   --color-accent-orange: #e8551f;
   --color-text-primary: #0d1810;
@@ -39,6 +46,12 @@ html.light {
   --bg-base: var(--color-bg-base);
   --accent-green: var(--color-accent-green);
   --glow-green: 0 0 20px rgba(0, 184, 92, 0.3);
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-border: rgba(0, 0, 0, 0.08);
+  --card-elevated-bg: rgba(255, 255, 255, 0.95);
+  --card-elevated-border: rgba(0, 0, 0, 0.12);
+  --card-hover-bg: rgba(255, 255, 255, 0.95);
+  --card-hover-border: rgba(0, 0, 0, 0.15);
 }
 
 /* ============================================================
@@ -66,22 +79,14 @@ body {
   min-height: 100dvh;
   background-color: var(--color-bg-base);
   background-image:
-    /* Top green aurora — goalbet brand glow */
-    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(0, 255, 135, 0.07) 0%, transparent 70%),
+    /* Top green aurora — stronger, more impactful */
+    radial-gradient(ellipse 110% 65% at 50% -15%, rgba(0, 255, 135, 0.13) 0%, rgba(0, 255, 135, 0.04) 50%, transparent 75%),
+    /* Secondary aurora shift (blue-green) */
+    radial-gradient(ellipse 60% 45% at 80% -5%, rgba(0, 180, 255, 0.06) 0%, transparent 60%),
     /* Bottom left subtle orange warmth */
     radial-gradient(ellipse 60% 40% at -10% 100%, rgba(255, 107, 53, 0.05) 0%, transparent 60%),
     /* Bottom right subtle blue (night match feel) */
     radial-gradient(ellipse 60% 40% at 110% 100%, rgba(56, 128, 255, 0.04) 0%, transparent 60%),
-    /* Football pitch center circle — very subtle */
-    radial-gradient(circle 280px at 50% 45%, transparent 200px, rgba(0, 255, 135, 0.015) 200px, transparent 280px),
-    /* Pitch lines — horizontal center line */
-    linear-gradient(
-      to bottom,
-      transparent calc(45% - 0.5px),
-      rgba(0, 255, 135, 0.04) calc(45% - 0.5px),
-      rgba(0, 255, 135, 0.04) calc(45% + 0.5px),
-      transparent calc(45% + 0.5px)
-    ),
     /* Noise grain for depth */
     url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
   background-attachment: fixed;
@@ -93,6 +98,19 @@ body::before {
   position: fixed;
   inset: 0;
   background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Tactical grid overlay — tech/pitch aesthetic */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 255, 135, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 135, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
   pointer-events: none;
   z-index: 0;
 }
@@ -130,6 +148,29 @@ body::before {
 .font-heading {
   font-family: 'Bebas Neue', sans-serif;
   letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   Card semantic classes (light/dark aware via CSS vars)
+   ============================================================ */
+.card-base {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.card-elevated {
+  background: var(--card-elevated-bg);
+  border-color: var(--card-elevated-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.card-clickable:hover {
+  background: var(--card-hover-bg);
+  border-color: var(--card-hover-border);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 255, 135, 0.05);
 }
 
 /* ============================================================
@@ -238,6 +279,13 @@ html.light body::before {
   background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 50%, rgba(180, 220, 195, 0.35) 100%);
 }
 
+html.light body::after {
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
 html.light .glass {
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(0, 0, 0, 0.07);
@@ -286,6 +334,11 @@ html.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.10); }
 html.light .border-white\/12 { border-color: rgba(0, 0, 0, 0.12); }
 html.light .border-white\/15 { border-color: rgba(0, 0, 0, 0.15); }
 html.light .border-white\/20 { border-color: rgba(0, 0, 0, 0.20); }
+
+/* Ghost button text color in light mode */
+html.light .btn-ghost-text {
+  color: #0d1810;
+}
 
 /* Inputs in light mode */
 html.light input[type="number"],

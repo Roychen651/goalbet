@@ -20,10 +20,10 @@ export function GlassCard({
       onClick={onClick}
       className={cn(
         'rounded-2xl border backdrop-blur-glass transition-all duration-200',
-        'bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.08)]',
+        'card-base',
         // Variant styles
         variant === 'elevated' && [
-          'bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.12)]',
+          'card-elevated',
           'shadow-[0_4px_24px_rgba(0,0,0,0.4)]',
         ],
         variant === 'live' && [
@@ -31,7 +31,7 @@ export function GlassCard({
           'shadow-[0_0_20px_rgba(0,255,135,0.1)] animate-pulse-glow',
         ],
         // Clickable styles
-        onClick && 'cursor-pointer hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.15)] hover:shadow-[0_8px_40px_rgba(0,0,0,0.5)]',
+        onClick && 'cursor-pointer card-clickable',
         className
       )}
     >

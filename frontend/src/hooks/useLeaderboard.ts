@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, LeaderboardEntryWithProfile } from '../lib/supabase';
 import { useGroupStore } from '../stores/groupStore';
 
-type LeaderboardType = 'total' | 'weekly';
+export type LeaderboardType = 'total' | 'weekly' | 'lastWeek';
 
 export function useLeaderboard(type: LeaderboardType = 'total') {
   const [entries, setEntries] = useState<LeaderboardEntryWithProfile[]>([]);
@@ -25,9 +25,25 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
 
       if (error) throw error;
 
-      const sortField = type === 'weekly' ? 'weekly_points' : 'total_points';
+      let sortField: keyof LeaderboardEntryWithProfile;
+      if (type === 'weekly') {
+        sortField = 'weekly_points';
+      } else if (type === 'lastWeek') {
+        // Use last_week_points if available, otherwise fall back to weekly_points
+        const sample = (data || [])[0] as Record<string, unknown> | undefined;
+        sortField = (sample && 'last_week_points' in sample)
+          ? 'last_week_points' as keyof LeaderboardEntryWithProfile
+          : 'weekly_points';
+      } else {
+        sortField = 'total_points';
+      }
+
       const sorted = [...(data || [])]
-        .sort((a, b) => (b[sortField] as number) - (a[sortField] as number))
+        .sort((a, b) => {
+          const aVal = (a as Record<string, unknown>)[sortField as string] as number ?? 0;
+          const bVal = (b as Record<string, unknown>)[sortField as string] as number ?? 0;
+          return bVal - aVal;
+        })
         .map((entry, idx) => ({ ...entry, rank: idx + 1 }));
 
       setEntries(sorted as LeaderboardEntryWithProfile[]);
