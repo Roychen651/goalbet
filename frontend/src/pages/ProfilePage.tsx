@@ -190,26 +190,26 @@ export function ProfilePage() {
             label: t('totalPoints'),
             value: totalPoints,
             highlight: true,
-            sub: resolved.length > 0 ? `avg ${(totalPoints / resolved.length).toFixed(1)} / match` : 'all time',
-            info: 'Sum of all points earned from resolved matches. Points come from: FT Result (3 pts), Exact Score (+7 pts), HT Result (4 pts), BTTS (2 pts), Over/Under (3 pts), Streak Bonus (+2 pts).',
+            sub: resolved.length > 0 ? `${t('avgLabel')} ${(totalPoints / resolved.length).toFixed(1)} ${t('perMatch')}` : t('allTimeLabel'),
+            info: t('infoTotalPoints'),
           },
           {
             label: t('predictions'),
             value: `${history.length}`,
-            sub: `${resolved.length} resolved`,
-            info: 'Total predictions you have made in this group. "Resolved" means the match finished and points were awarded.',
+            sub: `${resolved.length} ${t('accurate')}`,
+            info: t('infoPredictions'),
           },
           {
-            label: 'Hit Rate',
+            label: t('hitRate'),
             value: ftPredictions.length > 0 ? `${ftCorrect.length}/${ftPredictions.length}` : '—',
-            sub: 'FT Result correct',
-            info: 'How many times you correctly predicted the Full Time result (Home win / Draw / Away win). Only counts predictions where you chose an outcome.',
+            sub: t('ftResultCorrect'),
+            info: t('infoHitRate'),
           },
           {
             label: t('streak'),
             value: currentStreak > 0 ? `🔥${currentStreak}` : '—',
-            sub: currentStreak >= 3 ? '+2 pts bonus active!' : currentStreak === 2 ? '1 more = +2 pts bonus!' : bestStreak > 0 ? `best: ${bestStreak}` : '3 in a row = +2 pts',
-            info: 'Consecutive correct FT Result predictions. Get 3 in a row to earn a +2 pts streak bonus! The streak resets after the bonus is awarded — then earn it again.',
+            sub: currentStreak >= 3 ? t('streakBonusActive') : currentStreak === 2 ? t('streakOneMore') : bestStreak > 0 ? `${t('bestStreakLabel')} ${bestStreak}` : t('streakHint'),
+            info: t('infoStreak'),
           },
         ].map(stat => (
           <motion.div key={stat.label} variants={{ hidden: { opacity: 0, y: 20, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 100, damping: 18 } } }} whileHover={{ scale: 1.04, y: -3 }} transition={{ type: 'spring', stiffness: 300 }}>
@@ -228,7 +228,7 @@ export function ProfilePage() {
           {/* LIVE */}
           {livePreds.length > 0 && (
             <PredictionSection
-              title="🔴 Live Now"
+              title={`🔴 ${t('liveNow')}`}
               predictions={livePreds}
               expandedId={expandedId}
               setExpandedId={setExpandedId}
@@ -245,7 +245,7 @@ export function ProfilePage() {
           {/* UPCOMING */}
           {upcomingPreds.length > 0 && (
             <PredictionSection
-              title="⏳ Upcoming"
+              title={`⏳ ${t('upcoming')}`}
               predictions={upcomingPreds}
               expandedId={expandedId}
               setExpandedId={setExpandedId}
@@ -458,8 +458,8 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
       {streakBonus > 0 && (
         <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25">
           <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
-            <span>⚡</span><span>Streak Bonus</span>
-            <span className="text-yellow-400/60 font-normal">· 3 in a row</span>
+            <span>⚡</span><span>{t('streakBonus')}</span>
+            <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
           </span>
           <span className="font-bold tabular-nums text-yellow-400">+{streakBonus}</span>
         </div>

@@ -126,7 +126,7 @@ export function SettingsPage() {
                   onClick={() => { setGroupNameInput(activeGroup.name); setEditingName(true); }}
                   className="text-xs text-text-muted hover:text-white transition-colors"
                 >
-                  ✏️ Rename group
+                  ✏️ {t('renameGroup')}
                 </button>
               )}
             </div>
@@ -204,7 +204,7 @@ export function SettingsPage() {
             <h2 className="text-text-muted text-xs uppercase tracking-wider mb-2">Match Data</h2>
             <GlassCard className="p-4 flex items-center justify-between gap-4">
               <div>
-                <p className="text-white text-sm font-medium">Sync Matches</p>
+                <p className="text-white text-sm font-medium">{t('syncMatchesTitle')}</p>
                 <p className="text-text-muted text-xs mt-0.5">{lastSynced ? `Last synced: ${lastSynced.toLocaleTimeString()}` : 'Pull latest fixtures from ESPN'}</p>
               </div>
               <NeonButton variant="ghost" size="sm" loading={syncing} onClick={triggerSync}>{syncing ? 'Syncing…' : '⟳ Sync Now'}</NeonButton>
@@ -216,7 +216,7 @@ export function SettingsPage() {
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-text-muted text-xs uppercase tracking-wider">
                 {t('activeLeagues')} ({selectedLeagues.length})
-                {!isAdmin && <span className="ml-2 text-white/30 normal-case font-normal">· admin only</span>}
+                {!isAdmin && <span className="ml-2 text-white/30 normal-case font-normal">· {t('adminOnly')}</span>}
               </h2>
               {isAdmin && (
                 <NeonButton variant="green" size="sm" loading={savingLeagues} onClick={handleSaveLeagues}
@@ -248,7 +248,7 @@ export function SettingsPage() {
                 ))}
               </div>
               {!isAdmin && (
-                <p className="text-white/25 text-xs mt-3 text-center">Only the group admin can change active leagues</p>
+                <p className="text-white/25 text-xs mt-3 text-center">{t('onlyAdminLeagues')}</p>
               )}
             </GlassCard>
           </section>
@@ -256,16 +256,16 @@ export function SettingsPage() {
           {/* Admin: Reset All Scores */}
           {isAdmin && (
             <section>
-              <h2 className="text-text-muted text-xs uppercase tracking-wider mb-2">Danger Zone</h2>
+              <h2 className="text-text-muted text-xs uppercase tracking-wider mb-2">{t('dangerZone')}</h2>
               <GlassCard className="p-4 border border-red-500/15">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-white text-sm font-medium">Reset All Scores</p>
-                    <p className="text-text-muted text-xs mt-0.5">Resets all leaderboard points and stats for everyone in this group to zero. Prediction history is kept.</p>
+                    <p className="text-white text-sm font-medium">{t('resetAllScores')}</p>
+                    <p className="text-text-muted text-xs mt-0.5">{t('resetScoresDesc')}</p>
                   </div>
                   {!confirmReset && (
                     <NeonButton variant="danger" size="sm" onClick={() => setConfirmReset(true)} className="shrink-0">
-                      Reset
+                      {t('resetBtn')}
                     </NeonButton>
                   )}
                 </div>
@@ -280,7 +280,7 @@ export function SettingsPage() {
                     >
                       <div className="mt-3 pt-3 border-t border-red-500/20">
                         <p className="text-red-400 text-xs font-semibold mb-3">
-                          ⚠️ This will wipe all points, streaks, and stats for every member. This cannot be undone.
+                          {t('resetScoresWarning')}
                         </p>
                         <div className="flex gap-2">
                           <button
@@ -290,7 +290,7 @@ export function SettingsPage() {
                             {t('cancel')}
                           </button>
                           <NeonButton variant="danger" size="sm" loading={resetting} onClick={handleResetScores} className="flex-1">
-                            Yes, Reset Everything
+                            {t('yesResetAll')}
                           </NeonButton>
                         </div>
                       </div>

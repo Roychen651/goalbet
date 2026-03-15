@@ -45,7 +45,7 @@ export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: Leaderbo
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className={cn('font-semibold text-sm truncate', isCurrentUser ? 'text-accent-green' : 'text-white')}>
-            {entry.username}{isCurrentUser && ' (you)'}
+            {entry.username}{isCurrentUser && ` (${t('you')})`}
           </span>
           <StreakBadge streak={entry.current_streak} />
         </div>
@@ -67,7 +67,7 @@ export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: Leaderbo
               </div>
               <div className="flex items-center gap-1 justify-end mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 animate-pulse" />
-                <span className="text-blue-400 text-[10px] font-medium">{entry.live_points} pts live</span>
+                <span className="text-blue-400 text-[10px] font-medium">{entry.live_points} {t('ptsLiveLabel')}</span>
               </div>
             </>
           ) : (

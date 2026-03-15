@@ -28,9 +28,9 @@ function dateKey(kickoffTime: string): string {
   return kickoffTime.slice(0, 10);
 }
 
-// Human-readable date label
-function dateLabel(kickoffTime: string): string {
-  return new Date(kickoffTime).toLocaleDateString(undefined, {
+// Human-readable date label — respects app language
+function dateLabel(kickoffTime: string, lang: 'en' | 'he'): string {
+  return new Date(kickoffTime).toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
 }
@@ -38,7 +38,7 @@ function dateLabel(kickoffTime: string): string {
 export function MatchFeed({
   matches, predictions, predictorsByMatch, loading, savingMatchId, onSavePrediction, activeTab,
 }: MatchFeedProps) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
 
   const groupedByDate = useMemo(() => {
     const now = Date.now();
@@ -91,7 +91,7 @@ export function MatchFeed({
 
     return sortedKeys.map(key => ({
       key,
-      label: dateLabel(groups.get(key)![0].kickoff_time),
+      label: dateLabel(groups.get(key)![0].kickoff_time, lang),
       matches: groups.get(key)!,
     }));
   }, [matches, activeTab, predictions]);
@@ -128,7 +128,7 @@ export function MatchFeed({
                 <div className="flex items-center gap-2 mb-3 px-1">
                   <span className="w-2 h-2 rounded-full bg-accent-green shrink-0 shadow-[0_0_6px_rgba(0,255,135,0.8)] animate-pulse" />
                   <span className="text-accent-green text-[11px] uppercase tracking-[0.16em] font-bold">
-                    Live Now
+                    {t('liveNow')}
                   </span>
                 </div>
                 <div className="space-y-3 mb-3">
@@ -148,7 +148,7 @@ export function MatchFeed({
                 <div className="flex items-center gap-3 my-4 px-1">
                   <div className="flex-1 h-px bg-border-subtle" />
                   <span className="text-text-muted text-[10px] font-semibold uppercase tracking-[0.16em] px-2 py-0.5 rounded-full border border-border-subtle">
-                    Upcoming
+                    {t('upcoming')}
                   </span>
                   <div className="flex-1 h-px bg-border-subtle" />
                 </div>

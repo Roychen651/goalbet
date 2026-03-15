@@ -556,8 +556,8 @@ function LockedPrediction({
               >
                 <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
                   <span>⚡</span>
-                  <span>Streak Bonus</span>
-                  <span className="text-yellow-400/60 font-normal">· 3 in a row</span>
+                  <span>{t('streakBonus')}</span>
+                  <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
                 </span>
                 <span className="font-bold tabular-nums text-yellow-400">+{streakBonus}</span>
               </motion.div>
