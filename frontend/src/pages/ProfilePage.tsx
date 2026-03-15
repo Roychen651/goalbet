@@ -27,6 +27,8 @@ export function ProfilePage() {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
@@ -70,6 +72,17 @@ export function ProfilePage() {
       fetchHistory();
     } finally {
       setSaving(null);
+    }
+  };
+
+  const handleDeletePrediction = async (predictionId: string) => {
+    setDeleting(predictionId);
+    try {
+      await supabase.from('predictions').delete().eq('id', predictionId);
+      setConfirmDeleteId(null);
+      fetchHistory();
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -212,6 +225,15 @@ export function ProfilePage() {
                             {pred.points_earned > 0 ? `+${pred.points_earned}` : '0'}
                           </div>
                         )}
+                        {editable && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(pred.id); setExpandedId(null); }}
+                            className="text-text-muted hover:text-red-400 text-xs px-1.5 py-1 rounded-lg hover:bg-red-400/10 transition-all"
+                            title="Remove prediction"
+                          >
+                            🗑
+                          </button>
+                        )}
                         <motion.div
                           animate={{ rotate: isExpanded ? 180 : 0 }}
                           transition={{ duration: 0.2 }}
@@ -219,6 +241,37 @@ export function ProfilePage() {
                         >▾</motion.div>
                       </div>
                     </button>
+
+                    {/* Delete confirm */}
+                    <AnimatePresence>
+                      {confirmDeleteId === pred.id && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mx-3 mb-3 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-between gap-3">
+                            <span className="text-white/70 text-xs">Remove this prediction?</span>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="text-text-muted text-xs hover:text-white px-2 py-1 rounded"
+                              >
+                                {t('cancel')}
+                              </button>
+                              <button
+                                onClick={() => handleDeletePrediction(pred.id)}
+                                disabled={deleting === pred.id}
+                                className="text-xs px-3 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-all disabled:opacity-50"
+                              >
+                                {deleting === pred.id ? '...' : 'Remove'}
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Expanded content */}
                     <AnimatePresence initial={false}>

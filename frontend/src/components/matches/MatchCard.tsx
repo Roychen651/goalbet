@@ -45,10 +45,19 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const leagueBadge = leagueInfo?.badge;
   const leagueEspnId = leagueInfo?.espnLogoId ?? null;
 
+  // Leading team during live — used for score + team highlighting
+  const homeLeading = isInProgress && match.home_score !== null && match.away_score !== null && match.home_score > match.away_score;
+  const awayLeading = isInProgress && match.home_score !== null && match.away_score !== null && match.away_score > match.home_score;
+
+  // Predicted live cards get a blue glow — visually distinct from unpredicted live (green)
+  const cardVariant = isInProgress
+    ? (hasPrediction ? 'live-predicted' : 'live')
+    : 'default';
+
   return (
     <GlassCard
       as="article"
-      variant={isLive || isPastKickoffNS ? 'live' : 'default'}
+      variant={cardVariant}
       className="overflow-hidden"
     >
       {/* Card header */}
@@ -84,6 +93,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             badge={match.home_team_badge}
             score={isLive || isFinished ? match.home_score : null}
             isWinner={isFinished && match.home_score !== null && match.away_score !== null && match.home_score > match.away_score}
+            isLeading={homeLeading}
           />
 
           <div className="flex-1 flex flex-col items-center">
@@ -94,9 +104,11 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                   initial={{ scale: 1.15 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                  className="text-2xl font-bebas tracking-widest text-white"
+                  className="text-2xl font-bebas tracking-widest"
                 >
-                  {match.home_score ?? 0} — {match.away_score ?? 0}
+                  <span className={homeLeading ? 'text-accent-green' : awayLeading ? 'text-white/50' : 'text-white'}>{match.home_score ?? 0}</span>
+                  <span className="text-white/40"> — </span>
+                  <span className={awayLeading ? 'text-accent-green' : homeLeading ? 'text-white/50' : 'text-white'}>{match.away_score ?? 0}</span>
                 </motion.span>
                 {isInProgress && liveClock && (
                   <motion.span
@@ -189,6 +201,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             badge={match.away_team_badge}
             score={isLive || isFinished ? match.away_score : null}
             isWinner={isFinished && match.home_score !== null && match.away_score !== null && match.away_score > match.home_score}
+            isLeading={awayLeading}
             right
           />
         </div>
@@ -260,25 +273,32 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   );
 }
 
-function TeamBlock({ name, badge, score, isWinner, right }: {
+function TeamBlock({ name, badge, score, isWinner, isLeading, right }: {
   name: string; badge: string | null; score: number | null;
-  isWinner: boolean; right?: boolean;
+  isWinner: boolean; isLeading?: boolean; right?: boolean;
 }) {
   const shortName = name.length > 12 ? name.split(' ').pop() || name : name;
+  const highlight = isWinner || isLeading;
   return (
     <div className={cn('flex flex-col items-center gap-1.5 w-[80px]', right && '')}>
       {badge ? (
         <img
           src={badge}
           alt={name}
-          className={cn('w-9 h-9 object-contain transition-all duration-200', isWinner && 'drop-shadow-[0_0_8px_rgba(0,255,135,0.5)]')}
+          className={cn(
+            'w-9 h-9 object-contain transition-all duration-200',
+            highlight && 'drop-shadow-[0_0_8px_rgba(0,255,135,0.5)] scale-105',
+          )}
           loading="lazy"
           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
       ) : (
         <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-base">⚽</div>
       )}
-      <span className={cn('text-center text-xs leading-tight', isWinner ? 'text-accent-green font-semibold' : 'text-text-muted')}>
+      <span className={cn(
+        'text-center text-xs leading-tight transition-colors duration-300',
+        highlight ? 'text-accent-green font-semibold' : 'text-text-muted',
+      )}>
         {shortName}
       </span>
     </div>

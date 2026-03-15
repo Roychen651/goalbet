@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
 
-type Variant = 'default' | 'elevated' | 'live';
+type Variant = 'default' | 'elevated' | 'live' | 'live-predicted';
 
 interface GlassCardProps {
   children: React.ReactNode;
@@ -19,6 +19,10 @@ export function GlassCard({ children, className, variant = 'default', onClick, a
     variant === 'live' && [
       'border-accent-green/30 bg-[rgba(0,255,135,0.04)]',
       'shadow-[0_0_30px_rgba(0,255,135,0.08),inset_0_1px_0_rgba(0,255,135,0.08)]',
+    ],
+    variant === 'live-predicted' && [
+      'border-blue-400/35 bg-[rgba(96,165,250,0.05)]',
+      'shadow-[0_0_32px_rgba(96,165,250,0.12),inset_0_1px_0_rgba(96,165,250,0.10)]',
     ],
     onClick && 'cursor-pointer card-clickable',
     className
