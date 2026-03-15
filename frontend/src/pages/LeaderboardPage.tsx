@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { LeaderboardTable } from '../components/leaderboard/LeaderboardTable';
 import { UserMatchHistoryModal } from '../components/leaderboard/UserMatchHistoryModal';
 import { GlassCard } from '../components/ui/GlassCard';
+import { InfoTip } from '../components/ui/InfoTip';
 import { cn } from '../lib/utils';
 import { LeaderboardEntryWithProfile } from '../lib/supabase';
 
@@ -140,35 +141,44 @@ export function LeaderboardPage() {
       {/* Your rank summary — fully period-aware */}
       {currentUserEntry && (
         <GlassCard variant="elevated" className="p-4 grid grid-cols-4 gap-2">
-          <div className="text-center" title={`Your rank ${pointsSub}`}>
-            <div className="text-text-muted text-[10px] uppercase tracking-wider mb-1">{t('yourRank')}</div>
+          <div className="text-center">
+            <div className="flex items-center justify-center text-text-muted text-[10px] uppercase tracking-wider mb-1 gap-0.5">
+              {t('yourRank')}
+              <InfoTip text={`Your position in the ${pointsSub} standings. Rank is sorted by points earned in this period.`} />
+            </div>
             <div className="font-bebas text-xl sm:text-2xl text-accent-green text-glow-green">
               #{currentUserEntry.rank}
             </div>
             <div className="text-white/25 text-[9px] mt-0.5 leading-tight">{pointsSub}</div>
           </div>
 
-          <div className="text-center" title={`Points earned ${pointsSub}`}>
-            <div className="text-text-muted text-[10px] uppercase tracking-wider mb-1">{t('points')}</div>
+          <div className="text-center">
+            <div className="flex items-center justify-center text-text-muted text-[10px] uppercase tracking-wider mb-1 gap-0.5">
+              {t('points')}
+              <InfoTip text={`Points earned ${pointsSub}. Each match scores: FT Result (3 pts), Exact Score (+7 pts), HT Result (4 pts), BTTS (2 pts), Over/Under (3 pts). Max 19 pts per match.`} />
+            </div>
             <div className="font-bebas text-xl sm:text-2xl text-white">
               {getPoints(currentUserEntry)}
             </div>
             <div className="text-white/25 text-[9px] mt-0.5 leading-tight">{pointsSub}</div>
           </div>
 
-          <div className="text-center" title={`Correct picks out of resolved predictions ${pointsSub}`}>
-            <div className="text-text-muted text-[10px] uppercase tracking-wider mb-1">Hit Rate</div>
+          <div className="text-center">
+            <div className="flex items-center justify-center text-text-muted text-[10px] uppercase tracking-wider mb-1 gap-0.5">
+              Hit Rate
+              <InfoTip text="Correct Full Time result predictions ÷ total FT result predictions made. Only counts matches where you predicted Home / Draw / Away." />
+            </div>
             <div className="font-bebas text-xl sm:text-2xl text-white">{hitDisplay}</div>
             <div className="text-white/25 text-[9px] mt-0.5 leading-tight">
               {periodStats !== null ? pointsSub : 'all time'}
             </div>
           </div>
 
-          <div
-            className="text-center"
-            title="Get 3 correct predictions in a row to earn a +2 pts bonus. Streak resets after bonus is awarded — then earn it again!"
-          >
-            <div className="text-text-muted text-[10px] uppercase tracking-wider mb-1">{t('streak')}</div>
+          <div className="text-center">
+            <div className="flex items-center justify-center text-text-muted text-[10px] uppercase tracking-wider mb-1 gap-0.5">
+              {t('streak')}
+              <InfoTip text="Consecutive correct FT Result predictions. Get 3 in a row to earn a +2 pts streak bonus! Streak resets after the bonus is awarded — then earn it again." />
+            </div>
             {type === 'lastWeek' ? (
               <>
                 <div className="font-bebas text-xl sm:text-2xl text-white/30">—</div>

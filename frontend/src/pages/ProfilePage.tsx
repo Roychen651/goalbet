@@ -12,7 +12,8 @@ import { PageLoader } from '../components/ui/LoadingSpinner';
 import { MatchStatusBadge } from '../components/matches/MatchStatusBadge';
 import { PredictionForm, PredictionData } from '../components/matches/PredictionForm';
 import { AvatarPicker } from '../components/profile/AvatarPicker';
-import { formatKickoffTime, formatAccuracy, isMatchLocked, calcBreakdown } from '../lib/utils';
+import { formatKickoffTime, isMatchLocked, calcBreakdown } from '../lib/utils';
+import { InfoTip } from '../components/ui/InfoTip';
 
 interface PredictionWithMatch extends Prediction {
   match: Match;
@@ -35,6 +36,7 @@ export function ProfilePage() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [lbEntry, setLbEntry] = useState<{ current_streak: number; best_streak: number } | null>(null);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
@@ -55,6 +57,17 @@ export function ProfilePage() {
 
   useEffect(() => {
     fetchHistory();
+  }, [user?.id, activeGroupId]);
+
+  useEffect(() => {
+    if (!user?.id || !activeGroupId) return;
+    supabase
+      .from('leaderboard')
+      .select('current_streak, best_streak')
+      .eq('user_id', user.id)
+      .eq('group_id', activeGroupId)
+      .single()
+      .then(({ data }) => { if (data) setLbEntry(data); });
   }, [user?.id, activeGroupId]);
 
   const handleSavePrediction = async (data: PredictionData, predictionId: string) => {
@@ -111,12 +124,24 @@ export function ProfilePage() {
   if (!profile) return <PageLoader />;
 
   const resolved = history.filter(p => p.is_resolved);
-  const correct = resolved.filter(p => p.points_earned > 0);
   const totalPoints = resolved.reduce((sum, p) => sum + p.points_earned, 0);
+
+  // Hit rate: only FT Result predictions (predicted_outcome must be set, match must be FT)
+  const ftPredictions = resolved.filter(p => p.match.status === 'FT' && p.predicted_outcome !== null);
+  const ftCorrect = ftPredictions.filter(p => {
+    const actual = p.match.home_score! > p.match.away_score! ? 'H' : p.match.home_score! < p.match.away_score! ? 'A' : 'D';
+    return (p.predicted_outcome as string) === actual;
+  });
+
+  const currentStreak = lbEntry?.current_streak ?? 0;
+  const bestStreak = lbEntry?.best_streak ?? 0;
 
   const livePreds = history.filter(p => LIVE_STATUSES.includes(p.match.status));
   const upcomingPreds = history.filter(p => p.match.status === 'NS');
-  const historyPreds = history.filter(p => !LIVE_STATUSES.includes(p.match.status) && p.match.status !== 'NS');
+  // History = finished/cancelled — sorted newest kickoff first so most recent results appear at top
+  const historyPreds = history
+    .filter(p => !LIVE_STATUSES.includes(p.match.status) && p.match.status !== 'NS')
+    .sort((a, b) => new Date(b.match.kickoff_time).getTime() - new Date(a.match.kickoff_time).getTime());
 
   return (
     <motion.div className="space-y-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
@@ -161,13 +186,34 @@ export function ProfilePage() {
       {/* Stats grid */}
       <motion.div className="grid grid-cols-2 gap-3 sm:grid-cols-4" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } }}>
         {[
-          { label: t('totalPoints'), value: totalPoints, highlight: true, sub: resolved.length > 0 ? `avg ${(totalPoints / resolved.length).toFixed(1)} / match` : 'all time' },
-          { label: t('predictions'), value: `${history.length}`, sub: `${resolved.length} resolved` },
-          { label: 'Hit Rate', value: resolved.length > 0 ? `${correct.length}/${resolved.length}` : '—', sub: 'correct · resolved' },
-          { label: t('streak'), value: resolved.length > 0 ? `${correct.length > 0 ? Math.round((correct.length / resolved.length) * 100) : 0}%` : '—', sub: 'scored any pts' },
+          {
+            label: t('totalPoints'),
+            value: totalPoints,
+            highlight: true,
+            sub: resolved.length > 0 ? `avg ${(totalPoints / resolved.length).toFixed(1)} / match` : 'all time',
+            info: 'Sum of all points earned from resolved matches. Points come from: FT Result (3 pts), Exact Score (+7 pts), HT Result (4 pts), BTTS (2 pts), Over/Under (3 pts), Streak Bonus (+2 pts).',
+          },
+          {
+            label: t('predictions'),
+            value: `${history.length}`,
+            sub: `${resolved.length} resolved`,
+            info: 'Total predictions you have made in this group. "Resolved" means the match finished and points were awarded.',
+          },
+          {
+            label: 'Hit Rate',
+            value: ftPredictions.length > 0 ? `${ftCorrect.length}/${ftPredictions.length}` : '—',
+            sub: 'FT Result correct',
+            info: 'How many times you correctly predicted the Full Time result (Home win / Draw / Away win). Only counts predictions where you chose an outcome.',
+          },
+          {
+            label: t('streak'),
+            value: currentStreak > 0 ? `🔥${currentStreak}` : '—',
+            sub: currentStreak >= 3 ? '+2 pts bonus active!' : currentStreak === 2 ? '1 more = +2 pts bonus!' : bestStreak > 0 ? `best: ${bestStreak}` : '3 in a row = +2 pts',
+            info: 'Consecutive correct FT Result predictions. Get 3 in a row to earn a +2 pts streak bonus! The streak resets after the bonus is awarded — then earn it again.',
+          },
         ].map(stat => (
           <motion.div key={stat.label} variants={{ hidden: { opacity: 0, y: 20, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 100, damping: 18 } } }} whileHover={{ scale: 1.04, y: -3 }} transition={{ type: 'spring', stiffness: 300 }}>
-            <StatCard label={stat.label} value={stat.value} highlight={stat.highlight} sub={stat.sub} />
+            <StatCard label={stat.label} value={stat.value} highlight={stat.highlight} sub={stat.sub} info={stat.info} />
           </motion.div>
         ))}
       </motion.div>
@@ -337,10 +383,13 @@ function PredictionSection({ title, predictions, expandedId, setExpandedId, conf
   );
 }
 
-function StatCard({ label, value, highlight, sub }: { label: string; value: string | number; highlight?: boolean; sub?: string }) {
+function StatCard({ label, value, highlight, sub, info }: { label: string; value: string | number; highlight?: boolean; sub?: string; info?: string }) {
   return (
     <GlassCard className="p-4 text-center">
-      <div className="text-text-muted text-xs uppercase tracking-wider mb-1">{label}</div>
+      <div className="flex items-center justify-center text-text-muted text-xs uppercase tracking-wider mb-1 gap-0.5">
+        {label}
+        {info && <InfoTip text={info} />}
+      </div>
       <div className={`font-bebas text-2xl tracking-wider ${highlight ? 'text-accent-green text-glow-green' : 'text-white'}`}>{value}</div>
       {sub && <div className="text-white/20 text-[10px] mt-0.5 leading-tight">{sub}</div>}
     </GlassCard>

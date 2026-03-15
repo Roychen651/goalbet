@@ -202,3 +202,44 @@ language sql security definer as $$
   where l.group_id = p_group_id
   order by l.total_points desc, l.correct_predictions desc;
 $$;
+
+-- ============================================================
+-- Migration 011: Admin reset_group_scores RPC
+-- ============================================================
+
+create or replace function reset_group_scores(p_group_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_requesting_user uuid;
+  v_is_admin boolean;
+begin
+  v_requesting_user := auth.uid();
+
+  select (created_by = v_requesting_user)
+  into v_is_admin
+  from groups
+  where id = p_group_id;
+
+  if not found or not v_is_admin then
+    raise exception 'Only the group admin can reset scores';
+  end if;
+
+  update leaderboard
+  set
+    total_points        = 0,
+    weekly_points       = 0,
+    last_week_points    = 0,
+    predictions_made    = 0,
+    correct_predictions = 0,
+    current_streak      = 0,
+    best_streak         = 0,
+    updated_at          = now()
+  where group_id = p_group_id;
+end;
+$$;
+
+grant execute on function reset_group_scores(uuid) to authenticated;

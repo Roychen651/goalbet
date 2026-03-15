@@ -12,6 +12,7 @@ import { GroupMembersList } from '../components/groups/GroupMembersList';
 import { PolicyModal } from '../components/ui/PolicyModal';
 import { FOOTBALL_LEAGUES } from '../lib/constants';
 import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase';
 
 export function SettingsPage() {
   const { groups, activeGroupId, setActiveGroup, updateGroupLeagues, updateGroupName, leaveGroup } = useGroupStore();
@@ -25,6 +26,8 @@ export function SettingsPage() {
   const [editingName, setEditingName] = useState(false);
   const [groupNameInput, setGroupNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const isAdmin = !!user && !!activeGroup && user.id === activeGroup.created_by;
@@ -68,6 +71,21 @@ export function SettingsPage() {
       addToast('Failed to update name', 'error');
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const handleResetScores = async () => {
+    if (!activeGroupId || !isAdmin) return;
+    setResetting(true);
+    try {
+      const { error } = await supabase.rpc('reset_group_scores', { p_group_id: activeGroupId });
+      if (error) throw error;
+      addToast('All scores have been reset', 'success');
+      setConfirmReset(false);
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to reset scores', 'error');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -234,6 +252,54 @@ export function SettingsPage() {
               )}
             </GlassCard>
           </section>
+
+          {/* Admin: Reset All Scores */}
+          {isAdmin && (
+            <section>
+              <h2 className="text-text-muted text-xs uppercase tracking-wider mb-2">Danger Zone</h2>
+              <GlassCard className="p-4 border border-red-500/15">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-white text-sm font-medium">Reset All Scores</p>
+                    <p className="text-text-muted text-xs mt-0.5">Resets all leaderboard points and stats for everyone in this group to zero. Prediction history is kept.</p>
+                  </div>
+                  {!confirmReset && (
+                    <NeonButton variant="danger" size="sm" onClick={() => setConfirmReset(true)} className="shrink-0">
+                      Reset
+                    </NeonButton>
+                  )}
+                </div>
+
+                <AnimatePresence>
+                  {confirmReset && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-3 pt-3 border-t border-red-500/20">
+                        <p className="text-red-400 text-xs font-semibold mb-3">
+                          ⚠️ This will wipe all points, streaks, and stats for every member. This cannot be undone.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setConfirmReset(false)}
+                            className="flex-1 py-2 rounded-xl text-xs text-text-muted hover:text-white border border-white/10 hover:bg-white/5 transition-all"
+                          >
+                            {t('cancel')}
+                          </button>
+                          <NeonButton variant="danger" size="sm" loading={resetting} onClick={handleResetScores} className="flex-1">
+                            Yes, Reset Everything
+                          </NeonButton>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </GlassCard>
+            </section>
+          )}
 
           {/* More groups */}
           <section>

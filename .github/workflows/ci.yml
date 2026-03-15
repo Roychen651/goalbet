@@ -62,3 +62,63 @@ jobs:
 
       - name: Build (tsc)
         run: npm run build
+
+  # ─── Database: Apply pending migrations to production ────────────────────────
+  # Runs only on push to main (not on PRs) so migrations hit production exactly once.
+  # Required GitHub Secrets:
+  #   SUPABASE_ACCESS_TOKEN  → supabase.com → Account → Access Tokens → Generate new token
+  #   SUPABASE_PROJECT_REF   → your project ref from https://app.supabase.com/project/[REF]
+  #   SUPABASE_DB_PASSWORD   → Project Settings → Database → Database Password
+  migrate:
+    name: Database — deploy migrations
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Mark migrations 001–011 as already applied so the CLI never re-runs them.
+      # These were applied manually via Supabase SQL Editor.
+      # New migrations (012+) will be applied automatically by db push below.
+      # Uses ON CONFLICT DO NOTHING — safe to run repeatedly.
+      - name: Sync existing migration history
+        run: |
+          psql "$DB_URL" <<'SQL'
+            CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (
+              version text NOT NULL PRIMARY KEY,
+              statements text[],
+              name text
+            );
+            INSERT INTO supabase_migrations.schema_migrations (version, name)
+            VALUES
+              ('001', '001_initial_schema'),
+              ('002', '002_rls_policies'),
+              ('003', '003_functions_triggers'),
+              ('004', '004_fixes'),
+              ('005', '005_display_clock'),
+              ('006', '006_leaderboard_all_members'),
+              ('007', '007_fix_prediction_resolution'),
+              ('008', '008_last_week_points'),
+              ('009', '009_streak_bonus_backfill'),
+              ('010', '010_full_data_repair'),
+              ('011', '011_reset_group_scores')
+            ON CONFLICT (version) DO NOTHING;
+          SQL
+        env:
+          DB_URL: postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co:5432/postgres
+
+      # Push any new migration files (012, 013, ...) that aren't in history yet
+      - name: Apply pending migrations
+        run: |
+          supabase db push \
+            --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" \
+            --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

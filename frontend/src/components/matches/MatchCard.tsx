@@ -4,7 +4,7 @@ import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
 import { MatchStatusBadge } from './MatchStatusBadge';
 import { PredictionForm, PredictionData } from './PredictionForm';
-import { cn, formatKickoffTime, getLiveClock } from '../../lib/utils';
+import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import { useLiveClock } from '../../hooks/useLiveClock';
@@ -90,7 +90,30 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 0 {t('pts')}
               </motion.span>
             )}
-            {hasPrediction && !isFinished && (
+            {hasPrediction && isInProgress && prediction && (() => {
+              const tiers = calcLiveBreakdown(prediction, match);
+              const livePts = tiers ? tiers.filter(r => r.earned && !r.pending).reduce((s, r) => s + r.pts, 0) : 0;
+              return livePts > 0 ? (
+                <motion.span
+                  key={livePts}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex items-center gap-1 bg-blue-500/12 border border-blue-500/25 rounded-full px-2 py-0.5 text-blue-400 text-xs font-bold"
+                >
+                  +{livePts} {t('pts')}
+                </motion.span>
+              ) : (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex items-center gap-1 text-accent-green text-xs"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
+                  {t('predicted')}
+                </motion.span>
+              );
+            })()}
+            {hasPrediction && !isFinished && !isInProgress && (
               <motion.span
                 initial={{ opacity: 0, scale: 0.7 }}
                 animate={{ opacity: 1, scale: 1 }}
