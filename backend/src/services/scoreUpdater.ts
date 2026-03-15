@@ -115,11 +115,16 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
       const breakdown = calculatePoints(prediction, matchResult);
       const finalPoints = applyStreakBonus(breakdown.total, currentStreak);
 
-      // Mark prediction as resolved
-      await supabaseAdmin
+      // Mark prediction as resolved — MUST succeed before updating leaderboard
+      const { error: predUpdateError } = await supabaseAdmin
         .from('predictions')
         .update({ points_earned: finalPoints, is_resolved: true })
         .eq('id', prediction.id);
+
+      if (predUpdateError) {
+        logger.error(`[scoreUpdater] Failed to mark prediction ${prediction.id} as resolved:`, predUpdateError);
+        continue; // do NOT update leaderboard if prediction update failed
+      }
 
       // Update leaderboard — properly track best_streak
       const isCorrect = breakdown.correct_prediction;
@@ -142,7 +147,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
           predictions_made: existingLB.predictions_made + 1,
           correct_predictions: existingLB.correct_predictions + (isCorrect ? 1 : 0),
           current_streak: newStreak,
-          best_streak: Math.max(prevBestStreak, newStreak), // fix: was comparing against current_streak
+          best_streak: Math.max(prevBestStreak, newStreak),
         }, {
           onConflict: 'user_id,group_id',
         });
@@ -217,6 +222,42 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
     } catch (err) {
       logger.error(`[scoreUpdater] Error checking league ${leagueId}:`, err);
     }
+  }
+
+  // ── Catch-up: resolve FT matches that still have unresolved predictions ──
+  // This handles cases where a previous resolution attempt failed (e.g. trigger bug).
+  // We don't need to re-fetch ESPN data — scores are already in the DB.
+  try {
+    const { data: stuckPreds } = await supabaseAdmin
+      .from('predictions')
+      .select('match_id')
+      .eq('is_resolved', false);
+
+    const stuckMatchIds = [...new Set((stuckPreds ?? []).map((p: { match_id: string }) => p.match_id))];
+
+    if (stuckMatchIds.length > 0) {
+      const { data: ftStuck } = await supabaseAdmin
+        .from('matches')
+        .select('id, home_score, away_score, halftime_home, halftime_away')
+        .eq('status', 'FT')
+        .not('home_score', 'is', null)
+        .in('id', stuckMatchIds);
+
+      for (const m of (ftStuck ?? []) as { id: string; home_score: number; away_score: number; halftime_home: number | null; halftime_away: number | null }[]) {
+        const count = await resolveMatchPredictions(m.id, {
+          home_score: m.home_score,
+          away_score: m.away_score,
+          halftime_home: m.halftime_home,
+          halftime_away: m.halftime_away,
+        });
+        if (count > 0) {
+          totalResolved += count;
+          logger.info(`[scoreUpdater] Catch-up resolved ${count} stuck predictions for FT match ${m.id}`);
+        }
+      }
+    }
+  } catch (err) {
+    logger.error('[scoreUpdater] Catch-up resolution error:', err);
   }
 
   return { checked: pendingMatches.length, resolved: totalResolved };
