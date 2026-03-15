@@ -29,25 +29,55 @@ interface Prediction {
   predicted_over_under: 'over' | 'under' | null;
 }
 
-// Find all matches that have kicked off and aren't finished yet.
-// This covers both live in-progress matches (need score update) and
-// expected-finished matches (need resolution). We start from 2 min before kickoff
-// to handle early-start edge cases.
+// Find all matches that need processing:
+// 1. In-progress matches (1H, HT, 2H, NS past kickoff) — need score update
+// 2. FT matches that still have unresolved predictions — backend was down when match ended
 async function getPendingMatches(): Promise<PendingMatch[]> {
-  const slightlyAhead = new Date(Date.now() + 2 * 60 * 1000).toISOString(); // 2 min ahead
+  const slightlyAhead = new Date(Date.now() + 2 * 60 * 1000).toISOString();
 
-  const { data, error } = await supabaseAdmin
+  // Query 1: in-progress / not-yet-finished matches
+  const { data: inProgress, error: e1 } = await supabaseAdmin
     .from('matches')
     .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away')
     .not('status', 'in', '("FT","PST","CANC")')
     .lt('kickoff_time', slightlyAhead);
 
-  if (error) {
-    logger.error('[scoreUpdater] Failed to fetch pending matches:', error);
+  if (e1) {
+    logger.error('[scoreUpdater] Failed to fetch in-progress matches:', e1);
     return [];
   }
 
-  return data || [];
+  // Query 2: FT matches that still have at least one unresolved prediction
+  // (happens when backend was sleeping/down when the match finished)
+  const { data: unresolvedPredRows } = await supabaseAdmin
+    .from('predictions')
+    .select('match_id')
+    .eq('is_resolved', false);
+
+  const unresolvedMatchIds = [...new Set((unresolvedPredRows ?? []).map(p => p.match_id))];
+  let ftMissed: PendingMatch[] = [];
+
+  if (unresolvedMatchIds.length > 0) {
+    const { data: ftData, error: e2 } = await supabaseAdmin
+      .from('matches')
+      .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away')
+      .in('id', unresolvedMatchIds)
+      .eq('status', 'FT')
+      .not('home_score', 'is', null)
+      .not('away_score', 'is', null);
+
+    if (e2) logger.warn('[scoreUpdater] Failed to fetch missed FT matches:', e2);
+    else ftMissed = ftData ?? [];
+  }
+
+  if (ftMissed.length > 0) {
+    logger.info(`[scoreUpdater] Found ${ftMissed.length} FT match(es) with unresolved predictions (catch-up)`);
+  }
+
+  // Merge, deduplicate by id
+  const all = [...(inProgress ?? []), ...ftMissed];
+  const seen = new Set<string>();
+  return all.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
 }
 
 async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): Promise<void> {

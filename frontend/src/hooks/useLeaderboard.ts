@@ -94,6 +94,7 @@ async function fetchGroupLeaderboard(
           if (!predsByUser.has(pred.user_id)) predsByUser.set(pred.user_id, []);
           predsByUser.get(pred.user_id)!.push(pred);
         }
+        let hasLive = false;
         for (const entry of ranked) {
           const userPreds = predsByUser.get(entry.user_id) ?? [];
           let live = 0;
@@ -105,6 +106,19 @@ async function fetchGroupLeaderboard(
             }
           }
           entry.live_points = live;
+          if (live > 0) hasLive = true;
+        }
+
+        // Re-sort positions by stored + live so rankings shift in real-time
+        if (hasLive) {
+          ranked.sort((a, b) => {
+            const aTotal = ((a[sortField as keyof typeof a] as number) ?? 0) + (a.live_points ?? 0);
+            const bTotal = ((b[sortField as keyof typeof b] as number) ?? 0) + (b.live_points ?? 0);
+            if (bTotal !== aTotal) return bTotal - aTotal;
+            if (b.total_points !== a.total_points) return b.total_points - a.total_points;
+            return a.username.localeCompare(b.username);
+          });
+          ranked.forEach((e, i) => { e.rank = i + 1; });
         }
       }
     }
