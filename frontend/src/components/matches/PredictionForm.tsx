@@ -33,6 +33,15 @@ const TIER_COLORS = [
   { dot: 'bg-purple-400',  pts: 'text-purple-400',  glow: 'shadow-[0_0_12px_rgba(192,132,252,0.3)]' },
 ];
 
+function deriveOutcomeFromScore(home: string, away: string): OutcomeOption | null {
+  const h = parseInt(home);
+  const a = parseInt(away);
+  if (isNaN(h) || isNaN(a) || home === '' || away === '') return null;
+  if (h > a) return 'H';
+  if (a > h) return 'A';
+  return 'D';
+}
+
 export function PredictionForm({ match, existingPrediction, onSave, saving }: PredictionFormProps) {
   const { t } = useLangStore();
   const locked = isMatchLocked(match.kickoff_time) || match.status !== 'NS';
@@ -46,8 +55,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
   const [overUnder, setOverUnder] = useState<'over' | 'under' | null>(existingPrediction?.predicted_over_under ?? null);
   const [saved, setSaved] = useState(!!existingPrediction);
 
-  // Sync form values only when the prediction ID changes (new prediction loaded),
-  // not on every re-render of the parent — prevents overwriting user's in-progress edits.
+  // Sync form values only when the prediction ID changes (new prediction loaded).
   const predId = existingPrediction?.id;
   useEffect(() => {
     if (existingPrediction) {
@@ -61,6 +69,17 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [predId]);
+
+  // Auto-derive outcome from exact score — prevents logically impossible combinations
+  // (e.g. predicting 3-2 but selecting "Away" as winner)
+  const scoreDerivedOutcome = deriveOutcomeFromScore(homeScore, awayScore);
+  const hasExactScore = homeScore !== '' && awayScore !== '';
+
+  useEffect(() => {
+    if (scoreDerivedOutcome !== null) {
+      setOutcome(scoreDerivedOutcome);
+    }
+  }, [scoreDerivedOutcome]);
 
   const handleSubmit = async () => {
     await onSave({
@@ -76,7 +95,6 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
   };
 
   const hasAnyPrediction = outcome !== null || homeScore !== '' || htOutcome !== null || btts !== null || overUnder !== null;
-  const hasExactScore = homeScore !== '' && awayScore !== '';
 
   if (locked) {
     return <LockedPrediction match={match} prediction={existingPrediction} resolved={resolved} />;
@@ -95,6 +113,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
           homeTeam={match.home_team}
           awayTeam={match.away_team}
           color={TIER_COLORS[0]}
+          lockedByScore={hasExactScore}
         />
       ),
     },
@@ -226,19 +245,19 @@ function TierRow({
     <div className={cn(
       'rounded-xl border p-2.5 transition-all duration-200',
       active
-        ? 'bg-white/5 border-white/12'
-        : 'bg-white/2 border-white/6',
+        ? 'bg-white/5 border-white/12 tier-row-active'
+        : 'bg-white/2 border-white/6 tier-row-inactive',
     )}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color.dot)} />
-          <span className="text-white/70 text-xs font-medium tracking-wide">{label}</span>
+          <span className="text-text-muted text-xs font-medium tracking-wide">{label}</span>
         </div>
         <div className="flex items-center gap-1">
           {ptsNote && (
-            <span className="text-white/35 text-xs">{ptsNote}</span>
+            <span className="text-text-muted text-xs opacity-60">{ptsNote}</span>
           )}
-          <span className={cn('text-xs font-bold tabular-nums', active ? color.pts : 'text-white/40')}>
+          <span className={cn('text-xs font-bold tabular-nums', active ? color.pts : 'text-text-muted opacity-50')}>
             +{pts} {t('pts')}
           </span>
         </div>
@@ -249,13 +268,14 @@ function TierRow({
 }
 
 function OutcomePicker({
-  value, onChange, homeTeam, awayTeam, color,
+  value, onChange, homeTeam, awayTeam, color, lockedByScore,
 }: {
   value: OutcomeOption | null;
   onChange: (v: OutcomeOption) => void;
   homeTeam: string;
   awayTeam: string;
   color: typeof TIER_COLORS[number];
+  lockedByScore?: boolean;
 }) {
   const { t } = useLangStore();
   const options: { val: OutcomeOption; label: string }[] = [
@@ -269,17 +289,24 @@ function OutcomePicker({
       {options.map(({ val, label }) => (
         <button
           key={val}
-          onClick={() => onChange(val)}
+          onClick={() => { if (!lockedByScore) onChange(val); }}
+          disabled={lockedByScore}
           className={cn(
             'py-2 rounded-lg text-sm font-semibold transition-all duration-150 border truncate',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
-              : 'bg-white/4 border-white/8 text-white/50 hover:bg-white/8 hover:border-white/15 hover:text-white/80',
+              : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
+            lockedByScore && value !== val && 'opacity-40 cursor-not-allowed',
           )}
         >
           {label}
         </button>
       ))}
+      {lockedByScore && (
+        <div className="col-span-3 text-center text-xs text-text-muted opacity-60 mt-0.5">
+          ↑ auto from score
+        </div>
+      )}
     </div>
   );
 }
@@ -293,7 +320,7 @@ function ScorePicker({
   return (
     <div className="flex items-center gap-2">
       <ScoreInput value={homeValue} onChange={onHomeChange} />
-      <span className="text-white/30 text-base font-bold shrink-0">—</span>
+      <span className="text-text-muted text-base font-bold shrink-0">—</span>
       <ScoreInput value={awayValue} onChange={onAwayChange} />
     </div>
   );
@@ -308,8 +335,8 @@ function ScoreInput({ value, onChange }: { value: string; onChange: (v: string) 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder="0"
-      className="flex-1 py-2 text-center text-xl font-bebas tracking-wider rounded-lg border bg-transparent border-white/15 text-white placeholder:text-white/25 focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
-      style={{ WebkitAppearance: 'none' }}
+      className="flex-1 py-2 text-center text-xl font-bebas tracking-wider rounded-lg border bg-transparent border-border-subtle text-text-primary placeholder:text-text-muted focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
+      style={{ WebkitAppearance: 'none', opacity: 1 }}
     />
   );
 }
@@ -333,7 +360,7 @@ function BoolPicker({
             'py-2 rounded-lg text-sm font-semibold transition-all duration-150 border',
             value === v
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
-              : 'bg-white/4 border-white/8 text-white/50 hover:bg-white/8 hover:border-white/15 hover:text-white/80',
+              : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
           )}
         >
           {v ? yesLabel : noLabel}
@@ -354,7 +381,7 @@ function LockedPrediction({
 
   if (!prediction) {
     return (
-      <div className="py-3 text-center text-white/30 text-sm">{t('predictionLocked')}</div>
+      <div className="py-3 text-center text-text-muted text-sm opacity-60">{t('predictionLocked')}</div>
     );
   }
 
@@ -376,7 +403,7 @@ function LockedPrediction({
               : 'bg-white/4 border-white/8'
           }`}
         >
-          <span className={`text-sm font-semibold ${prediction.points_earned > 0 ? 'text-accent-green' : 'text-white/40'}`}>
+          <span className={`text-sm font-semibold ${prediction.points_earned > 0 ? 'text-accent-green' : 'text-text-muted opacity-60'}`}>
             {prediction.points_earned > 0 ? `+${prediction.points_earned} ${t('ptsEarned')}` : t('noPoints')}
           </span>
         </motion.div>
@@ -395,11 +422,11 @@ function LockedPrediction({
                 tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : 'bg-white/3 border border-white/5'
               }`}
             >
-              <span className={`flex items-center gap-1.5 ${tier.earned ? 'text-accent-green' : 'text-white/35'}`}>
+              <span className={`flex items-center gap-1.5 ${tier.earned ? 'text-accent-green' : 'text-text-muted opacity-60'}`}>
                 <span>{tier.earned ? '✓' : '✗'}</span>
                 <span>{tier.label}</span>
               </span>
-              <span className={tier.earned ? 'text-accent-green font-semibold' : 'text-white/20'}>
+              <span className={tier.earned ? 'text-accent-green font-semibold' : 'text-text-muted opacity-40'}>
                 {tier.earned ? `+${tier.pts}` : `0`}
               </span>
             </motion.div>
@@ -432,8 +459,8 @@ function LockedPrediction({
 function Pill({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
-      <span className="text-white/40 text-xs">{label}</span>
-      <span className="text-white text-sm font-semibold mt-0.5">{value}</span>
+      <span className="text-text-muted text-xs">{label}</span>
+      <span className="text-text-primary text-sm font-semibold mt-0.5">{value}</span>
     </div>
   );
 }

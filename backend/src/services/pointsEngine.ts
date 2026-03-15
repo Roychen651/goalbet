@@ -60,7 +60,9 @@ export function calculatePoints(prediction: PredictionInput, match: MatchResult)
   // ── Tier 1: Full-time outcome (3 pts) ────────────────────────────────────
   // Awarded when:
   //   a) user explicitly predicted outcome AND it's correct, OR
-  //   b) user predicted exact score correctly (implies outcome)
+  //   b) user predicted exact score correctly AND did not predict a conflicting outcome
+  //      (e.g. predicting 3-2 score with no outcome = implies Home win → 3+7 = 10 pts)
+  //      (e.g. predicting 3-2 score with outcome=Away = explicit wrong call → 7 pts only)
   const outcomeCorrect =
     prediction.predicted_outcome !== null && prediction.predicted_outcome === actualOutcome;
 
@@ -70,7 +72,12 @@ export function calculatePoints(prediction: PredictionInput, match: MatchResult)
     prediction.predicted_home_score === match.home_score &&
     prediction.predicted_away_score === match.away_score;
 
-  if (outcomeCorrect || exactScoreCorrect) {
+  // Only credit implied outcome from score when user did NOT explicitly predict a different (wrong) outcome
+  const impliedOutcomeFromScore =
+    exactScoreCorrect &&
+    (prediction.predicted_outcome === null || prediction.predicted_outcome === actualOutcome);
+
+  if (outcomeCorrect || impliedOutcomeFromScore) {
     breakdown.tier1_outcome = 3;
     breakdown.correct_prediction = true;
   }

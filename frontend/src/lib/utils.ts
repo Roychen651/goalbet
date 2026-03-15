@@ -123,8 +123,15 @@ export function calcBreakdown(prediction: Prediction, match: Match): TierResult[
   const results: TierResult[] = [];
 
   if (prediction.predicted_outcome !== null) {
-    const earned = prediction.predicted_outcome === actualOutcome || exactScoreCorrect;
+    // Only award outcome if explicitly predicted correctly, OR exact score is right and outcome wasn't wrongly guessed
+    const impliedOutcomeFromScore = exactScoreCorrect && prediction.predicted_outcome === actualOutcome;
+    const earned = prediction.predicted_outcome === actualOutcome || (exactScoreCorrect && impliedOutcomeFromScore);
     results.push({ key: 'result', label: 'Result', pts: 3, earned });
+  }
+
+  // If exact score is correct and no outcome was predicted, show an implicit outcome row
+  if (prediction.predicted_outcome === null && exactScoreCorrect) {
+    results.push({ key: 'result', label: 'Result (implied)', pts: 3, earned: true });
   }
 
   if (prediction.predicted_home_score !== null && prediction.predicted_away_score !== null) {
