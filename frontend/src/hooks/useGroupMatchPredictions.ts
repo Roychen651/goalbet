@@ -29,7 +29,7 @@ export function useGroupMatchPredictions(
       .then(({ data }) => {
         const map = new Map<string, Predictor[]>();
         for (const row of data ?? []) {
-          const profile = (row as { profiles: { username: string; avatar_url: string | null } | null }).profiles;
+          const profile = (row as unknown as { profiles: { username: string; avatar_url: string | null } | null }).profiles;
           if (!profile) continue;
           const entry: Predictor = {
             user_id: row.user_id,

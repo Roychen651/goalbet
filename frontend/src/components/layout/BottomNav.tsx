@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { ROUTES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
@@ -8,6 +8,7 @@ export function BottomNav() {
   const { t } = useLangStore();
   const { hasNew, newPoints, markAsSeen } = useNewPointsAlert();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const handleHomeClick = () => {
     if (hasNew) markAsSeen();
@@ -38,7 +39,7 @@ export function BottomNav() {
                 onClick={item.onClick}
                 className={cn(
                   'flex-1 flex flex-col items-center justify-center py-3 gap-0.5 transition-colors relative',
-                  location.pathname === item.to ? 'text-accent-green' : 'text-text-muted'
+                  pathname === item.to ? 'text-accent-green' : 'text-text-muted'
                 )}
               >
                 <span className="text-xl leading-none relative">

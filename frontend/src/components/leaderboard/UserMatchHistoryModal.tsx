@@ -37,7 +37,7 @@ export function UserMatchHistoryModal({ user, groupId, onClose }: UserMatchHisto
       .order('created_at', { ascending: false })
       .limit(30)
       .then(({ data }) => {
-        setHistory((data as PredictionWithMatch[]) || []);
+        setHistory((data as unknown as PredictionWithMatch[]) || []);
         setLoading(false);
       });
   }, [user.user_id, groupId]);
