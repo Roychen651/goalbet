@@ -138,12 +138,19 @@ export function calcLiveBreakdown(prediction: Prediction, match: Match): TierRes
   if (match.home_score === null || match.away_score === null) return null;
   if (!['1H', 'HT', '2H', 'NS'].includes(match.status)) return null;
 
-  // For 1H: current score is the provisional HT score (if the half ended now, this is HT).
-  // For HT: current score IS the actual halftime score (home_score = halftime_home at this moment).
-  //   We use home_score here rather than halftime_home because halftime_home might not yet be
-  //   written to the DB (there's a 30s polling delay) while home_score is always current.
-  const effectiveHtHome = (match.status === '1H' || match.status === 'HT') ? match.home_score : match.halftime_home;
-  const effectiveHtAway = (match.status === '1H' || match.status === 'HT') ? match.away_score : match.halftime_away;
+  // For 1H: current score is the provisional HT score.
+  // For HT: current score IS the actual halftime score (home_score = halftime_home right now).
+  //   Use home_score because halftime_home may not yet be written to DB (30s poll lag).
+  // For 2H: halftime_home/away from DB (populated once 1H ended).
+  //   Fallback: if DB halftime is null AND current score is 0-0, HT must have been 0-0
+  //   (no goals in either half → both halves still 0-0).
+  let effectiveHtHome = (match.status === '1H' || match.status === 'HT') ? match.home_score : match.halftime_home;
+  let effectiveHtAway = (match.status === '1H' || match.status === 'HT') ? match.away_score : match.halftime_away;
+
+  if (match.status === '2H' && effectiveHtHome === null && match.home_score === 0 && match.away_score === 0) {
+    effectiveHtHome = 0;
+    effectiveHtAway = 0;
+  }
 
   return _computeBreakdown(prediction, match.home_score, match.away_score, effectiveHtHome, effectiveHtAway);
 }

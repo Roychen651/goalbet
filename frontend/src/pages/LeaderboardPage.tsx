@@ -74,16 +74,22 @@ export function LeaderboardPage() {
         <GlassCard variant="elevated" className="p-4 grid grid-cols-4 gap-2">
           {[
             { label: t('yourRank'), value: `#${currentUserEntry.rank}`, highlight: true, sub: undefined },
-            { label: t('points'), value: getPoints(currentUserEntry), sub: undefined },
-            { label: t('accuracy'), value: currentUserEntry.predictions_made > 0 ? `${Math.round((currentUserEntry.correct_predictions / currentUserEntry.predictions_made) * 100)}%` : '—', sub: 'scored pts' },
-            { label: t('streak'), value: currentUserEntry.current_streak > 0 ? `🔥${currentUserEntry.current_streak}` : '—', sub: undefined },
+            { label: t('points'), value: getPoints(currentUserEntry), sub: 'total' },
+            {
+              label: 'Hit Rate',
+              value: currentUserEntry.predictions_made > 0
+                ? `${currentUserEntry.correct_predictions}/${currentUserEntry.predictions_made}`
+                : '—',
+              sub: 'correct · picks',
+            },
+            { label: t('streak'), value: currentUserEntry.current_streak > 0 ? `🔥${currentUserEntry.current_streak}` : '—', sub: 'in a row' },
           ].map(item => (
             <div key={item.label} className="text-center">
-              <div className="text-text-muted text-xs uppercase tracking-wider mb-1">{item.label}</div>
-              <div className={cn('font-bebas text-2xl', item.highlight ? 'text-accent-green text-glow-green' : 'text-white')}>
+              <div className="text-text-muted text-[10px] uppercase tracking-wider mb-1">{item.label}</div>
+              <div className={cn('font-bebas text-xl sm:text-2xl', item.highlight ? 'text-accent-green text-glow-green' : 'text-white')}>
                 {item.value}
               </div>
-              {item.sub && <div className="text-white/20 text-[10px] mt-0.5">{item.sub}</div>}
+              {item.sub && <div className="text-white/25 text-[9px] mt-0.5 leading-tight">{item.sub}</div>}
             </div>
           ))}
         </GlassCard>

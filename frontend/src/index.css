@@ -280,61 +280,94 @@ input[type="number"]::-webkit-outer-spin-button {
    Light mode overrides
    ============================================================ */
 html.light body {
+  background-color: #f0f5f2;
   background-image:
-    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(0, 150, 80, 0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 60% 40% at -10% 100%, rgba(0, 120, 60, 0.04) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 110% 100%, rgba(56, 128, 255, 0.03) 0%, transparent 60%);
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(0, 140, 70, 0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at -10% 100%, rgba(0, 120, 60, 0.05) 0%, transparent 60%);
 }
 
 html.light body::before {
-  background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 50%, rgba(160, 210, 180, 0.25) 100%);
+  display: none; /* Remove dark vignette in light mode */
 }
 
 html.light body::after {
   background-image:
-    linear-gradient(rgba(0, 100, 60, 0.09) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 100, 60, 0.09) 1px, transparent 1px);
-  background-size: 60px 60px;
+    linear-gradient(rgba(0, 100, 60, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 100, 60, 0.06) 1px, transparent 1px);
+  background-size: 80px 80px;
+  opacity: 0.6;
 }
 
-/* Cards in light mode — solid white with shadow, no backdrop blur needed */
+/* Cards in light mode — solid white with clear shadow */
 html.light .card-base {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  box-shadow: 0 1px 4px rgba(0, 60, 30, 0.08), 0 4px 24px rgba(0, 60, 30, 0.10);
-  border-color: #c4dece !important;
-}
-
-/* Match status badge - ensure readable in light mode */
-html.light .rounded-full.border {
-  color: #1e3828;
-  border-color: rgba(0,80,40,0.18);
-  background-color: rgba(0,60,30,0.05);
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 60, 30, 0.07), 0 4px 16px rgba(0, 60, 30, 0.09) !important;
+  border-color: rgba(0, 80, 40, 0.12) !important;
 }
 
 html.light .card-elevated {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  box-shadow: 0 2px 8px rgba(0, 60, 30, 0.08), 0 8px 32px rgba(0, 60, 30, 0.10);
+  background: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 60, 30, 0.09), 0 8px 28px rgba(0, 60, 30, 0.10) !important;
+  border-color: rgba(0, 80, 40, 0.14) !important;
 }
 
 html.light .card-clickable:hover {
-  box-shadow: 0 4px 16px rgba(0, 60, 30, 0.12), 0 12px 40px rgba(0, 60, 30, 0.10);
+  box-shadow: 0 4px 20px rgba(0, 60, 30, 0.13), 0 0 0 1px rgba(0, 122, 61, 0.25) !important;
 }
 
 /* Glass panels (TopBar, BottomNav, Sidebar) */
 html.light .glass {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(0, 80, 40, 0.10);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.90) !important;
+  border: 1px solid rgba(0, 80, 40, 0.10) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
   box-shadow: 0 2px 16px rgba(0, 60, 30, 0.06);
 }
 
 html.light .glass-hover:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(0, 80, 40, 0.15);
-  box-shadow: 0 4px 24px rgba(0, 60, 30, 0.09);
+  background: rgba(255, 255, 255, 0.97) !important;
+  border-color: rgba(0, 80, 40, 0.18) !important;
+  box-shadow: 0 4px 24px rgba(0, 60, 30, 0.10);
+}
+
+/* Sticky tab bar and date header in light mode */
+html.light .match-tabs-sticky {
+  background: rgba(240, 245, 242, 0.94) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(0, 80, 40, 0.10);
+}
+
+html.light .match-date-header {
+  background: rgba(240, 245, 242, 0.90) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* Tab buttons in light mode */
+html.light .bg-white\/5  { background-color: rgba(0, 60, 30, 0.05) !important; }
+html.light .hover\:bg-white\/10:hover { background-color: rgba(0, 60, 30, 0.09) !important; }
+
+/* Blue "live pts" text needs more contrast in light mode */
+html.light .text-blue-400 { color: #1d5fa8 !important; }
+html.light .bg-blue-400   { background-color: #2563eb !important; }
+html.light .border-blue-400\/35 { border-color: rgba(37, 99, 235, 0.4) !important; }
+
+/* Leaderboard row — current user highlight in light mode */
+html.light .bg-accent-green\/8 { background-color: rgba(0, 122, 61, 0.07) !important; }
+html.light .border-accent-green\/20 { border-color: rgba(0, 122, 61, 0.25) !important; }
+
+/* Score numbers in dark vs light */
+html.light .font-bebas.text-white { color: #0f1e13 !important; }
+
+/* MatchStatusBadge in light mode */
+html.light .rounded-full.border {
+  border-color: rgba(0, 80, 40, 0.20) !important;
+  background-color: rgba(0, 60, 30, 0.05) !important;
 }
 
 /* Text: white → dark */

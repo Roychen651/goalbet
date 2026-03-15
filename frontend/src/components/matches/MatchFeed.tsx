@@ -115,19 +115,19 @@ export function MatchFeed({
         return (
           <section key={key}>
             {/* Sticky date header */}
-            <div className="sticky top-[52px] sm:top-0 z-10 -mx-4 px-4 py-2 mb-2
-                            backdrop-blur-md bg-bg-base/85 border-b border-accent-green/15">
-              <span className="text-accent-green text-[11px] uppercase tracking-[0.14em] font-bold">
+            <div className="match-date-header sticky top-[105px] sm:top-[44px] z-10 -mx-4 px-4 py-1.5 mb-3 flex items-center gap-3">
+              <span className="text-accent-green text-[11px] uppercase tracking-[0.18em] font-bold shrink-0">
                 {label}
               </span>
+              <div className="flex-1 h-px bg-accent-green/20" />
             </div>
 
             {/* Live section (only shown in All tab when there are also upcoming matches) */}
             {hasBothSections && (
               <>
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse shrink-0" />
-                  <span className="text-accent-green text-[10px] uppercase tracking-widest font-semibold">
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <span className="w-2 h-2 rounded-full bg-accent-green shrink-0 shadow-[0_0_6px_rgba(0,255,135,0.8)] animate-pulse" />
+                  <span className="text-accent-green text-[11px] uppercase tracking-[0.16em] font-bold">
                     Live Now
                   </span>
                 </div>
@@ -144,13 +144,13 @@ export function MatchFeed({
                     />
                   ))}
                 </div>
-                {/* Section divider */}
-                <div className="flex items-center gap-3 mb-3 px-1">
-                  <div className="flex-1 h-px bg-white/8" />
-                  <span className="text-text-muted text-[10px] uppercase tracking-widest">
-                    Schedule
+                {/* Section divider — Upcoming */}
+                <div className="flex items-center gap-3 my-4 px-1">
+                  <div className="flex-1 h-px bg-border-subtle" />
+                  <span className="text-text-muted text-[10px] font-semibold uppercase tracking-[0.16em] px-2 py-0.5 rounded-full border border-border-subtle">
+                    Upcoming
                   </span>
-                  <div className="flex-1 h-px bg-white/8" />
+                  <div className="flex-1 h-px bg-border-subtle" />
                 </div>
                 <div className="space-y-3">
                   {nonLiveMatches.map((match, i) => (

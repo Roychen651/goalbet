@@ -53,10 +53,16 @@ async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): P
     status: scoreData.status,
     home_score: scoreData.home_score,
     away_score: scoreData.away_score,
-    halftime_home: scoreData.halftime_home,
-    halftime_away: scoreData.halftime_away,
     display_clock: scoreData.display_clock ?? null,
   };
+
+  // Only update halftime scores if ESPN returned them — never overwrite a valid value with null.
+  // ESPN sometimes doesn't return linescores for in-progress 2H matches even though the
+  // half-time score is already known. Overwriting with null would break HT prediction scoring.
+  if (scoreData.halftime_home !== null && scoreData.halftime_away !== null) {
+    payload.halftime_home = scoreData.halftime_home;
+    payload.halftime_away = scoreData.halftime_away;
+  }
 
   let { error } = await supabaseAdmin
     .from('matches')

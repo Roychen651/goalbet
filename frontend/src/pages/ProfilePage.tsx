@@ -146,10 +146,10 @@ export function ProfilePage() {
         variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } }}
       >
         {[
-          { label: t('totalPoints'), value: totalPoints, highlight: true, sub: 'all time' },
-          { label: t('predictions'), value: history.length, sub: 'placed' },
-          { label: t('accuracy'), value: formatAccuracy(correct.length, resolved.length), sub: 'pts earned / resolved' },
-          { label: t('correct'), value: `${correct.length}/${resolved.length}`, sub: 'scored any points' },
+          { label: t('totalPoints'), value: totalPoints, highlight: true, sub: resolved.length > 0 ? `avg ${(totalPoints / resolved.length).toFixed(1)} / match` : 'all time' },
+          { label: t('predictions'), value: `${history.length}`, sub: `${resolved.length} resolved` },
+          { label: 'Hit Rate', value: resolved.length > 0 ? `${correct.length}/${resolved.length}` : '—', sub: 'correct · resolved' },
+          { label: t('streak'), value: resolved.length > 0 ? `${correct.length > 0 ? Math.round((correct.length / resolved.length) * 100) : 0}%` : '—', sub: 'scored any pts' },
         ].map(stat => (
           <motion.div
             key={stat.label}

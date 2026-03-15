@@ -127,24 +127,24 @@ export function HomePage() {
         )}
       </div>
 
-      {/* Tabs — sticky so they stay visible while scrolling */}
-      <div className="sticky top-[52px] sm:top-0 z-20 -mx-4 px-4 py-2 backdrop-blur-md bg-bg-base/85">
-        <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+      {/* Tabs — sticky, borderless pill design that works in both light and dark */}
+      <div className="match-tabs-sticky sticky top-[56px] sm:top-0 z-20 -mx-4 px-4 pt-2 pb-3">
+        <div className="flex gap-1.5">
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'relative flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-150',
+                'relative flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all duration-200',
                 activeTab === tab.id
-                  ? 'bg-accent-green text-bg-base shadow-glow-green-sm'
-                  : 'text-text-muted hover:text-white'
+                  ? 'bg-accent-green text-bg-base shadow-[0_0_12px_rgba(0,255,135,0.35)]'
+                  : 'text-text-muted hover:text-text-primary bg-white/5 hover:bg-white/10'
               )}
             >
               {tab.label}
               {tab.badge && (
                 <span className={cn(
-                  'absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center',
+                  'absolute -top-1 -end-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center',
                   activeTab === tab.id ? 'bg-bg-base text-accent-green' : 'bg-accent-green text-bg-base'
                 )}>
                   {tab.badge}
