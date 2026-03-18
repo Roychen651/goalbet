@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { getInitials, cn } from '../../lib/utils';
 
 interface AvatarProps {
@@ -21,7 +22,25 @@ const emojiFontSizes = {
   xl: 'text-3xl',
 };
 
+function InitialsFallback({ name, size, className }: { name: string; size: keyof typeof sizes; className?: string }) {
+  return (
+    <div
+      className={cn(
+        'rounded-full flex items-center justify-center font-bebas tracking-wider',
+        'bg-gradient-to-br from-accent-green/20 to-accent-orange/20 border border-white/10',
+        'text-white ring-1 ring-white/10',
+        sizes[size],
+        className
+      )}
+    >
+      {getInitials(name)}
+    </div>
+  );
+}
+
 export function Avatar({ src, name, size = 'md', className }: AvatarProps) {
+  const [imgError, setImgError] = useState(false);
+
   // Emoji avatar stored as "emoji:⚽"
   if (src?.startsWith('emoji:')) {
     const emoji = src.slice(6);
@@ -40,28 +59,16 @@ export function Avatar({ src, name, size = 'md', className }: AvatarProps) {
     );
   }
 
-  if (src) {
+  if (src && !imgError) {
     return (
       <img
         src={src}
         alt={name}
         className={cn('rounded-full object-cover ring-1 ring-white/10', sizes[size], className)}
-        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        onError={() => setImgError(true)}
       />
     );
   }
 
-  return (
-    <div
-      className={cn(
-        'rounded-full flex items-center justify-center font-bebas tracking-wider',
-        'bg-gradient-to-br from-accent-green/20 to-accent-orange/20 border border-white/10',
-        'text-white ring-1 ring-white/10',
-        sizes[size],
-        className
-      )}
-    >
-      {getInitials(name)}
-    </div>
-  );
+  return <InitialsFallback name={name} size={size} className={className} />;
 }
