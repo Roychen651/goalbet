@@ -1,0 +1,69 @@
+name: Sync Cron
+
+# Runs every 30 minutes regardless of whether the backend is awake.
+# This is the permanent fix for stale match statuses on free-tier hosts that sleep.
+#
+# Required GitHub Secrets:
+#   BACKEND_URL   — e.g. https://your-app.onrender.com
+#   SYNC_SECRET   — must match the SYNC_SECRET env var on the backend
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # every 30 minutes, 24/7
+  workflow_dispatch:          # allow manual trigger from GitHub Actions UI
+
+jobs:
+  sync:
+    name: Sync matches & scores
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check secrets are configured
+        id: secrets
+        env:
+          URL: ${{ secrets.BACKEND_URL }}
+          SECRET: ${{ secrets.SYNC_SECRET }}
+        run: |
+          if [ -n "$URL" ] && [ -n "$SECRET" ]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+            echo "✅ Secrets found"
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+            echo "::warning::BACKEND_URL or SYNC_SECRET not set — skipping sync"
+          fi
+
+      # 1. Sync upcoming fixtures (runs once per cron tick, cheap)
+      - name: Sync match fixtures
+        if: steps.secrets.outputs.ok == 'true'
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+        run: |
+          STATUS=$(curl -s -o /tmp/matches_response.json -w "%{http_code}" \
+            -X POST "$BACKEND_URL/api/sync/matches" \
+            -H "Authorization: Bearer $SYNC_SECRET" \
+            -H "Content-Type: application/json")
+          echo "HTTP $STATUS"
+          cat /tmp/matches_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Match sync returned HTTP $STATUS"
+            exit 1
+          fi
+
+      # 2. Resolve scores for any finished matches
+      - name: Sync scores & resolve predictions
+        if: steps.secrets.outputs.ok == 'true'
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+        run: |
+          STATUS=$(curl -s -o /tmp/scores_response.json -w "%{http_code}" \
+            -X POST "$BACKEND_URL/api/sync/scores" \
+            -H "Authorization: Bearer $SYNC_SECRET" \
+            -H "Content-Type: application/json")
+          echo "HTTP $STATUS"
+          cat /tmp/scores_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Score sync returned HTTP $STATUS"
+            exit 1
+          fi
