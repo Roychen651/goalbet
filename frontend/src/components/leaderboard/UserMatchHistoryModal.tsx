@@ -79,19 +79,9 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
       });
   }, [user.user_id, groupId, type]);
 
-  // Compute base pts (via calcBreakdown) vs points_earned (which may include streak bonus)
-  const predRows = history.map(pred => {
-    const streakBonus = pred.streak_bonus_earned ?? 0;
-    // baseTotal = all non-streak points actually earned (pts_earned minus streak bonus).
-    // Using points_earned directly (not recalculated from DB) ensures the number is
-    // always accurate even if halftime data was later corrected in the DB.
-    const baseTotal = (pred.points_earned ?? 0) - streakBonus;
-    return { pred, baseTotal, streakBonus };
-  });
-
+  const predRows = history.map(pred => ({ pred, pts: pred.points_earned ?? 0 }));
   const totalPoints = history.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
   const periodLabel = type === 'weekly' ? t('thisWeek') : type === 'lastWeek' ? t('lastWeek') : t('allTime');
-  const streakRows = predRows.filter(r => r.streakBonus > 0);
 
   return (
     <motion.div
@@ -141,14 +131,14 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
               </div>
             ) : (
               <>
-                {predRows.map(({ pred, baseTotal, streakBonus }, i) => (
+                {predRows.map(({ pred, pts }, i) => (
                   <motion.div
                     key={pred.id}
                     initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.04 }}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm ${
-                      baseTotal > 0
+                      pts > 0
                         ? 'bg-accent-green/6 border border-accent-green/12'
                         : 'bg-white/3 border border-white/5'
                     }`}
@@ -158,14 +148,6 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
                         <span className="text-white/90 text-xs font-medium truncate">
                           {pred.match?.home_team} vs {pred.match?.away_team}
                         </span>
-                        {streakBonus > 0 && (
-                          <span
-                            className="text-yellow-400 text-xs shrink-0"
-                            title="This match triggered a streak bonus!"
-                          >
-                            ⚡
-                          </span>
-                        )}
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="text-text-muted text-[10px]">
@@ -178,29 +160,9 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
                         )}
                       </div>
                     </div>
-                    <div className={`font-bebas text-lg shrink-0 ${baseTotal > 0 ? 'text-accent-green' : 'text-white/25'}`}>
-                      {baseTotal > 0 ? `+${baseTotal}` : '0'}
+                    <div className={`font-bebas text-lg shrink-0 ${pts > 0 ? 'text-accent-green' : 'text-white/25'}`}>
+                      {pts > 0 ? `+${pts}` : '0'}
                     </div>
-                  </motion.div>
-                ))}
-
-                {/* Streak bonus rows — one per match that triggered a streak */}
-                {streakRows.map(({ pred, streakBonus }, i) => (
-                  <motion.div
-                    key={`streak-${pred.id}`}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: predRows.length * 0.04 + i * 0.04 }}
-                    className="flex items-center justify-between px-3 py-2 rounded-xl text-xs bg-yellow-500/10 border border-yellow-500/25"
-                  >
-                    <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
-                      <span>⚡</span>
-                      <span>{t('streakBonus')}</span>
-                      <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
-                    </span>
-                    <span className="font-bebas text-lg font-bold tabular-nums text-yellow-400">
-                      +{streakBonus}
-                    </span>
                   </motion.div>
                 ))}
               </>

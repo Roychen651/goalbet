@@ -32,10 +32,9 @@ export const POINTS = {
   TIER1_OUTCOME: 3,
   TIER2_EXACT_SCORE: 7,
   TIER2_EXACT_BONUS: 3, // when exact score outcome matches too
-  TIER3_HALFTIME: 4,
+  TIER3_CORNERS: 4,
   TIER5_BTTS: 2,
   TIER6_OVER_UNDER: 3,
-  STREAK_BONUS: 2, // after 3 correct in a row
 } as const;
 
 // Match status labels

@@ -19,7 +19,7 @@ export interface PredictionData {
   predicted_outcome: 'H' | 'D' | 'A' | null;
   predicted_home_score: number | null;
   predicted_away_score: number | null;
-  predicted_halftime_outcome: 'H' | 'D' | 'A' | null;
+  predicted_corners: 'under9' | 'ten' | 'over11' | null;
   predicted_btts: boolean | null;
   predicted_over_under: 'over' | 'under' | null;
 }
@@ -51,7 +51,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
   const [outcome, setOutcome] = useState<OutcomeOption | null>(existingPrediction?.predicted_outcome ?? null);
   const [homeScore, setHomeScore] = useState<string>(existingPrediction?.predicted_home_score?.toString() ?? '');
   const [awayScore, setAwayScore] = useState<string>(existingPrediction?.predicted_away_score?.toString() ?? '');
-  const [htOutcome, setHtOutcome] = useState<OutcomeOption | null>(existingPrediction?.predicted_halftime_outcome ?? null);
+  const [cornersValue, setCornersValue] = useState<'under9' | 'ten' | 'over11' | null>(existingPrediction?.predicted_corners ?? null);
   const [btts, setBtts] = useState<boolean | null>(existingPrediction?.predicted_btts ?? null);
   const [overUnder, setOverUnder] = useState<'over' | 'under' | null>(existingPrediction?.predicted_over_under ?? null);
   const [saved, setSaved] = useState(!!existingPrediction);
@@ -63,7 +63,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
       setOutcome(existingPrediction.predicted_outcome ?? null);
       setHomeScore(existingPrediction.predicted_home_score?.toString() ?? '');
       setAwayScore(existingPrediction.predicted_away_score?.toString() ?? '');
-      setHtOutcome(existingPrediction.predicted_halftime_outcome ?? null);
+      setCornersValue(existingPrediction.predicted_corners ?? null);
       setBtts(existingPrediction.predicted_btts ?? null);
       setOverUnder(existingPrediction.predicted_over_under ?? null);
       setSaved(true);
@@ -100,14 +100,14 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
       predicted_outcome: outcome,
       predicted_home_score: homeScore !== '' ? parseInt(homeScore) : null,
       predicted_away_score: awayScore !== '' ? parseInt(awayScore) : null,
-      predicted_halftime_outcome: htOutcome,
+      predicted_corners: cornersValue,
       predicted_btts: btts,
       predicted_over_under: overUnder,
     });
     setSaved(true);
   };
 
-  const hasAnyPrediction = outcome !== null || homeScore !== '' || htOutcome !== null || btts !== null || overUnder !== null;
+  const hasAnyPrediction = outcome !== null || homeScore !== '' || cornersValue !== null || btts !== null || overUnder !== null;
 
   if (locked) {
     return <LockedPrediction match={match} prediction={existingPrediction} resolved={resolved} />;
@@ -147,15 +147,13 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
     },
     {
       key: 'tier3',
-      label: t('halfTimeResult'),
-      pts: POINTS.TIER3_HALFTIME,
-      active: htOutcome !== null,
+      label: t('totalCorners'),
+      pts: POINTS.TIER3_CORNERS,
+      active: cornersValue !== null,
       content: (
-        <OutcomePicker
-          value={htOutcome}
-          onChange={(v) => { setHtOutcome(v); setSaved(false); }}
-          homeTeam={match.home_team}
-          awayTeam={match.away_team}
+        <CornersPicker
+          value={cornersValue}
+          onChange={(v) => { setCornersValue(v); setSaved(false); }}
           color={TIER_COLORS[2]}
         />
       ),
@@ -412,6 +410,9 @@ function TierBreakdownRow({ tier, prediction, match, delay }: {
       case 'score': return prediction.predicted_home_score !== null
         ? `${prediction.predicted_home_score}–${prediction.predicted_away_score}` : null;
       case 'ht': return prediction.predicted_halftime_outcome ? outcomeLabel(prediction.predicted_halftime_outcome) : null;
+      case 'corners': return prediction.predicted_corners === 'under9' ? t('cornersUnder9')
+        : prediction.predicted_corners === 'ten' ? t('cornersTen')
+        : prediction.predicted_corners === 'over11' ? t('cornersOver11') : null;
       case 'btts': return prediction.predicted_btts !== null ? (prediction.predicted_btts ? t('yes') : t('no')) : null;
       case 'ou': return prediction.predicted_over_under
         ? (prediction.predicted_over_under === 'over' ? t('over25') : t('under25')) : null;
@@ -542,46 +543,6 @@ function LockedPrediction({
               delay={i * 0.05}
             />
           ))}
-          {/* Bonus rows — streak bonus (stored) + any unexplained gap (e.g. HT data changed) */}
-          {(() => {
-            const streakBonus = prediction.streak_bonus_earned ?? 0;
-            const baseTotal = breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0);
-            const unexplained = Math.max(0, (prediction.points_earned ?? 0) - baseTotal - streakBonus);
-            return (
-              <>
-                {streakBonus > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: breakdown.length * 0.05 }}
-                    className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25"
-                  >
-                    <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
-                      <span>⚡</span>
-                      <span>{t('streakBonus')}</span>
-                      <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
-                    </span>
-                    <span className="font-bold tabular-nums text-yellow-400">+{streakBonus}</span>
-                  </motion.div>
-                )}
-                {unexplained > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: (breakdown.length + 1) * 0.05 }}
-                    className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25"
-                  >
-                    <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
-                      <span>⚡</span>
-                      <span>{t('streakBonus')}</span>
-                      <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
-                    </span>
-                    <span className="font-bold tabular-nums text-yellow-400">+{unexplained}</span>
-                  </motion.div>
-                )}
-              </>
-            );
-          })()}
         </div>
       ) : liveBreakdown && liveBreakdown.length > 0 ? (
         /* Live in-progress: show tier-by-tier potential with user's prediction */
@@ -606,7 +567,13 @@ function LockedPrediction({
             <Pill label={t('score')} value={`${prediction.predicted_home_score} — ${prediction.predicted_away_score}`} />
           )}
           {prediction.predicted_halftime_outcome && (
-            <Pill label={t('halfTimeResult')} value={outcomeLabel(prediction.predicted_halftime_outcome)} />
+            <Pill label="Half Time" value={outcomeLabel(prediction.predicted_halftime_outcome)} />
+          )}
+          {prediction.predicted_corners && (
+            <Pill label={t('corners')} value={
+              prediction.predicted_corners === 'under9' ? t('cornersUnder9') :
+              prediction.predicted_corners === 'ten' ? t('cornersTen') : t('cornersOver11')
+            } />
           )}
           {prediction.predicted_btts !== null && (
             <Pill label={t('btts')} value={prediction.predicted_btts ? t('yes') : t('no')} />
@@ -616,6 +583,39 @@ function LockedPrediction({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function CornersPicker({
+  value, onChange, color,
+}: {
+  value: 'under9' | 'ten' | 'over11' | null;
+  onChange: (v: 'under9' | 'ten' | 'over11') => void;
+  color: typeof TIER_COLORS[number];
+}) {
+  const { t } = useLangStore();
+  const options: { val: 'under9' | 'ten' | 'over11'; label: string }[] = [
+    { val: 'under9', label: t('cornersUnder9') },
+    { val: 'ten',    label: t('cornersTen')    },
+    { val: 'over11', label: t('cornersOver11') },
+  ];
+  return (
+    <div className="grid grid-cols-3 gap-1.5">
+      {options.map(({ val, label }) => (
+        <button
+          key={val}
+          onClick={() => onChange(val)}
+          className={cn(
+            'py-2 rounded-lg text-sm font-semibold transition-all duration-150 border',
+            value === val
+              ? cn('border-current text-current bg-current/10', color.pts, color.glow)
+              : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
+          )}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

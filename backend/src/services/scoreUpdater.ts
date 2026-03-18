@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, fetchMatchHalftimeScore, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
-import { calculatePoints, calcStreakBonus } from './pointsEngine';
+import { calculatePoints } from './pointsEngine';
 import { logger } from '../lib/logger';
 
 interface PendingMatch {
@@ -12,6 +12,7 @@ interface PendingMatch {
   status: string;
   halftime_home: number | null;
   halftime_away: number | null;
+  corners_total: number | null;
 }
 
 interface Prediction {
@@ -22,9 +23,7 @@ interface Prediction {
   predicted_outcome: 'H' | 'D' | 'A' | null;
   predicted_home_score: number | null;
   predicted_away_score: number | null;
-  predicted_halftime_outcome: 'H' | 'D' | 'A' | null;
-  predicted_halftime_home: number | null;
-  predicted_halftime_away: number | null;
+  predicted_corners: 'under9' | 'ten' | 'over11' | null;
   predicted_btts: boolean | null;
   predicted_over_under: 'over' | 'under' | null;
 }
@@ -38,7 +37,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   // Query 1: in-progress / not-yet-finished matches
   const { data: inProgress, error: e1 } = await supabaseAdmin
     .from('matches')
-    .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away')
+    .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total')
     .not('status', 'in', '("FT","PST","CANC")')
     .lt('kickoff_time', slightlyAhead);
 
@@ -60,7 +59,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   if (unresolvedMatchIds.length > 0) {
     const { data: ftData, error: e2 } = await supabaseAdmin
       .from('matches')
-      .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away')
+      .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total')
       .in('id', unresolvedMatchIds)
       .eq('status', 'FT')
       .not('home_score', 'is', null)
@@ -122,8 +121,7 @@ async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): P
 async function resolveMatchPredictions(matchId: string, matchResult: {
   home_score: number;
   away_score: number;
-  halftime_home: number | null;
-  halftime_away: number | null;
+  corners_total: number | null;
 }): Promise<number> {
   const { data: predictions, error } = await supabaseAdmin
     .from('predictions')
@@ -145,39 +143,27 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
 
   for (const prediction of predictions as Prediction[]) {
     try {
-      // Fetch leaderboard row — include best_streak this time
       const { data: lbData } = await supabaseAdmin
         .from('leaderboard')
-        .select('current_streak, best_streak, total_points, weekly_points, predictions_made, correct_predictions')
+        .select('total_points, weekly_points, predictions_made, correct_predictions')
         .eq('user_id', prediction.user_id)
         .eq('group_id', prediction.group_id)
         .single();
 
-      const currentStreak = lbData?.current_streak ?? 0;
-
-      // Calculate base points + streak bonus separately
-      // Streak bonus: +2 only when FT result is correct AND streak was already >= 2
-      // (meaning this correct prediction makes it 3+ in a row)
       const breakdown = calculatePoints(prediction, matchResult);
+      const finalPoints = breakdown.total;
       const isCorrect = breakdown.correct_prediction;
-      const streakBonusEarned = calcStreakBonus(isCorrect, currentStreak);
-      const finalPoints = breakdown.total + streakBonusEarned;
 
-      // Mark prediction as resolved, storing the exact streak bonus for display
       const { error: predUpdateError } = await supabaseAdmin
         .from('predictions')
-        .update({ points_earned: finalPoints, is_resolved: true, streak_bonus_earned: streakBonusEarned })
+        .update({ points_earned: finalPoints, is_resolved: true })
         .eq('id', prediction.id);
 
       if (predUpdateError) {
         logger.error(`[scoreUpdater] Failed to mark prediction ${prediction.id} as resolved:`, predUpdateError);
-        continue; // do NOT update leaderboard if prediction update failed
+        continue;
       }
 
-      // Streak management: increment on correct FT result, reset on incorrect.
-      // No reset after bonus — streak grows continuously while player keeps winning.
-      const newStreak = isCorrect ? currentStreak + 1 : 0;
-      const prevBestStreak = lbData?.best_streak ?? 0;
       const existingLB = {
         total_points: lbData?.total_points ?? 0,
         weekly_points: lbData?.weekly_points ?? 0,
@@ -194,14 +180,10 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
           weekly_points: existingLB.weekly_points + finalPoints,
           predictions_made: existingLB.predictions_made + 1,
           correct_predictions: existingLB.correct_predictions + (isCorrect ? 1 : 0),
-          current_streak: newStreak,
-          best_streak: Math.max(prevBestStreak, newStreak),
-        }, {
-          onConflict: 'user_id,group_id',
-        });
+        }, { onConflict: 'user_id,group_id' });
 
       resolved++;
-      logger.debug(`[scoreUpdater] Resolved prediction ${prediction.id}: ${finalPoints} pts (streak: ${currentStreak}→${newStreak}, bonus: ${streakBonusEarned})`);
+      logger.debug(`[scoreUpdater] Resolved prediction ${prediction.id}: ${finalPoints} pts`);
     } catch (err) {
       logger.error(`[scoreUpdater] Failed to resolve prediction ${prediction.id}:`, err);
     }
@@ -277,13 +259,10 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
           if (effectiveData.status === 'FT' && effectiveData.home_score !== null && effectiveData.away_score !== null) {
             // If ESPN linescores are still null at FT (very rare), fall back to whatever
             // halftime value is already stored in DB (captured earlier during 1H/HT/2H).
-            const resolveHtHome = effectiveData.halftime_home ?? match.halftime_home;
-            const resolveHtAway = effectiveData.halftime_away ?? match.halftime_away;
             const count = await resolveMatchPredictions(match.id, {
               home_score: effectiveData.home_score,
               away_score: effectiveData.away_score,
-              halftime_home: resolveHtHome,
-              halftime_away: resolveHtAway,
+              corners_total: match.corners_total,
             });
             totalResolved += count;
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
@@ -313,17 +292,16 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
     if (stuckMatchIds.length > 0) {
       const { data: ftStuck } = await supabaseAdmin
         .from('matches')
-        .select('id, home_score, away_score, halftime_home, halftime_away')
+        .select('id, home_score, away_score, corners_total')
         .eq('status', 'FT')
         .not('home_score', 'is', null)
         .in('id', stuckMatchIds);
 
-      for (const m of (ftStuck ?? []) as { id: string; home_score: number; away_score: number; halftime_home: number | null; halftime_away: number | null }[]) {
+      for (const m of (ftStuck ?? []) as { id: string; home_score: number; away_score: number; corners_total: number | null }[]) {
         const count = await resolveMatchPredictions(m.id, {
           home_score: m.home_score,
           away_score: m.away_score,
-          halftime_home: m.halftime_home,
-          halftime_away: m.halftime_away,
+          corners_total: m.corners_total,
         });
         if (count > 0) {
           totalResolved += count;

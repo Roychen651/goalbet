@@ -71,6 +71,7 @@ export type Database = {
           halftime_home: number | null;
           halftime_away: number | null;
           display_clock: string | null;
+          corners_total: number | null;
           season: string | null;
           round: string | null;
           updated_at: string;
@@ -94,10 +95,12 @@ export type Database = {
           predicted_over_under: 'over' | 'under' | null;
           points_earned: number;
           streak_bonus_earned: number;
+          halftime_pts_earned: number | null;
+          predicted_corners: 'under9' | 'ten' | 'over11' | null;
           is_resolved: boolean;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['predictions']['Row'], 'id' | 'created_at' | 'points_earned' | 'streak_bonus_earned' | 'is_resolved'>;
+        Insert: Omit<Database['public']['Tables']['predictions']['Row'], 'id' | 'created_at' | 'points_earned' | 'streak_bonus_earned' | 'halftime_pts_earned' | 'is_resolved'>;
         Update: Partial<Database['public']['Tables']['predictions']['Insert']>;
       };
       leaderboard: {

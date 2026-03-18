@@ -2,7 +2,7 @@
 # project_id is overridden by --project-ref in CI so the value below is only for
 # local `supabase` CLI usage (e.g. supabase migration list).
 # Replace "your-project-ref" with your actual ref from https://app.supabase.com/project/[ref]
-project_id = "your-project-ref"
+project_id = "rzavwyejcldvztkykhks"
 
 [db]
-major_version = 15
+major_version = 17

@@ -157,12 +157,28 @@ export function calcLiveBreakdown(prediction: Prediction, match: Match): TierRes
   // If we're in 2H and still don't know the HT score, mark HT tier as pending (not wrong)
   const htPending = match.status === '2H' && effectiveHtHome === null;
 
-  return _computeBreakdown(prediction, match.home_score, match.away_score, effectiveHtHome, effectiveHtAway, htPending);
+  // corners_total is only known after FT — always null during live
+  return _computeBreakdown(prediction, match.home_score, match.away_score, effectiveHtHome, effectiveHtAway, null, htPending);
 }
 
 export function calcBreakdown(prediction: Prediction, match: Match): TierResult[] | null {
   if (match.home_score === null || match.away_score === null || match.status !== 'FT') return null;
-  return _computeBreakdown(prediction, match.home_score, match.away_score, match.halftime_home, match.halftime_away);
+  const result = _computeBreakdown(
+    prediction, match.home_score, match.away_score,
+    match.halftime_home, match.halftime_away,
+    match.corners_total ?? null,
+  );
+
+  // If halftime_pts_earned is stored (non-null = prediction scored before HT removal),
+  // override the HT tier's earned flag with the resolution-time value.
+  if (prediction.halftime_pts_earned !== null && prediction.halftime_pts_earned !== undefined) {
+    const htIdx = result.findIndex(r => r.key === 'ht');
+    if (htIdx !== -1) {
+      result[htIdx] = { ...result[htIdx], earned: prediction.halftime_pts_earned > 0 };
+    }
+  }
+
+  return result;
 }
 
 function _computeBreakdown(
@@ -171,6 +187,7 @@ function _computeBreakdown(
   awayScore: number,
   htHome: number | null,
   htAway: number | null,
+  cornersTotal: number | null = null,
   htPending = false,
 ): TierResult[] {
   const actualOutcome = homeScore > awayScore ? 'H' : homeScore < awayScore ? 'A' : 'D';
@@ -199,9 +216,9 @@ function _computeBreakdown(
     results.push({ key: 'score', label: 'Exact Score', pts: 7, earned: exactScoreCorrect });
   }
 
+  // Old predictions may have a halftime outcome — keep displaying it for history
   if (prediction.predicted_halftime_outcome !== null) {
     if (htPending) {
-      // HT score not yet known (match is in 2H but DB halftime is null) — show as pending
       results.push({ key: 'ht', label: 'Half Time', pts: 4, earned: false, pending: true });
     } else {
       let earned = false;
@@ -210,6 +227,17 @@ function _computeBreakdown(
         earned = prediction.predicted_halftime_outcome === actualHT;
       }
       results.push({ key: 'ht', label: 'Half Time', pts: 4, earned });
+    }
+  }
+
+  // Corners: ≤9 / exactly 10 / ≥11
+  if (prediction.predicted_corners !== null) {
+    if (cornersTotal === null) {
+      results.push({ key: 'corners', label: 'Corners', pts: 4, earned: false, pending: true });
+    } else {
+      const bucket: 'under9' | 'ten' | 'over11' =
+        cornersTotal <= 9 ? 'under9' : cornersTotal === 10 ? 'ten' : 'over11';
+      results.push({ key: 'corners', label: 'Corners', pts: 4, earned: prediction.predicted_corners === bucket });
     }
   }
 

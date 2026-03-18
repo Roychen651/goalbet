@@ -1,6 +1,5 @@
 import { LeaderboardEntryWithProfile } from '../../lib/supabase';
 import { Avatar } from '../ui/Avatar';
-import { StreakBadge } from './StreakBadge';
 import { cn, formatPoints } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
 
@@ -47,7 +46,6 @@ export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: Leaderbo
           <span className={cn('font-semibold text-sm truncate', isCurrentUser ? 'text-accent-green' : 'text-white')}>
             {entry.username}{isCurrentUser && ` (${t('you')})`}
           </span>
-          <StreakBadge streak={entry.current_streak} />
         </div>
         <div className="text-text-muted text-xs mt-0.5">
           {entry.predictions_made} {t('picks')} · {entry.predictions_made > 0 ? `${Math.round((entry.correct_predictions / entry.predictions_made) * 100)}%` : '—'} {t('accurate')}

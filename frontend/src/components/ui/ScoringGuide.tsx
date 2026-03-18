@@ -31,12 +31,12 @@ const TIERS = [
     pillBg: 'bg-yellow-400/10',
   },
   {
-    emoji: '⏱️',
-    label: 'Half Time Result',
-    labelHe: 'תוצאת הפסקה',
+    emoji: '🚩',
+    label: 'Total Corners',
+    labelHe: 'סה"כ קורנרים',
     pts: 4,
-    detail: 'Predict who leads at the whistle',
-    detailHe: 'מי ינהיג בשריקת ההפסקה',
+    detail: '≤ 9 corners / exactly 10 / ≥ 11 corners',
+    detailHe: '≤ 9 קורנרים / בדיוק 10 / ≥ 11 קורנרים',
     color: 'from-blue-500/20 to-blue-600/10',
     border: 'border-blue-500/30',
     textColor: 'text-blue-400',
@@ -122,7 +122,7 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
                   </h2>
                 </div>
                 <p className="text-white/45 text-xs">
-                  {isHe ? 'עד 19 נקודות למשחק + בונוס רצף' : 'Up to 19 pts per match + streak bonus'}
+                  {isHe ? 'עד 19 נקודות למשחק' : 'Up to 19 pts per match'}
                 </p>
               </div>
               <button
@@ -159,34 +159,6 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
               </motion.div>
             ))}
 
-            {/* Streak bonus */}
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.32, type: 'spring', stiffness: 140 }}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gradient-to-r from-red-500/15 to-orange-600/10 border border-red-500/25"
-            >
-              <motion.span
-                className="text-lg shrink-0"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
-              >
-                🔥
-              </motion.span>
-              <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-semibold">
-                  {isHe ? 'בונוס רצף' : 'Streak Bonus'}
-                </p>
-                <p className="text-white/45 text-xs mt-0.5 leading-snug">
-                  {isHe
-                    ? '3 ניחושים נכונים ברצף → כל ניחוש נוסף = +2 נק׳'
-                    : '3 correct in a row → each extra correct pick = +2 pts'}
-                </p>
-              </div>
-              <div className="shrink-0 bg-orange-400/10 border border-orange-500/25 rounded-lg px-2.5 py-1">
-                <span className="font-bebas text-xl text-orange-400 leading-none">+2</span>
-              </div>
-            </motion.div>
           </div>
 
           {/* Example calculation */}

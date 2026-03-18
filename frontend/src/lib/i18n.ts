@@ -15,7 +15,7 @@ export const translations = {
     signingIn: 'Signing in...',
     multiTierPredictions: 'Multi-tier\nPredictions',
     liveLeaderboard: 'Live\nLeaderboard',
-    streakBonuses: 'Streak\nBonuses',
+    cornersFeature: 'Corners\nPrediction',
 
     // Setup modal
     setupRequired: 'Setup Required',
@@ -60,7 +60,10 @@ export const translations = {
     // Prediction form
     fullTimeResult: 'Full Time Result',
     exactScore: 'Exact Score',
-    halfTimeResult: 'Half Time Result',
+    totalCorners: 'Total Corners',
+    cornersUnder9: '≤ 9',
+    cornersTen: '10',
+    cornersOver11: '≥ 11',
     bothTeamsToScore: 'Both Teams to Score',
     totalGoals: 'Total Goals',
     lockInPrediction: 'Lock In Prediction',
@@ -68,6 +71,7 @@ export const translations = {
     predictionLocked: 'No prediction made for this match',
     result: 'Result',
     score: 'Score',
+    corners: 'Corners',
     btts: 'BTTS',
     goals: 'Goals',
     home: 'Home',
@@ -89,7 +93,6 @@ export const translations = {
     yourRank: 'Your Rank',
     points: 'Points',
     accuracy: 'Accuracy',
-    streak: 'Streak',
     picks: 'picks',
     accurate: 'accurate',
     noLeaderboardData: 'No data yet',
@@ -103,23 +106,15 @@ export const translations = {
     avgLabel: 'avg',
     perMatch: '/ match',
     allTimeGroup: 'all time · this group',
-    bestStreakLabel: 'best:',
-    streakBonusActive: '+2 pts bonus active!',
-    streakOneMore: '1 more = +2 pts bonus!',
-    streakTwoMore: '2 more for bonus',
-    streakHint: '3 correct = ⚡+2 pts',
     liveNow: 'Live Now',
     you: 'you',
     ptsLiveLabel: 'pts live',
-    streakBonus: 'Streak Bonus',
-    threeInARow: '3 in a row',
 
     // Info tips
     infoRank: 'Your position in the standings for the selected period. Rank is sorted by points earned.',
-    infoPoints: 'Points earned this period. Each match: FT Result (3 pts), Exact Score (+7 pts), HT Result (4 pts), BTTS (2 pts), Over/Under (3 pts). Max 19 pts per match.',
+    infoPoints: 'Points earned this period. Each match: FT Result (3 pts), Exact Score (+7 pts), Corners (4 pts), BTTS (2 pts), Over/Under (3 pts). Max 19 pts per match.',
     infoHitRate: 'Correct Full Time result predictions ÷ total FT result predictions made. Only counts matches where you chose Home / Draw / Away.',
-    infoStreak: 'Consecutive correct FT Result predictions. Get 3 in a row to earn a +2 pts bonus! Streak resets after the bonus is awarded — earn it again.',
-    infoTotalPoints: 'Sum of all points earned from resolved matches. Sources: FT Result (3 pts), Exact Score (+7 pts), HT Result (4 pts), BTTS (2 pts), Over/Under (3 pts), Streak Bonus (+2 pts).',
+    infoTotalPoints: 'Sum of all points earned from resolved matches. Sources: FT Result (3 pts), Exact Score (+7 pts), Corners (4 pts), BTTS (2 pts), Over/Under (3 pts). Max 19 pts per match.',
     infoPredictions: 'Total predictions you have made in this group. "Resolved" means the match finished and points were calculated.',
 
     // Settings — admin controls
@@ -130,7 +125,7 @@ export const translations = {
     dangerZone: 'Danger Zone',
     resetAllScores: 'Reset All Scores',
     resetScoresDesc: 'Resets all leaderboard points and stats for everyone in this group to zero. Prediction history is kept.',
-    resetScoresWarning: '⚠️ This will wipe all points, streaks, and stats for every member. This cannot be undone.',
+    resetScoresWarning: '⚠️ This will wipe all points and stats for every member. This cannot be undone.',
     yesResetAll: 'Yes, Reset Everything',
     resetBtn: 'Reset',
 
@@ -219,7 +214,7 @@ export const translations = {
     signingIn: 'מתחבר...',
     multiTierPredictions: 'ניבויים\nמרובי שלבים',
     liveLeaderboard: 'טבלה\nבזמן אמת',
-    streakBonuses: 'בונוסי\nרצף',
+    cornersFeature: 'ניבוי\nקורנרים',
 
     // Setup modal
     setupRequired: 'נדרשת הגדרה',
@@ -264,7 +259,10 @@ export const translations = {
     // Prediction form
     fullTimeResult: 'תוצאה סופית',
     exactScore: 'תוצאה מדויקת',
-    halfTimeResult: 'תוצאת הפסקה',
+    totalCorners: 'סה"כ קורנרים',
+    cornersUnder9: '≤ 9',
+    cornersTen: '10',
+    cornersOver11: '≥ 11',
     bothTeamsToScore: 'שתי הקבוצות מבקיעות',
     totalGoals: 'סה"כ שערים',
     lockInPrediction: 'נעל ניבוי',
@@ -272,6 +270,7 @@ export const translations = {
     predictionLocked: 'לא בוצע ניבוי למשחק זה',
     result: 'תוצאה',
     score: 'ניקוד',
+    corners: 'קורנרים',
     btts: 'שתיים מבקיעות',
     goals: 'שערים',
     home: 'בית',
@@ -293,7 +292,6 @@ export const translations = {
     yourRank: 'הדירוג שלך',
     points: 'נקודות',
     accuracy: 'דיוק',
-    streak: 'רצף',
     picks: 'ניבויים',
     accurate: 'מדויקים',
     noLeaderboardData: 'אין נתונים עדיין',
@@ -307,23 +305,15 @@ export const translations = {
     avgLabel: 'ממוצע',
     perMatch: '/ משחק',
     allTimeGroup: 'כל הזמנים · קבוצה זו',
-    bestStreakLabel: 'שיא:',
-    streakBonusActive: '⚡ בונוס +2 פעיל!',
-    streakOneMore: 'עוד 1 = +2 בונוס!',
-    streakTwoMore: 'עוד 2 לבונוס',
-    streakHint: '3 נכונים = ⚡+2 נק׳',
     liveNow: 'חי עכשיו',
     you: 'אני',
     ptsLiveLabel: 'נק׳ חי',
-    streakBonus: 'בונוס רצף',
-    threeInARow: '3 ברצף',
 
     // Info tips
     infoRank: 'המיקום שלך בטבלת הדירוג לתקופה הנבחרת. הדירוג ממויין לפי נקודות.',
-    infoPoints: 'נקודות שנצברו בתקופה זו. כל משחק: תוצאה סופית (3), ניקוד מדויק (+7), הפסקה (4), שתיים מבקיעות (2), מעל/מתחת 2.5 (3). מקסימום 19 נק׳ למשחק.',
+    infoPoints: 'נקודות שנצברו בתקופה זו. כל משחק: תוצאה סופית (3), ניקוד מדויק (+7), קורנרים (4), שתיים מבקיעות (2), מעל/מתחת 2.5 (3). מקסימום 19 נק׳.',
     infoHitRate: 'ניבויי תוצאה סופית נכונים ÷ סך ניבויי תוצאה. נספרים רק משחקים שניבאת עבורם תוצאה (ניצחון בית / תיקו / ניצחון חוץ).',
-    infoStreak: 'ניבויים נכונים רצופים של תוצאה סופית. קבל +2 נק׳ בונוס על כל 3 ברצף! הרצף מתאפס לאחר מימוש הבונוס.',
-    infoTotalPoints: 'סכום כל הנקודות שנצברו ממשחקים שנפתרו. מקורות: תוצאה סופית (3), ניקוד מדויק (+7), הפסקה (4), שתיים מבקיעות (2), מעל/מתחת 2.5 (3), בונוס רצף (+2).',
+    infoTotalPoints: 'סכום כל הנקודות שנצברו ממשחקים שנפתרו. מקורות: תוצאה סופית (3), ניקוד מדויק (+7), קורנרים (4), שתיים מבקיעות (2), מעל/מתחת 2.5 (3).',
     infoPredictions: 'סך הניבויים שביצעת בקבוצה זו. "נפתר" משמעותו שהמשחק הסתיים והנקודות חושבו.',
 
     // Settings — admin controls
@@ -334,7 +324,7 @@ export const translations = {
     dangerZone: 'אזור סכנה',
     resetAllScores: 'אפס את כל הניקוד',
     resetScoresDesc: 'מאפס את כל הנקודות והסטטיסטיקות של כולם בקבוצה לאפס. היסטוריית הניבויים נשמרת.',
-    resetScoresWarning: '⚠️ פעולה זו תמחק את כל הנקודות, הרצפים והסטטיסטיקות של כל החברים. לא ניתן לבטל.',
+    resetScoresWarning: '⚠️ פעולה זו תמחק את כל הנקודות והסטטיסטיקות של כל החברים. לא ניתן לבטל.',
     yesResetAll: 'כן, אפס הכל',
     resetBtn: 'אפס',
 

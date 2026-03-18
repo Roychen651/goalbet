@@ -108,7 +108,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           REF="${{ secrets.SUPABASE_PROJECT_REF }}"
-          for v in 001 002 003 004 005 006 007 008 009 010 011 012; do
+          for v in 001 002 003 004 005 006 007 008 009 010 011 012 013 014; do
             supabase migration repair --status applied "$v" --project-ref "$REF" || true
           done
           echo "✅ Migration history synced"

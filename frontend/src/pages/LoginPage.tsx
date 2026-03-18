@@ -193,7 +193,7 @@ export function LoginPage() {
           {[
             { icon: '🎯', label: t('multiTierPredictions') },
             { icon: '🏆', label: t('liveLeaderboard') },
-            { icon: '🔥', label: t('streakBonuses') },
+            { icon: '🚩', label: t('cornersFeature') },
           ].map((item, i) => (
             <motion.div
               key={item.label}

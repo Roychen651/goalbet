@@ -8,6 +8,24 @@ let livePollerRunning = false;
 export function startScheduler(): void {
   logger.info('[scheduler] Starting cron jobs...');
 
+  // Startup catch-up — runs once 5 s after server start.
+  // Ensures stale matches (e.g. while the server was sleeping on a free tier)
+  // get their scores refreshed and unresolved predictions resolved immediately.
+  setTimeout(async () => {
+    logger.info('[scheduler] Running startup catch-up sync & score check');
+    try {
+      await syncAllActiveLeagues();
+    } catch (err) {
+      logger.error('[scheduler] Startup sync failed:', err);
+    }
+    try {
+      const result = await checkAndUpdateScores();
+      logger.info(`[scheduler] Startup score check: checked=${result.checked} resolved=${result.resolved}`);
+    } catch (err) {
+      logger.error('[scheduler] Startup score check failed:', err);
+    }
+  }, 5_000);
+
   // Daily match sync at 00:05 UTC — fetch upcoming and recent matches for all active leagues
   cron.schedule('5 0 * * *', async () => {
     logger.info('[scheduler] Running daily match sync');

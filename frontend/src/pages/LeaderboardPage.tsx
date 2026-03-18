@@ -101,18 +101,6 @@ export function LeaderboardPage() {
   const hitCorrect = periodStats !== null ? periodStats.correct : (currentUserEntry?.correct_predictions ?? 0);
   const hitDisplay = hitMade > 0 ? `${hitCorrect}/${hitMade}` : '—';
 
-  // Streak: always current, but hide on lastWeek (not meaningful for past week)
-  const streak = currentUserEntry?.current_streak ?? 0;
-  const streakSub = streak >= 3
-    ? t('streakBonusActive')
-    : streak === 2
-      ? t('streakOneMore')
-      : streak === 1
-        ? t('streakTwoMore')
-        : '—';
-
-  const streakSubHighlight = streak >= 2;
-
   return (
     <div className="space-y-4">
       <div>
@@ -140,7 +128,7 @@ export function LeaderboardPage() {
 
       {/* Your rank summary — fully period-aware */}
       {currentUserEntry && (
-        <GlassCard variant="elevated" className="p-4 grid grid-cols-4 gap-2">
+        <GlassCard variant="elevated" className="p-4 grid grid-cols-3 gap-2">
           <div className="text-center">
             <div className="flex items-center justify-center text-text-muted text-[10px] uppercase tracking-wider mb-1 gap-0.5">
               {t('yourRank')}
@@ -172,31 +160,6 @@ export function LeaderboardPage() {
             <div className="text-white/25 text-[9px] mt-0.5 leading-tight">
               {periodStats !== null ? pointsSub : t('allTimeLabel')}
             </div>
-          </div>
-
-          <div className="text-center">
-            <div className="flex items-center justify-center text-text-muted text-[10px] uppercase tracking-wider mb-1 gap-0.5">
-              {t('streak')}
-              <InfoTip text={t('infoStreak')} />
-            </div>
-            {type === 'lastWeek' ? (
-              <>
-                <div className="font-bebas text-xl sm:text-2xl text-white/30">—</div>
-                <div className="text-white/25 text-[9px] mt-0.5 leading-tight">{t('pastWeekLabel')}</div>
-              </>
-            ) : (
-              <>
-                <div className="font-bebas text-xl sm:text-2xl text-white">
-                  {streak > 0 ? `🔥${streak}` : '—'}
-                </div>
-                <div className={cn(
-                  'text-[9px] mt-0.5 leading-tight',
-                  streakSubHighlight ? 'text-accent-green font-semibold' : 'text-white/25'
-                )}>
-                  {streak > 0 ? streakSub : t('streakHint')}
-                </div>
-              </>
-            )}
           </div>
         </GlassCard>
       )}

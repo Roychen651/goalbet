@@ -36,7 +36,6 @@ export function ProfilePage() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
-  const [lbEntry, setLbEntry] = useState<{ current_streak: number; best_streak: number } | null>(null);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
@@ -59,16 +58,6 @@ export function ProfilePage() {
     fetchHistory();
   }, [user?.id, activeGroupId]);
 
-  useEffect(() => {
-    if (!user?.id || !activeGroupId) return;
-    supabase
-      .from('leaderboard')
-      .select('current_streak, best_streak')
-      .eq('user_id', user.id)
-      .eq('group_id', activeGroupId)
-      .single()
-      .then(({ data }) => { if (data) setLbEntry(data); });
-  }, [user?.id, activeGroupId]);
 
   const handleSavePrediction = async (data: PredictionData, predictionId: string) => {
     if (!user || !activeGroupId) return;
@@ -81,7 +70,7 @@ export function ProfilePage() {
         predicted_outcome: data.predicted_outcome,
         predicted_home_score: data.predicted_home_score,
         predicted_away_score: data.predicted_away_score,
-        predicted_halftime_outcome: data.predicted_halftime_outcome,
+        predicted_corners: data.predicted_corners,
         predicted_btts: data.predicted_btts,
         predicted_over_under: data.predicted_over_under,
       }, { onConflict: 'user_id,match_id,group_id' });
@@ -133,9 +122,6 @@ export function ProfilePage() {
     return (p.predicted_outcome as string) === actual;
   });
 
-  const currentStreak = lbEntry?.current_streak ?? 0;
-  const bestStreak = lbEntry?.best_streak ?? 0;
-
   const livePreds = history.filter(p => LIVE_STATUSES.includes(p.match.status));
   const upcomingPreds = history.filter(p => p.match.status === 'NS');
   // History = finished/cancelled — sorted newest kickoff first so most recent results appear at top
@@ -184,7 +170,7 @@ export function ProfilePage() {
       </motion.div>
 
       {/* Stats grid */}
-      <motion.div className="grid grid-cols-2 gap-3 sm:grid-cols-4" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } }}>
+      <motion.div className="grid grid-cols-3 gap-3" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } }}>
         {[
           {
             label: t('totalPoints'),
@@ -194,22 +180,16 @@ export function ProfilePage() {
             info: t('infoTotalPoints'),
           },
           {
-            label: t('predictions'),
-            value: `${history.length}`,
-            sub: `${resolved.length} ${t('accurate')}`,
-            info: t('infoPredictions'),
-          },
-          {
             label: t('hitRate'),
             value: ftPredictions.length > 0 ? `${ftCorrect.length}/${ftPredictions.length}` : '—',
             sub: t('ftResultCorrect'),
             info: t('infoHitRate'),
           },
           {
-            label: t('streak'),
-            value: currentStreak > 0 ? `🔥${currentStreak}` : '—',
-            sub: currentStreak >= 3 ? t('streakBonusActive') : currentStreak === 2 ? t('streakOneMore') : bestStreak > 0 ? `${t('bestStreakLabel')} ${bestStreak}` : t('streakHint'),
-            info: t('infoStreak'),
+            label: t('predictions'),
+            value: `${history.length}`,
+            sub: `${resolved.length} ${t('accurate')}`,
+            info: t('infoPredictions'),
           },
         ].map(stat => (
           <motion.div key={stat.label} variants={{ hidden: { opacity: 0, y: 20, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 100, damping: 18 } } }} whileHover={{ scale: 1.04, y: -3 }} transition={{ type: 'spring', stiffness: 300 }}>
@@ -399,23 +379,22 @@ function StatCard({ label, value, highlight, sub, info }: { label: string; value
 function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; match: Match }) {
   const { t } = useLangStore();
   const breakdown = calcBreakdown(prediction, match);
-  const streakBonus = prediction.streak_bonus_earned ?? 0;
-  const baseTotal = breakdown ? breakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0) : 0;
-  const unexplained = breakdown ? Math.max(0, (prediction.points_earned ?? 0) - baseTotal - streakBonus) : 0;
 
-  // Short team name for outcome labels (last word, e.g. "Real Sociedad" → "Sociedad")
   const teamLabel = (outcome: 'H' | 'D' | 'A' | null) =>
     outcome === 'H' ? (match.home_team.split(' ').pop() ?? t('home'))
     : outcome === 'A' ? (match.away_team.split(' ').pop() ?? t('away'))
     : outcome === 'D' ? t('draw') : null;
 
-  // Detail string for each predicted tier
+  const cornersLabel = (v: 'under9' | 'ten' | 'over11' | null) =>
+    v === 'under9' ? t('cornersUnder9') : v === 'ten' ? t('cornersTen') : v === 'over11' ? t('cornersOver11') : null;
+
   const tierDetail = (key: string): string | null => {
     switch (key) {
       case 'result': return prediction.predicted_outcome ? teamLabel(prediction.predicted_outcome) : null;
       case 'score': return prediction.predicted_home_score !== null
         ? `${prediction.predicted_home_score}–${prediction.predicted_away_score}` : null;
       case 'ht': return prediction.predicted_halftime_outcome ? teamLabel(prediction.predicted_halftime_outcome) : null;
+      case 'corners': return cornersLabel(prediction.predicted_corners ?? null);
       case 'btts': return prediction.predicted_btts !== null ? (prediction.predicted_btts ? t('yes') : t('no')) : null;
       case 'ou': return prediction.predicted_over_under
         ? (prediction.predicted_over_under === 'over' ? t('over25') : t('under25')) : null;
@@ -424,7 +403,6 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
   };
 
   if (!breakdown) {
-    // Match not FT yet — show what was predicted without ✓/✗
     return (
       <div className="grid grid-cols-2 gap-1.5 text-sm">
         {prediction.predicted_outcome && (
@@ -441,8 +419,14 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
         )}
         {prediction.predicted_halftime_outcome && (
           <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
-            <span className="text-white/40 text-xs">{t('halfTimeResult')}</span>
+            <span className="text-white/40 text-xs">Half Time</span>
             <span className="text-white text-sm font-semibold mt-0.5">{teamLabel(prediction.predicted_halftime_outcome)}</span>
+          </div>
+        )}
+        {prediction.predicted_corners && (
+          <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
+            <span className="text-white/40 text-xs">{t('corners')}</span>
+            <span className="text-white text-sm font-semibold mt-0.5">{cornersLabel(prediction.predicted_corners)}</span>
           </div>
         )}
         {prediction.predicted_btts !== null && (
@@ -465,41 +449,22 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
     <div className="space-y-1">
       {breakdown.map(tier => {
         const detail = tierDetail(tier.key);
+        const isPending = tier.pending === true;
         return (
-          <div key={tier.key} className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs ${tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : 'bg-white/3 border border-white/5'}`}>
-            <span className={`flex items-center gap-1.5 min-w-0 ${tier.earned ? 'text-accent-green' : 'text-white/35'}`}>
-              <span className="shrink-0">{tier.earned ? '✓' : '✗'}</span>
+          <div key={tier.key} className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs ${tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : isPending ? 'bg-blue-500/6 border border-blue-500/15' : 'bg-white/3 border border-white/5'}`}>
+            <span className={`flex items-center gap-1.5 min-w-0 ${tier.earned ? 'text-accent-green' : isPending ? 'text-blue-400 opacity-70' : 'text-white/35'}`}>
+              <span className="shrink-0">{tier.earned ? '✓' : isPending ? '…' : '✗'}</span>
               <span className="shrink-0">{tier.label}</span>
               {detail && (
-                <span className={`truncate font-semibold ${tier.earned ? 'text-accent-green' : 'text-white/40'}`}>
-                  · {detail}
-                </span>
+                <span className={`truncate font-semibold ${tier.earned ? 'text-accent-green' : 'text-white/40'}`}>· {detail}</span>
               )}
             </span>
-            <span className={`shrink-0 ${tier.earned ? 'text-accent-green font-semibold' : 'text-white/20'}`}>
-              {tier.earned ? `+${tier.pts}` : '0'}
+            <span className={`shrink-0 ${tier.earned ? 'text-accent-green font-semibold' : isPending ? 'text-blue-400/50' : 'text-white/20'}`}>
+              {tier.earned ? `+${tier.pts}` : isPending ? '?' : '0'}
             </span>
           </div>
         );
       })}
-      {streakBonus > 0 && (
-        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25">
-          <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
-            <span>⚡</span><span>{t('streakBonus')}</span>
-            <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
-          </span>
-          <span className="font-bold tabular-nums text-yellow-400">+{streakBonus}</span>
-        </div>
-      )}
-      {unexplained > 0 && (
-        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/25">
-          <span className="flex items-center gap-1.5 text-yellow-400 font-semibold">
-            <span>⚡</span><span>{t('streakBonus')}</span>
-            <span className="text-yellow-400/60 font-normal">· {t('threeInARow')}</span>
-          </span>
-          <span className="font-bold tabular-nums text-yellow-400">+{unexplained}</span>
-        </div>
-      )}
     </div>
   );
 }
