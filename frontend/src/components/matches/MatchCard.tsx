@@ -4,6 +4,7 @@ import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
 import { MatchStatusBadge } from './MatchStatusBadge';
 import { PredictionForm, PredictionData } from './PredictionForm';
+import { Avatar } from '../ui/Avatar';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
@@ -254,16 +255,10 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
               {predictors.slice(0, 5).map(p => (
                 <div
                   key={p.user_id}
-                  className="w-5 h-5 rounded-full border border-bg-base overflow-hidden bg-white/10 shrink-0"
+                  className="border border-bg-base shrink-0"
                   title={p.username}
                 >
-                  {p.avatar_url ? (
-                    <img src={p.avatar_url} alt={p.username} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[8px] text-white/60">
-                      {p.username.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
+                  <Avatar src={p.avatar_url} name={p.username} size="sm" />
                 </div>
               ))}
               {predictors.length > 5 && (
