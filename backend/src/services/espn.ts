@@ -119,6 +119,71 @@ function buildDisplayClock(statusName: string, state: string, displayClock: stri
 }
 
 /**
+ * Fetch full per-period linescores from the ESPN event summary endpoint.
+ * Returns halftime, regulation (90-min), ET info and penalty detection.
+ * Used as a fallback for STATUS_RESULT_OF_LEG knockout-tie matches where
+ * the scoreboard endpoint returns empty linescores.
+ */
+async function fetchMatchLinescoreDetails(
+  externalId: string,
+  leagueId: number,
+): Promise<{
+  halftime_home: number | null;
+  halftime_away: number | null;
+  regulation_home: number | null;
+  regulation_away: number | null;
+  went_to_penalties: boolean;
+} | null> {
+  const slug = LEAGUE_ESPN_MAP[leagueId];
+  if (!slug) return null;
+  const eventId = externalId.replace(/^espn_/, '');
+  if (!eventId || !/^\d+$/.test(eventId)) return null;
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
+  try {
+    const { data } = await axios.get(url, { timeout: 8_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+
+    const comp = data?.header?.competitions?.[0];
+    const competitors = (comp?.competitors as Record<string, unknown>[] | undefined) ?? [];
+    const home = competitors.find(c => (c as Record<string, unknown>).homeAway === 'home') as Record<string, unknown> | undefined;
+    const away = competitors.find(c => (c as Record<string, unknown>).homeAway === 'away') as Record<string, unknown> | undefined;
+
+    const getIdx = (competitor: Record<string, unknown> | undefined, idx: number): number | null => {
+      if (!competitor) return null;
+      const ls = competitor.linescores as Record<string, unknown>[] | undefined;
+      if (!ls || ls.length <= idx) return null;
+      const v = ls[idx]?.value ?? ls[idx]?.displayValue ?? ls[idx]?.score;
+      if (v === undefined || v === null) return null;
+      const n = parseInt(String(v), 10);
+      return isNaN(n) ? null : n;
+    };
+
+    const htHome = getIdx(home, 0);   // 1H goals
+    const htAway = getIdx(away, 0);
+    const h2Home = getIdx(home, 1);   // 2H goals
+    const h2Away = getIdx(away, 1);
+    const et1Home = getIdx(home, 2);  // ET1 goals (null if no ET)
+    const et1Away = getIdx(away, 2);
+    const pkHome = getIdx(home, 4);   // shootout (null if no pens)
+    const pkAway = getIdx(away, 4);
+
+    const hasET = et1Home !== null || et1Away !== null;
+    const hasPK = pkHome !== null || pkAway !== null;
+
+    let regulationHome: number | null = null;
+    let regulationAway: number | null = null;
+    if (hasET && htHome !== null && h2Home !== null && htAway !== null && h2Away !== null) {
+      regulationHome = htHome + h2Home;
+      regulationAway = htAway + h2Away;
+    }
+
+    return { halftime_home: htHome, halftime_away: htAway, regulation_home: regulationHome, regulation_away: regulationAway, went_to_penalties: hasPK };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch halftime scores from the ESPN event summary endpoint.
  * This endpoint returns per-period linescores even for in-progress 2H matches,
  * whereas the scoreboard endpoint sometimes returns null linescores during live play.
@@ -258,13 +323,13 @@ export async function fetchLeagueMatches(
 
         // Regulation score = 1H + 2H goals (only relevant for ET/PEN matches)
         // Stored so predictions can be scored on the 90-minute result, not the ET/penalty result.
-        const wentToPenalties =
+        let wentToPenalties =
           statusName === 'STATUS_FINAL_PK' ||
           statusName === 'STATUS_FULL_PEN' ||
           matchStatus === 'PEN' ||
           hasShootoutLinescore; // detect from linescores for STATUS_RESULT_OF_LEG finishes
 
-        const isExtraTime =
+        let isExtraTime =
           ['ET1', 'ET2', 'AET', 'PEN'].includes(matchStatus) ||
           ['STATUS_FINAL_AET', 'STATUS_FINAL_PK', 'STATUS_FULL_ET', 'STATUS_FULL_PEN'].includes(statusName) ||
           hasET1Linescore; // detect from linescores for STATUS_RESULT_OF_LEG finishes
@@ -278,6 +343,25 @@ export async function fetchLeagueMatches(
           if (htHome !== null && h2Home !== null && htAway !== null && h2Away !== null) {
             regulationHome = htHome + h2Home;
             regulationAway = htAway + h2Away;
+          }
+        }
+
+        // STATUS_RESULT_OF_LEG: ESPN finalises 2-leg knockout ties with this status but the
+        // scoreboard endpoint often omits linescores for historical matches. Fall back to the
+        // event summary endpoint which reliably includes per-period linescore data.
+        if (statusName === 'STATUS_RESULT_OF_LEG' && !isExtraTime) {
+          try {
+            const details = await fetchMatchLinescoreDetails(`espn_${event.id}`, leagueId);
+            if (details) {
+              if (details.went_to_penalties) wentToPenalties = true;
+              if (details.regulation_home !== null) {
+                regulationHome = details.regulation_home;
+                regulationAway = details.regulation_away;
+                isExtraTime = true;
+              }
+            }
+          } catch {
+            // summary fetch failed — continue with scoreboard data
           }
         }
 

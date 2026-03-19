@@ -427,10 +427,18 @@ function StatCard({ label, value, highlight, sub, info }: { label: string; value
   );
 }
 
-/** Compact inline summary of what a user predicted — shown always in the card header row */
+const PILL_COLORS: Record<string, string> = {
+  result:  'bg-blue-500/20 border-blue-400/35 text-blue-200',
+  score:   'bg-violet-500/20 border-violet-400/35 text-violet-200',
+  corners: 'bg-amber-500/20 border-amber-400/35 text-amber-200',
+  btts:    'bg-teal-500/20 border-teal-400/35 text-teal-200',
+  goals:   'bg-emerald-500/20 border-emerald-400/35 text-emerald-200',
+};
+
+/** Compact inline summary of what a user predicted — always visible so user can verify at a glance */
 function PredictionSummaryPills({ prediction, match }: { prediction: Prediction; match: Match }) {
   const { t } = useLangStore();
-  const pills: { label: string; value: string }[] = [];
+  const pills: { key: string; label: string; value: string }[] = [];
 
   const teamName = (outcome: 'H' | 'D' | 'A' | null) =>
     outcome === 'H' ? (match.home_team.split(' ').slice(-1)[0] ?? t('home'))
@@ -438,20 +446,20 @@ function PredictionSummaryPills({ prediction, match }: { prediction: Prediction;
     : outcome === 'D' ? t('draw') : '';
 
   if (prediction.predicted_outcome) {
-    pills.push({ label: t('result'), value: teamName(prediction.predicted_outcome) });
+    pills.push({ key: 'result', label: t('result'), value: teamName(prediction.predicted_outcome) });
   }
   if (prediction.predicted_home_score !== null && prediction.predicted_away_score !== null) {
-    pills.push({ label: t('score'), value: `${prediction.predicted_home_score}–${prediction.predicted_away_score}` });
+    pills.push({ key: 'score', label: t('score'), value: `${prediction.predicted_home_score}–${prediction.predicted_away_score}` });
   }
   if (prediction.predicted_corners) {
     const cl = prediction.predicted_corners === 'under9' ? t('cornersUnder9') : prediction.predicted_corners === 'ten' ? t('cornersTen') : t('cornersOver11');
-    pills.push({ label: t('corners'), value: cl });
+    pills.push({ key: 'corners', label: t('corners'), value: cl });
   }
   if (prediction.predicted_btts !== null) {
-    pills.push({ label: t('btts'), value: prediction.predicted_btts ? t('yes') : t('no') });
+    pills.push({ key: 'btts', label: t('btts'), value: prediction.predicted_btts ? t('yes') : t('no') });
   }
   if (prediction.predicted_over_under) {
-    pills.push({ label: t('goals'), value: prediction.predicted_over_under === 'over' ? t('over25') : t('under25') });
+    pills.push({ key: 'goals', label: t('goals'), value: prediction.predicted_over_under === 'over' ? t('over25') : t('under25') });
   }
 
   if (pills.length === 0) return null;
@@ -459,9 +467,9 @@ function PredictionSummaryPills({ prediction, match }: { prediction: Prediction;
   return (
     <div className="flex flex-wrap gap-1 mt-1.5">
       {pills.map(p => (
-        <span key={p.label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/6 border border-white/10 text-[10px]">
-          <span className="text-white/35">{p.label}</span>
-          <span className="text-white/75 font-medium">{p.value}</span>
+        <span key={p.key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs ${PILL_COLORS[p.key] ?? 'bg-white/8 border-white/15 text-white/70'}`}>
+          <span className="opacity-55 text-[10px] font-normal">{p.label}</span>
+          <span className="font-semibold">{p.value}</span>
         </span>
       ))}
     </div>
@@ -490,6 +498,32 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
       case 'btts': return prediction.predicted_btts !== null ? (prediction.predicted_btts ? t('yes') : t('no')) : null;
       case 'ou': return prediction.predicted_over_under
         ? (prediction.predicted_over_under === 'over' ? t('over25') : t('under25')) : null;
+      default: return null;
+    }
+  };
+
+  // Compute actual values to show alongside wrong predictions
+  const scoringHome = match.regulation_home ?? match.home_score;
+  const scoringAway = match.regulation_away ?? match.away_score;
+  const actualOutcome = scoringHome !== null && scoringAway !== null
+    ? (scoringHome > scoringAway ? 'H' : scoringHome < scoringAway ? 'A' : 'D') : null;
+  const actualBTTS = scoringHome !== null && scoringAway !== null ? scoringHome > 0 && scoringAway > 0 : null;
+  const totalGoals = scoringHome !== null && scoringAway !== null ? scoringHome + scoringAway : null;
+  const actualCornersBucket = match.corners_total !== null
+    ? (match.corners_total <= 9 ? 'under9' : match.corners_total === 10 ? 'ten' : 'over11') as 'under9' | 'ten' | 'over11'
+    : null;
+  const htOutcome = match.halftime_home !== null && match.halftime_away !== null
+    ? (match.halftime_home > match.halftime_away ? 'H' : match.halftime_home < match.halftime_away ? 'A' : 'D') as 'H' | 'D' | 'A'
+    : null;
+
+  const actualFor = (key: string): string | null => {
+    switch (key) {
+      case 'result': return actualOutcome ? teamLabel(actualOutcome) : null;
+      case 'score': return scoringHome !== null && scoringAway !== null ? `${scoringHome}–${scoringAway}` : null;
+      case 'ht': return htOutcome ? teamLabel(htOutcome) : null;
+      case 'corners': return cornersLabel(actualCornersBucket);
+      case 'btts': return actualBTTS !== null ? (actualBTTS ? t('yes') : t('no')) : null;
+      case 'ou': return totalGoals !== null ? (totalGoals > 2.5 ? t('over25') : t('under25')) : null;
       default: return null;
     }
   };
@@ -542,16 +576,24 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
       {breakdown.map(tier => {
         const detail = tierDetail(tier.key);
         const isPending = tier.pending === true;
+        const actual = !tier.earned && !isPending ? actualFor(tier.key) : null;
+        const showActual = actual && actual !== detail; // only show actual when different from prediction
         return (
           <div key={tier.key} className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs ${tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : isPending ? 'bg-blue-500/6 border border-blue-500/15' : 'bg-white/3 border border-white/5'}`}>
-            <span className={`flex items-center gap-1.5 min-w-0 ${tier.earned ? 'text-accent-green' : isPending ? 'text-blue-400 opacity-70' : 'text-white/35'}`}>
+            <span className={`flex items-center gap-1 min-w-0 flex-wrap ${tier.earned ? 'text-accent-green' : isPending ? 'text-blue-400 opacity-70' : 'text-white/35'}`}>
               <span className="shrink-0">{tier.earned ? '✓' : isPending ? '…' : '✗'}</span>
               <span className="shrink-0">{tier.label}</span>
               {detail && (
-                <span className={`truncate font-semibold ${tier.earned ? 'text-accent-green' : 'text-white/40'}`}>· {detail}</span>
+                <span className={`shrink-0 font-semibold ${tier.earned ? 'text-accent-green' : 'text-white/40'}`}>· {detail}</span>
+              )}
+              {showActual && (
+                <>
+                  <span className="text-white/20 shrink-0">→</span>
+                  <span className="text-white/55 font-semibold shrink-0">{actual}</span>
+                </>
               )}
             </span>
-            <span className={`shrink-0 ${tier.earned ? 'text-accent-green font-semibold' : isPending ? 'text-blue-400/50' : 'text-white/20'}`}>
+            <span className={`shrink-0 ml-2 ${tier.earned ? 'text-accent-green font-semibold' : isPending ? 'text-blue-400/50' : 'text-white/20'}`}>
               {tier.earned ? `+${tier.pts}` : isPending ? '?' : '0'}
             </span>
           </div>
