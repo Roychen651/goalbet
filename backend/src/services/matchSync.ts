@@ -35,7 +35,7 @@ export async function syncLeague(leagueId: number): Promise<SyncResult> {
   let errors = 0;
 
   try {
-    const matches = await fetchLeagueMatches(leagueId, 7, 21);
+    const matches = await fetchLeagueMatches(leagueId, 7, 42);
 
     if (matches.length > 0) {
       const result = await upsertMatches(matches);

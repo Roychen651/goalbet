@@ -19,12 +19,12 @@ type Tab = 'all' | 'upcoming' | 'live' | 'completed';
 export function HomePage() {
   const [activeTab, setActiveTab] = useState<Tab>('all');
   const [showScoringGuide, setShowScoringGuide] = useState(false);
-  const { matches, loading, error, refetch } = useMatches(activeTab);
+  const { matches, loading, error, refetch, loadMore, upcomingDays } = useMatches(activeTab);
   const { predictions, saving, savePrediction } = usePredictions(matches.map(m => m.id));
   const { groups, activeGroupId, loading: groupsLoading, setActiveGroup } = useGroupStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const activeLeagues = activeGroup?.active_leagues ?? [];
-  const { syncing } = useMatchSync(activeLeagues, matches.length, refetch);
+  const { syncing, triggerSync } = useMatchSync(activeLeagues, matches.length, refetch);
   const predictorsByMatch = useGroupMatchPredictions(matches.map(m => m.id), activeGroupId);
   const { openModal, addToast } = useUIStore();
   const { t } = useLangStore();
@@ -165,6 +165,23 @@ export function HomePage() {
         onSavePrediction={handleSavePrediction}
         activeTab={activeTab}
       />
+
+      {/* Load More Fixtures — only shown on upcoming-facing tabs, not results */}
+      {!loading && activeTab !== 'completed' && activeTab !== 'live' && (
+        <div className="flex flex-col items-center gap-2 pb-6">
+          <motion.button
+            onClick={async () => { loadMore(); await triggerSync(); }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/5 border border-white/10 text-text-muted text-sm hover:bg-white/10 hover:border-white/20 hover:text-white transition-all"
+          >
+            <span>⬇</span>
+            <span>Load more fixtures</span>
+            <span className="text-white/30 text-xs">+14 days</span>
+          </motion.button>
+          <p className="text-white/20 text-xs">Showing up to {upcomingDays} days ahead</p>
+        </div>
+      )}
 
       <AnimatePresence>
         {showScoringGuide && <ScoringGuide onClose={() => setShowScoringGuide(false)} />}

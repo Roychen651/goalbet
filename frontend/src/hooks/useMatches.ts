@@ -4,17 +4,20 @@ import { useGroupStore } from '../stores/groupStore';
 
 type StatusFilter = 'all' | 'upcoming' | 'live' | 'completed';
 
-const UPCOMING_DAYS = 14;  // show matches up to 14 days ahead
-const COMPLETED_DAYS = 7;  // show results from last 7 days
+const INITIAL_UPCOMING_DAYS = 30; // show 30 days ahead by default (covers international breaks)
+const LOAD_MORE_DAYS = 14;        // each "Load More" click adds 14 more days
+const COMPLETED_DAYS = 14;        // show results from last 14 days
 
-async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Promise<Match[]> {
+async function queryMatches(
+  leagueIds: number[],
+  statusFilter: StatusFilter,
+  upcomingDays: number,
+): Promise<Match[]> {
   const now = new Date();
   // Buffer: NS matches up to 3h past kickoff are shown as "live/in-progress"
-  // because the backend may not have polled TheSportsDB yet to flip them to 1H/HT/2H.
   const liveBufferStart = new Date(now.getTime() - 3 * 3600_000).toISOString();
 
   if (statusFilter === 'live') {
-    // Fetch actual live statuses + NS matches that should be playing (started up to 3h ago)
     const [liveRes, stalledRes] = await Promise.all([
       supabase
         .from('matches').select('*')
@@ -41,9 +44,7 @@ async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Pr
   }
 
   if (statusFilter === 'upcoming') {
-    // Include NS matches from liveBufferStart so a match that just kicked off
-    // (but backend hasn't updated status yet) still appears here instead of vanishing.
-    const cutoff = new Date(now.getTime() + UPCOMING_DAYS * 86400_000).toISOString();
+    const cutoff = new Date(now.getTime() + upcomingDays * 86400_000).toISOString();
     const { data, error } = await supabase
       .from('matches')
       .select('*')
@@ -52,7 +53,7 @@ async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Pr
       .gte('kickoff_time', liveBufferStart)
       .lte('kickoff_time', cutoff)
       .order('kickoff_time', { ascending: true })
-      .limit(150);
+      .limit(300);
     if (error) throw error;
     return (data as Match[]) ?? [];
   }
@@ -71,40 +72,35 @@ async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Pr
     return (data as Match[]) ?? [];
   }
 
-  // 'all' tab: 3 queries merged — no complex OR
-  const upcomingCutoff = new Date(now.getTime() + UPCOMING_DAYS * 86400_000).toISOString();
+  // 'all' tab
+  const upcomingCutoff = new Date(now.getTime() + upcomingDays * 86400_000).toISOString();
   const completedSince = new Date(now.getTime() - COMPLETED_DAYS * 86400_000).toISOString();
 
   const [liveRes, stalledNsRes, upcomingRes, completedRes] = await Promise.all([
-    supabase
-      .from('matches').select('*')
+    supabase.from('matches').select('*')
       .in('league_id', leagueIds)
       .in('status', ['1H', 'HT', '2H'])
       .order('kickoff_time', { ascending: true }).limit(30),
 
-    // NS matches past kickoff (backend hasn't updated status yet) — show as live-ish
-    supabase
-      .from('matches').select('*')
+    supabase.from('matches').select('*')
       .in('league_id', leagueIds)
       .eq('status', 'NS')
       .gte('kickoff_time', liveBufferStart)
       .lte('kickoff_time', now.toISOString())
       .order('kickoff_time', { ascending: true }).limit(30),
 
-    supabase
-      .from('matches').select('*')
+    supabase.from('matches').select('*')
       .in('league_id', leagueIds)
       .eq('status', 'NS')
       .gte('kickoff_time', now.toISOString())
       .lte('kickoff_time', upcomingCutoff)
-      .order('kickoff_time', { ascending: true }).limit(150),
+      .order('kickoff_time', { ascending: true }).limit(300),
 
-    supabase
-      .from('matches').select('*')
+    supabase.from('matches').select('*')
       .in('league_id', leagueIds)
       .in('status', ['FT', 'PST', 'CANC'])
       .gte('kickoff_time', completedSince)
-      .order('kickoff_time', { ascending: false }).limit(50),
+      .order('kickoff_time', { ascending: false }).limit(100),
   ]);
 
   if (liveRes.error) throw liveRes.error;
@@ -112,7 +108,6 @@ async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Pr
   if (upcomingRes.error) throw upcomingRes.error;
   if (completedRes.error) throw completedRes.error;
 
-  // Merge & deduplicate
   const seen = new Set<string>();
   const all: Match[] = [];
   for (const m of [
@@ -124,8 +119,6 @@ async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Pr
     if (!seen.has(m.id)) { seen.add(m.id); all.push(m); }
   }
 
-  // Sort: live first, then upcoming by (kickoff asc, league_id asc), then completed desc
-  // Grouping by league_id within same kickoff time keeps e.g. all EPL games together
   const liveSet = new Set(['1H', 'HT', '2H']);
   const doneSet = new Set(['FT', 'PST', 'CANC']);
   all.sort((a, b) => {
@@ -136,7 +129,6 @@ async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Pr
     if (aDone !== bDone) return aDone ? 1 : -1;
     const timeDiff = new Date(a.kickoff_time).getTime() - new Date(b.kickoff_time).getTime();
     if (timeDiff !== 0) return timeDiff;
-    // Same kickoff time — group by league so same-competition games are adjacent
     return a.league_id - b.league_id;
   });
 
@@ -145,31 +137,26 @@ async function queryMatches(leagueIds: number[], statusFilter: StatusFilter): Pr
 
 export function useMatches(statusFilter: StatusFilter = 'all') {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true); // starts true — waits for groups
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [upcomingDays, setUpcomingDays] = useState(INITIAL_UPCOMING_DAYS);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const { activeGroupId, groups, loading: groupsLoading } = useGroupStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const activeLeagues = activeGroup?.active_leagues ?? [];
-  // Stable key — only changes when leagues actually change
   const leaguesKey = [...activeLeagues].sort().join(',');
 
-  const fetchMatches = useCallback(async () => {
-    // No group selected at all
+  const fetchMatches = useCallback(async (days?: number) => {
     if (!activeGroupId) {
       setMatches([]);
       setLoading(false);
       return;
     }
-
-    // Groups still being fetched from Supabase — keep spinner
     if (groupsLoading) {
       setLoading(true);
       return;
     }
-
-    // Groups loaded but no leagues configured (stale ID or unconfigured group)
     if (activeLeagues.length === 0) {
       setMatches([]);
       setLoading(false);
@@ -179,7 +166,7 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
     setLoading(true);
     setError(null);
     try {
-      const data = await queryMatches(activeLeagues, statusFilter);
+      const data = await queryMatches(activeLeagues, statusFilter, days ?? upcomingDays);
       setMatches(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load matches');
@@ -187,9 +174,15 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGroupId, leaguesKey, statusFilter, groupsLoading]);
+  }, [activeGroupId, leaguesKey, statusFilter, groupsLoading, upcomingDays]);
 
-  // Subscribe to live match updates
+  // Load more fixtures: extend window by LOAD_MORE_DAYS
+  const loadMore = useCallback(() => {
+    const newDays = upcomingDays + LOAD_MORE_DAYS;
+    setUpcomingDays(newDays);
+    fetchMatches(newDays);
+  }, [upcomingDays, fetchMatches]);
+
   const subscribeToMatches = useCallback(() => {
     channelRef.current?.unsubscribe();
     channelRef.current = supabase
@@ -199,6 +192,10 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
         setMatches(prev =>
           prev.map(m => m.id === updated.id ? { ...m, ...updated } as Match : m)
         );
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'matches' }, () => {
+        // New match inserted (e.g. after sync) — refresh the list
+        fetchMatches();
       })
       .subscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -219,5 +216,5 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
     };
   }, [fetchMatches, subscribeToMatches]);
 
-  return { matches, loading, error, refetch: fetchMatches };
+  return { matches, loading, error, refetch: fetchMatches, loadMore, upcomingDays };
 }
