@@ -350,6 +350,8 @@ function PredictionSection({ title, predictions, expandedIds, toggleExpanded, co
                         <span className="text-amber-400/70">90′: {pred.match.regulation_home}–{pred.match.regulation_away}</span>
                       )}
                     </div>
+                    {/* Prediction summary pills — always visible so user can verify without expanding */}
+                    <PredictionSummaryPills prediction={pred} match={pred.match} />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {pred.is_resolved && (
@@ -422,6 +424,47 @@ function StatCard({ label, value, highlight, sub, info }: { label: string; value
       <div className={`font-bebas text-2xl tracking-wider ${highlight ? 'text-accent-green text-glow-green' : 'text-white'}`}>{value}</div>
       {sub && <div className="text-white/20 text-[10px] mt-0.5 leading-tight">{sub}</div>}
     </GlassCard>
+  );
+}
+
+/** Compact inline summary of what a user predicted — shown always in the card header row */
+function PredictionSummaryPills({ prediction, match }: { prediction: Prediction; match: Match }) {
+  const { t } = useLangStore();
+  const pills: { label: string; value: string }[] = [];
+
+  const teamName = (outcome: 'H' | 'D' | 'A' | null) =>
+    outcome === 'H' ? (match.home_team.split(' ').slice(-1)[0] ?? t('home'))
+    : outcome === 'A' ? (match.away_team.split(' ').slice(-1)[0] ?? t('away'))
+    : outcome === 'D' ? t('draw') : '';
+
+  if (prediction.predicted_outcome) {
+    pills.push({ label: t('result'), value: teamName(prediction.predicted_outcome) });
+  }
+  if (prediction.predicted_home_score !== null && prediction.predicted_away_score !== null) {
+    pills.push({ label: t('score'), value: `${prediction.predicted_home_score}–${prediction.predicted_away_score}` });
+  }
+  if (prediction.predicted_corners) {
+    const cl = prediction.predicted_corners === 'under9' ? t('cornersUnder9') : prediction.predicted_corners === 'ten' ? t('cornersTen') : t('cornersOver11');
+    pills.push({ label: t('corners'), value: cl });
+  }
+  if (prediction.predicted_btts !== null) {
+    pills.push({ label: t('btts'), value: prediction.predicted_btts ? t('yes') : t('no') });
+  }
+  if (prediction.predicted_over_under) {
+    pills.push({ label: t('goals'), value: prediction.predicted_over_under === 'over' ? t('over25') : t('under25') });
+  }
+
+  if (pills.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {pills.map(p => (
+        <span key={p.label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/6 border border-white/10 text-[10px]">
+          <span className="text-white/35">{p.label}</span>
+          <span className="text-white/75 font-medium">{p.value}</span>
+        </span>
+      ))}
+    </div>
   );
 }
 
