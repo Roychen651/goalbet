@@ -54,6 +54,13 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const wentToET = isFinished && (match.regulation_home != null || match.went_to_penalties);
   const wentToPens = isFinished && match.went_to_penalties;
 
+  // ESPN sometimes lags updating 2H→ET1 status for knockout/aggregate matches.
+  // If status is still '2H' with stoppage clock but we're 100+ min from kickoff, treat as ET.
+  const totalMinsFromKickoff = Math.floor((Date.now() - new Date(match.kickoff_time).getTime()) / 60000);
+  const likelyInET = match.status === '2H' && match.display_clock?.includes('+') && totalMinsFromKickoff >= 100;
+  // Effective status for badge + labels
+  const effectiveStatus = likelyInET ? 'ET1' : match.status;
+
   // Leading team during live — used for score + team highlighting
   const homeLeading = isInProgress && match.home_score !== null && match.away_score !== null && match.home_score > match.away_score;
   const awayLeading = isInProgress && match.home_score !== null && match.away_score !== null && match.away_score > match.home_score;
@@ -163,7 +170,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 isPastKickoffNS ? '1H'
                 : wentToPens ? 'PEN'
                 : wentToET ? 'AET'
-                : match.status
+                : effectiveStatus
               }
             />
           </div>
@@ -201,12 +208,12 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                       transition={{ duration: 1.6, repeat: Infinity }}
                       className={cn(
                         'text-xs font-bold tracking-wider',
-                        ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status) ? 'text-amber-400' : 'text-accent-green'
+                        (likelyInET || ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status)) ? 'text-amber-400' : 'text-accent-green'
                       )}
                     >
                       {liveClock}
                     </motion.span>
-                    {match.status === 'ET1' && (
+                    {(match.status === 'ET1' || likelyInET) && (
                       <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">1st ET</span>
                     )}
                     {match.status === 'ET2' && (
