@@ -157,6 +157,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             score={isLive || isFinished ? match.home_score : null}
             isWinner={homeWon}
             isLeading={homeLeading}
+            redCards={(isLive || isFinished) ? (match.red_cards_home ?? 0) : 0}
           />
 
           <div className="flex-1 flex flex-col items-center">
@@ -291,6 +292,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             score={isLive || isFinished ? match.away_score : null}
             isWinner={awayWon}
             isLeading={awayLeading}
+            redCards={(isLive || isFinished) ? (match.red_cards_away ?? 0) : 0}
             right
           />
         </div>
@@ -396,28 +398,45 @@ function MatchActualStats({ match }: { match: Match }) {
   );
 }
 
-function TeamBlock({ name, badge, score, isWinner, isLeading, right }: {
+function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 0 }: {
   name: string; badge: string | null; score: number | null;
-  isWinner: boolean; isLeading?: boolean; right?: boolean;
+  isWinner: boolean; isLeading?: boolean; right?: boolean; redCards?: number;
 }) {
   const shortName = name.length > 12 ? name.split(' ').pop() || name : name;
   const highlight = isWinner || isLeading;
+  const cardCount = Math.min(redCards, 3); // cap at 3 for layout safety
   return (
-    <div className={cn('flex flex-col items-center gap-1.5 w-[80px]', right && '')}>
-      {badge ? (
-        <img
-          src={badge}
-          alt={name}
-          className={cn(
-            'w-9 h-9 object-contain transition-all duration-200',
-            highlight && 'drop-shadow-[0_0_8px_rgba(0,255,135,0.5)] scale-105',
-          )}
-          loading="lazy"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-        />
-      ) : (
-        <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-base">⚽</div>
-      )}
+    <div className={cn('flex flex-col items-center gap-1 w-[80px]')}>
+      <div className="relative">
+        {badge ? (
+          <img
+            src={badge}
+            alt={name}
+            className={cn(
+              'w-9 h-9 object-contain transition-all duration-200',
+              highlight && 'drop-shadow-[0_0_8px_rgba(0,255,135,0.5)] scale-105',
+            )}
+            loading="lazy"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-base">⚽</div>
+        )}
+        {/* Red cards — shown in top-right corner of badge when > 0 */}
+        {cardCount > 0 && (
+          <div className="absolute -top-1 -right-1 flex gap-[2px]">
+            {Array.from({ length: cardCount }).map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{ scale: 0, rotate: -15 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 18, delay: i * 0.08 }}
+                className="w-2.5 h-3.5 rounded-[2px] bg-red-600 shadow-[0_0_5px_rgba(220,38,38,0.7)] border border-red-400/40"
+              />
+            ))}
+          </div>
+        )}
+      </div>
       <span className={cn(
         'text-center text-xs leading-tight transition-colors duration-300',
         highlight ? 'text-accent-green font-semibold' : 'text-text-muted',

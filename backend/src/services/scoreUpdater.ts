@@ -18,6 +18,8 @@ interface PendingMatch {
   went_to_penalties: boolean;
   penalty_home: number | null;
   penalty_away: number | null;
+  red_cards_home: number | null;
+  red_cards_away: number | null;
 }
 
 interface Prediction {
@@ -42,7 +44,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   // Query 1: in-progress / not-yet-finished matches
   const { data: inProgress, error: e1 } = await supabaseAdmin
     .from('matches')
-    .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away')
+    .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, red_cards_home, red_cards_away')
     .not('status', 'in', '("FT","PST","CANC")')
     .lt('kickoff_time', slightlyAhead);
 
@@ -64,7 +66,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   if (unresolvedMatchIds.length > 0) {
     const { data: ftData, error: e2 } = await supabaseAdmin
       .from('matches')
-      .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away')
+      .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, red_cards_home, red_cards_away')
       .in('id', unresolvedMatchIds)
       .eq('status', 'FT')
       .not('home_score', 'is', null)
@@ -124,6 +126,12 @@ async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): P
   if (scoreData.penalty_home !== null && scoreData.penalty_home !== undefined) {
     payload.penalty_home = scoreData.penalty_home;
     payload.penalty_away = scoreData.penalty_away;
+  }
+
+  // Update red card counts (live stat — always write when ESPN returns data)
+  if (scoreData.red_cards_home !== null && scoreData.red_cards_home !== undefined) {
+    payload.red_cards_home = scoreData.red_cards_home;
+    payload.red_cards_away = scoreData.red_cards_away;
   }
 
   let { error } = await supabaseAdmin

@@ -395,6 +395,9 @@ export async function fetchLeagueMatches(
           ? homeCorners + awayCorners
           : null;
 
+        const homeRedCards = getStat(home, 'redCards');
+        const awayRedCards = getStat(away, 'redCards');
+
         matches.push({
           external_id: `espn_${event.id}`,
           league_id: leagueId,
@@ -418,6 +421,8 @@ export async function fetchLeagueMatches(
           went_to_penalties: wentToPenalties,
           penalty_home: wentToPenalties ? penHome : null,
           penalty_away: wentToPenalties ? penAway : null,
+          red_cards_home: homeRedCards,
+          red_cards_away: awayRedCards,
         });
       } catch (err) {
         logger.debug(`[ESPN] Skipped event ${(event as Record<string, unknown>).id}: ${err}`);

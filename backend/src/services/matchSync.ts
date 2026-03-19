@@ -22,6 +22,8 @@ async function upsertMatches(matches: DBMatch[]): Promise<{ inserted: number; up
     if (row.regulation_away === null) delete row.regulation_away;
     if (row.penalty_home === null) delete row.penalty_home;
     if (row.penalty_away === null) delete row.penalty_away;
+    if (row.red_cards_home === null) delete row.red_cards_home;
+    if (row.red_cards_away === null) delete row.red_cards_away;
     // went_to_penalties is always included (false = not a PK final, true = was a PK final)
     return row;
   });
