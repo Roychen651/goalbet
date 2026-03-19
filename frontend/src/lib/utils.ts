@@ -101,12 +101,22 @@ export function getLiveClock(match: { status: string; kickoff_time: string; disp
   // For 2H: estimate minute from kickoff (assume 60 min to 2H start = 45min 1H + 15min HT break).
   // Always show a real minute — never "2H" as a label.
   if (match.status === '2H') {
-    // If 100+ min have elapsed since kickoff, ESPN hasn't updated status yet — we're in ET.
-    // Do NOT depend on display_clock (can be null or not contain '+').
     const totalMins = Math.floor((Date.now() - kickoffMs) / 60000);
-    if (totalMins >= 100) {
-      if (totalMins >= 120) return "120+'";
-      return `${totalMins}'`;
+    // ET timing estimates (assuming ~5min average 2H stoppage):
+    //   ET1 starts at kickoff+110min → football min 91. ET1 ends at kickoff+125min → football min 105.
+    //   ET HT: ~2min gap → ET2 starts at kickoff+127min → football min 106.
+    //   ET2 ends at kickoff+142min → football min 120.
+    if (totalMins >= 127) {
+      // 2nd ET period: football minutes 106–120
+      const footballMin = 106 + (totalMins - 127);
+      if (footballMin >= 120) return "120+'";
+      return `${Math.max(106, footballMin)}'`;
+    }
+    if (totalMins >= 110) {
+      // 1st ET period: football minutes 91–105
+      const footballMin = 91 + (totalMins - 110);
+      if (footballMin >= 105) return "105+'";
+      return `${Math.max(91, footballMin)}'`;
     }
     if (match.display_clock?.includes('+')) return "90+'";
     const assumed2HStartMs = kickoffMs + 60 * 60 * 1000; // kickoff + ~60 min
@@ -116,25 +126,22 @@ export function getLiveClock(match: { status: string; kickoff_time: string; disp
     return `${displayMin}'`;
   }
 
-  // ET phases — compute client-side from kickoff (same reason as 2H: ESPN display_clock lags)
-  // ET1: minutes 91–105, starts at kickoff + 90 min
-  // ET2: minutes 106–120, starts at kickoff + 105 min (90 + 15 min ET break)
+  // ET phases — compute football clock minute client-side.
+  // Timing assumptions (consistent with likelyInET detection in MatchCard):
+  //   ET1 starts: kickoff + 110 min (90min play + ~5min 2H stoppage + 15min HT = 110)
+  //   ET2 starts: kickoff + 127 min (ET1 15min + ~2min ET HT break = +17)
   if (match.status === 'ET1') {
     if (match.display_clock?.includes('+')) return "105+'";
-    const et1StartMs = kickoffMs + 90 * 60 * 1000;
-    const minsInto = Math.max(0, Math.floor((Date.now() - et1StartMs) / 60000));
-    const min = 91 + minsInto;
-    return min >= 105 ? "105+'" : `${min}'`;
+    const footballMin = 91 + Math.max(0, Math.floor((Date.now() - (kickoffMs + 110 * 60 * 1000)) / 60000));
+    return footballMin >= 105 ? "105+'" : `${footballMin}'`;
   }
   if (match.status === 'ET2') {
     if (match.display_clock?.includes('+')) return "120+'";
-    const et2StartMs = kickoffMs + 105 * 60 * 1000;
-    const minsInto = Math.max(0, Math.floor((Date.now() - et2StartMs) / 60000));
-    const min = 106 + minsInto;
-    return min >= 120 ? "120+'" : `${min}'`;
+    const footballMin = 106 + Math.max(0, Math.floor((Date.now() - (kickoffMs + 127 * 60 * 1000)) / 60000));
+    return footballMin >= 120 ? "120+'" : `${footballMin}'`;
   }
-  // AET = break between ET halves (half-time of extra time)
-  if (match.status === 'AET') return 'HT';
+  // AET = live break between ET1 and ET2 (badge shows "AET HT", no clock label needed)
+  if (match.status === 'AET') return null;
   if (match.status === 'PEN') return 'PENS';
   return null;
 }

@@ -358,10 +358,18 @@ export async function fetchLeagueMatches(
           }
         }
 
-        // STATUS_RESULT_OF_LEG: ESPN finalises 2-leg knockout ties with this status but the
-        // scoreboard endpoint often omits linescores for historical matches. Fall back to the
-        // event summary endpoint which reliably includes per-period linescore data.
-        if (statusName === 'STATUS_RESULT_OF_LEG' && !isExtraTime) {
+        // Fallback to event summary endpoint for any finished ET/PK match where the
+        // scoreboard linescores were missing or incomplete.
+        // Cases covered:
+        //   1. STATUS_RESULT_OF_LEG — scoreboard omits linescores for 2-leg historical finals
+        //   2. STATUS_FINAL_AET / STATUS_FINAL_PK — linescores sometimes absent for
+        //      recently-finished matches (ESPN lag). Without this fallback the backend
+        //      would store regulation_home=null and show the match as a plain FT result.
+        const needsSummaryFallback =
+          (statusName === 'STATUS_RESULT_OF_LEG' && !isExtraTime) ||
+          (isExtraTime && matchStatus === 'FT' && regulationHome === null);
+
+        if (needsSummaryFallback) {
           try {
             const details = await fetchMatchLinescoreDetails(`espn_${event.id}`, leagueId);
             if (details) {

@@ -480,10 +480,15 @@ function LockedPrediction({
   const hasLiveScore = match.home_score !== null && match.away_score !== null;
 
   const breakdown = resolved ? calcBreakdown(prediction, match) : null;
+  // During ET, evaluate against the 90-min regulation score (not the ET-modified score)
+  const isETInProgress = isInProgress && ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status);
   const liveBreakdown = !resolved && isInProgress && hasLiveScore
     ? calcLiveBreakdown(prediction, match)
     : null;
-  const livePotential = liveBreakdown ? liveBreakdown.filter(r => r.earned).reduce((s, r) => s + r.pts, 0) : 0;
+  const livePotential = liveBreakdown ? liveBreakdown.filter(r => r.earned && !r.pending).reduce((s, r) => s + r.pts, 0) : 0;
+  // Score to display in the live banner — show 90-min score during ET, not the ET score
+  const bannerHome = isETInProgress && match.regulation_home !== null ? match.regulation_home : match.home_score;
+  const bannerAway = isETInProgress && match.regulation_away !== null ? match.regulation_away : match.away_score;
 
   return (
     <div className="space-y-2">
@@ -518,8 +523,10 @@ function LockedPrediction({
               className="w-2 h-2 rounded-full bg-accent-green shrink-0"
             />
             <div className="flex flex-col">
-              <span className="text-[11px] text-accent-green/70 font-medium leading-tight">Live • If final score</span>
-              <span className="text-xs text-white/70 font-semibold">{match.home_score} — {match.away_score}</span>
+              <span className="text-[11px] text-accent-green/70 font-medium leading-tight">
+                {isETInProgress ? 'Live • 90′ score' : 'Live • If final score'}
+              </span>
+              <span className="text-xs text-white/70 font-semibold">{bannerHome} — {bannerAway}</span>
             </div>
           </div>
           <div className="flex flex-col items-end">

@@ -5,7 +5,7 @@ import { GlassCard } from '../ui/GlassCard';
 import { MatchStatusBadge } from './MatchStatusBadge';
 import { PredictionForm, PredictionData } from './PredictionForm';
 import { Avatar } from '../ui/Avatar';
-import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown } from '../../lib/utils';
+import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import { useLiveClock } from '../../hooks/useLiveClock';
@@ -54,13 +54,14 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const wentToET = isFinished && (match.regulation_home != null || match.went_to_penalties);
   const wentToPens = isFinished && match.went_to_penalties;
 
-  // ESPN sometimes lags updating 2H→ET1 status for knockout/aggregate matches.
-  // If status is still '2H' with stoppage clock but we're 100+ min from kickoff, treat as ET.
+  // ESPN sometimes lags updating 2H→ET1 for knockout/aggregate matches.
+  // Use elapsed time (consistent with getLiveClock thresholds: ET1=110min, ET2=127min).
   const totalMinsFromKickoff = Math.floor((Date.now() - new Date(match.kickoff_time).getTime()) / 60000);
-  // Do NOT check display_clock — it can be null or stored without '+'. Time alone is reliable.
-  const likelyInET = match.status === '2H' && totalMinsFromKickoff >= 100;
-  // Effective status for badge + labels
-  const effectiveStatus = likelyInET ? 'ET1' : match.status;
+  const likelyET1 = match.status === '2H' && totalMinsFromKickoff >= 110 && totalMinsFromKickoff < 127;
+  const likelyET2 = match.status === '2H' && totalMinsFromKickoff >= 127;
+  const likelyInET = likelyET1 || likelyET2;
+  // Effective status for badge + clock labels
+  const effectiveStatus = likelyET2 ? 'ET2' : likelyET1 ? 'ET1' : match.status;
 
   // Leading team during live — used for score + team highlighting
   const homeLeading = isInProgress && match.home_score !== null && match.away_score !== null && match.home_score > match.away_score;
@@ -170,7 +171,8 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
               status={
                 isPastKickoffNS ? '1H'
                 : wentToPens ? 'PEN'
-                : wentToET ? 'AET'
+                : wentToET ? 'AET'            // finished after ET (no pens) → "AET"
+                : isAET ? 'ET_HT'            // live break between ET halves → "AET HT"
                 : effectiveStatus
               }
             />
@@ -214,14 +216,11 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                     >
                       {liveClock}
                     </motion.span>
-                    {(match.status === 'ET1' || likelyInET) && (
+                    {(match.status === 'ET1' || likelyET1) && (
                       <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">1st ET</span>
                     )}
-                    {match.status === 'ET2' && (
+                    {(match.status === 'ET2' || likelyET2) && (
                       <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">2nd ET</span>
-                    )}
-                    {match.status === 'AET' && (
-                      <span className="text-[9px] text-amber-400/50 font-semibold uppercase tracking-widest">ET HT</span>
                     )}
                   </div>
                 )}
@@ -396,6 +395,8 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             <div className="px-4 pb-4 border-t border-white/5 pt-4">
               {isFinished && !hasPrediction ? (
                 <MatchActualStats match={match} />
+              ) : prediction?.is_resolved && isInProgress ? (
+                <ResolvedETPanel prediction={prediction} match={match} />
               ) : (
                 <PredictionForm
                   match={match}
@@ -409,6 +410,63 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
         )}
       </AnimatePresence>
     </GlassCard>
+  );
+}
+
+// Shown when prediction was resolved at 90' but match is still in ET/PEN
+function ResolvedETPanel({ prediction, match }: { prediction: Prediction; match: Match }) {
+  const { t } = useLangStore();
+  const regHome = match.regulation_home ?? match.home_score;
+  const regAway = match.regulation_away ?? match.away_score;
+  // Build a fake FT match at the 90-min score so calcBreakdown works
+  const fakeMatch = { ...match, status: 'FT', home_score: regHome, away_score: regAway };
+  const breakdown = calcBreakdown(prediction, fakeMatch as Match);
+
+  return (
+    <div className="space-y-2">
+      {/* Resolved banner */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${
+          prediction.points_earned > 0
+            ? 'bg-accent-green/10 border-accent-green/20'
+            : 'bg-white/4 border-white/8'
+        }`}
+      >
+        <div className="flex flex-col">
+          <span className="text-[10px] text-amber-400/70 font-semibold uppercase tracking-widest">Locked at 90′</span>
+          <span className="text-xs text-white/50 mt-0.5 tabular-nums">{regHome} — {regAway}</span>
+        </div>
+        <span className={`text-xl font-bebas tracking-wide ${prediction.points_earned > 0 ? 'text-accent-green' : 'text-white/25'}`}>
+          {prediction.points_earned > 0 ? `+${prediction.points_earned}` : '0'} <span className="text-sm">{t('pts')}</span>
+        </span>
+      </motion.div>
+      {/* Per-tier breakdown */}
+      {breakdown && (
+        <div className="space-y-1">
+          {breakdown.map((tier, i) => (
+            <motion.div
+              key={tier.key}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.04 }}
+              className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs ${
+                tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : 'bg-white/3 border border-white/5'
+              }`}
+            >
+              <span className={`flex items-center gap-1.5 ${tier.earned ? 'text-accent-green' : 'text-text-muted opacity-60'}`}>
+                <span>{tier.earned ? '✓' : '✗'}</span>
+                <span>{tier.label}</span>
+              </span>
+              <span className={`font-bold tabular-nums ${tier.earned ? 'text-accent-green' : 'text-white/25'}`}>
+                {tier.earned ? `+${tier.pts}` : '0'}
+              </span>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
