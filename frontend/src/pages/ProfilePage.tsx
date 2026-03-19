@@ -289,13 +289,18 @@ interface SectionProps {
 
 function PredictionSection({ title, predictions, expandedId, setExpandedId, confirmDeleteId, setConfirmDeleteId, deleting, saving, onSave, onDelete, t, paginated }: SectionProps) {
   const [visibleCount, setVisibleCount] = useState(paginated ? HISTORY_PAGE_SIZE : predictions.length);
+  // Reset pagination when the predictions list changes (e.g. group switch)
+  useEffect(() => {
+    if (paginated) setVisibleCount(HISTORY_PAGE_SIZE);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [predictions.length]);
   const visible = predictions.slice(0, visibleCount);
   const hasMore = visibleCount < predictions.length;
 
   return (
     <div>
       <h2 className="font-bebas text-lg tracking-wider text-white mb-3">{title}</h2>
-      <motion.div className="space-y-2" initial="hidden" whileInView="show" viewport={{ once: true }} variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}>
+      <motion.div className="space-y-2" animate="show" variants={{ show: { transition: { staggerChildren: 0.04 } } }}>
         {visible.map(pred => {
           const editable = pred.match.status === 'NS' && !isMatchLocked(pred.match.kickoff_time);
           const { lockCountdown } = formatKickoffTime(pred.match.kickoff_time);

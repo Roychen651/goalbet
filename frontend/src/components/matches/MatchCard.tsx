@@ -257,7 +257,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
               {predictors.slice(0, 5).map(p => (
                 <div
                   key={p.user_id}
-                  className="border border-bg-base shrink-0"
+                  className="rounded-full border border-bg-base shrink-0 overflow-hidden"
                   title={p.username}
                 >
                   <Avatar

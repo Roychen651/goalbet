@@ -101,6 +101,11 @@ async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): P
     payload.halftime_away = scoreData.away_score;
   }
 
+  // Update corners_total from ESPN statistics when available (never overwrite with null)
+  if (scoreData.corners_total !== null && scoreData.corners_total !== undefined) {
+    payload.corners_total = scoreData.corners_total;
+  }
+
   let { error } = await supabaseAdmin
     .from('matches')
     .update(payload)

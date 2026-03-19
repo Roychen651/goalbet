@@ -170,7 +170,12 @@ export function HomePage() {
       {!loading && activeTab !== 'completed' && activeTab !== 'live' && (
         <div className="flex flex-col items-center gap-2 pb-6">
           <motion.button
-            onClick={async () => { await loadMore(); triggerSync(); }}
+            onClick={async () => {
+              const y = window.scrollY;
+              await loadMore();
+              requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' }));
+              triggerSync();
+            }}
             disabled={loadingMore}
             whileHover={{ scale: loadingMore ? 1 : 1.03 }}
             whileTap={{ scale: loadingMore ? 1 : 0.97 }}

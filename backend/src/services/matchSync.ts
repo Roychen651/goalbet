@@ -13,9 +13,17 @@ export interface SyncResult {
 async function upsertMatches(matches: DBMatch[]): Promise<{ inserted: number; updated: number }> {
   if (matches.length === 0) return { inserted: 0, updated: 0 };
 
+  // Don't send corners_total=null on upsert — it would overwrite manually-set values.
+  // Only include corners_total when ESPN actually returned data.
+  const rows = matches.map(m => {
+    const row: Partial<DBMatch> & { external_id: string } = { ...m };
+    if (row.corners_total === null) delete row.corners_total;
+    return row;
+  });
+
   const { data, error } = await supabaseAdmin
     .from('matches')
-    .upsert(matches, {
+    .upsert(rows, {
       onConflict: 'external_id',
       ignoreDuplicates: false,
     })

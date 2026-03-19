@@ -219,6 +219,20 @@ export async function fetchLeagueMatches(
         // Only record HT scores if match is at HT, 2H, or FT (linescores are populated after 1H ends)
         const htAvailable = ['HT', '2H', 'FT'].includes(matchStatus) && htHome !== null && htAway !== null;
 
+        // Extract corners from ESPN statistics (only available for finished/in-progress matches)
+        const getStat = (competitor: Record<string, unknown>, name: string): number | null => {
+          const stats = (competitor.statistics as Record<string, unknown>[] | undefined) ?? [];
+          const s = stats.find(st => st.name === name);
+          if (!s) return null;
+          const v = parseInt(String(s.displayValue ?? s.value ?? ''), 10);
+          return isNaN(v) ? null : v;
+        };
+        const homeCorners = getStat(home, 'wonCorners');
+        const awayCorners = getStat(away, 'wonCorners');
+        const cornersTotal = homeCorners !== null && awayCorners !== null
+          ? homeCorners + awayCorners
+          : null;
+
         matches.push({
           external_id: `espn_${event.id}`,
           league_id: leagueId,
@@ -236,6 +250,7 @@ export async function fetchLeagueMatches(
           season: (data.leagues?.[0]?.season?.displayName as string) ?? null,
           round: null,
           display_clock: displayClock,
+          corners_total: cornersTotal,
         });
       } catch (err) {
         logger.debug(`[ESPN] Skipped event ${(event as Record<string, unknown>).id}: ${err}`);

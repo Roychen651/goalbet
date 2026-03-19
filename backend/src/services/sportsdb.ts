@@ -86,6 +86,7 @@ export interface DBMatch {
   halftime_away: number | null;
   season: string | null;
   round: string | null;
+  corners_total: number | null;
 }
 
 // Map TheSportsDB status strings to our status codes
@@ -142,6 +143,7 @@ export function transformEvent(event: SportsDBEvent): DBMatch {
     halftime_away: parseScore(event.intAwayScoreHalf, status),
     season: event.strSeason || null,
     round: event.intRound || null,
+    corners_total: null,
   };
 }
 
