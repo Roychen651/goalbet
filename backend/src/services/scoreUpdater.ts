@@ -13,6 +13,9 @@ interface PendingMatch {
   halftime_home: number | null;
   halftime_away: number | null;
   corners_total: number | null;
+  regulation_home: number | null;
+  regulation_away: number | null;
+  went_to_penalties: boolean;
 }
 
 interface Prediction {
@@ -37,7 +40,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   // Query 1: in-progress / not-yet-finished matches
   const { data: inProgress, error: e1 } = await supabaseAdmin
     .from('matches')
-    .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total')
+    .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties')
     .not('status', 'in', '("FT","PST","CANC")')
     .lt('kickoff_time', slightlyAhead);
 
@@ -59,7 +62,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   if (unresolvedMatchIds.length > 0) {
     const { data: ftData, error: e2 } = await supabaseAdmin
       .from('matches')
-      .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total')
+      .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties')
       .in('id', unresolvedMatchIds)
       .eq('status', 'FT')
       .not('home_score', 'is', null)
@@ -106,6 +109,15 @@ async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): P
     payload.corners_total = scoreData.corners_total;
   }
 
+  // Store regulation-time (90 min) score for ET/penalty matches — never overwrite with null
+  if (scoreData.regulation_home !== null && scoreData.regulation_home !== undefined) {
+    payload.regulation_home = scoreData.regulation_home;
+    payload.regulation_away = scoreData.regulation_away;
+  }
+
+  // Mark penalty shootout matches — always write this (even false resets stale true values)
+  payload.went_to_penalties = scoreData.went_to_penalties ?? false;
+
   let { error } = await supabaseAdmin
     .from('matches')
     .update(payload)
@@ -127,6 +139,8 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
   home_score: number;
   away_score: number;
   corners_total: number | null;
+  regulation_home?: number | null;
+  regulation_away?: number | null;
 }): Promise<number> {
   const { data: predictions, error } = await supabaseAdmin
     .from('predictions')
@@ -155,7 +169,14 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
         .eq('group_id', prediction.group_id)
         .single();
 
-      const breakdown = calculatePoints(prediction, matchResult);
+      // Use 90-minute regulation score for scoring when match went to ET/penalties.
+      // Predictions are always judged on the 90-minute result.
+      const scoringResult = {
+        home_score: matchResult.regulation_home ?? matchResult.home_score,
+        away_score: matchResult.regulation_away ?? matchResult.away_score,
+        corners_total: matchResult.corners_total,
+      };
+      const breakdown = calculatePoints(prediction, scoringResult);
       const finalPoints = breakdown.total;
       const isCorrect = breakdown.correct_prediction;
 
@@ -264,10 +285,13 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
           if (effectiveData.status === 'FT' && effectiveData.home_score !== null && effectiveData.away_score !== null) {
             // If ESPN linescores are still null at FT (very rare), fall back to whatever
             // halftime value is already stored in DB (captured earlier during 1H/HT/2H).
+            // For ET/penalty matches, effectiveData.regulation_home holds the 90-min score.
             const count = await resolveMatchPredictions(match.id, {
               home_score: effectiveData.home_score,
               away_score: effectiveData.away_score,
               corners_total: match.corners_total,
+              regulation_home: effectiveData.regulation_home,
+              regulation_away: effectiveData.regulation_away,
             });
             totalResolved += count;
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
@@ -297,16 +321,18 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
     if (stuckMatchIds.length > 0) {
       const { data: ftStuck } = await supabaseAdmin
         .from('matches')
-        .select('id, home_score, away_score, corners_total')
+        .select('id, home_score, away_score, corners_total, regulation_home, regulation_away')
         .eq('status', 'FT')
         .not('home_score', 'is', null)
         .in('id', stuckMatchIds);
 
-      for (const m of (ftStuck ?? []) as { id: string; home_score: number; away_score: number; corners_total: number | null }[]) {
+      for (const m of (ftStuck ?? []) as { id: string; home_score: number; away_score: number; corners_total: number | null; regulation_home: number | null; regulation_away: number | null }[]) {
         const count = await resolveMatchPredictions(m.id, {
           home_score: m.home_score,
           away_score: m.away_score,
           corners_total: m.corners_total,
+          regulation_home: m.regulation_home,
+          regulation_away: m.regulation_away,
         });
         if (count > 0) {
           totalResolved += count;

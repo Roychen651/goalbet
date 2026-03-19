@@ -28,9 +28,11 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   useLiveClock(20_000);
   const isLive = LIVE_STATUSES.includes(match.status);
   const isFinished = FINISHED_STATUSES.includes(match.status);
+  // AET = after extra time ended, brief pause before penalty result
+  const isAET = match.status === 'AET';
   // NS match that has passed kickoff — backend hasn't updated status yet
   const isPastKickoffNS = match.status === 'NS' && new Date(match.kickoff_time).getTime() < Date.now();
-  const isInProgress = isLive || isPastKickoffNS;
+  const isInProgress = isLive || isAET || isPastKickoffNS;
   const liveClock = isInProgress ? getLiveClock(match) : null;
   // "refreshed X ago" — how stale is the DB data
   const updatedAgoSecs = Math.floor((Date.now() - new Date(match.updated_at).getTime()) / 1000);
@@ -40,7 +42,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const hasPrediction = !!prediction;
   const { date, time, countdown, lockCountdown } = formatKickoffTime(match.kickoff_time);
   // True when kickoff is within the next 5 minutes
-  const startingSoon = !isLive && !isFinished && !isPastKickoffNS && (() => {
+  const startingSoon = !isLive && !isAET && !isFinished && !isPastKickoffNS && (() => {
     const diffMs = new Date(match.kickoff_time).getTime() - Date.now();
     return diffMs > 0 && diffMs < 5 * 60 * 1000;
   })();
@@ -48,9 +50,17 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const leagueBadge = leagueInfo?.badge;
   const leagueEspnId = leagueInfo?.espnLogoId ?? null;
 
+  // ET/PEN detection for finished matches
+  const wentToET = isFinished && (match.regulation_home != null || match.went_to_penalties);
+  const wentToPens = isFinished && match.went_to_penalties;
+
   // Leading team during live — used for score + team highlighting
   const homeLeading = isInProgress && match.home_score !== null && match.away_score !== null && match.home_score > match.away_score;
   const awayLeading = isInProgress && match.home_score !== null && match.away_score !== null && match.away_score > match.home_score;
+
+  // Winner for finished matches: use full score (includes ET goals); for PK it may be tied
+  const homeWon = isFinished && match.home_score !== null && match.away_score !== null && match.home_score > match.away_score;
+  const awayWon = isFinished && match.home_score !== null && match.away_score !== null && match.away_score > match.home_score;
 
   // Predicted live cards get a blue glow — visually distinct from unpredicted live (green)
   const cardVariant = isInProgress
@@ -126,7 +136,14 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 {t('predicted')}
               </motion.span>
             )}
-            <MatchStatusBadge status={match.status} />
+            <MatchStatusBadge
+              status={
+                isPastKickoffNS ? '1H'
+                : wentToPens ? 'PEN'
+                : wentToET ? 'AET'
+                : match.status
+              }
+            />
           </div>
         </div>
 
@@ -136,12 +153,12 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             name={match.home_team}
             badge={match.home_team_badge}
             score={isLive || isFinished ? match.home_score : null}
-            isWinner={isFinished && match.home_score !== null && match.away_score !== null && match.home_score > match.away_score}
+            isWinner={homeWon}
             isLeading={homeLeading}
           />
 
           <div className="flex-1 flex flex-col items-center">
-            {isLive || isFinished || (isPastKickoffNS && match.home_score !== null) ? (
+            {isLive || isAET || isFinished || (isPastKickoffNS && match.home_score !== null) ? (
               <div className="flex flex-col items-center gap-0.5">
                 <motion.span
                   key={`${match.home_score}-${match.away_score}`}
@@ -156,10 +173,12 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 </motion.span>
                 {isInProgress && liveClock && (
                   <motion.span
-                    key={liveClock}
                     animate={{ opacity: [1, 0.5, 1] }}
                     transition={{ duration: 1.6, repeat: Infinity }}
-                    className="text-xs font-bold text-accent-green tracking-wider"
+                    className={cn(
+                      'text-xs font-bold tracking-wider',
+                      ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status) ? 'text-amber-400' : 'text-accent-green'
+                    )}
                   >
                     {liveClock}
                   </motion.span>
@@ -226,13 +245,29 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 ) : null}
               </div>
             )}
-            {isFinished && match.halftime_home !== null && (
-              <span className="text-text-muted text-xs mt-1">
-                {t('halfTime')}: {match.halftime_home}–{match.halftime_away}
+            {/* ET / Penalty match info for finished matches */}
+            {isFinished && wentToET && (
+              <div className="flex flex-col items-center gap-0.5 mt-1">
+                {match.regulation_home != null && (
+                  <span className="text-amber-400/80 text-[10px] font-semibold">
+                    90′: {match.regulation_home}–{match.regulation_away}
+                  </span>
+                )}
+                {wentToPens && (
+                  <span className="text-amber-400/60 text-[9px] uppercase tracking-wider">
+                    Penalty Shootout
+                  </span>
+                )}
+              </div>
+            )}
+            {/* Corners — show count when available (live or finished, any card) */}
+            {match.corners_total != null && (isInProgress || isFinished) && (
+              <span className="text-blue-400/70 text-[10px] mt-0.5">
+                🚩 {match.corners_total} corners
               </span>
             )}
             {/* Lock countdown — shown only for upcoming matches not yet locked */}
-            {!isLive && !isFinished && !isPastKickoffNS && lockCountdown && (
+            {!isLive && !isAET && !isFinished && !isPastKickoffNS && lockCountdown && (
               <span className="text-orange-400/80 text-[10px] mt-0.5 flex items-center gap-0.5">
                 <span>🔒</span>
                 <span>{lockCountdown}</span>
@@ -244,7 +279,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             name={match.away_team}
             badge={match.away_team_badge}
             score={isLive || isFinished ? match.away_score : null}
-            isWinner={isFinished && match.home_score !== null && match.away_score !== null && match.away_score > match.home_score}
+            isWinner={awayWon}
             isLeading={awayLeading}
             right
           />

@@ -11,6 +11,7 @@ interface PredictionInput {
   predicted_halftime_outcome?: 'H' | 'D' | 'A' | null;
   predicted_halftime_home?: number | null;
   predicted_halftime_away?: number | null;
+  predicted_corners?: 'under9' | 'ten' | 'over11' | null;
   predicted_btts?: boolean | null;
   predicted_over_under?: 'over' | 'under' | null;
 }
@@ -69,6 +70,7 @@ export function usePredictions(matchIds?: string[]) {
         predicted_halftime_outcome: input.predicted_halftime_outcome ?? null,
         predicted_halftime_home: input.predicted_halftime_home ?? null,
         predicted_halftime_away: input.predicted_halftime_away ?? null,
+        predicted_corners: input.predicted_corners ?? null,
         predicted_btts: input.predicted_btts ?? null,
         predicted_over_under: input.predicted_over_under ?? null,
       };

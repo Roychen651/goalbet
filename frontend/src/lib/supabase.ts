@@ -72,6 +72,9 @@ export type Database = {
           halftime_away: number | null;
           display_clock: string | null;
           corners_total: number | null;
+          regulation_home: number | null;
+          regulation_away: number | null;
+          went_to_penalties: boolean;
           season: string | null;
           round: string | null;
           updated_at: string;

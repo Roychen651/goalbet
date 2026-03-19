@@ -13,13 +13,12 @@ import { MatchStatusBadge } from '../components/matches/MatchStatusBadge';
 import { PredictionForm, PredictionData } from '../components/matches/PredictionForm';
 import { AvatarPicker } from '../components/profile/AvatarPicker';
 import { formatKickoffTime, isMatchLocked, calcBreakdown } from '../lib/utils';
+import { LIVE_STATUSES, FINISHED_STATUSES } from '../lib/constants';
 import { InfoTip } from '../components/ui/InfoTip';
 
 interface PredictionWithMatch extends Prediction {
   match: Match;
 }
-
-const LIVE_STATUSES = ['1H', 'HT', '2H'];
 
 export function ProfilePage() {
   const { user, profile, signOut, updateUsername } = useAuthStore();
@@ -29,7 +28,12 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) => setExpandedIds(prev => {
+    const s = new Set(prev);
+    s.has(id) ? s.delete(id) : s.add(id);
+    return s;
+  });
   const [saving, setSaving] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -74,7 +78,6 @@ export function ProfilePage() {
         predicted_btts: data.predicted_btts,
         predicted_over_under: data.predicted_over_under,
       }, { onConflict: 'user_id,match_id,group_id' });
-      setExpandedId(null);
       fetchHistory();
     } finally {
       setSaving(null);
@@ -122,11 +125,20 @@ export function ProfilePage() {
     return (p.predicted_outcome as string) === actual;
   });
 
-  const livePreds = history.filter(p => LIVE_STATUSES.includes(p.match.status));
-  const upcomingPreds = history.filter(p => p.match.status === 'NS');
+  const now = Date.now();
+  const isPastKickoff = (p: PredictionWithMatch) => new Date(p.match.kickoff_time).getTime() < now;
+
+  // Live = actual live statuses OR NS matches that have passed kickoff (backend hasn't polled yet)
+  const livePreds = history.filter(p =>
+    LIVE_STATUSES.includes(p.match.status) ||
+    p.match.status === 'AET' ||
+    (p.match.status === 'NS' && isPastKickoff(p))
+  );
+  // Upcoming = NS matches not yet kicked off
+  const upcomingPreds = history.filter(p => p.match.status === 'NS' && !isPastKickoff(p));
   // History = finished/cancelled — sorted newest kickoff first so most recent results appear at top
   const historyPreds = history
-    .filter(p => !LIVE_STATUSES.includes(p.match.status) && p.match.status !== 'NS')
+    .filter(p => FINISHED_STATUSES.includes(p.match.status))
     .sort((a, b) => new Date(b.match.kickoff_time).getTime() - new Date(a.match.kickoff_time).getTime());
 
   return (
@@ -210,8 +222,8 @@ export function ProfilePage() {
             <PredictionSection
               title={`🔴 ${t('liveNow')}`}
               predictions={livePreds}
-              expandedId={expandedId}
-              setExpandedId={setExpandedId}
+              expandedIds={expandedIds}
+              toggleExpanded={toggleExpanded}
               confirmDeleteId={confirmDeleteId}
               setConfirmDeleteId={setConfirmDeleteId}
               deleting={deleting}
@@ -227,8 +239,8 @@ export function ProfilePage() {
             <PredictionSection
               title={`⏳ ${t('upcoming')}`}
               predictions={upcomingPreds}
-              expandedId={expandedId}
-              setExpandedId={setExpandedId}
+              expandedIds={expandedIds}
+              toggleExpanded={toggleExpanded}
               confirmDeleteId={confirmDeleteId}
               setConfirmDeleteId={setConfirmDeleteId}
               deleting={deleting}
@@ -244,8 +256,8 @@ export function ProfilePage() {
             <PredictionSection
               title={t('predictionHistory')}
               predictions={historyPreds}
-              expandedId={expandedId}
-              setExpandedId={setExpandedId}
+              expandedIds={expandedIds}
+              toggleExpanded={toggleExpanded}
               confirmDeleteId={confirmDeleteId}
               setConfirmDeleteId={setConfirmDeleteId}
               deleting={deleting}
@@ -275,8 +287,8 @@ const HISTORY_PAGE_SIZE = 5;
 interface SectionProps {
   title: string;
   predictions: (Prediction & { match: Match })[];
-  expandedId: string | null;
-  setExpandedId: (id: string | null) => void;
+  expandedIds: Set<string>;
+  toggleExpanded: (id: string) => void;
   confirmDeleteId: string | null;
   setConfirmDeleteId: (id: string | null) => void;
   deleting: string | null;
@@ -287,7 +299,7 @@ interface SectionProps {
   paginated?: boolean;
 }
 
-function PredictionSection({ title, predictions, expandedId, setExpandedId, confirmDeleteId, setConfirmDeleteId, deleting, saving, onSave, onDelete, t, paginated }: SectionProps) {
+function PredictionSection({ title, predictions, expandedIds, toggleExpanded, confirmDeleteId, setConfirmDeleteId, deleting, saving, onSave, onDelete, t, paginated }: SectionProps) {
   const [visibleCount, setVisibleCount] = useState(paginated ? HISTORY_PAGE_SIZE : predictions.length);
   // Reset pagination when the predictions list changes (e.g. group switch)
   useEffect(() => {
@@ -304,11 +316,14 @@ function PredictionSection({ title, predictions, expandedId, setExpandedId, conf
         {visible.map(pred => {
           const editable = pred.match.status === 'NS' && !isMatchLocked(pred.match.kickoff_time);
           const { lockCountdown } = formatKickoffTime(pred.match.kickoff_time);
-          const isExpanded = expandedId === pred.id;
+          const isExpanded = expandedIds.has(pred.id);
           return (
             <motion.div key={pred.id} variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 90, damping: 18 } } }}>
               <GlassCard className="overflow-hidden">
-                <button className="w-full p-3 flex items-center gap-3 text-start hover:bg-white/3 transition-colors" onClick={() => setExpandedId(isExpanded ? null : pred.id)}>
+                <button
+                  className="w-full p-3 flex items-center gap-3 text-start hover:bg-white/3 transition-colors"
+                  onClick={() => toggleExpanded(pred.id)}
+                >
                   <div className="w-8 text-center shrink-0">
                     {pred.is_resolved ? (
                       pred.points_earned > 0 ? <span className="text-accent-green text-sm">✓</span> : <span className="text-text-muted text-sm">✗</span>
@@ -320,13 +335,20 @@ function PredictionSection({ title, predictions, expandedId, setExpandedId, conf
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-white text-sm font-medium truncate">{pred.match.home_team} vs {pred.match.away_team}</div>
-                    <div className="text-text-muted text-xs flex items-center gap-2 mt-0.5">
+                    <div className="text-text-muted text-xs flex items-center gap-2 mt-0.5 flex-wrap">
                       <span>{formatKickoffTime(pred.match.kickoff_time).date}</span>
-                      <MatchStatusBadge status={pred.match.status} />
+                      <MatchStatusBadge status={
+                        pred.match.went_to_penalties ? 'PEN'
+                        : pred.match.regulation_home != null ? 'AET'
+                        : pred.match.status
+                      } />
                       {editable && lockCountdown && (
                         <span className="text-amber-400/80">🔒 {lockCountdown}</span>
                       )}
                       {editable && !lockCountdown && <span className="text-blue-400">· {t('editPrediction')}</span>}
+                      {pred.match.regulation_home != null && (
+                        <span className="text-amber-400/70">90′: {pred.match.regulation_home}–{pred.match.regulation_away}</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -336,7 +358,7 @@ function PredictionSection({ title, predictions, expandedId, setExpandedId, conf
                       </div>
                     )}
                     {editable && (
-                      <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(pred.id); setExpandedId(null); }} className="text-text-muted hover:text-red-400 text-xs px-1.5 py-1 rounded-lg hover:bg-red-400/10 transition-all" title="Remove prediction">🗑</button>
+                      <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(pred.id); }} className="text-text-muted hover:text-red-400 text-xs px-1.5 py-1 rounded-lg hover:bg-red-400/10 transition-all" title="Remove prediction">🗑</button>
                     )}
                     <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="text-white/20 text-xs">▾</motion.div>
                   </div>

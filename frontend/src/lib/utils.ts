@@ -77,25 +77,48 @@ export function formatKickoffTime(kickoffTime: string): {
 // Uses DB display_clock when available, otherwise estimates from kickoff time.
 export function getLiveClock(match: { status: string; kickoff_time: string; display_clock?: string | null }): string | null {
   if (match.status === 'HT') return 'HT';
+  if (match.status === 'AET') return 'AET';
   if (match.status === 'FT') return null;
+
+  const kickoffMs = new Date(match.kickoff_time).getTime();
+
   if (match.status === 'NS') {
     // stalled NS past kickoff — estimate
-    const minsSinceKickoff = Math.floor((Date.now() - new Date(match.kickoff_time).getTime()) / 60000);
+    const minsSinceKickoff = Math.floor((Date.now() - kickoffMs) / 60000);
     if (minsSinceKickoff < 0) return null;
     return `~${Math.min(minsSinceKickoff, 90)}'`;
   }
-  // DB clock from ESPN (if column migrated)
-  if (match.display_clock) return match.display_clock;
 
-  // For 1H we can estimate reliably: started at kickoff, capped at 45+' for stoppage
+  // For 1H: always compute client-side from kickoff time.
+  // ESPN's stored display_clock has significant API lag (can be 5-10 min behind),
+  // while kickoff time is exact and gives us a real-time accurate count.
   if (match.status === '1H') {
-    const minsSince = Math.floor((Date.now() - new Date(match.kickoff_time).getTime()) / 60000);
-    if (minsSince > 45) return "45+'"; // in stoppage time
+    const minsSince = Math.floor((Date.now() - kickoffMs) / 60000);
+    if (minsSince > 45) return "45+'";
     return `${minsSince}'`;
   }
-  // For 2H we cannot estimate accurately — HT break length varies (15-25 min)
-  // Show period label until ESPN display_clock is available
-  if (match.status === '2H') return '2H';
+
+  // For 2H: estimate minute from kickoff (assume 60 min to 2H start = 45min 1H + 15min HT break).
+  // Always show a real minute — never "2H" as a label.
+  if (match.status === '2H') {
+    if (match.display_clock?.includes('+')) return "90+'";
+    const assumed2HStartMs = kickoffMs + 60 * 60 * 1000; // kickoff + ~60 min
+    const minsInto2H = Math.max(0, Math.floor((Date.now() - assumed2HStartMs) / 60000));
+    const displayMin = 46 + minsInto2H; // 2H starts at minute 46
+    if (displayMin >= 90) return "90+'";
+    return `${displayMin}'`;
+  }
+
+  // ET phases — ESPN gives real minutes in display_clock:
+  //   ET1 normal play: "93'", "97'"
+  //   ET1 stoppage: "105+'"   (built in espn.ts: period 3 baseMin = 105)
+  //   ET2 normal play: "107'", "112'"
+  //   ET2 stoppage: "120+'"   (built in espn.ts: period 4 baseMin = 120)
+  // Shown in amber so user knows it's extra time, not regular stoppage.
+  if (match.display_clock) return match.display_clock;
+  if (match.status === 'ET1') return 'ET1';
+  if (match.status === 'ET2') return 'ET2';
+  if (match.status === 'PEN') return 'PENS';
   return null;
 }
 
@@ -138,7 +161,7 @@ export interface TierResult {
 // Returns null if match has no score data yet.
 export function calcLiveBreakdown(prediction: Prediction, match: Match): TierResult[] | null {
   if (match.home_score === null || match.away_score === null) return null;
-  if (!['1H', 'HT', '2H', 'NS'].includes(match.status)) return null;
+  if (!['1H', 'HT', '2H', 'NS', 'ET1', 'ET2', 'AET', 'PEN'].includes(match.status)) return null;
 
   // For 1H: current score is the provisional HT score.
   // For HT: current score IS the actual halftime score (home_score = halftime_home right now).
@@ -157,14 +180,17 @@ export function calcLiveBreakdown(prediction: Prediction, match: Match): TierRes
   // If we're in 2H and still don't know the HT score, mark HT tier as pending (not wrong)
   const htPending = match.status === '2H' && effectiveHtHome === null;
 
-  // corners_total is only known after FT — always null during live
-  return _computeBreakdown(prediction, match.home_score, match.away_score, effectiveHtHome, effectiveHtAway, null, htPending);
+  // Pass actual corners_total so if it's available during live (e.g. ESPN stats), corners tier evaluates correctly.
+  return _computeBreakdown(prediction, match.home_score, match.away_score, effectiveHtHome, effectiveHtAway, match.corners_total ?? null, htPending);
 }
 
 export function calcBreakdown(prediction: Prediction, match: Match): TierResult[] | null {
   if (match.home_score === null || match.away_score === null || match.status !== 'FT') return null;
+  // For ET/penalty matches, use the 90-minute regulation score for scoring
+  const scoringHome = match.regulation_home ?? match.home_score;
+  const scoringAway = match.regulation_away ?? match.away_score;
   const result = _computeBreakdown(
-    prediction, match.home_score, match.away_score,
+    prediction, scoringHome, scoringAway,
     match.halftime_home, match.halftime_away,
     match.corners_total ?? null,
   );

@@ -182,6 +182,16 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
             </div>
           </motion.div>
 
+          {/* ET note */}
+          <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-amber-500/8 border border-amber-500/20 flex items-center gap-2">
+            <span className="text-amber-400 text-sm shrink-0">⏱</span>
+            <p className="text-amber-400/80 text-[11px] leading-snug">
+              {isHe
+                ? 'ניחושים נקבעים לפי תוצאה ב-90 דקות — לא כולל הארכות'
+                : 'Predictions scored on 90-min result — extra time & penalties don\'t count'}
+            </p>
+          </div>
+
           {/* Footer */}
           <div className="px-4 py-3 border-t border-white/8 flex items-center justify-between bg-white/[0.02]">
             <div className="flex items-center gap-1.5 text-xs text-white/40">

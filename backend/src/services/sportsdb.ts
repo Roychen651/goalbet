@@ -87,6 +87,10 @@ export interface DBMatch {
   season: string | null;
   round: string | null;
   corners_total: number | null;
+  // Set only when match went to ET/penalties — stores the 90-minute score for correct prediction scoring
+  regulation_home: number | null;
+  regulation_away: number | null;
+  went_to_penalties: boolean;
 }
 
 // Map TheSportsDB status strings to our status codes
@@ -144,6 +148,9 @@ export function transformEvent(event: SportsDBEvent): DBMatch {
     season: event.strSeason || null,
     round: event.intRound || null,
     corners_total: null,
+    regulation_home: null,
+    regulation_away: null,
+    went_to_penalties: false,
   };
 }
 

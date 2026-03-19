@@ -44,11 +44,15 @@ export const MATCH_STATUS_LABEL: Record<string, string> = {
   HT: 'Half Time',
   '2H': 'Live',
   FT: 'Full Time',
+  ET1: 'Extra Time',
+  ET2: 'Extra Time',
+  AET: 'After ET',
+  PEN: 'Penalties',
   PST: 'Postponed',
   CANC: 'Cancelled',
 };
 
-export const LIVE_STATUSES = ['1H', 'HT', '2H'];
+export const LIVE_STATUSES = ['1H', 'HT', '2H', 'ET1', 'ET2', 'PEN'];
 export const FINISHED_STATUSES = ['FT', 'PST', 'CANC'];
 
 // App routes

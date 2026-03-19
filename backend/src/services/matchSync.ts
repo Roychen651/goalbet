@@ -13,11 +13,14 @@ export interface SyncResult {
 async function upsertMatches(matches: DBMatch[]): Promise<{ inserted: number; updated: number }> {
   if (matches.length === 0) return { inserted: 0, updated: 0 };
 
-  // Don't send corners_total=null on upsert — it would overwrite manually-set values.
-  // Only include corners_total when ESPN actually returned data.
+  // Don't send null for these fields on upsert — it would overwrite previously captured values.
+  // Only include them when ESPN actually returned data.
   const rows = matches.map(m => {
     const row: Partial<DBMatch> & { external_id: string } = { ...m };
     if (row.corners_total === null) delete row.corners_total;
+    if (row.regulation_home === null) delete row.regulation_home;
+    if (row.regulation_away === null) delete row.regulation_away;
+    // went_to_penalties is always included (false = not a PK final, true = was a PK final)
     return row;
   });
 

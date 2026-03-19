@@ -7,7 +7,15 @@ import axios from 'axios';
 import { logger } from '../lib/logger';
 import { DBMatch } from './sportsdb';
 
-export type DBMatchWithClock = DBMatch & { display_clock: string | null };
+export type DBMatchWithClock = DBMatch & {
+  display_clock: string | null;
+  // Regulation-time (90 min) scores — set only when match went to ET or penalties.
+  // home_score/away_score will reflect the final result (including ET goals).
+  regulation_home: number | null;
+  regulation_away: number | null;
+  // True when the match was decided by a penalty shootout (STATUS_FINAL_PK).
+  went_to_penalties: boolean;
+};
 
 // Map our internal TheSportsDB league IDs → ESPN league slugs
 export const LEAGUE_ESPN_MAP: Record<number, string> = {
@@ -40,8 +48,18 @@ function mapEspnStatus(statusName: string, period: number, state: string): strin
       return 'FT';
     case 'STATUS_HALFTIME':
       return 'HT';
+    // Extra time statuses
+    case 'STATUS_FIRST_HALF_OVERTIME':
+      return 'ET1';
+    case 'STATUS_SECOND_HALF_OVERTIME':
+      return 'ET2';
+    case 'STATUS_END_OVERTIME':
+      return 'AET'; // ET ended — may be heading to penalties or result confirmed
+    case 'STATUS_SHOOTOUT':
+      return 'PEN';
     case 'STATUS_IN_PROGRESS':
     case 'STATUS_LIVE':
+      if (period >= 3) return 'ET1'; // period 3 = ET1, period 4 = ET2 handled above
       return period <= 1 ? '1H' : '2H';
     case 'STATUS_POSTPONED':
     case 'STATUS_DELAY':
@@ -75,7 +93,8 @@ function formatDate(d: Date): string {
 function buildDisplayClock(statusName: string, state: string, displayClock: string | undefined, period: number): string | null {
   if (state === 'pre') return null;
   if (statusName === 'STATUS_HALFTIME') return 'HT';
-  if (statusName === 'STATUS_FINAL' || state === 'post') return null;
+  if (statusName === 'STATUS_END_OVERTIME') return 'AET';
+  if (statusName === 'STATUS_FINAL' || statusName === 'STATUS_FINAL_AET' || statusName === 'STATUS_FINAL_PK' || statusName === 'STATUS_FULL_ET' || statusName === 'STATUS_FULL_PEN' || state === 'post') return null;
   if (displayClock) {
     // ESPN gives "MM:SS" elapsed (e.g. "48:23") or "MM:SS+" for stoppage time (e.g. "90:00+", "45:00+")
     const isStoppage = displayClock.includes('+');
@@ -83,15 +102,19 @@ function buildDisplayClock(statusName: string, state: string, displayClock: stri
     if (m) {
       const mins = parseInt(m[1]);
       if (isStoppage) {
-        // Show stoppage time clearly: "45+'" or "90+'"
-        const baseMin = period <= 1 ? 45 : 90;
+        // Show stoppage time clearly: "45+'" or "90+'" or "105+'"
+        const baseMin = period <= 1 ? 45 : period === 2 ? 90 : period === 3 ? 105 : 120;
         return `${baseMin}+'`;
       }
       return `${mins}'`;
     }
   }
   // Fallback: period label only
-  if (state === 'in') return period <= 1 ? '1H' : '2H';
+  if (state === 'in') {
+    if (period >= 4) return 'ET2';
+    if (period === 3) return 'ET1';
+    return period <= 1 ? '1H' : '2H';
+  }
   return null;
 }
 
@@ -204,20 +227,59 @@ export async function fetchLeagueMatches(
         const espnClock = (status?.displayClock as string | undefined);
         const displayClock = buildDisplayClock(statusName, state, espnClock, period);
 
-        // Extract halftime scores from ESPN linescores (available after HT and in 2H/FT)
-        // linescores[0] = 1st half score, linescores[1] = 2nd half score
+        // Extract per-period linescores from ESPN
+        // linescores[0] = 1H goals, linescores[1] = 2H goals, linescores[2] = ET1, linescores[3] = ET2
         const homeLinescores = (home.linescores as Record<string, unknown>[] | undefined) ?? [];
         const awayLinescores = (away.linescores as Record<string, unknown>[] | undefined) ?? [];
-        const parseLineScore = (ls: Record<string, unknown>[]): number | null => {
-          const v = ls[0]?.value ?? ls[0]?.displayValue;
+
+        const parsePeriodScore = (ls: Record<string, unknown>[], period: number): number | null => {
+          const item = ls[period];
+          if (!item) return null;
+          const v = item.value ?? item.displayValue;
           if (v === undefined || v === null) return null;
           const n = parseInt(String(v), 10);
           return isNaN(n) ? null : n;
         };
-        const htHome = parseLineScore(homeLinescores);
-        const htAway = parseLineScore(awayLinescores);
-        // Only record HT scores if match is at HT, 2H, or FT (linescores are populated after 1H ends)
-        const htAvailable = ['HT', '2H', 'FT'].includes(matchStatus) && htHome !== null && htAway !== null;
+
+        const htHome = parsePeriodScore(homeLinescores, 0); // 1H goals
+        const htAway = parsePeriodScore(awayLinescores, 0);
+        // Record HT scores once match is past 1H (HT, 2H, ET, FT)
+        const htAvailable = ['HT', '2H', 'FT', 'ET1', 'ET2', 'AET', 'PEN'].includes(matchStatus) && htHome !== null && htAway !== null;
+
+        // Detect ET and penalties from linescores — works even when ESPN finalises
+        // a 2-leg knockout tie with STATUS_RESULT_OF_LEG (which maps to 'FT').
+        // linescores[0]=1H, [1]=2H, [2]=ET1, [3]=ET2, [4]=shootout
+        const hasET1Linescore =
+          parsePeriodScore(homeLinescores, 2) !== null ||
+          parsePeriodScore(awayLinescores, 2) !== null;
+        const hasShootoutLinescore =
+          parsePeriodScore(homeLinescores, 4) !== null ||
+          parsePeriodScore(awayLinescores, 4) !== null;
+
+        // Regulation score = 1H + 2H goals (only relevant for ET/PEN matches)
+        // Stored so predictions can be scored on the 90-minute result, not the ET/penalty result.
+        const wentToPenalties =
+          statusName === 'STATUS_FINAL_PK' ||
+          statusName === 'STATUS_FULL_PEN' ||
+          matchStatus === 'PEN' ||
+          hasShootoutLinescore; // detect from linescores for STATUS_RESULT_OF_LEG finishes
+
+        const isExtraTime =
+          ['ET1', 'ET2', 'AET', 'PEN'].includes(matchStatus) ||
+          ['STATUS_FINAL_AET', 'STATUS_FINAL_PK', 'STATUS_FULL_ET', 'STATUS_FULL_PEN'].includes(statusName) ||
+          hasET1Linescore; // detect from linescores for STATUS_RESULT_OF_LEG finishes
+
+        let regulationHome: number | null = null;
+        let regulationAway: number | null = null;
+
+        if (isExtraTime) {
+          const h2Home = parsePeriodScore(homeLinescores, 1); // 2H goals
+          const h2Away = parsePeriodScore(awayLinescores, 1);
+          if (htHome !== null && h2Home !== null && htAway !== null && h2Away !== null) {
+            regulationHome = htHome + h2Home;
+            regulationAway = htAway + h2Away;
+          }
+        }
 
         // Extract corners from ESPN statistics (only available for finished/in-progress matches)
         const getStat = (competitor: Record<string, unknown>, name: string): number | null => {
@@ -251,6 +313,9 @@ export async function fetchLeagueMatches(
           round: null,
           display_clock: displayClock,
           corners_total: cornersTotal,
+          regulation_home: regulationHome,
+          regulation_away: regulationAway,
+          went_to_penalties: wentToPenalties,
         });
       } catch (err) {
         logger.debug(`[ESPN] Skipped event ${(event as Record<string, unknown>).id}: ${err}`);

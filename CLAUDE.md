@@ -42,6 +42,15 @@ Two mechanisms:
 ### Corners data
 `corners_total` on the `matches` table must be set manually in Supabase dashboard after each match. Once set, the backend resolves corners predictions on the next 30s poll cycle.
 
+### Extra time / penalties
+Knockout matches can go to ET (`ET1`, `ET2`, `AET`) and then penalties (`PEN`). These are valid status codes stored in the DB. `STATUS_FINAL_AET` and `STATUS_FINAL_PK` from ESPN both map to `'FT'` in our system.
+
+`regulation_home` / `regulation_away` columns store the 90-minute score for ET/penalty matches. Prediction scoring always uses these (not the final ET/penalty score). If `regulation_home` is null (normal FT), `home_score`/`away_score` are used directly.
+
+The frontend shows:
+- Amber ET/AET/PENS badge for in-progress ET
+- "90': X–Y" sub-text under the score for FT matches that went to ET
+
 ---
 
 ## Sync Endpoints (public, no auth)
