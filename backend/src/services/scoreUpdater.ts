@@ -313,9 +313,57 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
           }
         } else {
-          // Still in progress — update live score (with inferred HT if applicable)
-          await updateMatchScore(match.id, effectiveData);
-          logger.debug(`[scoreUpdater] Match ${match.id} in progress: ${effectiveData.home_score ?? 0}-${effectiveData.away_score ?? 0} (${effectiveData.status})`);
+          // ── ET detection: resolve predictions at the end of 90 min ──────────
+          // When a match enters Extra Time (ET1/ET2/AET/PEN), the 90-minute score
+          // is locked. Predictions must be scored immediately — users shouldn't
+          // have to wait until after ET and penalties for their points.
+          const ET_STATUSES = ['ET1', 'ET2', 'AET', 'PEN'];
+          const isNowET = ET_STATUSES.includes(effectiveData.status);
+
+          if (isNowET && effectiveData.home_score !== null && effectiveData.away_score !== null) {
+            // Determine the 90-minute regulation score (used for prediction scoring):
+            // Priority 1 — ESPN linescores computed a regulation_home (1H+2H sum) → most accurate
+            // Priority 2 — DB already has regulation_home from a prior ET1 poll
+            // Priority 3 — We just transitioned to ET: current score IS the 90-min score
+            let regulationHome = effectiveData.regulation_home;
+            let regulationAway = effectiveData.regulation_away;
+
+            if (regulationHome === null && match.regulation_home !== null) {
+              // Already stored from a previous poll when ET started
+              regulationHome = match.regulation_home;
+              regulationAway = match.regulation_away;
+            }
+
+            const justEnteredET = !ET_STATUSES.includes(match.status);
+            if (regulationHome === null && justEnteredET) {
+              // First time we see ET — capture the current score as the 90-min result
+              regulationHome = effectiveData.home_score;
+              regulationAway = effectiveData.away_score;
+              // Include in effectiveData so updateMatchScore saves it
+              effectiveData = { ...effectiveData, regulation_home: regulationHome, regulation_away: regulationAway };
+              logger.info(`[scoreUpdater] ET started for match ${match.id}: capturing 90-min score ${regulationHome}-${regulationAway}`);
+            }
+
+            await updateMatchScore(match.id, effectiveData);
+
+            if (regulationHome !== null) {
+              // resolveMatchPredictions checks is_resolved=false, so it's safe to call
+              // even if we polled multiple times during ET — no double-resolution.
+              const count = await resolveMatchPredictions(match.id, {
+                home_score: regulationHome,
+                away_score: regulationAway!,
+                corners_total: match.corners_total,
+              });
+              if (count > 0) {
+                totalResolved += count;
+                logger.info(`[scoreUpdater] ET match ${match.id}: resolved ${count} predictions at 90-min score ${regulationHome}-${regulationAway}`);
+              }
+            }
+          } else {
+            // Still in regular time — update live score
+            await updateMatchScore(match.id, effectiveData);
+            logger.debug(`[scoreUpdater] Match ${match.id} in progress: ${effectiveData.home_score ?? 0}-${effectiveData.away_score ?? 0} (${effectiveData.status})`);
+          }
         }
       }
     } catch (err) {

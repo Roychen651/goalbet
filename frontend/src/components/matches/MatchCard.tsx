@@ -106,6 +106,26 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
               </motion.span>
             )}
             {hasPrediction && isInProgress && prediction && (() => {
+              // If already resolved (e.g. ET started → 90-min score locked), show final pts
+              if (prediction.is_resolved) {
+                return (prediction.points_earned ?? 0) > 0 ? (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-1 bg-accent-green/12 border border-accent-green/25 rounded-full px-2 py-0.5 text-accent-green text-xs font-bold"
+                  >
+                    +{prediction.points_earned} {t('pts')}
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-white/25 text-xs"
+                  >
+                    0 {t('pts')}
+                  </motion.span>
+                );
+              }
               const tiers = calcLiveBreakdown(prediction, match);
               const livePts = tiers ? tiers.filter(r => r.earned && !r.pending).reduce((s, r) => s + r.pts, 0) : 0;
               return livePts > 0 ? (

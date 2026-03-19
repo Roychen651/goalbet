@@ -163,12 +163,16 @@ export function calcLiveBreakdown(prediction: Prediction, match: Match): TierRes
   if (match.home_score === null || match.away_score === null) return null;
   if (!['1H', 'HT', '2H', 'NS', 'ET1', 'ET2', 'AET', 'PEN'].includes(match.status)) return null;
 
+  // During Extra Time / Penalties: predictions are scored on the 90-minute result.
+  // Use regulation_home/away if the backend has already captured it (set when ET started).
+  // This ensures the live breakdown shows the correct evaluation even while ET is ongoing.
+  const isET = ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status);
+  const evalHome = isET && match.regulation_home !== null ? match.regulation_home : match.home_score;
+  const evalAway = isET && match.regulation_away !== null ? match.regulation_away : match.away_score;
+
   // For 1H: current score is the provisional HT score.
-  // For HT: current score IS the actual halftime score (home_score = halftime_home right now).
-  //   Use home_score because halftime_home may not yet be written to DB (30s poll lag).
-  // For 2H: halftime_home/away from DB (populated once 1H ended).
-  //   Fallback: if DB halftime is null AND current score is 0-0, HT must have been 0-0
-  //   (no goals in either half → both halves still 0-0).
+  // For HT: current score IS the actual halftime score.
+  // For 2H/ET: use halftime_home from DB.
   let effectiveHtHome = (match.status === '1H' || match.status === 'HT') ? match.home_score : match.halftime_home;
   let effectiveHtAway = (match.status === '1H' || match.status === 'HT') ? match.away_score : match.halftime_away;
 
@@ -177,11 +181,9 @@ export function calcLiveBreakdown(prediction: Prediction, match: Match): TierRes
     effectiveHtAway = 0;
   }
 
-  // If we're in 2H and still don't know the HT score, mark HT tier as pending (not wrong)
   const htPending = match.status === '2H' && effectiveHtHome === null;
 
-  // Pass actual corners_total so if it's available during live (e.g. ESPN stats), corners tier evaluates correctly.
-  return _computeBreakdown(prediction, match.home_score, match.away_score, effectiveHtHome, effectiveHtAway, match.corners_total ?? null, htPending);
+  return _computeBreakdown(prediction, evalHome, evalAway, effectiveHtHome, effectiveHtAway, match.corners_total ?? null, htPending);
 }
 
 export function calcBreakdown(prediction: Prediction, match: Match): TierResult[] | null {
