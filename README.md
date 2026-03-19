@@ -1,9 +1,10 @@
 # GoalBet ⚽
 
 > **A full-stack football prediction game for friend groups.**
-> Predict match outcomes across 5 tiers, compete on a live leaderboard, and earn streak bonuses — all free, no real money.
+> Predict match outcomes across 5 tiers, compete on a live leaderboard — all free, no real money.
 
 ![CI](https://github.com/Roychen651/goalbet/actions/workflows/ci.yml/badge.svg)
+![Sync](https://github.com/Roychen651/goalbet/actions/workflows/sync-cron.yml/badge.svg)
 
 ---
 
@@ -11,16 +12,17 @@
 
 | Feature | Description |
 |---------|-------------|
-| 🎯 **Multi-tier predictions** | Up to 5 prediction types per match: full-time result, exact score, half-time result, BTTS, over/under 2.5 |
+| 🎯 **Multi-tier predictions** | Up to 5 prediction types per match: full-time result, exact score, total corners, BTTS, over/under 2.5 |
 | 🏆 **Group leaderboards** | Compete in private groups, weekly & all-time standings |
-| 🔥 **Streak bonuses** | 3+ correct picks in a row earns +2 pts per subsequent pick |
-| 📊 **Points breakdown** | After each match, see exactly which of your tiers scored and earned points |
+| 🚩 **Corners prediction** | Predict ≤9 / exactly 10 / ≥11 corners — new Tier 3 replacing half-time |
+| 📊 **Points breakdown** | After each match, see exactly which of your tiers scored |
 | 👥 **Friend presence** | See who in your group has already predicted (without seeing their picks) |
-| ✏️ **Edit predictions** | Update any prediction up to 15 minutes before kickoff, including from the Profile page |
-| 🔒 **Auto-lock** | Predictions lock automatically 15 min before kickoff — countdown shown on every card |
+| ✏️ **Edit predictions** | Update any prediction up to 15 minutes before kickoff |
+| 🔒 **Auto-lock** | Predictions lock automatically 15 min before kickoff |
 | 🌍 **Hebrew + English** | Full RTL support, language toggle in Settings |
 | 📱 **Mobile-first** | Responsive design with bottom navigation on mobile |
 | ⚡ **Real-time** | Supabase Realtime keeps leaderboard live across all devices |
+| 🔄 **Always synced** | GitHub Actions cron runs every 30 min — scores and fixtures update even when the backend is asleep |
 
 ---
 
@@ -30,14 +32,13 @@
 |------|----------|--------|
 | 1 | Full-time result (Home / Draw / Away) | **+3** |
 | 2 | Exact score — stacks on top of Tier 1 | **+7** (= **10 total** with outcome) |
-| 3 | Half-time result | **+4** |
-| 5 | Both teams to score (Yes/No) | **+2** |
-| 6 | Over/Under 2.5 total goals | **+3** |
-| 🔥 | Streak bonus — 3+ correct in a row | **+2/pick** |
+| 3 | Total corners: ≤9 / exactly 10 / ≥11 | **+4** |
+| 4 | Both teams to score (Yes/No) | **+2** |
+| 5 | Over/Under 2.5 total goals | **+3** |
 
-**Maximum per match: 19 pts** (+ streak bonus on top)
+**Maximum per match: 19 pts**
 
-Getting the exact score right automatically awards Tier 1 (the outcome is implied), so you never need to predict both independently.
+Getting the exact score right automatically awards Tier 1 (the outcome is implied).
 
 ---
 
@@ -50,7 +51,7 @@ Getting the exact score right automatically awards Tier 1 (the outcome is implie
 | **Database** | Supabase (PostgreSQL, Row-Level Security, Realtime, Auth) |
 | **Football data** | ESPN public scoreboard API — free, no API key required |
 | **State management** | Zustand with localStorage persistence |
-| **CI/CD** | GitHub Actions (type-check + build on every push) |
+| **CI/CD** | GitHub Actions — type-check/build on push + sync cron every 30 min |
 | **Deployment** | Vercel (frontend) · Render or Railway (backend) |
 
 ---
@@ -79,20 +80,19 @@ goalbet/
 │       ├── routes/            # GET /health · POST /api/sync/matches · POST /api/sync/scores
 │       ├── services/
 │       │   ├── espn.ts        # ESPN API client — fetches match data by league slug
-│       │   ├── matchSync.ts   # Syncs ESPN data into Supabase matches table
+│       │   ├── matchSync.ts   # Syncs ESPN data into Supabase (7 days back, 21 days ahead)
 │       │   ├── scoreUpdater.ts# Resolves predictions after FT, updates leaderboard
 │       │   └── pointsEngine.ts# Pure scoring function — zero side effects, unit-testable
-│       ├── cron/              # Scheduler: daily sync, score resolution, weekly reset
+│       ├── cron/              # Scheduler: startup sync, daily sync, score poller (30s), weekly reset
 │       └── lib/               # supabaseAdmin.ts (service role), logger.ts
 │
 ├── supabase/
-│   ├── migrations/            # SQL migrations (run in order: 001 → 004)
-│   └── functions/
-│       └── sync-matches/      # Deno edge function for serverless match sync
+│   └── migrations/            # SQL migrations 001 → 014 (run in order)
 │
 └── .github/
     └── workflows/
-        └── ci.yml             # CI: TypeScript + Vite build check on push/PR
+        ├── ci.yml             # TypeScript + Vite build check on every push/PR
+        └── sync-cron.yml      # Runs every 30 min: syncs fixtures + resolves scores
 ```
 
 ---
@@ -110,7 +110,6 @@ goalbet/
 ```bash
 git clone https://github.com/Roychen651/goalbet.git
 cd goalbet
-
 cd frontend && npm install
 cd ../backend && npm install
 ```
@@ -118,15 +117,10 @@ cd ../backend && npm install
 ### 2. Supabase setup
 
 1. Create a new project at [supabase.com](https://supabase.com)
-2. Open the **SQL Editor** and run the migrations **in order**:
-   ```
-   supabase/migrations/001_initial_schema.sql
-   supabase/migrations/002_rls_policies.sql
-   supabase/migrations/003_functions_triggers.sql
-   supabase/migrations/004_fixes.sql
-   ```
-3. In **Authentication → Providers**, enable Google OAuth (Client ID + Secret)
-4. In **Authentication → URL Configuration**, add your local URL:
+2. Open the **SQL Editor** and run migrations in order:
+   `supabase/migrations/001_initial_schema.sql` → `014_corners_prediction.sql`
+3. In **Authentication → Providers**, enable Google OAuth
+4. In **Authentication → URL Configuration**, add:
    - Site URL: `http://localhost:5173`
    - Redirect URL: `http://localhost:5173/auth/callback`
 
@@ -144,7 +138,6 @@ Create `backend/.env`:
 PORT=3001
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
-SYNC_SECRET=any-random-secret-you-choose
 NODE_ENV=development
 ```
 
@@ -160,16 +153,6 @@ cd frontend && npm run dev
 cd backend && npm run dev
 ```
 
-### 5. Seed match data
-
-Click **⟳ Sync Now** in the app's Settings page, or run:
-
-```bash
-cd backend && npm run sync
-```
-
-This pulls the last 7 days + next 14 days of matches for all active leagues via the ESPN API.
-
 ---
 
 ## Deployment
@@ -177,51 +160,42 @@ This pulls the last 7 days + next 14 days of matches for all active leagues via 
 ### Frontend → Vercel
 
 1. Connect your GitHub repo to [Vercel](https://vercel.com)
-2. Set the **root directory** to `frontend`
-3. Add your environment variables (same as `.env.local`)
-4. Deploy — Vercel will auto-deploy on every push to `main`
+2. Set root directory to `frontend`
+3. Add environment variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_BACKEND_URL`)
+4. Deploy — auto-deploys on every push to `main`
 
-### Backend → Render
+### Backend → Render / Railway
 
-1. Create a **Web Service** on [Render](https://render.com) pointing at the repo
-2. Set root directory to `backend`
-3. Build command: `npm run build`
-4. Start command: `npm start`
-5. Add environment variables
-6. The cron scheduler starts automatically and runs:
-   - **Daily at 00:05 UTC** — sync all active leagues from ESPN
-   - **Every 60 seconds** — resolve finished matches + award points
-   - **Monday at 00:00 UTC** — reset weekly leaderboard points
+1. Create a **Web Service** pointing at the repo, root dir = `backend`
+2. Build command: `npm run build` · Start command: `npm start`
+3. Add environment variables: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `NODE_ENV=production`
+4. The backend runs on startup:
+   - **5s after start** — catch-up sync (resolves matches missed while sleeping)
+   - **Every 30s** — live score poller
+   - **Daily at 00:05 + 12:00 UTC** — full fixture sync
+   - **Sunday 00:00 UTC** — weekly leaderboard reset
 
-### Supabase Edge Function (alternative to backend sync)
+### GitHub Actions Cron (keeps sync alive even when backend sleeps)
 
-If you prefer serverless over a persistent backend for match syncing:
+The `sync-cron.yml` workflow runs every 30 minutes and calls:
+- `POST /api/sync/matches` — fetches fixtures 21 days ahead from ESPN
+- `POST /api/sync/scores` — resolves any finished match predictions
 
-```bash
-# Requires Supabase CLI
-supabase functions deploy sync-matches
+**Required GitHub Secret (one-time setup):**
+- `BACKEND_URL` — your backend URL, e.g. `https://goalbet-api.onrender.com`
 
-# Set secrets for the function
-supabase secrets set SUPABASE_SERVICE_KEY=your-service-role-key
-```
-
-The edge function is invoked automatically by `useMatchSync` in the frontend when the match feed is empty.
+No other secrets needed. The sync endpoints are public (they only read ESPN public data).
 
 ---
 
 ## CI/CD Pipeline
 
-Every push to `main` (or any PR) triggers the CI workflow:
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| `ci.yml` | Every push / PR | TypeScript type-check + Vite production build |
+| `sync-cron.yml` | Every 30 min (schedule) | Sync fixtures + resolve predictions via backend API |
 
-```yaml
-# .github/workflows/ci.yml
-- Frontend: TypeScript type-check + Vite production build
-- Backend:  TypeScript compilation check (tsc --noEmit)
-```
-
-**The build must pass before any merge.** This catches type errors and broken imports before they reach production.
-
-To view CI runs: `GitHub repo → Actions tab`
+**The CI build must pass before any merge.** This catches type errors and broken imports before production.
 
 ---
 
@@ -231,42 +205,24 @@ To view CI runs: `GitHub repo → Actions tab`
 profiles        id (uuid, FK auth.users), username, avatar_url
 groups          id, name, invite_code (unique 8-char), active_leagues (int[])
 group_members   group_id + user_id (composite PK)
-matches         id, external_id ("espn_XXXXXX"), league_id, teams, scores, status, kickoff_time
-predictions     user_id + match_id + group_id (unique), all tier fields, points_earned, is_resolved
-leaderboard     user_id + group_id (unique), total_points, weekly_points, current_streak, best_streak
+matches         id, external_id, league_id, teams, scores, status, kickoff_time, corners_total
+predictions     user_id + match_id + group_id (unique), all tier fields, predicted_corners, points_earned, is_resolved
+leaderboard     user_id + group_id (unique), total_points, weekly_points, hit_count, total_resolved
 ```
 
-**Row-Level Security** is enforced on every table. The key rule: all data is scoped to groups the authenticated user belongs to. A `SECURITY DEFINER` function `get_my_group_ids()` avoids recursive RLS policy calls.
+**Row-Level Security** is enforced on every table. All data is scoped to groups the authenticated user belongs to.
 
 ---
 
 ## Key Design Decisions
 
-**ESPN over TheSportsDB** — TheSportsDB's free API key (`"3"`) ignores the `?id=` parameter and returns the same wrong league for every request. ESPN's public scoreboard endpoint requires no authentication and returns reliable, real-time data.
+**ESPN over TheSportsDB** — TheSportsDB's free API key (`"3"`) ignores the `?id=` parameter and returns wrong data. ESPN's public scoreboard endpoint requires no auth and returns reliable real-time data.
 
-**No live scores** — Score resolution polls ESPN ~100 minutes after kickoff. No WebSocket connection to a live data feed. This is intentional: prediction games don't need sub-minute accuracy.
+**GitHub Actions as sync heartbeat** — Free-tier backends (Render, Railway) sleep after inactivity. Rather than pay for an always-on dyno, a GitHub Actions cron pings the backend every 30 minutes. This both wakes the server and triggers the sync, keeping everything current 24/7.
 
 **Pure points engine** — `backend/src/services/pointsEngine.ts` is a pure function with zero side effects. The same logic is mirrored client-side in `frontend/src/lib/utils.ts → calcBreakdown()` to show per-tier results without a round-trip.
 
-**Tier 1 + Tier 2 stacking** — Getting the exact score right auto-awards Tier 1 (3 pts) since the outcome is implied. Tier 2 adds 7 more = 10 pts total. Users never need to select both.
-
----
-
-## Contributing
-
-```bash
-# Create a feature branch
-git checkout -b feat/your-feature
-
-# Make changes, then commit
-git add .
-git commit -m "feat: describe your change"
-
-# Push and open a PR
-git push origin feat/your-feature
-```
-
-CI must pass before merging to `main`.
+**Corners over Half-time** — Tier 3 was changed from half-time result (H/D/A) to total corners (≤9/10/≥11). Old predictions retain their half-time data for display; new predictions use corners.
 
 ---
 
