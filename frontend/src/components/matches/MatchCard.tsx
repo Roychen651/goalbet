@@ -195,16 +195,27 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                   <span className={awayLeading ? 'text-accent-green' : homeLeading ? 'text-white/50' : 'text-white'}>{match.away_score ?? 0}</span>
                 </motion.span>
                 {isInProgress && liveClock && (
-                  <motion.span
-                    animate={{ opacity: [1, 0.5, 1] }}
-                    transition={{ duration: 1.6, repeat: Infinity }}
-                    className={cn(
-                      'text-xs font-bold tracking-wider',
-                      ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status) ? 'text-amber-400' : 'text-accent-green'
+                  <div className="flex items-center gap-1.5">
+                    <motion.span
+                      animate={{ opacity: [1, 0.5, 1] }}
+                      transition={{ duration: 1.6, repeat: Infinity }}
+                      className={cn(
+                        'text-xs font-bold tracking-wider',
+                        ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status) ? 'text-amber-400' : 'text-accent-green'
+                      )}
+                    >
+                      {liveClock}
+                    </motion.span>
+                    {match.status === 'ET1' && (
+                      <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">1st ET</span>
                     )}
-                  >
-                    {liveClock}
-                  </motion.span>
+                    {match.status === 'ET2' && (
+                      <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">2nd ET</span>
+                    )}
+                    {match.status === 'AET' && (
+                      <span className="text-[9px] text-amber-400/50 font-semibold uppercase tracking-widest">ET HT</span>
+                    )}
+                  </div>
                 )}
                 {isInProgress && (
                   <span className="text-[9px] text-white/25 mt-0.5">

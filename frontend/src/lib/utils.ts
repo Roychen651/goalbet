@@ -109,15 +109,25 @@ export function getLiveClock(match: { status: string; kickoff_time: string; disp
     return `${displayMin}'`;
   }
 
-  // ET phases — ESPN gives real minutes in display_clock:
-  //   ET1 normal play: "93'", "97'"
-  //   ET1 stoppage: "105+'"   (built in espn.ts: period 3 baseMin = 105)
-  //   ET2 normal play: "107'", "112'"
-  //   ET2 stoppage: "120+'"   (built in espn.ts: period 4 baseMin = 120)
-  // Shown in amber so user knows it's extra time, not regular stoppage.
-  if (match.display_clock) return match.display_clock;
-  if (match.status === 'ET1') return 'ET1';
-  if (match.status === 'ET2') return 'ET2';
+  // ET phases — compute client-side from kickoff (same reason as 2H: ESPN display_clock lags)
+  // ET1: minutes 91–105, starts at kickoff + 90 min
+  // ET2: minutes 106–120, starts at kickoff + 105 min (90 + 15 min ET break)
+  if (match.status === 'ET1') {
+    if (match.display_clock?.includes('+')) return "105+'";
+    const et1StartMs = kickoffMs + 90 * 60 * 1000;
+    const minsInto = Math.max(0, Math.floor((Date.now() - et1StartMs) / 60000));
+    const min = 91 + minsInto;
+    return min >= 105 ? "105+'" : `${min}'`;
+  }
+  if (match.status === 'ET2') {
+    if (match.display_clock?.includes('+')) return "120+'";
+    const et2StartMs = kickoffMs + 105 * 60 * 1000;
+    const minsInto = Math.max(0, Math.floor((Date.now() - et2StartMs) / 60000));
+    const min = 106 + minsInto;
+    return min >= 120 ? "120+'" : `${min}'`;
+  }
+  // AET = break between ET halves (half-time of extra time)
+  if (match.status === 'AET') return 'HT';
   if (match.status === 'PEN') return 'PENS';
   return null;
 }
