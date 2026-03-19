@@ -400,13 +400,14 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 <ResolvedETPanel prediction={prediction} match={match} />
               ) : (
                 <>
+                  {/* ET/PEN result block — shown for ALL finished AET/PEN cards */}
+                  {isFinished && <ETSummaryBlock match={match} />}
                   <PredictionForm
                     match={match}
                     existingPrediction={prediction}
                     onSave={async (data) => { await onSavePrediction(data); setExpanded(false); }}
                     saving={savingMatchId === match.id}
                   />
-                  {/* Timeline for finished matches with predictions */}
                   {isFinished && <MatchTimeline match={match} />}
                 </>
               )}
@@ -475,6 +476,47 @@ function ResolvedETPanel({ prediction, match }: { prediction: Prediction; match:
   );
 }
 
+// ── Shared ET/PEN result block — shown on all finished AET/PEN cards ──────────
+function ETSummaryBlock({ match }: { match: Match }) {
+  const wentToET = match.regulation_home != null || match.went_to_penalties;
+  if (!wentToET || match.home_score === null) return null;
+
+  const wentToPens = match.went_to_penalties;
+  const etGoals =
+    match.regulation_home != null &&
+    (match.regulation_home !== match.home_score || match.regulation_away !== match.away_score);
+
+  return (
+    <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20">
+      <p className="text-amber-400/60 text-[9px] uppercase tracking-widest mb-2">Extra Time</p>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-white/50">90′ Result</span>
+          <span className="text-white/80 font-semibold tabular-nums">
+            {match.regulation_home ?? match.home_score} – {match.regulation_away ?? match.away_score}
+          </span>
+        </div>
+        {etGoals && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-white/50">120′ (a.e.t.)</span>
+            <span className="text-amber-300 font-semibold tabular-nums">
+              {match.home_score} – {match.away_score}
+            </span>
+          </div>
+        )}
+        {wentToPens && (
+          <div className="flex items-center justify-between text-xs border-t border-amber-500/15 pt-1 mt-1">
+            <span className="text-amber-300/80">Penalty Shootout</span>
+            <span className="text-amber-300 font-bold tabular-nums text-sm">
+              {match.penalty_home !== null ? `${match.penalty_home} – ${match.penalty_away}` : '—'}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MatchActualStats({ match }: { match: Match }) {
   const { t } = useLangStore();
   if (match.home_score === null || match.away_score === null) return null;
@@ -490,43 +532,10 @@ function MatchActualStats({ match }: { match: Match }) {
     ? cornersTotal <= 9 ? t('cornersUnder9') : cornersTotal === 10 ? t('cornersTen') : t('cornersOver11')
     : null;
 
-  const wentToET = match.regulation_home != null || match.went_to_penalties;
-  const wentToPens = match.went_to_penalties;
-  const etGoals = wentToET && match.regulation_home != null &&
-    (match.regulation_home !== match.home_score || match.regulation_away !== match.away_score);
-
   return (
     <div className="space-y-1.5">
-      {/* ET / Penalty summary — shown prominently when relevant */}
-      {wentToET && (
-        <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20">
-          <p className="text-amber-400/60 text-[9px] uppercase tracking-widest mb-2">Extra Time</p>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-white/50">90′ Result</span>
-              <span className="text-white/80 font-semibold tabular-nums">
-                {match.regulation_home ?? match.home_score} – {match.regulation_away ?? match.away_score}
-              </span>
-            </div>
-            {etGoals && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-white/50">120′ (a.e.t.)</span>
-                <span className="text-amber-300 font-semibold tabular-nums">
-                  {match.home_score} – {match.away_score}
-                </span>
-              </div>
-            )}
-            {wentToPens && (
-              <div className="flex items-center justify-between text-xs border-t border-amber-500/15 pt-1 mt-1">
-                <span className="text-amber-300/80">Penalty Shootout</span>
-                <span className="text-amber-300 font-bold tabular-nums text-sm">
-                  {match.penalty_home !== null ? `${match.penalty_home} – ${match.penalty_away}` : '—'}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* ET / Penalty summary — reuses shared block */}
+      <ETSummaryBlock match={match} />
 
       <p className="text-white/30 text-[10px] uppercase tracking-wider mb-1">Match stats</p>
       {[

@@ -70,13 +70,15 @@ async function fetchEspnEvents(externalId: string, leagueId: number): Promise<Ma
     const period: number = ((ev.period as Record<string, unknown>)?.number as number) ?? 1;
 
     // ── Event type ────────────────────────────────────────────────────────────
+    // ESPN uses BOTH top-level booleans (yellowCard/redCard) AND type.text strings.
+    // Check both to handle all ESPN response variants reliably.
     const typeText = String(((ev.type as Record<string, unknown>)?.text ?? '')).toLowerCase();
     const isScoring = ev.scoringPlay === true;
     const isOwnGoal = ev.ownGoal === true;
     const isPenaltyGoal = ev.penaltyKick === true && isScoring;
-    const isYellow = ev.yellowCard === true;
-    const isRed = ev.redCard === true;
-    const isSub = typeText.includes('sub') || typeText.includes('substitut');
+    const isYellow = ev.yellowCard === true || typeText === 'yellow card' || typeText === 'yellow-red card';
+    const isRed   = ev.redCard   === true || typeText === 'red card'    || typeText === 'straight red card';
+    const isSub   = typeText.includes('sub') || typeText.includes('substitut');
 
     let type: MatchEvent['type'];
     if (isOwnGoal) type = 'own_goal';
