@@ -251,20 +251,27 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             {/* ET / Penalty match info for finished matches */}
             {isFinished && wentToET && (
               <div className="flex flex-col items-center gap-0.5 mt-1">
-                {/* Show "90': X-Y" only when ET goals changed the score from regulation */}
                 {match.regulation_home != null &&
-                  (match.regulation_home !== match.home_score || match.regulation_away !== match.away_score) && (
+                  (match.regulation_home !== match.home_score || match.regulation_away !== match.away_score) ? (
+                  /* ET goals changed the score — show the 90-min result */
                   <span className="text-amber-400/80 text-[10px] font-semibold">
                     90′: {match.regulation_home}–{match.regulation_away}
                   </span>
+                ) : (
+                  /* No ET goals — clarify the score above is after 120 min */
+                  <span className="text-amber-400/50 text-[9px] uppercase tracking-widest">a.e.t.</span>
                 )}
                 {wentToPens && (
                   match.penalty_home !== null && match.penalty_away !== null ? (
-                    <span className="text-amber-400 text-[10px] font-semibold">
+                    <motion.span
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="text-amber-300 text-[11px] font-bold tracking-wider mt-0.5"
+                    >
                       Pens: {match.penalty_home}–{match.penalty_away}
-                    </span>
+                    </motion.span>
                   ) : (
-                    <span className="text-amber-400/60 text-[9px] uppercase tracking-wider">
+                    <span className="text-amber-400/70 text-[10px] font-semibold uppercase tracking-wider">
                       Penalty Shootout
                     </span>
                   )
@@ -370,25 +377,61 @@ function MatchActualStats({ match }: { match: Match }) {
   const { t } = useLangStore();
   if (match.home_score === null || match.away_score === null) return null;
 
-  const btts = match.home_score > 0 && match.away_score > 0;
-  const totalGoals = match.home_score + match.away_score;
+  // For scoring purposes use regulation score; display the actual full-time (ET) score
+  const scoringHome = match.regulation_home ?? match.home_score;
+  const scoringAway = match.regulation_away ?? match.away_score;
+  const btts = scoringHome > 0 && scoringAway > 0;
+  const totalGoals = scoringHome + scoringAway;
   const isOver = totalGoals > 2.5;
   const cornersTotal = match.corners_total;
   const cornersBucket = cornersTotal !== null && cornersTotal !== undefined
     ? cornersTotal <= 9 ? t('cornersUnder9') : cornersTotal === 10 ? t('cornersTen') : t('cornersOver11')
     : null;
 
-  const stats = [
-    ...(match.went_to_penalties && match.penalty_home !== null ? [{ label: 'Penalties', value: `${match.penalty_home}–${match.penalty_away}`, positive: true }] : []),
-    { label: t('btts'), value: btts ? t('yes') : t('no'), positive: btts },
-    { label: t('goals'), value: `${totalGoals} (${isOver ? t('over25') : t('under25')})`, positive: isOver },
-    ...(cornersBucket ? [{ label: t('corners'), value: `${cornersTotal} — ${cornersBucket}`, positive: true }] : []),
-  ];
+  const wentToET = match.regulation_home != null || match.went_to_penalties;
+  const wentToPens = match.went_to_penalties;
+  const etGoals = wentToET && match.regulation_home != null &&
+    (match.regulation_home !== match.home_score || match.regulation_away !== match.away_score);
 
   return (
     <div className="space-y-1.5">
-      <p className="text-white/30 text-[10px] uppercase tracking-wider mb-2">Match stats</p>
-      {stats.map(s => (
+      {/* ET / Penalty timeline — shown prominently when relevant */}
+      {wentToET && (
+        <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20">
+          <p className="text-amber-400/60 text-[9px] uppercase tracking-widest mb-2">Extra Time</p>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-white/50">90′ Result</span>
+              <span className="text-white/80 font-semibold tabular-nums">
+                {match.regulation_home ?? match.home_score} – {match.regulation_away ?? match.away_score}
+              </span>
+            </div>
+            {etGoals && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-white/50">120′ (a.e.t.)</span>
+                <span className="text-amber-300 font-semibold tabular-nums">
+                  {match.home_score} – {match.away_score}
+                </span>
+              </div>
+            )}
+            {wentToPens && (
+              <div className="flex items-center justify-between text-xs border-t border-amber-500/15 pt-1 mt-1">
+                <span className="text-amber-300/80">Penalty Shootout</span>
+                <span className="text-amber-300 font-bold tabular-nums text-sm">
+                  {match.penalty_home !== null ? `${match.penalty_home} – ${match.penalty_away}` : '—'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <p className="text-white/30 text-[10px] uppercase tracking-wider mb-1">Match stats</p>
+      {[
+        { label: t('btts'), value: btts ? t('yes') : t('no'), positive: btts },
+        { label: t('goals'), value: `${totalGoals} (${isOver ? t('over25') : t('under25')})`, positive: isOver },
+        ...(cornersBucket ? [{ label: t('corners'), value: `${cornersTotal} — ${cornersBucket}`, positive: true }] : []),
+      ].map(s => (
         <div key={s.label} className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-white/3 border border-white/5">
           <span className="text-white/40">{s.label}</span>
           <span className="text-white/70 font-semibold">{s.value}</span>
