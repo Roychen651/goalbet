@@ -9,6 +9,7 @@ import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown } from '../../li
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import { useLiveClock } from '../../hooks/useLiveClock';
+import { useAuthStore } from '../../stores/authStore';
 
 interface MatchCardProps {
   match: Match;
@@ -21,6 +22,7 @@ interface MatchCardProps {
 export function MatchCard({ match, prediction, predictors = [], onSavePrediction, savingMatchId }: MatchCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLangStore();
+  const { user, profile } = useAuthStore();
   // Re-render every 20s so countdown ("6m", "1h 6m", etc.) stays accurate.
   // This does NOT refetch data — PredictionForm and expanded state are preserved.
   useLiveClock(20_000);
@@ -258,7 +260,11 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                   className="border border-bg-base shrink-0"
                   title={p.username}
                 >
-                  <Avatar src={p.avatar_url} name={p.username} size="sm" />
+                  <Avatar
+                    src={p.user_id === user?.id ? (profile?.avatar_url ?? p.avatar_url) : p.avatar_url}
+                    name={p.username}
+                    size="sm"
+                  />
                 </div>
               ))}
               {predictors.length > 5 && (

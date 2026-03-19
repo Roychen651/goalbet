@@ -1,11 +1,11 @@
 name: Sync Cron
 
 # Runs every 30 minutes regardless of whether the backend is awake.
-# This is the permanent fix for stale match statuses on free-tier hosts that sleep.
+# Permanently keeps matches, scores, and fixtures up-to-date even on free-tier hosts.
+# No auth required — sync endpoints are public (they only fetch public ESPN data).
 #
-# Required GitHub Secrets:
+# Required GitHub Secret:
 #   BACKEND_URL   — e.g. https://your-app.onrender.com
-#   SYNC_SECRET   — must match the SYNC_SECRET env var on the backend
 
 on:
   schedule:
@@ -16,32 +16,40 @@ jobs:
   sync:
     name: Sync matches & scores
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
-      - name: Check secrets are configured
+      - name: Check BACKEND_URL is configured
         id: secrets
         env:
           URL: ${{ secrets.BACKEND_URL }}
-          SECRET: ${{ secrets.SYNC_SECRET }}
         run: |
-          if [ -n "$URL" ] && [ -n "$SECRET" ]; then
+          if [ -n "$URL" ]; then
             echo "ok=true" >> $GITHUB_OUTPUT
-            echo "✅ Secrets found"
+            echo "✅ BACKEND_URL is set"
           else
             echo "ok=false" >> $GITHUB_OUTPUT
-            echo "::warning::BACKEND_URL or SYNC_SECRET not set — skipping sync"
+            echo "::warning::BACKEND_URL not set — skipping sync. Add BACKEND_URL to GitHub Secrets."
           fi
 
-      # 1. Sync upcoming fixtures (runs once per cron tick, cheap)
+      # 1. Wake the backend (free-tier hosts sleep after inactivity)
+      - name: Wake backend
+        if: steps.secrets.outputs.ok == 'true'
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+        run: |
+          curl -s -o /dev/null -w "Health: HTTP %{http_code}\n" \
+            --max-time 30 "$BACKEND_URL/api/health" || true
+
+      # 2. Sync upcoming fixtures (keeps fixture list always 21 days ahead)
       - name: Sync match fixtures
         if: steps.secrets.outputs.ok == 'true'
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
-          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
         run: |
           STATUS=$(curl -s -o /tmp/matches_response.json -w "%{http_code}" \
+            --max-time 60 \
             -X POST "$BACKEND_URL/api/sync/matches" \
-            -H "Authorization: Bearer $SYNC_SECRET" \
             -H "Content-Type: application/json")
           echo "HTTP $STATUS"
           cat /tmp/matches_response.json
@@ -50,16 +58,15 @@ jobs:
             exit 1
           fi
 
-      # 2. Resolve scores for any finished matches
+      # 3. Resolve scores for finished/live matches
       - name: Sync scores & resolve predictions
         if: steps.secrets.outputs.ok == 'true'
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
-          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
         run: |
           STATUS=$(curl -s -o /tmp/scores_response.json -w "%{http_code}" \
+            --max-time 60 \
             -X POST "$BACKEND_URL/api/sync/scores" \
-            -H "Authorization: Bearer $SYNC_SECRET" \
             -H "Content-Type: application/json")
           echo "HTTP $STATUS"
           cat /tmp/scores_response.json

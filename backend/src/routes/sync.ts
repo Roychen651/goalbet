@@ -5,25 +5,8 @@ import { logger } from '../lib/logger';
 
 const router = Router();
 
-// Middleware: verify SYNC_SECRET
-function requireSyncSecret(req: Request, res: Response, next: () => void): void {
-  const secret = process.env.SYNC_SECRET;
-  if (!secret) {
-    res.status(500).json({ error: 'SYNC_SECRET not configured' });
-    return;
-  }
-
-  const auth = req.headers.authorization;
-  if (!auth || auth !== `Bearer ${secret}`) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-
-  next();
-}
-
 // POST /api/sync/matches — manually trigger match sync
-router.post('/matches', requireSyncSecret, async (req: Request, res: Response) => {
+router.post('/matches', async (req: Request, res: Response) => {
   const { leagueIds } = req.body as { leagueIds?: number[] };
 
   try {
@@ -45,7 +28,7 @@ router.post('/matches', requireSyncSecret, async (req: Request, res: Response) =
 });
 
 // POST /api/sync/scores — manually trigger score resolution
-router.post('/scores', requireSyncSecret, async (_req: Request, res: Response) => {
+router.post('/scores', async (_req: Request, res: Response) => {
   try {
     logger.info('[sync] Manual score update triggered');
     const result = await checkAndUpdateScores();
