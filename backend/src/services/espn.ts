@@ -246,6 +246,132 @@ export async function fetchMatchHalftimeScore(
   }
 }
 
+export interface MatchKeyEvent {
+  minute: number;
+  extraTime: number | null; // stoppage time added (e.g. 45+2 → extraTime=2)
+  period: number;           // 1=1H, 2=2H, 3=ET1, 4=ET2
+  type: 'goal' | 'own_goal' | 'penalty_goal' | 'yellow_card' | 'red_card' | 'second_yellow' | 'substitution';
+  team: 'home' | 'away';
+  playerName: string;
+  playerOff?: string; // substitution: player being replaced
+}
+
+/**
+ * Fetch key match events (goals, cards, substitutions) from the ESPN summary endpoint.
+ * Works retroactively for any finished match with a valid external_id.
+ */
+export async function fetchMatchKeyEvents(
+  externalId: string,
+  leagueId: number,
+): Promise<MatchKeyEvent[] | null> {
+  const slug = LEAGUE_ESPN_MAP[leagueId];
+  if (!slug) return null;
+  const eventId = externalId.replace(/^espn_/, '');
+  if (!eventId || !/^\d+$/.test(eventId)) return null;
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
+  try {
+    const { data } = await axios.get(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+
+    // Determine home/away team IDs from the competitors list
+    const comp = data?.header?.competitions?.[0];
+    const competitors = (comp?.competitors as Record<string, unknown>[] | undefined) ?? [];
+    const homeComp = competitors.find(c => (c as Record<string, unknown>).homeAway === 'home') as Record<string, unknown> | undefined;
+    const awayComp = competitors.find(c => (c as Record<string, unknown>).homeAway === 'away') as Record<string, unknown> | undefined;
+    const homeTeamId = String((homeComp?.team as Record<string, unknown>)?.id ?? '');
+    const awayTeamId = String((awayComp?.team as Record<string, unknown>)?.id ?? '');
+
+    // ESPN summary has multiple possible locations for key events
+    const keyEvents: Record<string, unknown>[] =
+      (data?.keyEvents as Record<string, unknown>[]) ??
+      (data?.commentary as Record<string, unknown>[]) ??
+      [];
+
+    if (!keyEvents.length) return null;
+
+    const events: MatchKeyEvent[] = [];
+
+    for (const ev of keyEvents) {
+      // Parse clock: "30:00" or "45:00+" → minute=30 or minute=45 extraTime set
+      const clockStr = String((ev.clock as Record<string, unknown>)?.displayValue ?? ev.clock ?? '');
+      const isStoppage = clockStr.includes('+');
+      const clockMatch = clockStr.match(/^(\d+)/);
+      if (!clockMatch) continue;
+      const minute = parseInt(clockMatch[1]);
+      let extraTime: number | null = null;
+      if (isStoppage) {
+        const stoppageMatch = clockStr.match(/\+(\d+)/);
+        extraTime = stoppageMatch ? parseInt(stoppageMatch[1]) : 0;
+      }
+
+      const period = ((ev.period as Record<string, unknown>)?.number as number) ?? 1;
+
+      // Determine event type
+      const typeText = String(((ev.type as Record<string, unknown>)?.text ?? ev.type ?? '')).toLowerCase();
+      const isGoal = (ev.scoringPlay as boolean) === true || typeText.includes('goal');
+      const isOwnGoal = (ev.ownGoal as boolean) === true || typeText.includes('own goal');
+      const isPenaltyGoal = (ev.penaltyKick as boolean) === true && isGoal;
+      const isYellow = (ev.yellowCard as boolean) === true || typeText.includes('yellow');
+      const isRed = (ev.redCard as boolean) === true || typeText.includes('red card');
+      const isSecondYellow = isYellow && isRed;
+      const isSub = typeText.includes('sub') || typeText.includes('substit');
+
+      let type: MatchKeyEvent['type'];
+      if (isOwnGoal) type = 'own_goal';
+      else if (isPenaltyGoal) type = 'penalty_goal';
+      else if (isGoal) type = 'goal';
+      else if (isSecondYellow) type = 'second_yellow';
+      else if (isRed) type = 'red_card';
+      else if (isYellow) type = 'yellow_card';
+      else if (isSub) type = 'substitution';
+      else continue; // skip non-key events
+
+      // Team side
+      const teamId = String((ev.team as Record<string, unknown>)?.id ?? '');
+      const team: 'home' | 'away' = teamId === homeTeamId ? 'home' : teamId === awayTeamId ? 'away' : 'home';
+
+      // Player names from participants or athletesInvolved
+      const participants: Record<string, unknown>[] =
+        (ev.participants as Record<string, unknown>[]) ??
+        (ev.athletesInvolved as Record<string, unknown>[]) ?? [];
+      const scorer = participants.find(p => {
+        const typeText = String(((p.type as Record<string, unknown>)?.text ?? p.type ?? '')).toLowerCase();
+        return typeText.includes('scor') || typeText === 'scorer' || typeText === 'goal';
+      }) ?? participants[0];
+      const playerIn = participants.find(p => {
+        const t = String(((p.type as Record<string, unknown>)?.text ?? p.type ?? '')).toLowerCase();
+        return t.includes('in') || t.includes('enter');
+      }) ?? participants[0];
+      const playerOut = participants.find(p => {
+        const t = String(((p.type as Record<string, unknown>)?.text ?? p.type ?? '')).toLowerCase();
+        return t.includes('out') || t.includes('exit') || t.includes('replac');
+      });
+
+      const getName = (p: Record<string, unknown> | undefined): string => {
+        if (!p) return 'Unknown';
+        const athlete = p.athlete as Record<string, unknown> | undefined;
+        return String(athlete?.shortName ?? athlete?.displayName ?? athlete?.fullName ?? p.displayName ?? 'Unknown');
+      };
+
+      const playerName = isSub ? getName(playerIn) : getName(scorer);
+      const playerOff = isSub ? getName(playerOut) : undefined;
+
+      events.push({ minute, extraTime, period, type, team, playerName, playerOff });
+    }
+
+    // Sort by period, then minute, then extraTime
+    events.sort((a, b) => {
+      if (a.period !== b.period) return a.period - b.period;
+      if (a.minute !== b.minute) return a.minute - b.minute;
+      return (a.extraTime ?? 0) - (b.extraTime ?? 0);
+    });
+
+    return events;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchLeagueMatches(
   leagueId: number,
   daysBack = 7,

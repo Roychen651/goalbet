@@ -4,6 +4,7 @@ import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
 import { MatchStatusBadge } from './MatchStatusBadge';
 import { PredictionForm, PredictionData } from './PredictionForm';
+import { MatchTimeline } from './MatchTimeline';
 import { Avatar } from '../ui/Avatar';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
@@ -398,12 +399,16 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
               ) : prediction?.is_resolved && isInProgress ? (
                 <ResolvedETPanel prediction={prediction} match={match} />
               ) : (
-                <PredictionForm
-                  match={match}
-                  existingPrediction={prediction}
-                  onSave={async (data) => { await onSavePrediction(data); setExpanded(false); }}
-                  saving={savingMatchId === match.id}
-                />
+                <>
+                  <PredictionForm
+                    match={match}
+                    existingPrediction={prediction}
+                    onSave={async (data) => { await onSavePrediction(data); setExpanded(false); }}
+                    saving={savingMatchId === match.id}
+                  />
+                  {/* Timeline for finished matches with predictions */}
+                  {isFinished && <MatchTimeline match={match} />}
+                </>
               )}
             </div>
           </motion.div>
@@ -492,7 +497,7 @@ function MatchActualStats({ match }: { match: Match }) {
 
   return (
     <div className="space-y-1.5">
-      {/* ET / Penalty timeline — shown prominently when relevant */}
+      {/* ET / Penalty summary — shown prominently when relevant */}
       {wentToET && (
         <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20">
           <p className="text-amber-400/60 text-[9px] uppercase tracking-widest mb-2">Extra Time</p>
@@ -534,6 +539,9 @@ function MatchActualStats({ match }: { match: Match }) {
           <span className="text-white/70 font-semibold">{s.value}</span>
         </div>
       ))}
+
+      {/* Match timeline — goals, cards, subs */}
+      <MatchTimeline match={match} />
     </div>
   );
 }
