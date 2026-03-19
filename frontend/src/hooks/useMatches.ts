@@ -138,6 +138,7 @@ async function queryMatches(
 export function useMatches(statusFilter: StatusFilter = 'all') {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upcomingDays, setUpcomingDays] = useState(INITIAL_UPCOMING_DAYS);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -176,12 +177,22 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGroupId, leaguesKey, statusFilter, groupsLoading, upcomingDays]);
 
-  // Load more fixtures: extend window by LOAD_MORE_DAYS
-  const loadMore = useCallback(() => {
+  // Load more fixtures: extend window without resetting scroll or showing full spinner
+  const loadMore = useCallback(async () => {
+    if (loadingMore) return;
     const newDays = upcomingDays + LOAD_MORE_DAYS;
     setUpcomingDays(newDays);
-    fetchMatches(newDays);
-  }, [upcomingDays, fetchMatches]);
+    setLoadingMore(true);
+    try {
+      const data = await queryMatches(activeLeagues, statusFilter, newDays);
+      setMatches(data);
+    } catch {
+      // silent — existing matches stay
+    } finally {
+      setLoadingMore(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [upcomingDays, loadingMore, activeLeagues, statusFilter]);
 
   const subscribeToMatches = useCallback(() => {
     channelRef.current?.unsubscribe();
@@ -216,5 +227,5 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
     };
   }, [fetchMatches, subscribeToMatches]);
 
-  return { matches, loading, error, refetch: fetchMatches, loadMore, upcomingDays };
+  return { matches, loading, loadingMore, error, refetch: fetchMatches, loadMore, upcomingDays };
 }

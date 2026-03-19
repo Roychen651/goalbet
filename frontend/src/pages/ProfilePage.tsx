@@ -253,6 +253,7 @@ export function ProfilePage() {
               onSave={handleSavePrediction}
               onDelete={handleDeletePrediction}
               t={t}
+              paginated
             />
           )}
         </>
@@ -269,6 +270,8 @@ export function ProfilePage() {
   );
 }
 
+const HISTORY_PAGE_SIZE = 5;
+
 interface SectionProps {
   title: string;
   predictions: (Prediction & { match: Match })[];
@@ -281,15 +284,21 @@ interface SectionProps {
   onSave: (data: PredictionData, id: string) => Promise<void>;
   onDelete: (id: string) => void;
   t: (key: TranslationKey) => string;
+  paginated?: boolean;
 }
 
-function PredictionSection({ title, predictions, expandedId, setExpandedId, confirmDeleteId, setConfirmDeleteId, deleting, saving, onSave, onDelete, t }: SectionProps) {
+function PredictionSection({ title, predictions, expandedId, setExpandedId, confirmDeleteId, setConfirmDeleteId, deleting, saving, onSave, onDelete, t, paginated }: SectionProps) {
+  const [visibleCount, setVisibleCount] = useState(paginated ? HISTORY_PAGE_SIZE : predictions.length);
+  const visible = predictions.slice(0, visibleCount);
+  const hasMore = visibleCount < predictions.length;
+
   return (
     <div>
       <h2 className="font-bebas text-lg tracking-wider text-white mb-3">{title}</h2>
       <motion.div className="space-y-2" initial="hidden" whileInView="show" viewport={{ once: true }} variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}>
-        {predictions.map(pred => {
+        {visible.map(pred => {
           const editable = pred.match.status === 'NS' && !isMatchLocked(pred.match.kickoff_time);
+          const { lockCountdown } = formatKickoffTime(pred.match.kickoff_time);
           const isExpanded = expandedId === pred.id;
           return (
             <motion.div key={pred.id} variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 90, damping: 18 } } }}>
@@ -309,7 +318,10 @@ function PredictionSection({ title, predictions, expandedId, setExpandedId, conf
                     <div className="text-text-muted text-xs flex items-center gap-2 mt-0.5">
                       <span>{formatKickoffTime(pred.match.kickoff_time).date}</span>
                       <MatchStatusBadge status={pred.match.status} />
-                      {editable && <span className="text-blue-400">· {t('editPrediction')}</span>}
+                      {editable && lockCountdown && (
+                        <span className="text-amber-400/80">🔒 {lockCountdown}</span>
+                      )}
+                      {editable && !lockCountdown && <span className="text-blue-400">· {t('editPrediction')}</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -359,6 +371,16 @@ function PredictionSection({ title, predictions, expandedId, setExpandedId, conf
           );
         })}
       </motion.div>
+
+      {/* Load more history */}
+      {paginated && hasMore && (
+        <button
+          onClick={() => setVisibleCount(v => v + HISTORY_PAGE_SIZE)}
+          className="mt-3 w-full py-2 text-sm text-text-muted hover:text-white border border-white/8 hover:border-white/20 rounded-xl bg-white/3 hover:bg-white/6 transition-all"
+        >
+          Show {Math.min(HISTORY_PAGE_SIZE, predictions.length - visibleCount)} more · {predictions.length - visibleCount} remaining
+        </button>
+      )}
     </div>
   );
 }

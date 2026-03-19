@@ -289,7 +289,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
         </div>
       </button>
 
-      {/* Prediction form — animated */}
+      {/* Prediction form / match stats — animated */}
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -301,17 +301,52 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 border-t border-white/5 pt-4">
-              <PredictionForm
-                match={match}
-                existingPrediction={prediction}
-                onSave={async (data) => { await onSavePrediction(data); setExpanded(false); }}
-                saving={savingMatchId === match.id}
-              />
+              {isFinished && !hasPrediction ? (
+                <MatchActualStats match={match} />
+              ) : (
+                <PredictionForm
+                  match={match}
+                  existingPrediction={prediction}
+                  onSave={async (data) => { await onSavePrediction(data); setExpanded(false); }}
+                  saving={savingMatchId === match.id}
+                />
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </GlassCard>
+  );
+}
+
+function MatchActualStats({ match }: { match: Match }) {
+  const { t } = useLangStore();
+  if (match.home_score === null || match.away_score === null) return null;
+
+  const btts = match.home_score > 0 && match.away_score > 0;
+  const totalGoals = match.home_score + match.away_score;
+  const isOver = totalGoals > 2.5;
+  const cornersTotal = match.corners_total;
+  const cornersBucket = cornersTotal !== null && cornersTotal !== undefined
+    ? cornersTotal <= 9 ? t('cornersUnder9') : cornersTotal === 10 ? t('cornersTen') : t('cornersOver11')
+    : null;
+
+  const stats = [
+    { label: t('btts'), value: btts ? t('yes') : t('no'), positive: btts },
+    { label: t('goals'), value: `${totalGoals} (${isOver ? t('over25') : t('under25')})`, positive: isOver },
+    ...(cornersBucket ? [{ label: t('corners'), value: `${cornersTotal} — ${cornersBucket}`, positive: true }] : []),
+  ];
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-white/30 text-[10px] uppercase tracking-wider mb-2">Match stats</p>
+      {stats.map(s => (
+        <div key={s.label} className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-white/3 border border-white/5">
+          <span className="text-white/40">{s.label}</span>
+          <span className="text-white/70 font-semibold">{s.value}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
