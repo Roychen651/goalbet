@@ -91,6 +91,9 @@ export interface DBMatch {
   regulation_home: number | null;
   regulation_away: number | null;
   went_to_penalties: boolean;
+  // Penalty shootout score (only set when went_to_penalties = true)
+  penalty_home: number | null;
+  penalty_away: number | null;
 }
 
 // Map TheSportsDB status strings to our status codes
@@ -151,6 +154,8 @@ export function transformEvent(event: SportsDBEvent): DBMatch {
     regulation_home: null,
     regulation_away: null,
     went_to_penalties: false,
+    penalty_home: null,
+    penalty_away: null,
   };
 }
 

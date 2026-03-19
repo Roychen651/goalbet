@@ -133,6 +133,8 @@ async function fetchMatchLinescoreDetails(
   regulation_home: number | null;
   regulation_away: number | null;
   went_to_penalties: boolean;
+  penalty_home: number | null;
+  penalty_away: number | null;
 } | null> {
   const slug = LEAGUE_ESPN_MAP[leagueId];
   if (!slug) return null;
@@ -177,7 +179,15 @@ async function fetchMatchLinescoreDetails(
       regulationAway = htAway + h2Away;
     }
 
-    return { halftime_home: htHome, halftime_away: htAway, regulation_home: regulationHome, regulation_away: regulationAway, went_to_penalties: hasPK };
+    return {
+      halftime_home: htHome,
+      halftime_away: htAway,
+      regulation_home: regulationHome,
+      regulation_away: regulationAway,
+      went_to_penalties: hasPK,
+      penalty_home: hasPK ? pkHome : null,
+      penalty_away: hasPK ? pkAway : null,
+    };
   } catch {
     return null;
   }
@@ -336,6 +346,8 @@ export async function fetchLeagueMatches(
 
         let regulationHome: number | null = null;
         let regulationAway: number | null = null;
+        let penHome: number | null = parsePeriodScore(homeLinescores, 4); // shootout score from scoreboard
+        let penAway: number | null = parsePeriodScore(awayLinescores, 4);
 
         if (isExtraTime) {
           const h2Home = parsePeriodScore(homeLinescores, 1); // 2H goals
@@ -358,6 +370,10 @@ export async function fetchLeagueMatches(
                 regulationHome = details.regulation_home;
                 regulationAway = details.regulation_away;
                 isExtraTime = true;
+              }
+              if (details.penalty_home !== null) {
+                penHome = details.penalty_home;
+                penAway = details.penalty_away;
               }
             }
           } catch {
@@ -400,6 +416,8 @@ export async function fetchLeagueMatches(
           regulation_home: regulationHome,
           regulation_away: regulationAway,
           went_to_penalties: wentToPenalties,
+          penalty_home: wentToPenalties ? penHome : null,
+          penalty_away: wentToPenalties ? penAway : null,
         });
       } catch (err) {
         logger.debug(`[ESPN] Skipped event ${(event as Record<string, unknown>).id}: ${err}`);

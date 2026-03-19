@@ -58,9 +58,11 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const homeLeading = isInProgress && match.home_score !== null && match.away_score !== null && match.home_score > match.away_score;
   const awayLeading = isInProgress && match.home_score !== null && match.away_score !== null && match.away_score > match.home_score;
 
-  // Winner for finished matches: use full score (includes ET goals); for PK it may be tied
-  const homeWon = isFinished && match.home_score !== null && match.away_score !== null && match.home_score > match.away_score;
-  const awayWon = isFinished && match.home_score !== null && match.away_score !== null && match.away_score > match.home_score;
+  // Winner for finished matches: ET score may be tied (decided by pens), use penalty scores to break tie
+  const homeWonOnPens = wentToPens && match.penalty_home !== null && match.penalty_away !== null && match.penalty_home > match.penalty_away;
+  const awayWonOnPens = wentToPens && match.penalty_home !== null && match.penalty_away !== null && match.penalty_away > match.penalty_home;
+  const homeWon = isFinished && match.home_score !== null && match.away_score !== null && (match.home_score > match.away_score || homeWonOnPens);
+  const awayWon = isFinished && match.home_score !== null && match.away_score !== null && (match.away_score > match.home_score || awayWonOnPens);
 
   // Predicted live cards get a blue glow — visually distinct from unpredicted live (green)
   const cardVariant = isInProgress
@@ -248,15 +250,23 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             {/* ET / Penalty match info for finished matches */}
             {isFinished && wentToET && (
               <div className="flex flex-col items-center gap-0.5 mt-1">
-                {match.regulation_home != null && (
+                {/* Show "90': X-Y" only when ET goals changed the score from regulation */}
+                {match.regulation_home != null &&
+                  (match.regulation_home !== match.home_score || match.regulation_away !== match.away_score) && (
                   <span className="text-amber-400/80 text-[10px] font-semibold">
                     90′: {match.regulation_home}–{match.regulation_away}
                   </span>
                 )}
                 {wentToPens && (
-                  <span className="text-amber-400/60 text-[9px] uppercase tracking-wider">
-                    Penalty Shootout
-                  </span>
+                  match.penalty_home !== null && match.penalty_away !== null ? (
+                    <span className="text-amber-400 text-[10px] font-semibold">
+                      Pens: {match.penalty_home}–{match.penalty_away}
+                    </span>
+                  ) : (
+                    <span className="text-amber-400/60 text-[9px] uppercase tracking-wider">
+                      Penalty Shootout
+                    </span>
+                  )
                 )}
               </div>
             )}
@@ -367,6 +377,7 @@ function MatchActualStats({ match }: { match: Match }) {
     : null;
 
   const stats = [
+    ...(match.went_to_penalties && match.penalty_home !== null ? [{ label: 'Penalties', value: `${match.penalty_home}–${match.penalty_away}`, positive: true }] : []),
     { label: t('btts'), value: btts ? t('yes') : t('no'), positive: btts },
     { label: t('goals'), value: `${totalGoals} (${isOver ? t('over25') : t('under25')})`, positive: isOver },
     ...(cornersBucket ? [{ label: t('corners'), value: `${cornersTotal} — ${cornersBucket}`, positive: true }] : []),

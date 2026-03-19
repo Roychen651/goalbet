@@ -16,6 +16,8 @@ interface PendingMatch {
   regulation_home: number | null;
   regulation_away: number | null;
   went_to_penalties: boolean;
+  penalty_home: number | null;
+  penalty_away: number | null;
 }
 
 interface Prediction {
@@ -40,7 +42,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   // Query 1: in-progress / not-yet-finished matches
   const { data: inProgress, error: e1 } = await supabaseAdmin
     .from('matches')
-    .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties')
+    .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away')
     .not('status', 'in', '("FT","PST","CANC")')
     .lt('kickoff_time', slightlyAhead);
 
@@ -62,7 +64,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   if (unresolvedMatchIds.length > 0) {
     const { data: ftData, error: e2 } = await supabaseAdmin
       .from('matches')
-      .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties')
+      .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away')
       .in('id', unresolvedMatchIds)
       .eq('status', 'FT')
       .not('home_score', 'is', null)
@@ -117,6 +119,12 @@ async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): P
 
   // Mark penalty shootout matches — always write this (even false resets stale true values)
   payload.went_to_penalties = scoreData.went_to_penalties ?? false;
+
+  // Store penalty shootout score (never overwrite with null)
+  if (scoreData.penalty_home !== null && scoreData.penalty_home !== undefined) {
+    payload.penalty_home = scoreData.penalty_home;
+    payload.penalty_away = scoreData.penalty_away;
+  }
 
   let { error } = await supabaseAdmin
     .from('matches')
