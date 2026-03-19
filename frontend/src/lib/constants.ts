@@ -55,6 +55,24 @@ export const MATCH_STATUS_LABEL: Record<string, string> = {
 export const LIVE_STATUSES = ['1H', 'HT', '2H', 'ET1', 'ET2', 'PEN'];
 export const FINISHED_STATUSES = ['FT', 'PST', 'CANC'];
 
+// Map our internal league IDs → ESPN league slugs (mirrors backend espn.ts)
+export const LEAGUE_ESPN_SLUG: Record<number, string> = {
+  4328: 'eng.1',
+  4335: 'esp.1',
+  4331: 'ger.1',
+  4332: 'ita.1',
+  4334: 'fra.1',
+  4346: 'uefa.champions',
+  4399: 'uefa.europa',
+  4877: 'uefa.europa.conf',
+  4337: 'ned.1',
+  4338: 'tur.1',
+  4330: 'sco.1',
+  4344: 'usa.1',
+  4351: 'bra.1',
+  4350: 'arg.1',
+};
+
 // App routes
 export const ROUTES = {
   HOME: '/',

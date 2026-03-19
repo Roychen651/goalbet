@@ -24,7 +24,9 @@ async function upsertMatches(matches: DBMatch[]): Promise<{ inserted: number; up
     if (row.penalty_away === null) delete row.penalty_away;
     if (row.red_cards_home === null) delete row.red_cards_home;
     if (row.red_cards_away === null) delete row.red_cards_away;
-    // went_to_penalties is always included (false = not a PK final, true = was a PK final)
+    // went_to_penalties: only send true — never overwrite a confirmed true with false.
+    // ESPN sometimes returns STATUS_FINAL (false) briefly after a PEN match on the next poll.
+    if (!row.went_to_penalties) delete (row as Record<string, unknown>).went_to_penalties;
     return row;
   });
 

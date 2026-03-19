@@ -1,338 +1,440 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
+import { LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import type { Match } from '../../lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface MatchEvent {
+interface MatchEvent {
   minute: number;
-  extraTime: number | null;
-  period: number;
-  type: 'goal' | 'own_goal' | 'penalty_goal' | 'yellow_card' | 'red_card' | 'second_yellow' | 'substitution';
+  stoppage: number | null; // e.g. 45+2 → stoppage=2
+  period: number;          // 1=1H, 2=2H, 3=ET1, 4=ET2, 5=PEN
+  type: 'goal' | 'own_goal' | 'penalty_goal' | 'yellow' | 'red' | 'second_yellow' | 'sub';
   team: 'home' | 'away';
-  playerName: string;
-  playerOff?: string;
+  player: string;
+  assist?: string;   // player who assisted the goal
+  playerOff?: string; // sub: player leaving
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+// ─── ESPN Fetch ───────────────────────────────────────────────────────────────
 
-function useMatchEvents(match: Match) {
-  const [events, setEvents] = useState<MatchEvent[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fetched, setFetched] = useState(false);
+async function fetchEspnEvents(externalId: string, leagueId: number): Promise<MatchEvent[]> {
+  const slug = LEAGUE_ESPN_SLUG[leagueId];
+  if (!slug) return [];
 
-  useEffect(() => {
-    if (fetched || !match.external_id || match.status !== 'FT') return;
+  const eventId = externalId.replace(/^espn_/, '');
+  if (!eventId || !/^\d+$/.test(eventId)) return [];
 
-    let cancelled = false;
-    setLoading(true);
-    setFetched(true);
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
 
-    const backendUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:3001';
-    const url = `${backendUrl}/api/matches/events?external_id=${encodeURIComponent(match.external_id)}&league_id=${match.league_id}`;
+  // Identify which team is home/away from the header
+  const comp = data?.header?.competitions?.[0];
+  const competitors: Record<string, unknown>[] = comp?.competitors ?? [];
+  const homeComp = competitors.find((c) => c.homeAway === 'home') as Record<string, unknown> | undefined;
+  const awayComp = competitors.find((c) => c.homeAway === 'away') as Record<string, unknown> | undefined;
+  const homeTeamId = String((homeComp?.team as Record<string, unknown>)?.id ?? '');
+  const awayTeamId = String((awayComp?.team as Record<string, unknown>)?.id ?? '');
 
-    fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        if (!cancelled) setEvents(data.events ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+  // ESPN soccer summary exposes key events in `keyEvents`
+  const rawEvents: Record<string, unknown>[] = data?.keyEvents ?? [];
+  if (!rawEvents.length) return [];
 
-    return () => { cancelled = true; };
-  }, [match.external_id, match.league_id, match.status, fetched]);
+  const events: MatchEvent[] = [];
 
-  return { events, loading };
+  for (const ev of rawEvents) {
+    // ── Clock ─────────────────────────────────────────────────────────────────
+    // ESPN clock displayValue is "MM:SS" (e.g. "28:30") or "MM:SS+" for stoppage
+    // Fall back to clock.value (seconds) if displayValue is absent.
+    const clockRaw = ev.clock as Record<string, unknown> | undefined;
+    const clockDisplay = String(clockRaw?.displayValue ?? '');
+    const clockSeconds = typeof clockRaw?.value === 'number' ? clockRaw.value as number : null;
+
+    let minute = 0;
+    let stoppage: number | null = null;
+
+    if (clockDisplay) {
+      const stoppageMatch = clockDisplay.match(/\+(\d+)/);
+      if (stoppageMatch) stoppage = parseInt(stoppageMatch[1]);
+      const minsMatch = clockDisplay.match(/^(\d+)/);
+      if (minsMatch) minute = parseInt(minsMatch[1]);
+    } else if (clockSeconds !== null) {
+      minute = Math.floor(clockSeconds / 60);
+    } else {
+      continue; // no timing info — skip
+    }
+
+    const period: number = ((ev.period as Record<string, unknown>)?.number as number) ?? 1;
+
+    // ── Event type ────────────────────────────────────────────────────────────
+    const typeText = String(((ev.type as Record<string, unknown>)?.text ?? '')).toLowerCase();
+    const isScoring = ev.scoringPlay === true;
+    const isOwnGoal = ev.ownGoal === true;
+    const isPenaltyGoal = ev.penaltyKick === true && isScoring;
+    const isYellow = ev.yellowCard === true;
+    const isRed = ev.redCard === true;
+    const isSub = typeText.includes('sub') || typeText.includes('substitut');
+
+    let type: MatchEvent['type'];
+    if (isOwnGoal) type = 'own_goal';
+    else if (isPenaltyGoal) type = 'penalty_goal';
+    else if (isScoring) type = 'goal';
+    else if (isYellow && isRed) type = 'second_yellow';
+    else if (isRed) type = 'red';
+    else if (isYellow) type = 'yellow';
+    else if (isSub) type = 'sub';
+    else continue; // not a key event we care about
+
+    // ── Team side ─────────────────────────────────────────────────────────────
+    const teamId = String((ev.team as Record<string, unknown>)?.id ?? '');
+    const team: 'home' | 'away' =
+      teamId === homeTeamId ? 'home' : teamId === awayTeamId ? 'away' : 'home';
+
+    // ── Players ───────────────────────────────────────────────────────────────
+    const participants: Record<string, unknown>[] =
+      (ev.participants as Record<string, unknown>[]) ??
+      (ev.athletesInvolved as Record<string, unknown>[]) ?? [];
+
+    const getName = (p: Record<string, unknown> | undefined): string => {
+      if (!p) return '';
+      const ath = p.athlete as Record<string, unknown> | undefined;
+      return String(ath?.shortName ?? ath?.displayName ?? p.displayName ?? '').trim();
+    };
+
+    const getRole = (p: Record<string, unknown>): string =>
+      String(((p.type as Record<string, unknown>)?.text ?? p.type ?? '')).toLowerCase();
+
+    let player = '';
+    let assist: string | undefined;
+    let playerOff: string | undefined;
+
+    if (isSub) {
+      const pIn  = participants.find(p => getRole(p).includes('in')  || getRole(p).includes('enter')) ?? participants[0];
+      const pOut = participants.find(p => getRole(p).includes('out') || getRole(p).includes('exit')  || getRole(p).includes('replac'));
+      player    = getName(pIn);
+      playerOff = pOut ? getName(pOut) : undefined;
+    } else {
+      const scorer  = participants.find(p => getRole(p).includes('scor') || getRole(p) === 'scorer') ?? participants[0];
+      const assister = participants.find(p => getRole(p).includes('assist'));
+      player = getName(scorer);
+      if (assister) assist = getName(assister);
+    }
+
+    if (!player) continue; // skip events with no player info
+
+    events.push({ minute, stoppage, period, type, team, player, assist, playerOff });
+  }
+
+  // Sort: period ASC, minute ASC, stoppage ASC
+  events.sort((a, b) =>
+    a.period !== b.period ? a.period - b.period :
+    a.minute !== b.minute ? a.minute - b.minute :
+    (a.stoppage ?? 0) - (b.stoppage ?? 0)
+  );
+
+  return events;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Display helpers ──────────────────────────────────────────────────────────
 
-function clockLabel(ev: MatchEvent): string {
-  if (ev.extraTime !== null) return `${ev.minute}+${ev.extraTime}'`;
-  return `${ev.minute}'`;
+function clockLabel(ev: MatchEvent) {
+  return ev.stoppage !== null ? `${ev.minute}+${ev.stoppage}'` : `${ev.minute}'`;
 }
 
-function eventIcon(type: MatchEvent['type']): string {
+const EVENT_ICON: Record<MatchEvent['type'], string> = {
+  goal:          '⚽',
+  own_goal:      '⚽',
+  penalty_goal:  '⚽',
+  yellow:        '🟨',
+  red:           '🟥',
+  second_yellow: '🟨🟥',
+  sub:           '🔄',
+};
+
+function eventTextColor(type: MatchEvent['type']): string {
   switch (type) {
-    case 'goal':          return '⚽';
-    case 'own_goal':      return '⚽';
-    case 'penalty_goal':  return '⚽';
-    case 'yellow_card':   return '🟨';
-    case 'red_card':      return '🟥';
-    case 'second_yellow': return '🟨🟥';
-    case 'substitution':  return '🔄';
+    case 'goal':         return 'text-white';
+    case 'own_goal':     return 'text-red-400';
+    case 'penalty_goal': return 'text-accent-green';
+    case 'yellow':       return 'text-yellow-400';
+    case 'red':          return 'text-red-500';
+    case 'second_yellow':return 'text-orange-400';
+    case 'sub':          return 'text-blue-400/70';
   }
 }
 
-function eventColor(type: MatchEvent['type']): string {
-  switch (type) {
-    case 'goal':          return 'text-white';
-    case 'own_goal':      return 'text-red-400';
-    case 'penalty_goal':  return 'text-accent-green';
-    case 'yellow_card':   return 'text-yellow-400';
-    case 'red_card':      return 'text-red-500';
-    case 'second_yellow': return 'text-orange-400';
-    case 'substitution':  return 'text-blue-400/70';
-  }
-}
-
-function periodLabel(period: number): string {
+function periodTitle(period: number): string {
   switch (period) {
     case 1: return '1st Half';
     case 2: return '2nd Half';
-    case 3: return 'Extra Time 1st';
-    case 4: return 'Extra Time 2nd';
+    case 3: return '1st Extra Time';
+    case 4: return '2nd Extra Time';
+    case 5: return 'Penalty Shootout';
     default: return `Period ${period}`;
   }
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function Divider({ label }: { label: string }) {
+function SectionDivider({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 my-3">
-      <div className="flex-1 h-px bg-white/8" />
-      <span className="text-[9px] uppercase tracking-widest text-white/25 font-semibold px-1">{label}</span>
-      <div className="flex-1 h-px bg-white/8" />
+    <div className="flex items-center gap-2 my-2.5">
+      <div className="flex-1 h-px bg-white/6" />
+      <span className="text-[9px] font-semibold uppercase tracking-widest text-white/22 px-1 shrink-0">{label}</span>
+      <div className="flex-1 h-px bg-white/6" />
     </div>
   );
 }
 
-function ScoreSnapshot({ label, home, away }: { label: string; home: number; away: number }) {
+function ScorePin({ label, home, away }: { label: string; home: number; away: number }) {
   return (
-    <div className="flex items-center justify-center gap-1.5 my-2">
-      <span className="text-[9px] uppercase tracking-widest text-white/25">{label}</span>
-      <span className="text-xs font-bebas tracking-wider text-white/40">{home}–{away}</span>
+    <div className="flex items-center justify-center gap-1.5 my-1.5">
+      <div className="flex items-center gap-1.5 bg-white/5 border border-white/8 rounded-full px-3 py-0.5">
+        <span className="text-[9px] uppercase tracking-wider text-white/30">{label}</span>
+        <span className="text-[11px] font-bebas tracking-wider text-white/50">{home}–{away}</span>
+      </div>
     </div>
   );
 }
 
-function EventRow({ ev, homeTeam, awayTeam, index }: {
+function EventRow({
+  ev,
+  idx,
+}: {
   ev: MatchEvent;
-  homeTeam: string;
-  awayTeam: string;
-  index: number;
+  idx: number;
 }) {
   const isHome = ev.team === 'home';
-  const color = eventColor(ev.type);
-  const isSub = ev.type === 'substitution';
-  const isGoalType = ['goal', 'own_goal', 'penalty_goal'].includes(ev.type);
+  const color = eventTextColor(ev.type);
+  const isGoalType = ev.type === 'goal' || ev.type === 'own_goal' || ev.type === 'penalty_goal';
+  const isSub = ev.type === 'sub';
 
-  const clock = (
+  // Clock pill
+  const clockPill = (
     <span className={cn(
-      'text-[11px] font-bold tabular-nums shrink-0 w-10 text-center',
-      isGoalType ? 'text-white/70' : 'text-white/30',
+      'shrink-0 text-[10px] font-bold tabular-nums w-11 text-center',
+      isGoalType ? 'text-white/60' : isSub ? 'text-blue-400/40' : 'text-white/25',
     )}>
       {clockLabel(ev)}
     </span>
   );
 
+  // Icon
   const icon = (
-    <span className="text-sm shrink-0 leading-none">{eventIcon(ev.type)}</span>
+    <span className="shrink-0 text-[13px] leading-none">{EVENT_ICON[ev.type]}</span>
   );
 
-  const playerInfo = (
+  // Player info block
+  const playerBlock = (
     <div className={cn('flex flex-col min-w-0', isHome ? '' : 'items-end')}>
-      <span className={cn('text-[12px] font-semibold leading-tight truncate max-w-[90px]', color)}>
-        {ev.type === 'own_goal' ? `${ev.playerName} (OG)` : ev.playerName}
+      <span className={cn('text-[12px] font-semibold leading-tight truncate max-w-[100px]', color)}>
+        {ev.type === 'own_goal' ? `${ev.player} (OG)` : ev.player}
       </span>
+      {isGoalType && ev.assist && (
+        <span className="text-[9px] text-white/25 truncate max-w-[100px]">↳ {ev.assist}</span>
+      )}
       {isSub && ev.playerOff && (
-        <span className="text-[10px] text-white/25 truncate max-w-[90px]">↑ {ev.playerOff}</span>
+        <span className="text-[9px] text-white/25 truncate max-w-[100px]">↑ {ev.playerOff}</span>
       )}
       {ev.type === 'penalty_goal' && (
-        <span className="text-[9px] text-accent-green/60">Penalty</span>
+        <span className="text-[9px] text-accent-green/50">Penalty</span>
       )}
     </div>
   );
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 4 }}
+      initial={{ opacity: 0, y: 3 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.035, duration: 0.2 }}
+      transition={{ delay: idx * 0.03, duration: 0.18 }}
       className={cn(
-        'flex items-center gap-2 py-1.5 px-2 rounded-lg',
-        isGoalType ? 'bg-white/4 border border-white/6' : '',
+        'flex items-center gap-1.5 py-1 px-1.5 rounded-lg',
+        isGoalType && 'bg-white/3 border border-white/5',
       )}
     >
       {isHome ? (
         <>
-          {clock}
+          {clockPill}
           <div className="flex-1 flex items-center gap-1.5 min-w-0">
             {icon}
-            {playerInfo}
+            {playerBlock}
           </div>
-          <div className="w-[90px]" /> {/* spacer for away side */}
+          {/* Away spacer */}
+          <div className="w-[100px] shrink-0" />
         </>
       ) : (
         <>
-          <div className="w-[90px]" /> {/* spacer for home side */}
+          {/* Home spacer */}
+          <div className="w-[100px] shrink-0" />
           <div className="flex-1 flex items-center justify-end gap-1.5 min-w-0">
-            {playerInfo}
+            {playerBlock}
             {icon}
           </div>
-          {clock}
+          {clockPill}
         </>
       )}
     </motion.div>
   );
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-
-function TimelineSkeleton() {
+function Skeleton() {
   return (
-    <div className="space-y-2 animate-pulse py-2">
-      {[1, 2, 3].map(i => (
-        <div key={i} className="flex items-center gap-2 px-2">
-          <div className="w-10 h-3 bg-white/8 rounded" />
-          <div className="flex-1 h-3 bg-white/8 rounded" style={{ width: `${40 + i * 15}%` }} />
+    <div className="space-y-2 py-2 px-1">
+      {[70, 55, 80].map((w, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className="w-11 h-2.5 rounded bg-white/6 animate-pulse" />
+          <div className="h-2.5 rounded bg-white/6 animate-pulse" style={{ width: `${w}px` }} />
         </div>
       ))}
     </div>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
-interface MatchTimelineProps {
-  match: Match;
-}
-
-export function MatchTimeline({ match }: MatchTimelineProps) {
+export function MatchTimeline({ match }: { match: Match }) {
   const [open, setOpen] = useState(false);
-  const { events, loading } = useMatchEvents(match);
+  const [events, setEvents] = useState<MatchEvent[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const fetchedRef = useRef(false); // ref: no re-render on change
 
-  // Only fetch/show once opened
+  // Fetch once, when first opened
+  useEffect(() => {
+    if (!open || fetchedRef.current || match.status !== 'FT') return;
+    if (!LEAGUE_ESPN_SLUG[match.league_id]) return;
+    fetchedRef.current = true;
+
+    let cancelled = false;
+    setLoading(true);
+
+    fetchEspnEvents(match.external_id, match.league_id)
+      .then(evs => { if (!cancelled) setEvents(evs); })
+      .catch(() => { if (!cancelled) setEvents([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [open, match.external_id, match.league_id, match.status]);
+
   if (match.status !== 'FT') return null;
+  // Hide toggle for leagues with no ESPN coverage
+  if (!LEAGUE_ESPN_SLUG[match.league_id]) return null;
 
-  const hasEvents = events && events.length > 0;
-  const isEmpty = events !== null && events.length === 0;
+  const hasEvents = events !== null && events.length > 0;
+  const isEmpty   = events !== null && events.length === 0 && !loading;
 
-  // Group events by period and compute running score for dividers
-  const periods = hasEvents ? [1, 2, 3, 4].filter(p => events.some(e => e.period === p)) : [];
-
-  // Compute cumulative goal score per period transition
-  const scoreAtPeriodEnd = (upToPeriod: number): { home: number; away: number } => {
-    if (!hasEvents) return { home: 0, away: 0 };
-    let home = 0, away = 0;
-    for (const ev of events) {
-      if (ev.period > upToPeriod) break;
-      if (['goal', 'penalty_goal'].includes(ev.type)) {
-        if (ev.team === 'home') home++; else away++;
+  // Compute running goal scores for score pins
+  const goalsUpTo = (upToPeriod: number, inclusive = true) => {
+    let h = 0, a = 0;
+    for (const ev of events ?? []) {
+      if (inclusive ? ev.period > upToPeriod : ev.period >= upToPeriod) break;
+      if (ev.type === 'goal' || ev.type === 'penalty_goal') {
+        ev.team === 'home' ? h++ : a++;
       } else if (ev.type === 'own_goal') {
-        if (ev.team === 'home') away++; else home++;
+        ev.team === 'home' ? a++ : h++;
       }
     }
-    return { home, away };
+    return { h, a };
   };
 
+  const periods = hasEvents ? [...new Set(events.map(e => e.period))].sort((a, b) => a - b) : [];
+
   return (
-    <div className="mt-3 border-t border-white/6 pt-3">
-      {/* Toggle button */}
+    <div className="mt-3 border-t border-white/5 pt-3">
+      {/* Toggle */}
       <button
-        onClick={() => setOpen(prev => !prev)}
-        className="w-full flex items-center justify-between px-2 py-1.5 rounded-xl hover:bg-white/3 transition-colors group"
+        onClick={() => setOpen(p => !p)}
+        className="w-full flex items-center justify-between px-2 py-1 rounded-xl hover:bg-white/3 transition-colors group"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold group-hover:text-white/50 transition-colors">
-            Match Timeline
-          </span>
+        <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30 group-hover:text-white/50 transition-colors">
+          Match Timeline
           {hasEvents && (
-            <span className="text-[9px] text-white/20">
-              {events.filter(e => ['goal','own_goal','penalty_goal'].includes(e.type)).length} goals
+            <span className="ml-1.5 text-white/18 normal-case tracking-normal">
+              · {events.filter(e => ['goal','own_goal','penalty_goal'].includes(e.type)).length} goals
             </span>
           )}
-        </div>
+        </span>
         <motion.span
           animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-          className="text-white/25 text-xs group-hover:text-white/40 transition-colors"
+          transition={{ duration: 0.18 }}
+          className="text-white/22 text-[11px] group-hover:text-white/40"
         >
           ▾
         </motion.span>
       </button>
 
-      {/* Timeline content */}
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
-            key="timeline"
+            key="tl"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 32 }}
             className="overflow-hidden"
           >
-            <div className="pt-2 pb-1">
-              {/* Column headers */}
-              <div className="flex items-center px-2 mb-1">
-                <span className="flex-1 text-[9px] uppercase tracking-widest text-white/20 text-left">
-                  {match.home_team.split(' ').pop()}
+            <div className="pt-1 pb-2">
+              {/* Column labels */}
+              <div className="flex items-center px-1.5 mb-1">
+                <span className="flex-1 text-[9px] uppercase tracking-wider text-white/18 text-left truncate">
+                  {match.home_team.split(' ').slice(-1)[0]}
                 </span>
-                <span className="w-10 text-center text-[9px] text-white/15">time</span>
-                <span className="flex-1 text-[9px] uppercase tracking-widest text-white/20 text-right">
-                  {match.away_team.split(' ').pop()}
+                <span className="w-11 text-center text-[9px] text-white/15 shrink-0">time</span>
+                <span className="flex-1 text-[9px] uppercase tracking-wider text-white/18 text-right truncate">
+                  {match.away_team.split(' ').slice(-1)[0]}
                 </span>
               </div>
 
-              {loading && <TimelineSkeleton />}
+              {loading && <Skeleton />}
 
-              {isEmpty && !loading && (
-                <p className="text-center text-[11px] text-white/20 py-3">No event data available</p>
+              {isEmpty && (
+                <p className="text-center text-[11px] text-white/20 py-4">
+                  No event data available
+                </p>
               )}
 
               {hasEvents && !loading && (
-                <div className="space-y-0.5">
+                <div>
                   {periods.map((period, pi) => {
                     const periodEvents = events.filter(e => e.period === period);
-                    const prevScore = pi > 0 ? scoreAtPeriodEnd(periods[pi - 1]) : null;
+                    const prevScore = pi > 0 ? goalsUpTo(periods[pi - 1]) : null;
+                    const isNewSection = pi > 0;
+                    const pinLabel =
+                      period === 2 ? 'Half Time' :
+                      period === 3 ? 'Full Time' :
+                      period === 4 ? 'AET Half Time' :
+                      period === 5 ? 'After Extra Time' : '';
 
                     return (
                       <div key={period}>
-                        {/* Period divider */}
-                        {pi === 0 ? (
-                          <Divider label={periodLabel(period)} />
-                        ) : (
-                          <>
-                            {prevScore && (
-                              <ScoreSnapshot
-                                label={period === 2 ? 'Half Time' : period === 3 ? 'Full Time' : 'AET'}
-                                home={prevScore.home}
-                                away={prevScore.away}
-                              />
-                            )}
-                            <Divider label={periodLabel(period)} />
-                          </>
+                        {isNewSection && prevScore && (
+                          <ScorePin label={pinLabel} home={prevScore.h} away={prevScore.a} />
                         )}
-
-                        {/* Events in this period */}
+                        <SectionDivider label={periodTitle(period)} />
                         {periodEvents.map((ev, i) => (
                           <EventRow
-                            key={`${ev.period}-${ev.minute}-${ev.extraTime}-${ev.team}-${i}`}
+                            key={`${ev.period}-${ev.minute}-${ev.stoppage}-${ev.team}-${i}`}
                             ev={ev}
-                            homeTeam={match.home_team}
-                            awayTeam={match.away_team}
-                            index={i + pi * 5}
+                            idx={i + pi * 4}
                           />
                         ))}
                       </div>
                     );
                   })}
 
-                  {/* Final score footer */}
-                  <div className="mt-3 pt-2 border-t border-white/6">
-                    <ScoreSnapshot
-                      label="Full Time"
-                      home={scoreAtPeriodEnd(Math.max(...periods)).home}
-                      away={scoreAtPeriodEnd(Math.max(...periods)).away}
-                    />
-                  </div>
+                  {/* Final score at bottom */}
+                  {(() => {
+                    const final = goalsUpTo(Math.max(...periods));
+                    const label = match.went_to_penalties ? 'After Penalties' :
+                                  match.regulation_home !== null ? 'After Extra Time' : 'Full Time';
+                    return (
+                      <div className="mt-2 pt-2 border-t border-white/5">
+                        <ScorePin label={label} home={final.h} away={final.a} />
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

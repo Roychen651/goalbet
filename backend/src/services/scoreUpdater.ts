@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
-import { fetchLeagueMatches, fetchMatchHalftimeScore, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
+import { fetchLeagueMatches, fetchMatchHalftimeScore, fetchMatchLinescoreRepair, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
 import { calculatePoints } from './pointsEngine';
 import { logger } from '../lib/logger';
 
@@ -119,8 +119,12 @@ async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): P
     payload.regulation_away = scoreData.regulation_away;
   }
 
-  // Mark penalty shootout matches — always write this (even false resets stale true values)
-  payload.went_to_penalties = scoreData.went_to_penalties ?? false;
+  // Mark penalty shootout — only ever set to true, never reset to false once confirmed.
+  // ESPN sometimes has a lag cycle where a finished PEN match briefly shows STATUS_FINAL
+  // (went_to_penalties=false) before showing STATUS_FINAL_PK. Avoid wiping correct data.
+  if (scoreData.went_to_penalties) {
+    payload.went_to_penalties = true;
+  }
 
   // Store penalty shootout score (never overwrite with null)
   if (scoreData.penalty_home !== null && scoreData.penalty_home !== undefined) {

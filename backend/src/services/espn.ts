@@ -124,6 +124,13 @@ function buildDisplayClock(statusName: string, state: string, displayClock: stri
  * Used as a fallback for STATUS_RESULT_OF_LEG knockout-tie matches where
  * the scoreboard endpoint returns empty linescores.
  */
+// eslint-disable-next-line prefer-const
+export async function fetchMatchLinescoreRepair(
+  externalId: string,
+  leagueId: number,
+) {
+  return fetchMatchLinescoreDetails(externalId, leagueId);
+}
 async function fetchMatchLinescoreDetails(
   externalId: string,
   leagueId: number,
@@ -169,11 +176,19 @@ async function fetchMatchLinescoreDetails(
     const pkHome = getIdx(home, 4);   // shootout (null if no pens)
     const pkAway = getIdx(away, 4);
 
-    const hasET = et1Home !== null || et1Away !== null;
+    // Check total linescore count — ESPN omits 0-goal ET periods in some responses,
+    // so we can't rely solely on et1Home/et1Away being non-null to detect ET.
+    const homeLsCount = (home?.linescores as unknown[] | undefined)?.length ?? 0;
+    const awayLsCount = (away?.linescores as unknown[] | undefined)?.length ?? 0;
+    const lsCount = Math.max(homeLsCount, awayLsCount);
+
     const hasPK = pkHome !== null || pkAway !== null;
+    // ET happened if: ET linescore present, OR 3+ periods in linescore, OR penalties (pens always follow ET)
+    const hasET = et1Home !== null || et1Away !== null || lsCount >= 3 || hasPK;
 
     let regulationHome: number | null = null;
     let regulationAway: number | null = null;
+    // Regulation = 1H goals + 2H goals (always true regardless of ET)
     if (hasET && htHome !== null && h2Home !== null && htAway !== null && h2Away !== null) {
       regulationHome = htHome + h2Home;
       regulationAway = htAway + h2Away;
