@@ -57,7 +57,8 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   // ESPN sometimes lags updating 2H→ET1 status for knockout/aggregate matches.
   // If status is still '2H' with stoppage clock but we're 100+ min from kickoff, treat as ET.
   const totalMinsFromKickoff = Math.floor((Date.now() - new Date(match.kickoff_time).getTime()) / 60000);
-  const likelyInET = match.status === '2H' && match.display_clock?.includes('+') && totalMinsFromKickoff >= 100;
+  // Do NOT check display_clock — it can be null or stored without '+'. Time alone is reliable.
+  const likelyInET = match.status === '2H' && totalMinsFromKickoff >= 100;
   // Effective status for badge + labels
   const effectiveStatus = likelyInET ? 'ET1' : match.status;
 

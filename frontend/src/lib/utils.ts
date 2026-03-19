@@ -101,13 +101,14 @@ export function getLiveClock(match: { status: string; kickoff_time: string; disp
   // For 2H: estimate minute from kickoff (assume 60 min to 2H start = 45min 1H + 15min HT break).
   // Always show a real minute — never "2H" as a label.
   if (match.status === '2H') {
-    if (match.display_clock?.includes('+')) {
-      // ESPN sometimes lags updating 2H→ET1 for knockout/aggregate matches.
-      // If >100 min have passed since kickoff, we're almost certainly in ET — show real minute.
-      const totalMins = Math.floor((Date.now() - kickoffMs) / 60000);
-      if (totalMins >= 100) return `${Math.min(totalMins, 120)}'`;
-      return "90+'";
+    // If 100+ min have elapsed since kickoff, ESPN hasn't updated status yet — we're in ET.
+    // Do NOT depend on display_clock (can be null or not contain '+').
+    const totalMins = Math.floor((Date.now() - kickoffMs) / 60000);
+    if (totalMins >= 100) {
+      if (totalMins >= 120) return "120+'";
+      return `${totalMins}'`;
     }
+    if (match.display_clock?.includes('+')) return "90+'";
     const assumed2HStartMs = kickoffMs + 60 * 60 * 1000; // kickoff + ~60 min
     const minsInto2H = Math.max(0, Math.floor((Date.now() - assumed2HStartMs) / 60000));
     const displayMin = 46 + minsInto2H; // 2H starts at minute 46
