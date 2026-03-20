@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
-import { fetchLeagueMatches, fetchMatchHalftimeScore, fetchMatchLinescoreRepair, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
+import { fetchLeagueMatches, fetchMatchHalftimeScore, fetchMatchLinescoreRepair, fetchMatchKeyEvents, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
 import { calculatePoints } from './pointsEngine';
 import { logger } from '../lib/logger';
 
@@ -132,10 +132,12 @@ async function updateMatchScore(matchId: string, scoreData: DBMatchWithClock): P
     payload.penalty_away = scoreData.penalty_away;
   }
 
-  // Update red card counts (live stat — always write when ESPN returns data)
-  if (scoreData.red_cards_home !== null && scoreData.red_cards_home !== undefined) {
-    payload.red_cards_home = scoreData.red_cards_home;
-    payload.red_cards_away = scoreData.red_cards_away;
+  // Update red card counts — write when EITHER side has data (use 0 as fallback for missing).
+  // Previously checked only red_cards_home, which silently dropped away red cards when the
+  // home stat was absent (ESPN omits the stat for teams with 0 red cards in some leagues).
+  if (scoreData.red_cards_home !== null || scoreData.red_cards_away !== null) {
+    payload.red_cards_home = scoreData.red_cards_home ?? 0;
+    payload.red_cards_away = scoreData.red_cards_away ?? 0;
   }
 
   let { error } = await supabaseAdmin
@@ -311,6 +313,27 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
               effectiveData = { ...freshData, ...summaryHT };
               logger.info(`[scoreUpdater] Layer 3 HT from summary for match ${match.id}: ${summaryHT.halftime_home}-${summaryHT.halftime_away}`);
             }
+          }
+        }
+
+        // ── Red card fallback via key events ────────────────────────────────
+        // ESPN's scoreboard statistics may not include 'redCards' for live matches,
+        // or may omit the stat when the count is 0, causing null for both sides.
+        // Fall back to counting red/second_yellow events from the summary endpoint.
+        if (effectiveData.red_cards_home === null || effectiveData.red_cards_away === null) {
+          try {
+            const events = await fetchMatchKeyEvents(match.external_id, match.league_id);
+            if (events && events.length > 0) {
+              const isRed = (e: { type: string }) => e.type === 'red_card' || e.type === 'second_yellow';
+              const homeReds = events.filter(e => e.team === 'home' && isRed(e)).length;
+              const awayReds = events.filter(e => e.team === 'away' && isRed(e)).length;
+              effectiveData = { ...effectiveData, red_cards_home: homeReds, red_cards_away: awayReds };
+              if (homeReds > 0 || awayReds > 0) {
+                logger.info(`[scoreUpdater] Red cards from key events for match ${match.id}: home=${homeReds} away=${awayReds}`);
+              }
+            }
+          } catch {
+            // summary fetch failed — continue without red card data
           }
         }
 
