@@ -295,17 +295,21 @@ export function CoinGuide({ onClose }: CoinGuideProps) {
               className="px-3.5 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20"
             >
               <p className="text-amber-400 text-xs font-semibold mb-1.5">
-                {isHe ? '💡 דוגמה — ניחשת 2-1 ונכון בהכל:' : '💡 Example — predicted 2-1, everything correct:'}
+                {isHe
+                  ? '💡 דוגמה — ניחשת 2-1, תוצאה מדויקת + כל התוספות, הכל נכון:'
+                  : '💡 Example — predict 2-1, Exact Score + all add-ons, everything correct:'}
               </p>
+              {/* Breakdown: Exact(7)+Result(3)+Corners(4)+BTTS(2)+OU(3) = 19 pts × 2 = 38 coins */}
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-white/60 text-xs">{isHe ? 'כל השלבים' : 'All tiers'}</span>
-                <span className="text-white/30 text-xs">→</span>
-                <span className="text-white/60 text-xs">19 {isHe ? 'נק׳' : 'pts'}</span>
-                <span className="text-white/30 text-xs">→</span>
+                <span className="text-white/50 text-[11px]">7+3+4+2+3</span>
+                <span className="text-white/30 text-xs">=</span>
+                <span className="text-white/70 text-xs font-semibold">19 {isHe ? 'נק׳' : 'pts'}</span>
+                <span className="text-white/30 text-xs">×2</span>
+                <span className="text-white/30 text-xs">=</span>
                 <span className="flex items-center gap-1">
                   <CoinIcon size={13} />
                   <span className="font-bebas text-xl text-amber-400 leading-none">38</span>
-                  <span className="text-white/40 text-xs">{isHe ? 'מטבעות' : 'coins'}</span>
+                  <span className="text-white/40 text-xs">{isHe ? 'מטבעות החזר' : 'coins back'}</span>
                 </span>
               </div>
             </motion.div>
@@ -322,10 +326,18 @@ export function CoinGuide({ onClose }: CoinGuideProps) {
                   : 'Lost bets are not refunded — choose wisely'}
               </span>
             </div>
-            <div className="flex items-center gap-1 text-xs shrink-0">
-              <span className="text-white/30">{isHe ? 'מקס׳' : 'Max'}</span>
-              <CoinIcon size={13} />
-              <span className="font-bebas text-lg text-amber-400 leading-none">19</span>
+            {/* Max spend ⊙19 per match / Max earn ⊙38 (19pts × 2) */}
+            <div className="flex flex-col items-end gap-0.5 shrink-0">
+              <div className="flex items-center gap-1 text-[10px]">
+                <span className="text-white/25">{isHe ? 'מקס׳ הוצאה' : 'Max spend'}</span>
+                <CoinIcon size={11} />
+                <span className="font-bebas text-sm text-amber-400/70 leading-none">19</span>
+              </div>
+              <div className="flex items-center gap-1 text-[10px]">
+                <span className="text-white/25">{isHe ? 'מקס׳ החזר' : 'Max earn'}</span>
+                <CoinIcon size={11} />
+                <span className="font-bebas text-sm text-emerald-400 leading-none">38</span>
+              </div>
             </div>
           </div>
 

@@ -89,39 +89,42 @@ export function getLiveClock(match: { status: string; kickoff_time: string; disp
     return `~${Math.min(minsSinceKickoff, 90)}'`;
   }
 
-  // For 1H: always compute client-side from kickoff time.
-  // ESPN's stored display_clock has significant API lag (can be 5-10 min behind),
-  // while kickoff time is exact and gives us a real-time accurate count.
+  // For 1H: prefer ESPN's display_clock (reflects actual kickoff, not scheduled time).
+  // Matches often kick off 3-10 min late; the formula (Date.now - scheduledKickoff)
+  // over-counts by exactly that delay. display_clock is updated every ~30s by the
+  // backend and tracks the real game clock, so max lag is ~60 seconds.
   if (match.status === '1H') {
+    if (match.display_clock) return match.display_clock; // e.g. "37'" or "45+'"
+    // Fallback only when display_clock not yet stored (match just went live)
     const minsSince = Math.floor((Date.now() - kickoffMs) / 60000);
     if (minsSince > 45) return "45+'";
     return `${minsSince}'`;
   }
 
-  // For 2H: estimate minute from kickoff (assume 60 min to 2H start = 45min 1H + 15min HT break).
-  // Always show a real minute — never "2H" as a label.
+  // For 2H: same principle — use ESPN's actual game clock first.
+  // Formula fallback assumed kickoff+60min = 2H start, but real is ~65-70min
+  // (45min 1H + 5-8min stoppage + 15min HT), causing 5-10 min over-count.
   if (match.status === '2H') {
     const totalMins = Math.floor((Date.now() - kickoffMs) / 60000);
-    // ET timing estimates (assuming ~5min average 2H stoppage):
-    //   ET1 starts at kickoff+110min → football min 91. ET1 ends at kickoff+125min → football min 105.
-    //   ET HT: ~2min gap → ET2 starts at kickoff+127min → football min 106.
-    //   ET2 ends at kickoff+142min → football min 120.
+    // Keep ET fallback detection for when status lags behind ESPN's game state:
+    //   ET1 starts: kickoff+110min → football min 91
+    //   ET2 starts: kickoff+127min → football min 106
     if (totalMins >= 127) {
-      // 2nd ET period: football minutes 106–120
       const footballMin = 106 + (totalMins - 127);
       if (footballMin >= 120) return "120+'";
       return `${Math.max(106, footballMin)}'`;
     }
     if (totalMins >= 110) {
-      // 1st ET period: football minutes 91–105
       const footballMin = 91 + (totalMins - 110);
       if (footballMin >= 105) return "105+'";
       return `${Math.max(91, footballMin)}'`;
     }
-    if (match.display_clock?.includes('+')) return "90+'";
-    const assumed2HStartMs = kickoffMs + 60 * 60 * 1000; // kickoff + ~60 min
+    // Use ESPN's actual game clock (accurate to real match time)
+    if (match.display_clock) return match.display_clock; // e.g. "77'" or "90+'"
+    // Fallback: estimate with 68min offset (45+8stoppage+15HT = more realistic than 60)
+    const assumed2HStartMs = kickoffMs + 68 * 60 * 1000;
     const minsInto2H = Math.max(0, Math.floor((Date.now() - assumed2HStartMs) / 60000));
-    const displayMin = 46 + minsInto2H; // 2H starts at minute 46
+    const displayMin = 46 + minsInto2H;
     if (displayMin >= 90) return "90+'";
     return `${displayMin}'`;
   }
