@@ -398,7 +398,10 @@ function PredictionSection({ title, predictions, expandedIds, toggleExpanded, co
                         )}
                       </>
                     )}
-                    {!pred.is_resolved && (pred.coins_bet ?? 0) > 0 && (
+                    {/* Only show staked pill for upcoming (pre-kickoff) predictions — not live */}
+                    {!pred.is_resolved && (pred.coins_bet ?? 0) > 0 &&
+                      pred.match.status === 'NS' &&
+                      new Date(pred.match.kickoff_time).getTime() > Date.now() && (
                       <CoinStakedPill coins={pred.coins_bet ?? 0} />
                     )}
                     {editable && (

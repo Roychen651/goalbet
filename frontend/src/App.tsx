@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthStore } from './stores/authStore';
@@ -52,10 +52,16 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Returns today's date string in Israel timezone (e.g. "2026-03-20")
+function getIsraelDate(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+}
+
 function AppInitializer({ children }: { children: React.ReactNode }) {
   const { user, init } = useAuthStore();
   const { fetchGroups, activeGroupId } = useGroupStore();
   const initCoins = useCoinsStore(s => s.initCoins);
+  const lastInitDateRef = useRef<string>('');
 
   useEffect(() => {
     const cleanup = init();
@@ -68,11 +74,26 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id]);
 
-  // Init coins (+ claim daily bonus) whenever user or active group changes
+  // Init coins (+ claim daily bonus) whenever user or active group changes,
+  // and re-check on tab focus in case the user crossed midnight without refreshing.
   useEffect(() => {
-    if (user && activeGroupId) {
-      initCoins(user.id, activeGroupId);
-    }
+    if (!user || !activeGroupId) return;
+
+    lastInitDateRef.current = getIsraelDate();
+    initCoins(user.id, activeGroupId);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        const today = getIsraelDate();
+        if (today !== lastInitDateRef.current) {
+          lastInitDateRef.current = today;
+          initCoins(user.id, activeGroupId);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [user?.id, activeGroupId]);
 
   return <>{children}</>;

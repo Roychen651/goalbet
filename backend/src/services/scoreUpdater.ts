@@ -213,17 +213,28 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
       }
 
       // ── Award coins: 2× points earned ────────────────────────────────────
+      // IMPORTANT: supabaseAdmin.rpc() never throws — it returns { data, error }.
+      // A try/catch does NOT catch Supabase errors. Must destructure { error }.
       if (finalPoints > 0) {
-        try {
-          await supabaseAdmin.rpc('increment_coins', {
-            p_user_id: prediction.user_id,
-            p_group_id: prediction.group_id,
-            p_match_id: matchId,
-            p_amount: finalPoints * 2,
-            p_description: `Won ${finalPoints} pts → ${finalPoints * 2} coins`,
-          });
-        } catch (coinErr) {
-          logger.warn(`[scoreUpdater] Coin award failed for prediction ${prediction.id}:`, coinErr);
+        const coinsToAward = finalPoints * 2;
+        const { error: coinError } = await supabaseAdmin.rpc('increment_coins', {
+          p_user_id: prediction.user_id,
+          p_group_id: prediction.group_id,
+          p_match_id: matchId,
+          p_amount: coinsToAward,
+          p_description: `Won ${finalPoints} pts → ${coinsToAward} coins`,
+        });
+        if (coinError) {
+          // Log full error details so Render logs capture exactly what failed.
+          // Migration 021 fixes the root cause (coin_transactions INSERT no longer
+          // rolls back the group_members UPDATE), so this should be rare.
+          logger.error(
+            `[scoreUpdater] increment_coins FAILED for prediction ${prediction.id} ` +
+            `user=${prediction.user_id} group=${prediction.group_id} amount=${coinsToAward} — ` +
+            (coinError.message ?? JSON.stringify(coinError))
+          );
+        } else {
+          logger.info(`[scoreUpdater] Awarded ${coinsToAward} coins (${finalPoints} pts × 2) to user ${prediction.user_id}`);
         }
       }
 
