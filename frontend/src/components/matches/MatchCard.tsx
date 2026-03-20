@@ -55,14 +55,12 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const wentToET = isFinished && (match.regulation_home != null || match.went_to_penalties);
   const wentToPens = isFinished && match.went_to_penalties;
 
-  // ESPN sometimes lags updating 2H→ET1 for knockout/aggregate matches.
-  // Use elapsed time (consistent with getLiveClock thresholds: ET1=110min, ET2=127min).
-  const totalMinsFromKickoff = Math.floor((Date.now() - new Date(match.kickoff_time).getTime()) / 60000);
-  const likelyET1 = match.status === '2H' && totalMinsFromKickoff >= 110 && totalMinsFromKickoff < 127;
-  const likelyET2 = match.status === '2H' && totalMinsFromKickoff >= 127;
-  const likelyInET = likelyET1 || likelyET2;
-  // Effective status for badge + clock labels
-  const effectiveStatus = likelyET2 ? 'ET2' : likelyET1 ? 'ET1' : match.status;
+  // We rely on actual ESPN status codes (ET1/ET2/AET/PEN) from the DB.
+  // Wall-clock heuristics were removed because they trigger false positives for league games
+  // in 90-minute stoppage time (e.g. a game at 98' has a wall-clock age of ~113 min,
+  // which exceeds the 110-min ET1 threshold and incorrectly showed "1ST ET").
+  // Real knockout ET games send STATUS_FIRST_HALF_OVERTIME / STATUS_SECOND_HALF_OVERTIME
+  // from ESPN which correctly map to ET1/ET2 in the DB.
 
   // Leading team during live — used for score + team highlighting
   const homeLeading = isInProgress && match.home_score !== null && match.away_score !== null && match.home_score > match.away_score;
@@ -174,7 +172,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 : wentToPens ? 'PEN'
                 : wentToET ? 'AET'            // finished after ET (no pens) → "AET"
                 : isAET ? 'ET_HT'            // live break between ET halves → "AET HT"
-                : effectiveStatus
+                : match.status
               }
             />
           </div>
@@ -212,15 +210,15 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                       transition={{ duration: 1.6, repeat: Infinity }}
                       className={cn(
                         'text-xs font-bold tracking-wider',
-                        (likelyInET || ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status)) ? 'text-amber-400' : 'text-accent-green'
+                        ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status) ? 'text-amber-400' : 'text-accent-green'
                       )}
                     >
                       {liveClock}
                     </motion.span>
-                    {(match.status === 'ET1' || likelyET1) && (
+                    {match.status === 'ET1' && (
                       <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">1st ET</span>
                     )}
-                    {(match.status === 'ET2' || likelyET2) && (
+                    {match.status === 'ET2' && (
                       <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">2nd ET</span>
                     )}
                   </div>

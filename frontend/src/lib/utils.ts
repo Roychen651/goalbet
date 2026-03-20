@@ -105,10 +105,13 @@ export function getLiveClock(match: { status: string; kickoff_time: string; disp
   // Formula fallback assumed kickoff+60min = 2H start, but real is ~65-70min
   // (45min 1H + 5-8min stoppage + 15min HT), causing 5-10 min over-count.
   if (match.status === '2H') {
+    // Use ESPN's actual game clock first (reflects real match time, updated every ~30s).
+    // This correctly shows "90+8'" for stoppage time, "91'" for ET1, etc.
+    if (match.display_clock) return match.display_clock;
+    // Fallback only when display_clock not yet available (match just transitioned to 2H).
+    // ET1 starts ~kickoff+110min, ET2 ~kickoff+127min — only used when ESPN hasn't sent
+    // a display_clock yet, so false positives for league games in stoppage are extremely rare.
     const totalMins = Math.floor((Date.now() - kickoffMs) / 60000);
-    // Keep ET fallback detection for when status lags behind ESPN's game state:
-    //   ET1 starts: kickoff+110min → football min 91
-    //   ET2 starts: kickoff+127min → football min 106
     if (totalMins >= 127) {
       const footballMin = 106 + (totalMins - 127);
       if (footballMin >= 120) return "120+'";
@@ -119,8 +122,6 @@ export function getLiveClock(match: { status: string; kickoff_time: string; disp
       if (footballMin >= 105) return "105+'";
       return `${Math.max(91, footballMin)}'`;
     }
-    // Use ESPN's actual game clock (accurate to real match time)
-    if (match.display_clock) return match.display_clock; // e.g. "77'" or "90+'"
     // Fallback: estimate with 68min offset (45+8stoppage+15HT = more realistic than 60)
     const assumed2HStartMs = kickoffMs + 68 * 60 * 1000;
     const minsInto2H = Math.max(0, Math.floor((Date.now() - assumed2HStartMs) / 60000));
