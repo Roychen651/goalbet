@@ -6,6 +6,7 @@ import { LangToggle } from '../ui/LangToggle';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { useAuthStore } from '../../stores/authStore';
 import { useLangStore } from '../../stores/langStore';
+import { useCoinsStore } from '../../stores/coinsStore';
 import { cn } from '../../lib/utils';
 
 export function TopBar() {
@@ -14,6 +15,7 @@ export function TopBar() {
   const { openModal } = useUIStore();
   const { profile } = useAuthStore();
   const { t } = useLangStore();
+  const coins = useCoinsStore(s => s.coins);
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
   return (
@@ -59,8 +61,13 @@ export function TopBar() {
           )}
         </div>
 
-        {/* Right side: lang + theme + avatar */}
+        {/* Right side: coins + lang + theme + avatar */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Coin balance pill */}
+          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <span className="text-sm leading-none">🪙</span>
+            <span className="text-amber-400 text-xs font-bold tabular-nums">{coins}</span>
+          </div>
           <LangToggle />
           <ThemeToggle inline />
           {profile && <Avatar src={profile.avatar_url} name={profile.username} size="sm" />}

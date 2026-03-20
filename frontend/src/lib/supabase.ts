@@ -50,8 +50,10 @@ export type Database = {
           group_id: string;
           user_id: string;
           joined_at: string;
+          coins: number;
+          last_daily_bonus_date: string | null;
         };
-        Insert: Omit<Database['public']['Tables']['group_members']['Row'], 'joined_at'>;
+        Insert: Omit<Database['public']['Tables']['group_members']['Row'], 'joined_at' | 'coins' | 'last_daily_bonus_date'>;
         Update: never;
       };
       matches: {
@@ -104,6 +106,7 @@ export type Database = {
           streak_bonus_earned: number;
           halftime_pts_earned: number | null;
           predicted_corners: 'under9' | 'ten' | 'over11' | null;
+          coins_bet: number;
           is_resolved: boolean;
           created_at: string;
         };

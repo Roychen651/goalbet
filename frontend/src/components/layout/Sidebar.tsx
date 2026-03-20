@@ -5,12 +5,14 @@ import { ROUTES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { useGroupStore } from '../../stores/groupStore';
 import { useLangStore } from '../../stores/langStore';
+import { useCoinsStore } from '../../stores/coinsStore';
 import { LangToggle } from '../ui/LangToggle';
 import { PolicyModal } from '../ui/PolicyModal';
 
 export function Sidebar() {
   const { groups, activeGroupId } = useGroupStore();
   const { t } = useLangStore();
+  const coins = useCoinsStore(s => s.coins);
   const [showPolicy, setShowPolicy] = useState(false);
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
@@ -59,6 +61,17 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      {/* Coin balance */}
+      <div className="mx-2 mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xl leading-none">🪙</span>
+          <div>
+            <div className="text-amber-400 font-bold text-base tabular-nums leading-none">{coins}</div>
+            <div className="text-amber-500/50 text-[10px] mt-0.5 uppercase tracking-widest">Coins</div>
+          </div>
+        </div>
+      </div>
 
       {/* Language toggle + version */}
       <div className="flex flex-col gap-3 px-2">

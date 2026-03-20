@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthStore } from './stores/authStore';
 import { useGroupStore } from './stores/groupStore';
+import { useCoinsStore } from './stores/coinsStore';
 import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './pages/LoginPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
@@ -53,7 +54,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 function AppInitializer({ children }: { children: React.ReactNode }) {
   const { user, init } = useAuthStore();
-  const { fetchGroups } = useGroupStore();
+  const { fetchGroups, activeGroupId } = useGroupStore();
+  const initCoins = useCoinsStore(s => s.initCoins);
 
   useEffect(() => {
     const cleanup = init();
@@ -65,6 +67,13 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
       fetchGroups(user.id);
     }
   }, [user?.id]);
+
+  // Init coins (+ claim daily bonus) whenever user or active group changes
+  useEffect(() => {
+    if (user && activeGroupId) {
+      initCoins(user.id, activeGroupId);
+    }
+  }, [user?.id, activeGroupId]);
 
   return <>{children}</>;
 }

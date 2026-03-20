@@ -210,6 +210,21 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
         continue;
       }
 
+      // ── Award coins: 2× points earned ────────────────────────────────────
+      if (finalPoints > 0) {
+        try {
+          await supabaseAdmin.rpc('increment_coins', {
+            p_user_id: prediction.user_id,
+            p_group_id: prediction.group_id,
+            p_match_id: matchId,
+            p_amount: finalPoints * 2,
+            p_description: `Won ${finalPoints} pts → ${finalPoints * 2} coins`,
+          });
+        } catch (coinErr) {
+          logger.warn(`[scoreUpdater] Coin award failed for prediction ${prediction.id}:`, coinErr);
+        }
+      }
+
       const existingLB = {
         total_points: lbData?.total_points ?? 0,
         weekly_points: lbData?.weekly_points ?? 0,

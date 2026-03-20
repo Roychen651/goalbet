@@ -37,6 +37,39 @@ export const POINTS = {
   TIER6_OVER_UNDER: 3,
 } as const;
 
+// Coin costs mirror the max points achievable per tier.
+// Placing a prediction costs = sum of tiers you're betting on.
+// Correct tiers return 2× points earned back as coins.
+export const COIN_COSTS = {
+  RESULT_ONLY: 3,      // just predicted_outcome (no score)
+  SCORE: 10,           // predicted_home+away  = result(3) + exact(7)
+  CORNERS: 4,
+  BTTS: 2,
+  OVER_UNDER: 3,
+  JOIN_BONUS: 120,
+  DAILY_BONUS: 30,
+  MAX_PER_MATCH: 19,
+} as const;
+
+/** Calculate the coin cost for a given prediction input. */
+export function calcPredictionCost(data: {
+  predicted_outcome?: 'H' | 'D' | 'A' | null;
+  predicted_home_score?: number | null;
+  predicted_away_score?: number | null;
+  predicted_corners?: string | null;
+  predicted_btts?: boolean | null;
+  predicted_over_under?: string | null;
+}): number {
+  let cost = 0;
+  const hasScore = data.predicted_home_score != null && data.predicted_away_score != null;
+  if (hasScore) cost += COIN_COSTS.SCORE;
+  else if (data.predicted_outcome != null) cost += COIN_COSTS.RESULT_ONLY;
+  if (data.predicted_corners != null) cost += COIN_COSTS.CORNERS;
+  if (data.predicted_btts != null) cost += COIN_COSTS.BTTS;
+  if (data.predicted_over_under != null) cost += COIN_COSTS.OVER_UNDER;
+  return cost;
+}
+
 // Match status labels
 export const MATCH_STATUS_LABEL: Record<string, string> = {
   NS: 'Upcoming',

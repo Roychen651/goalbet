@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { NeonButton } from '../ui/NeonButton';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
-import { LIVE_STATUSES } from '../../lib/constants';
-import { POINTS } from '../../lib/constants';
+import { LIVE_STATUSES, POINTS, calcPredictionCost } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
+import { useCoinsStore } from '../../stores/coinsStore';
 
 interface PredictionFormProps {
   match: Match;
@@ -108,6 +108,20 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
   };
 
   const hasAnyPrediction = outcome !== null || homeScore !== '' || cornersValue !== null || btts !== null || overUnder !== null;
+
+  // ── Coin cost for current form state ───────────────────────────────────────
+  const coins = useCoinsStore(s => s.coins);
+  const currentCost = calcPredictionCost({
+    predicted_outcome: outcome,
+    predicted_home_score: homeScore !== '' ? parseInt(homeScore) : null,
+    predicted_away_score: awayScore !== '' ? parseInt(awayScore) : null,
+    predicted_corners: cornersValue,
+    predicted_btts: btts,
+    predicted_over_under: overUnder,
+  });
+  const oldCost = existingPrediction?.coins_bet ?? 0;
+  const netCost = currentCost - oldCost; // positive = spending more, negative = getting refund
+  const insufficientCoins = netCost > 0 && coins < netCost;
 
   if (locked) {
     return <LockedPrediction match={match} prediction={existingPrediction} resolved={resolved} />;
@@ -213,7 +227,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
         </motion.div>
       ))}
 
-      {/* Submit */}
+      {/* Coin cost bar + submit */}
       <AnimatePresence>
         {hasAnyPrediction && (
           <motion.div
@@ -221,13 +235,35 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-            className="pt-1"
+            className="pt-1 space-y-2"
           >
+            {/* Coin summary row */}
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-amber-500/6 border border-amber-500/15 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="text-white/40">Cost</span>
+                <span className="text-amber-400 font-bold tabular-nums">
+                  🪙 {netCost > 0 ? netCost : currentCost}
+                  {netCost < 0 && <span className="text-emerald-400 ms-1">(+{Math.abs(netCost)} refund)</span>}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-white/40">Balance</span>
+                <span className={cn('font-bold tabular-nums', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
+                  🪙 {coins}
+                </span>
+              </div>
+            </div>
+            {insufficientCoins && (
+              <p className="text-red-400 text-[11px] text-center px-2">
+                Not enough coins — remove some tiers or wait for your daily bonus
+              </p>
+            )}
             <NeonButton
               variant={saved ? 'ghost' : 'green'}
               size="lg"
               loading={saving}
               onClick={handleSubmit}
+              disabled={insufficientCoins}
               className="w-full"
             >
               {saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}

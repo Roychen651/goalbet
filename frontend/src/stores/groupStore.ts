@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase, Group } from '../lib/supabase';
+import { useCoinsStore } from './coinsStore';
 
 interface GroupState {
   groups: Group[];
@@ -124,6 +125,14 @@ export const useGroupStore = create<GroupState>()(
           activeGroupId: group.id,
         }));
 
+        // Award 120-coin join bonus (idempotent RPC, fire-and-forget)
+        void (async () => {
+          try {
+            const { data } = await supabase.rpc('award_join_bonus', { p_user_id: user.id, p_group_id: groupId });
+            if (data) useCoinsStore.getState().setCoins(data as number);
+          } catch { /* non-critical */ }
+        })();
+
         return group;
       },
 
@@ -187,6 +196,14 @@ export const useGroupStore = create<GroupState>()(
           groups: [...state.groups, group],
           activeGroupId: group.id,
         }));
+
+        // Award 120-coin join bonus (idempotent RPC, fire-and-forget)
+        void (async () => {
+          try {
+            const { data } = await supabase.rpc('award_join_bonus', { p_user_id: userId, p_group_id: group.id });
+            if (data) useCoinsStore.getState().setCoins(data as number);
+          } catch { /* non-critical */ }
+        })();
 
         return group;
       },

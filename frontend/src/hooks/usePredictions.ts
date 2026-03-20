@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, Prediction } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
+import { useCoinsStore } from '../stores/coinsStore';
+import { calcPredictionCost } from '../lib/constants';
 
 interface PredictionInput {
   match_id: string;
@@ -60,6 +62,40 @@ export function usePredictions(matchIds?: string[]) {
 
     setSaving(input.match_id);
     try {
+      // ── Coin accounting ────────────────────────────────────────────────────
+      const coinsStore = useCoinsStore.getState();
+      const newCost = calcPredictionCost(input);
+      const existing = predictions.get(input.match_id);
+      const oldCost = existing?.coins_bet ?? 0;
+      const isEdit = !!existing;
+
+      if (newCost > 0 || oldCost > 0) {
+        const rpcName = isEdit ? 'adjust_prediction_bet' : 'place_prediction_bet';
+        const rpcArgs = isEdit
+          ? { p_user_id: user.id, p_group_id: activeGroupId, p_match_id: input.match_id, p_old_cost: oldCost, p_new_cost: newCost }
+          : { p_user_id: user.id, p_group_id: activeGroupId, p_match_id: input.match_id, p_cost: newCost };
+
+        // Optimistic deduction so UI feels instant
+        coinsStore.adjustCoins(-(newCost - oldCost));
+
+        const { data: coinResult } = await supabase.rpc(rpcName, rpcArgs);
+        const result = coinResult as { success: boolean; balance?: number; error?: string } | null;
+
+        if (result && !result.success) {
+          // Rollback optimistic change
+          coinsStore.adjustCoins(newCost - oldCost);
+          if (result.error === 'insufficient_coins') {
+            throw new Error('Not enough coins to place this prediction');
+          }
+          throw new Error(result.error ?? 'Coin deduction failed');
+        }
+        if (result?.balance != null) {
+          // Authoritative balance from server
+          coinsStore.setCoins(result.balance);
+        }
+      }
+      // ── End coin accounting ─────────────────────────────────────────────────
+
       const payload = {
         user_id: user.id,
         match_id: input.match_id,
@@ -73,6 +109,7 @@ export function usePredictions(matchIds?: string[]) {
         predicted_corners: input.predicted_corners ?? null,
         predicted_btts: input.predicted_btts ?? null,
         predicted_over_under: input.predicted_over_under ?? null,
+        coins_bet: newCost,
       };
 
       const { data, error } = await supabase
@@ -82,21 +119,20 @@ export function usePredictions(matchIds?: string[]) {
         .single();
 
       if (error) {
-        // Check if it's a "locked after kickoff" error from the DB trigger
-        if (error.message?.includes('locked after kickoff')) {
+        if (error.message?.includes('locked after kickoff') || error.message?.includes('locked 15 minutes')) {
           throw new Error('Predictions are locked once the match starts');
         }
         throw error;
       }
 
       if (data) {
-        // Optimistic update
         setPredictions(prev => new Map(prev).set(data.match_id, data));
       }
     } finally {
       setSaving(null);
     }
-  }, [user?.id, activeGroupId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, activeGroupId, predictions]);
 
   useEffect(() => {
     fetchPredictions();
