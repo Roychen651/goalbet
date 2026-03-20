@@ -52,6 +52,8 @@ const TIERS = [
     emoji: '🎯',
     label: 'Full Time Result',
     labelHe: 'תוצאה סופית',
+    note: 'or included in Exact Score',
+    noteHe: 'או כלול בתוצאה מדויקת',
     cost: 3,
     maxReturn: 6,
   },
@@ -59,6 +61,8 @@ const TIERS = [
     emoji: '🎰',
     label: 'Exact Score',
     labelHe: 'תוצאה מדויקת',
+    note: 'includes Full Time Result',
+    noteHe: 'כולל תוצאה סופית',
     cost: 10,
     maxReturn: 20,
   },
@@ -216,9 +220,16 @@ export function CoinGuide({ onClose }: CoinGuideProps) {
                     {/* Name */}
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-sm shrink-0">{tier.emoji}</span>
-                      <span className="text-white/75 text-xs font-medium truncate">
-                        {isHe ? tier.labelHe : tier.label}
-                      </span>
+                      <div className="min-w-0">
+                        <p className="text-white/75 text-xs font-medium truncate">
+                          {isHe ? tier.labelHe : tier.label}
+                        </p>
+                        {tier.note && (
+                          <p className="text-white/30 text-[10px] leading-tight truncate">
+                            {isHe ? tier.noteHe : tier.note}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     {/* Cost */}
                     <div className="flex items-center justify-end gap-1">
