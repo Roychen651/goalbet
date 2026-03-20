@@ -106,9 +106,10 @@ export function ProfilePage() {
   const handleDeletePrediction = async (predictionId: string) => {
     setDeleting(predictionId);
     try {
-      // Refund the staked coins before deleting
+      // Refund staked coins only for unresolved predictions.
+      // If the match already finished and prediction was scored, the bet is settled — no refund.
       const pred = history.find(p => p.id === predictionId);
-      if (pred && user && activeGroupId && (pred.coins_bet ?? 0) > 0) {
+      if (pred && user && activeGroupId && (pred.coins_bet ?? 0) > 0 && !pred.is_resolved) {
         const coinsStore = useCoinsStore.getState();
         coinsStore.adjustCoins(pred.coins_bet);
         await supabase.rpc('adjust_prediction_bet', {

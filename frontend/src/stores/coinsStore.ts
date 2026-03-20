@@ -32,7 +32,7 @@ export const useCoinsStore = create<CoinsState>((set) => ({
         const result = bonusData as { awarded: boolean; amount: number; balance: number };
         set({ coins: result.balance, loading: false });
         if (result.awarded) {
-          useUIStore.getState().addToast(`+${result.amount} 🪙 Daily bonus!`, 'success');
+          useUIStore.getState().addToast(`+${result.amount} coins — daily bonus!`, 'success');
         }
         return;
       }

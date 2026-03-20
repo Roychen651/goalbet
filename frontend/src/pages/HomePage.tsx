@@ -11,6 +11,8 @@ import { MatchFeed } from '../components/matches/MatchFeed';
 import { PageLoader } from '../components/ui/LoadingSpinner';
 import { NeonButton } from '../components/ui/NeonButton';
 import { ScoringGuide } from '../components/ui/ScoringGuide';
+import { CoinGuide } from '../components/ui/CoinGuide';
+import { CoinIcon } from '../components/ui/CoinIcon';
 import { cn } from '../lib/utils';
 import { PredictionData } from '../components/matches/PredictionForm';
 
@@ -19,6 +21,7 @@ type Tab = 'all' | 'upcoming' | 'live' | 'completed';
 export function HomePage() {
   const [activeTab, setActiveTab] = useState<Tab>('all');
   const [showScoringGuide, setShowScoringGuide] = useState(false);
+  const [showCoinGuide, setShowCoinGuide] = useState(false);
   const { matches, loading, loadingMore, error, refetch, loadMore, upcomingDays } = useMatches(activeTab);
   const { predictions, saving, savePrediction } = usePredictions(matches.map(m => m.id));
   const { groups, activeGroupId, loading: groupsLoading, setActiveGroup } = useGroupStore();
@@ -104,15 +107,29 @@ export function HomePage() {
           transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.3 }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.93 }}
-          className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent-green/10 border border-accent-green/25 text-accent-green text-xs font-semibold hover:bg-accent-green/20 hover:border-accent-green/50 hover:shadow-[0_0_16px_rgba(0,255,135,0.25)] transition-colors duration-200"
+          className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent-green/10 border-2 border-accent-green/40 text-accent-green text-xs font-semibold hover:bg-accent-green/20 hover:border-accent-green/70 hover:shadow-[0_0_16px_rgba(0,255,135,0.25)] transition-colors duration-200"
           title="How scoring works"
         >
           <span className="text-sm leading-none">🏆</span>
-          <span className="hidden sm:inline tracking-wide">Scoring</span>
-          {/* Pulsing indicator dot */}
+          <span className="hidden sm:inline tracking-wide">{t('scoringBtn')}</span>
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent-green">
             <span className="absolute inset-0 rounded-full bg-accent-green animate-ping opacity-75" />
           </span>
+        </motion.button>
+
+        {/* Coin Guide button */}
+        <motion.button
+          onClick={() => setShowCoinGuide(true)}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.4 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.93 }}
+          className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border-2 border-amber-500/50 text-amber-600 text-xs font-semibold hover:bg-amber-500/20 hover:border-amber-500/80 hover:shadow-[0_0_16px_rgba(245,197,24,0.25)] transition-colors duration-200"
+          title="How coins work"
+        >
+          <CoinIcon size={14} />
+          <span className="hidden sm:inline tracking-wide">{t('coinsBtn')}</span>
         </motion.button>
         {groups.length > 1 && (
           <select
@@ -195,6 +212,7 @@ export function HomePage() {
 
       <AnimatePresence>
         {showScoringGuide && <ScoringGuide onClose={() => setShowScoringGuide(false)} />}
+        {showCoinGuide && <CoinGuide onClose={() => setShowCoinGuide(false)} />}
       </AnimatePresence>
     </div>
   );

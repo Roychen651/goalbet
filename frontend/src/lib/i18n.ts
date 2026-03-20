@@ -201,6 +201,10 @@ export const translations = {
 
     // Policy
     policyTerms: 'Policy & Terms',
+
+    // Guide buttons
+    scoringBtn: 'Scoring',
+    coinsBtn: 'Coins',
   },
 
   he: {
@@ -400,6 +404,10 @@ export const translations = {
 
     // Policy
     policyTerms: 'מדיניות ותנאים',
+
+    // Guide buttons
+    scoringBtn: 'ניקוד',
+    coinsBtn: 'מטבעות',
   },
 } as const;
 

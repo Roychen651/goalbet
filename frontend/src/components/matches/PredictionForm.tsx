@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { NeonButton } from '../ui/NeonButton';
+import { CoinIcon } from '../ui/CoinIcon';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, POINTS, calcPredictionCost } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
@@ -99,8 +100,8 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
 
   useEffect(() => {
     if (!hasExactScore || scoreDerivedOU === null) return;
-    const forced = scoreDerivedOU ? 'over' : 'under';
-    if (overUnder !== null && overUnder !== forced) { setOverUnder(null); setSaved(false); }
+    // scoreDerivedOU is already the string 'over'|'under' — compare directly
+    if (overUnder !== null && overUnder !== scoreDerivedOU) { setOverUnder(null); setSaved(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoreDerivedOU, hasExactScore]);
 
@@ -210,7 +211,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
           yesLabel={t('over25')}
           noLabel={t('under25')}
           color={TIER_COLORS[4]}
-          impossibleValue={hasExactScore && scoreDerivedOU !== null ? !scoreDerivedOU : undefined}
+          impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
         />
       ),
     },
@@ -251,15 +252,15 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
             <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-amber-500/6 border border-amber-500/15 text-xs">
               <div className="flex items-center gap-1.5">
                 <span className="text-white/40">Cost</span>
-                <span className="text-amber-400 font-bold tabular-nums">
-                  🪙 {netCost > 0 ? netCost : currentCost}
+                <span className="flex items-center gap-1 text-amber-400 font-bold tabular-nums">
+                  <CoinIcon size={13} /> {netCost > 0 ? netCost : currentCost}
                   {netCost < 0 && <span className="text-emerald-400 ms-1">(+{Math.abs(netCost)} refund)</span>}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-white/40">Balance</span>
-                <span className={cn('font-bold tabular-nums', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
-                  🪙 {coins}
+                <span className={cn('flex items-center gap-1 font-bold tabular-nums', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
+                  <CoinIcon size={13} /> {coins}
                 </span>
               </div>
             </div>

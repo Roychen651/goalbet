@@ -8,6 +8,7 @@ import { useLangStore } from '../../stores/langStore';
 import { useCoinsStore } from '../../stores/coinsStore';
 import { LangToggle } from '../ui/LangToggle';
 import { PolicyModal } from '../ui/PolicyModal';
+import { CoinIcon } from '../ui/CoinIcon';
 
 export function Sidebar() {
   const { groups, activeGroupId } = useGroupStore();
@@ -65,7 +66,7 @@ export function Sidebar() {
       {/* Coin balance */}
       <div className="mx-2 mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20">
         <div className="flex items-center gap-2.5">
-          <span className="text-xl leading-none">🪙</span>
+          <CoinIcon size={22} />
           <div>
             <div className="text-amber-400 font-bold text-base tabular-nums leading-none">{coins}</div>
             <div className="text-amber-500/50 text-[10px] mt-0.5 uppercase tracking-widest">Coins</div>

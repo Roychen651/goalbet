@@ -7,6 +7,7 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 import { useAuthStore } from '../../stores/authStore';
 import { useLangStore } from '../../stores/langStore';
 import { useCoinsStore } from '../../stores/coinsStore';
+import { CoinIcon } from '../ui/CoinIcon';
 import { cn } from '../../lib/utils';
 
 export function TopBar() {
@@ -65,7 +66,7 @@ export function TopBar() {
         <div className="flex items-center gap-2 shrink-0">
           {/* Coin balance pill */}
           <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <span className="text-sm leading-none">🪙</span>
+            <CoinIcon size={16} />
             <span className="text-amber-400 text-xs font-bold tabular-nums">{coins}</span>
           </div>
           <LangToggle />
