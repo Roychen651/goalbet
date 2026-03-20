@@ -16,6 +16,7 @@ import { AvatarPicker } from '../components/profile/AvatarPicker';
 import { formatKickoffTime, isMatchLocked, calcBreakdown } from '../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, calcPredictionCost } from '../lib/constants';
 import { InfoTip } from '../components/ui/InfoTip';
+import { CoinIcon } from '../components/ui/CoinIcon';
 
 interface PredictionWithMatch extends Prediction {
   match: Match;
@@ -386,11 +387,19 @@ function PredictionSection({ title, predictions, expandedIds, toggleExpanded, co
                     {/* Prediction summary pills — always visible so user can verify without expanding */}
                     <PredictionSummaryPills prediction={pred} match={pred.match} />
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {pred.is_resolved && (
-                      <div className={`font-bebas text-lg ${pred.points_earned > 0 ? 'text-accent-green' : 'text-text-muted'}`}>
-                        {pred.points_earned > 0 ? `+${pred.points_earned}` : '0'}
-                      </div>
+                      <>
+                        <div className={`font-bebas text-lg ${pred.points_earned > 0 ? 'text-accent-green' : 'text-text-muted'}`}>
+                          {pred.points_earned > 0 ? `+${pred.points_earned}` : '0'}
+                        </div>
+                        {(pred.coins_bet ?? 0) > 0 && (
+                          <CoinNetPill coinsBet={pred.coins_bet ?? 0} pointsEarned={pred.points_earned} />
+                        )}
+                      </>
+                    )}
+                    {!pred.is_resolved && (pred.coins_bet ?? 0) > 0 && (
+                      <CoinStakedPill coins={pred.coins_bet ?? 0} />
                     )}
                     {editable && (
                       <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(pred.id); }} className="text-text-muted hover:text-red-400 text-xs px-1.5 py-1 rounded-lg hover:bg-red-400/10 transition-all" title="Remove prediction">🗑</button>
@@ -444,6 +453,70 @@ function PredictionSection({ title, predictions, expandedIds, toggleExpanded, co
         </button>
       )}
     </div>
+  );
+}
+
+/** Compact coin net badge for card headers (+profit or -loss) */
+function CoinNetPill({ coinsBet, pointsEarned }: { coinsBet: number; pointsEarned: number }) {
+  const coinsBack = pointsEarned * 2;
+  const net = coinsBack - coinsBet;
+  const won = net > 0;
+  return (
+    <div className={`flex items-center gap-0.5 rounded-lg px-1.5 py-0.5 border ${
+      won ? 'bg-amber-400/12 border-amber-400/25' : 'bg-white/4 border-white/10'
+    }`}>
+      <CoinIcon size={10} />
+      <span className={`font-bebas text-sm leading-none ${won ? 'text-amber-400' : 'text-white/28'}`}>
+        {net > 0 ? `+${net}` : net}
+      </span>
+    </div>
+  );
+}
+
+/** Amber pill showing coins staked on an unresolved prediction */
+function CoinStakedPill({ coins }: { coins: number }) {
+  return (
+    <div className="flex items-center gap-0.5 bg-amber-400/8 border border-amber-400/18 rounded-lg px-1.5 py-0.5">
+      <CoinIcon size={10} />
+      <span className="font-bebas text-sm text-amber-400/45 leading-none">{coins}</span>
+    </div>
+  );
+}
+
+/** Full coin economy row shown inside the expanded breakdown */
+function CoinSummaryBar({ coinsBet, pointsEarned }: { coinsBet: number; pointsEarned: number }) {
+  const coinsBack = pointsEarned * 2;
+  const net = coinsBack - coinsBet;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.18 }}
+      className="mt-1 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20 flex items-center justify-between gap-2"
+    >
+      <div className="flex items-center gap-1.5">
+        <CoinIcon size={13} />
+        <span className="text-[10px] uppercase tracking-widest font-semibold text-amber-400/45">Coins</span>
+      </div>
+      <div className="flex items-center gap-2.5 text-xs">
+        <div className="flex items-center gap-1 text-white/35">
+          <span>Staked</span>
+          <span className="font-bold tabular-nums">−{coinsBet}</span>
+        </div>
+        <div className="w-px h-3 bg-white/10 shrink-0" />
+        <div className="flex items-center gap-1 text-white/35">
+          <span>Back</span>
+          <span className={`font-bold tabular-nums ${coinsBack > 0 ? 'text-amber-400/70' : ''}`}>+{coinsBack}</span>
+        </div>
+        <div className="w-px h-3 bg-white/10 shrink-0" />
+        <div className={`flex items-center gap-0.5 font-bold tabular-nums ${
+          net > 0 ? 'text-emerald-400' : net < 0 ? 'text-red-400/55' : 'text-white/25'
+        }`}>
+          <span className="text-[11px] font-normal opacity-60">net</span>
+          <span>{net > 0 ? `+${net}` : net === 0 ? '±0' : `${net}`}</span>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -632,6 +705,10 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
           </div>
         );
       })}
+      {/* Coin result summary */}
+      {prediction.is_resolved && (prediction.coins_bet ?? 0) > 0 && (
+        <CoinSummaryBar coinsBet={prediction.coins_bet ?? 0} pointsEarned={prediction.points_earned} />
+      )}
     </div>
   );
 }

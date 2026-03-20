@@ -7,6 +7,7 @@ import { PredictionForm, PredictionData } from './PredictionForm';
 import { MatchTimeline } from './MatchTimeline';
 import { Avatar } from '../ui/Avatar';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown } from '../../lib/utils';
+import { CoinIcon } from '../ui/CoinIcon';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import { useLiveClock } from '../../hooks/useLiveClock';
@@ -95,23 +96,23 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             {match.round && ` · R${match.round}`}
           </span>
           <div className="flex items-center gap-2 shrink-0">
-            {hasPrediction && isFinished && prediction?.is_resolved && (prediction?.points_earned ?? 0) > 0 && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.7 }}
+            {hasPrediction && isFinished && prediction?.is_resolved && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex items-center gap-1 bg-accent-green/12 border border-accent-green/25 rounded-full px-2 py-0.5 text-accent-green text-xs font-bold"
+                className="flex items-center gap-1"
               >
-                +{prediction.points_earned} {t('pts')}
-              </motion.span>
-            )}
-            {hasPrediction && isFinished && prediction?.is_resolved && (prediction?.points_earned ?? 0) === 0 && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.7 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-white/25 text-xs"
-              >
-                0 {t('pts')}
-              </motion.span>
+                {(prediction.points_earned ?? 0) > 0 ? (
+                  <span className="flex items-center gap-1 bg-accent-green/12 border border-accent-green/25 rounded-full px-2 py-0.5 text-accent-green text-xs font-bold">
+                    +{prediction.points_earned} {t('pts')}
+                  </span>
+                ) : (
+                  <span className="text-white/25 text-xs">0 {t('pts')}</span>
+                )}
+                {(prediction.coins_bet ?? 0) > 0 && (
+                  <MatchCoinBadge coinsBet={prediction.coins_bet ?? 0} pointsEarned={prediction.points_earned ?? 0} />
+                )}
+              </motion.div>
             )}
             {hasPrediction && isInProgress && prediction && (() => {
               // If already resolved (e.g. ET started → 90-min score locked), show final pts
@@ -406,6 +407,10 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                     onSave={async (data) => { await onSavePrediction(data); setExpanded(false); }}
                     saving={savingMatchId === match.id}
                   />
+                  {/* Coin result — shown for finished resolved predictions */}
+                  {isFinished && prediction?.is_resolved && (prediction?.coins_bet ?? 0) > 0 && (
+                    <MatchCoinSummary coinsBet={prediction.coins_bet ?? 0} pointsEarned={prediction.points_earned ?? 0} />
+                  )}
                   {isFinished && <MatchTimeline match={match} />}
                 </>
               )}
@@ -468,6 +473,10 @@ function ResolvedETPanel({ prediction, match }: { prediction: Prediction; match:
               </span>
             </motion.div>
           ))}
+          {/* Coin result for ET-resolved predictions */}
+          {(prediction.coins_bet ?? 0) > 0 && (
+            <MatchCoinSummary coinsBet={prediction.coins_bet ?? 0} pointsEarned={prediction.points_earned ?? 0} />
+          )}
         </div>
       )}
     </div>
@@ -550,6 +559,59 @@ function MatchActualStats({ match }: { match: Match }) {
       {/* Match timeline — goals, cards, subs */}
       <MatchTimeline match={match} />
     </div>
+  );
+}
+
+/** Compact amber coin badge for the card header (shows net +/−) */
+function MatchCoinBadge({ coinsBet, pointsEarned }: { coinsBet: number; pointsEarned: number }) {
+  const net = pointsEarned * 2 - coinsBet;
+  const won = net > 0;
+  return (
+    <span className={`flex items-center gap-0.5 rounded-lg px-1.5 py-0.5 border ${
+      won ? 'bg-amber-400/12 border-amber-400/25' : 'bg-white/4 border-white/10'
+    }`}>
+      <CoinIcon size={10} />
+      <span className={`font-bebas text-sm leading-none ${won ? 'text-amber-400' : 'text-white/28'}`}>
+        {net > 0 ? `+${net}` : net}
+      </span>
+    </span>
+  );
+}
+
+/** Expanded coin economy row — staked / back / net */
+function MatchCoinSummary({ coinsBet, pointsEarned }: { coinsBet: number; pointsEarned: number }) {
+  const coinsBack = pointsEarned * 2;
+  const net = coinsBack - coinsBet;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.15 }}
+      className="mt-1 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20 flex items-center justify-between gap-2"
+    >
+      <div className="flex items-center gap-1.5">
+        <CoinIcon size={13} />
+        <span className="text-[10px] uppercase tracking-widest font-semibold text-amber-400/45">Coins</span>
+      </div>
+      <div className="flex items-center gap-2.5 text-xs">
+        <div className="flex items-center gap-1 text-white/35">
+          <span>Staked</span>
+          <span className="font-bold tabular-nums">−{coinsBet}</span>
+        </div>
+        <div className="w-px h-3 bg-white/10 shrink-0" />
+        <div className="flex items-center gap-1 text-white/35">
+          <span>Back</span>
+          <span className={`font-bold tabular-nums ${coinsBack > 0 ? 'text-amber-400/70' : ''}`}>+{coinsBack}</span>
+        </div>
+        <div className="w-px h-3 bg-white/10 shrink-0" />
+        <div className={`flex items-center gap-0.5 font-bold tabular-nums ${
+          net > 0 ? 'text-emerald-400' : net < 0 ? 'text-red-400/55' : 'text-white/25'
+        }`}>
+          <span className="text-[10px] font-normal opacity-60">net</span>
+          <span>{net > 0 ? `+${net}` : net === 0 ? '±0' : `${net}`}</span>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
