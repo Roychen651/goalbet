@@ -47,14 +47,16 @@ const EARN_ROWS = [
   },
 ];
 
-// "Scoring" group — pick ONE of these (Result or Exact Score, not both)
-const SCORING_TIERS = [
+// Each tier costs exactly its max pts value in coins.
+// Return = 2× pts earned. Every tier is independent and stackable.
+// Note: picking Exact Score auto-includes Result — total spend = 3+7 = 10 coins.
+const TIERS = [
   {
     emoji: '🎯',
-    label: 'Full Time Result only',
-    labelHe: 'תוצאה סופית בלבד',
-    note: 'H / Draw / A — no exact score',
-    noteHe: 'ניצחון בית / תיקו / ניצחון חוץ — ללא תוצאה מדויקת',
+    label: 'Full Time Result',
+    labelHe: 'תוצאה סופית',
+    note: 'H / Draw / A — included automatically with Exact Score',
+    noteHe: 'ניצחון בית / תיקו / ניצחון חוץ — נכלל אוטומטית עם תוצאה מדויקת',
     cost: 3,
     maxReturn: 6,
   },
@@ -62,15 +64,11 @@ const SCORING_TIERS = [
     emoji: '🎰',
     label: 'Exact Score',
     labelHe: 'תוצאה מדויקת',
-    note: '+7 pts score, +3 pts result = 10 pts total',
-    noteHe: '+7 נק׳ תוצאה מדויקת, +3 נק׳ תוצאה = 10 נק׳ סה״כ',
-    cost: 10,
-    maxReturn: 20,
+    note: 'Correct score also earns Result (+3) automatically',
+    noteHe: 'ניחוש נכון מזכה גם בתוצאה (+3) אוטומטית',
+    cost: 7,
+    maxReturn: 14,
   },
-];
-
-// "Add-on" group — these stack freely on top of whichever scoring tier is chosen
-const ADDON_TIERS = [
   {
     emoji: '🚩',
     label: 'Corners',
@@ -201,89 +199,49 @@ export function CoinGuide({ onClose }: CoinGuideProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.28 }}
-              className="space-y-3"
             >
-              {/* Table header */}
-              <div>
-                <p className="text-white/35 text-[10px] uppercase tracking-widest mb-2 px-1">
-                  {isHe ? 'עלות ניחוש לפי שלב' : 'Cost per prediction tier'}
-                </p>
-                <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-3 pb-1.5 text-[10px] uppercase tracking-wider text-white/30">
-                  <span>{isHe ? 'שלב' : 'Tier'}</span>
-                  <span className="text-end">{isHe ? 'עלות' : 'Cost'}</span>
-                  <span className="text-end">{isHe ? 'מקס׳ החזר' : 'Max return'}</span>
-                </div>
+              <p className="text-white/35 text-[10px] uppercase tracking-widest mb-2 px-1">
+                {isHe ? 'עלות ניחוש לפי שלב' : 'Cost per prediction tier'}
+              </p>
+              {/* Header */}
+              <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-3 pb-1.5 text-[10px] uppercase tracking-wider text-white/30">
+                <span>{isHe ? 'שלב' : 'Tier'}</span>
+                <span className="text-end">{isHe ? 'עלות' : 'Cost'}</span>
+                <span className="text-end">{isHe ? 'מקס׳ החזר' : 'Max return'}</span>
               </div>
-
-              {/* Scoring group — pick ONE */}
-              <div>
-                <p className="text-white/25 text-[9px] uppercase tracking-widest mb-1 px-1">
-                  {isHe ? '— בחר אחד —' : '— pick one —'}
-                </p>
-                <div className="space-y-1">
-                  {SCORING_TIERS.map((tier, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, x: isHe ? 8 : -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.28 + i * 0.05, type: 'spring', stiffness: 200, damping: 22 }}
-                      className="grid grid-cols-[1fr_auto_auto] gap-x-3 items-center px-3 py-2 rounded-xl bg-white/4 border border-white/6"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm shrink-0">{tier.emoji}</span>
-                        <div className="min-w-0">
-                          <p className="text-white/75 text-xs font-medium leading-tight">
-                            {isHe ? tier.labelHe : tier.label}
-                          </p>
+              {/* Flat table — every tier costs exactly its pts value */}
+              <div className="space-y-1">
+                {TIERS.map((tier, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: isHe ? 8 : -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.28 + i * 0.05, type: 'spring', stiffness: 200, damping: 22 }}
+                    className="grid grid-cols-[1fr_auto_auto] gap-x-3 items-center px-3 py-2 rounded-xl bg-white/4 border border-white/6"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm shrink-0">{tier.emoji}</span>
+                      <div className="min-w-0">
+                        <p className="text-white/75 text-xs font-medium leading-tight">
+                          {isHe ? tier.labelHe : tier.label}
+                        </p>
+                        {tier.note && (
                           <p className="text-white/30 text-[10px] leading-tight">
                             {isHe ? tier.noteHe : tier.note}
                           </p>
-                        </div>
+                        )}
                       </div>
-                      <div className="flex items-center justify-end gap-1">
-                        <CoinIcon size={11} />
-                        <span className="text-amber-400 font-bold text-xs tabular-nums">{tier.cost}</span>
-                      </div>
-                      <div className="flex items-center justify-end gap-1">
-                        <CoinIcon size={11} />
-                        <span className="text-emerald-400 font-bold text-xs tabular-nums">{tier.maxReturn}</span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Add-ons group — stack freely */}
-              <div>
-                <p className="text-white/25 text-[9px] uppercase tracking-widest mb-1 px-1">
-                  {isHe ? '— תוספות (ניתן לשלב) —' : '— add-ons (stackable) —'}
-                </p>
-                <div className="space-y-1">
-                  {ADDON_TIERS.map((tier, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, x: isHe ? 8 : -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.38 + i * 0.05, type: 'spring', stiffness: 200, damping: 22 }}
-                      className="grid grid-cols-[1fr_auto_auto] gap-x-3 items-center px-3 py-2 rounded-xl bg-white/4 border border-white/6"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm shrink-0">{tier.emoji}</span>
-                        <p className="text-white/75 text-xs font-medium truncate">
-                          {isHe ? tier.labelHe : tier.label}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-end gap-1">
-                        <CoinIcon size={11} />
-                        <span className="text-amber-400 font-bold text-xs tabular-nums">{tier.cost}</span>
-                      </div>
-                      <div className="flex items-center justify-end gap-1">
-                        <CoinIcon size={11} />
-                        <span className="text-emerald-400 font-bold text-xs tabular-nums">{tier.maxReturn}</span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-1">
+                      <CoinIcon size={11} />
+                      <span className="text-amber-400 font-bold text-xs tabular-nums">{tier.cost}</span>
+                    </div>
+                    <div className="flex items-center justify-end gap-1">
+                      <CoinIcon size={11} />
+                      <span className="text-emerald-400 font-bold text-xs tabular-nums">{tier.maxReturn}</span>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             </motion.div>
 
@@ -299,9 +257,9 @@ export function CoinGuide({ onClose }: CoinGuideProps) {
                   ? '💡 דוגמה — ניחשת 2-1, תוצאה מדויקת + כל התוספות, הכל נכון:'
                   : '💡 Example — predict 2-1, Exact Score + all add-ons, everything correct:'}
               </p>
-              {/* Breakdown: Exact(7)+Result(3)+Corners(4)+BTTS(2)+OU(3) = 19 pts × 2 = 38 coins */}
+              {/* Breakdown: Result(3)+Exact(7)+Corners(4)+BTTS(2)+OU(3) = 19 pts × 2 = 38 coins */}
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-white/50 text-[11px]">7+3+4+2+3</span>
+                <span className="text-white/50 text-[11px]">3+7+4+2+3</span>
                 <span className="text-white/30 text-xs">=</span>
                 <span className="text-white/70 text-xs font-semibold">19 {isHe ? 'נק׳' : 'pts'}</span>
                 <span className="text-white/30 text-xs">×2</span>
