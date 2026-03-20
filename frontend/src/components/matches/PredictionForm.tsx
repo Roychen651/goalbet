@@ -158,10 +158,8 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
     {
       key: 'tier2',
       label: t('exactScore'),
-      // Exact score costs 10 coins and earns max 10 pts (7 exact + 3 result included).
-      // Show the combined value so it matches the coin cost and CoinGuide.
-      pts: POINTS.TIER2_EXACT_SCORE + POINTS.TIER2_EXACT_BONUS,  // 7+3 = 10
-      ptsNote: 'incl. result',
+      pts: POINTS.TIER2_EXACT_SCORE,  // +7 — stacks with Result's +3 = +10 when correct
+      ptsNote: 'stacks w/ result',
       active: hasExactScore,
       content: (
         <ScorePicker
