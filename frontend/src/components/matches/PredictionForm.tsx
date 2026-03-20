@@ -82,17 +82,27 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
     ? (parseInt(homeScore) + parseInt(awayScore)) > 2.5 ? 'over' as const : 'under' as const
     : null;
 
+  // Auto-derive OUTCOME from score — this is always implied and free (no extra cost)
   useEffect(() => {
     if (scoreDerivedOutcome !== null) setOutcome(scoreDerivedOutcome);
   }, [scoreDerivedOutcome]);
 
+  // BTTS and O/U are NOT auto-selected — user must choose them explicitly.
+  // However, if a selection becomes logically impossible given the score, auto-clear it
+  // so the user doesn't pay for a contradictory prediction.
   useEffect(() => {
-    if (scoreDerivedBTTS !== null) { setBtts(scoreDerivedBTTS); setSaved(false); }
-  }, [scoreDerivedBTTS]);
+    if (!hasExactScore || scoreDerivedBTTS === null) return;
+    if (btts === true && !scoreDerivedBTTS)  { setBtts(null); setSaved(false); }
+    if (btts === false && scoreDerivedBTTS)  { setBtts(null); setSaved(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoreDerivedBTTS, hasExactScore]);
 
   useEffect(() => {
-    if (scoreDerivedOU !== null) { setOverUnder(scoreDerivedOU); setSaved(false); }
-  }, [scoreDerivedOU]);
+    if (!hasExactScore || scoreDerivedOU === null) return;
+    const forced = scoreDerivedOU ? 'over' : 'under';
+    if (overUnder !== null && overUnder !== forced) { setOverUnder(null); setSaved(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoreDerivedOU, hasExactScore]);
 
   const handleSubmit = async () => {
     await onSave({
@@ -184,7 +194,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
           yesLabel={t('yes')}
           noLabel={t('no')}
           color={TIER_COLORS[3]}
-          lockedByScore={hasExactScore}
+          impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
         />
       ),
     },
@@ -200,7 +210,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
           yesLabel={t('over25')}
           noLabel={t('under25')}
           color={TIER_COLORS[4]}
-          lockedByScore={hasExactScore}
+          impossibleValue={hasExactScore && scoreDerivedOU !== null ? !scoreDerivedOU : undefined}
         />
       ),
     },
@@ -391,38 +401,40 @@ function ScoreInput({ value, onChange }: { value: string; onChange: (v: string) 
 }
 
 function BoolPicker({
-  value, onChange, yesLabel, noLabel, color, lockedByScore,
+  value, onChange, yesLabel, noLabel, color, impossibleValue,
 }: {
   value: boolean | null;
   onChange: (v: boolean | null) => void;
   yesLabel: string;
   noLabel: string;
   color: typeof TIER_COLORS[number];
-  lockedByScore?: boolean;
+  /** When set, this specific option is disabled because the score makes it impossible. */
+  impossibleValue?: boolean;
 }) {
   return (
     <div className="grid grid-cols-2 gap-1.5">
-      {([true, false] as const).map((v) => (
-        <button
-          key={String(v)}
-          onClick={() => { if (!lockedByScore) onChange(value === v ? null : v); }}
-          disabled={lockedByScore}
-          className={cn(
-            'py-2 rounded-lg text-sm font-semibold transition-all duration-150 border',
-            value === v
-              ? cn('border-current text-current bg-current/10', color.pts, color.glow)
-              : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
-            lockedByScore && value !== v && 'opacity-40 cursor-not-allowed',
-          )}
-        >
-          {v ? yesLabel : noLabel}
-        </button>
-      ))}
-      {lockedByScore && (
-        <div className="col-span-2 text-center text-xs text-text-muted opacity-60 mt-0.5">
-          ↑ auto from score
-        </div>
-      )}
+      {([true, false] as const).map((v) => {
+        const isImpossible = impossibleValue !== undefined && impossibleValue === v;
+        const isSelected = value === v;
+        return (
+          <button
+            key={String(v)}
+            onClick={() => { if (!isImpossible) onChange(isSelected ? null : v); }}
+            disabled={isImpossible}
+            title={isImpossible ? 'Not possible with your score' : undefined}
+            className={cn(
+              'py-2 rounded-lg text-sm font-semibold transition-all duration-150 border relative',
+              isSelected && !isImpossible
+                ? cn('border-current text-current bg-current/10', color.pts, color.glow)
+                : isImpossible
+                ? 'opacity-30 cursor-not-allowed bg-white/3 border-white/5 text-text-muted line-through'
+                : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
+            )}
+          >
+            {v ? yesLabel : noLabel}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -634,7 +646,7 @@ function CornersPicker({
   value, onChange, color,
 }: {
   value: 'under9' | 'ten' | 'over11' | null;
-  onChange: (v: 'under9' | 'ten' | 'over11') => void;
+  onChange: (v: 'under9' | 'ten' | 'over11' | null) => void;
   color: typeof TIER_COLORS[number];
 }) {
   const { t } = useLangStore();
@@ -648,7 +660,8 @@ function CornersPicker({
       {options.map(({ val, label }) => (
         <button
           key={val}
-          onClick={() => onChange(val)}
+          // Clicking the already-selected option deselects it (returns null = removes this tier)
+          onClick={() => onChange(value === val ? null : val)}
           className={cn(
             'py-2 rounded-lg text-sm font-semibold transition-all duration-150 border',
             value === val

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useLangStore } from '../stores/langStore';
+import { useCoinsStore } from '../stores/coinsStore';
 import { supabase, Prediction, Match } from '../lib/supabase';
 import { Avatar } from '../components/ui/Avatar';
 import { GlassCard } from '../components/ui/GlassCard';
@@ -13,7 +14,7 @@ import { MatchStatusBadge } from '../components/matches/MatchStatusBadge';
 import { PredictionForm, PredictionData } from '../components/matches/PredictionForm';
 import { AvatarPicker } from '../components/profile/AvatarPicker';
 import { formatKickoffTime, isMatchLocked, calcBreakdown } from '../lib/utils';
-import { LIVE_STATUSES, FINISHED_STATUSES } from '../lib/constants';
+import { LIVE_STATUSES, FINISHED_STATUSES, calcPredictionCost } from '../lib/constants';
 import { InfoTip } from '../components/ui/InfoTip';
 
 interface PredictionWithMatch extends Prediction {
@@ -67,6 +68,23 @@ export function ProfilePage() {
     if (!user || !activeGroupId) return;
     setSaving(predictionId);
     try {
+      const newCost = calcPredictionCost(data);
+      const existing = history.find(p => p.match_id === data.match_id);
+      const oldCost = existing?.coins_bet ?? 0;
+      const coinsStore = useCoinsStore.getState();
+
+      // Adjust coins if cost changed
+      if (newCost !== oldCost) {
+        const rpc = existing ? 'adjust_prediction_bet' : 'place_prediction_bet';
+        const args = existing
+          ? { p_user_id: user.id, p_group_id: activeGroupId, p_match_id: data.match_id, p_old_cost: oldCost, p_new_cost: newCost }
+          : { p_user_id: user.id, p_group_id: activeGroupId, p_match_id: data.match_id, p_cost: newCost };
+        coinsStore.adjustCoins(-(newCost - oldCost));
+        const { data: coinResult } = await supabase.rpc(rpc, args);
+        const result = coinResult as { success: boolean; balance?: number } | null;
+        if (result?.balance != null) coinsStore.setCoins(result.balance);
+      }
+
       await supabase.from('predictions').upsert({
         user_id: user.id,
         match_id: data.match_id,
@@ -77,6 +95,7 @@ export function ProfilePage() {
         predicted_corners: data.predicted_corners,
         predicted_btts: data.predicted_btts,
         predicted_over_under: data.predicted_over_under,
+        coins_bet: newCost,
       }, { onConflict: 'user_id,match_id,group_id' });
       fetchHistory();
     } finally {
@@ -87,6 +106,19 @@ export function ProfilePage() {
   const handleDeletePrediction = async (predictionId: string) => {
     setDeleting(predictionId);
     try {
+      // Refund the staked coins before deleting
+      const pred = history.find(p => p.id === predictionId);
+      if (pred && user && activeGroupId && (pred.coins_bet ?? 0) > 0) {
+        const coinsStore = useCoinsStore.getState();
+        coinsStore.adjustCoins(pred.coins_bet);
+        await supabase.rpc('adjust_prediction_bet', {
+          p_user_id: user.id,
+          p_group_id: activeGroupId,
+          p_match_id: pred.match_id,
+          p_old_cost: pred.coins_bet,
+          p_new_cost: 0,
+        });
+      }
       await supabase.from('predictions').delete().eq('id', predictionId);
       setConfirmDeleteId(null);
       fetchHistory();
