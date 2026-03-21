@@ -11,6 +11,7 @@ import { CoinIcon } from '../ui/CoinIcon';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import type { TranslationKey } from '../../lib/i18n';
+import { getTeamColor } from '../../lib/teamColors';
 import { useLiveClock } from '../../hooks/useLiveClock';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -53,6 +54,16 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const leagueBadge = leagueInfo?.badge;
   const leagueEspnId = leagueInfo?.espnLogoId ?? null;
 
+  // Subtle ambient team color gradient for the card background
+  const homeColor = getTeamColor(match.home_team);
+  const awayColor = getTeamColor(match.away_team);
+  const teamGradientStyle = (homeColor || awayColor) ? {
+    background: [
+      homeColor ? `radial-gradient(ellipse at 12% 50%, ${homeColor}0d 0%, transparent 48%)` : '',
+      awayColor ? `radial-gradient(ellipse at 88% 50%, ${awayColor}0d 0%, transparent 48%)` : '',
+    ].filter(Boolean).join(', '),
+  } : {};
+
   // ET/PEN detection for finished matches
   const wentToET = isFinished && (match.regulation_home != null || match.went_to_penalties);
   const wentToPens = isFinished && match.went_to_penalties;
@@ -80,6 +91,45 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
     : 'default';
 
   return (
+    <div className="relative overflow-hidden rounded-2xl" style={teamGradientStyle}>
+      {/* Who Predicted peek — slides in from right when card is dragged left */}
+      {!isFinished && (
+        <div className="absolute inset-y-0 right-0 w-20 flex flex-col items-center justify-center gap-1.5 px-2 pointer-events-none select-none bg-gradient-to-l from-blue-500/10 to-transparent">
+          <span className="text-[8px] text-blue-300/60 uppercase tracking-widest mb-0.5">{t('predicted')}</span>
+          {predictors.length > 0 ? (
+            <div className="flex flex-col gap-1">
+              {predictors.slice(0, 4).map(p => (
+                <div key={p.user_id} className="w-6 h-6 rounded-full border border-white/20 overflow-hidden mx-auto">
+                  <Avatar
+                    src={p.user_id === user?.id ? (profile?.avatar_url ?? p.avatar_url) : p.avatar_url}
+                    name={p.username}
+                    size="sm"
+                  />
+                </div>
+              ))}
+              {predictors.length > 4 && (
+                <span className="text-[9px] text-white/30 text-center">+{predictors.length - 4}</span>
+              )}
+            </div>
+          ) : (
+            <span className="text-[10px] text-white/20">—</span>
+          )}
+        </div>
+      )}
+
+      {/* H2H peek — slides in from left when card is dragged right */}
+      <div className="absolute inset-y-0 left-0 w-20 flex flex-col items-center justify-center gap-1 pointer-events-none select-none bg-gradient-to-r from-orange-500/10 to-transparent">
+        <span className="text-xl">⚔️</span>
+        <span className="text-[8px] text-orange-300/60 uppercase tracking-widest text-center leading-tight">H2H</span>
+      </div>
+
+      {/* Draggable card — drag disabled while expanded to avoid conflicts */}
+      <motion.div
+        drag={expanded ? false : 'x'}
+        dragConstraints={{ left: -72, right: 72 }}
+        dragElastic={0.1}
+        dragMomentum={false}
+      >
     <GlassCard
       as="article"
       variant={cardVariant}
@@ -207,6 +257,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 </motion.span>
                 {isInProgress && liveClock && (
                   <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.9)] animate-pulse shrink-0" />
                     <motion.span
                       animate={{ opacity: [1, 0.5, 1] }}
                       transition={{ duration: 1.6, repeat: Infinity }}
@@ -420,6 +471,8 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
         )}
       </AnimatePresence>
     </GlassCard>
+      </motion.div>
+    </div>
   );
 }
 
