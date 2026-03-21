@@ -205,6 +205,18 @@ export const translations = {
     // Guide buttons
     scoringBtn: 'Scoring',
     coinsBtn: 'Coins',
+
+    // Match breakdown labels (used in resolved tier rows)
+    overUnder: 'Over/Under',
+    matchStats: 'Match stats',
+    matchTimeline: 'Match Timeline',
+    lockedAt90: 'Locked at 90′',
+
+    // Coin summary labels
+    coinsLabel: 'Coins',
+    stakedLabel: 'Staked',
+    backLabel: 'Back',
+    profitLabel: 'Profit',
   },
 
   he: {
@@ -218,7 +230,7 @@ export const translations = {
     signingIn: 'מתחבר...',
     multiTierPredictions: 'ניבויים\nמרובי שלבים',
     liveLeaderboard: 'טבלה\nבזמן אמת',
-    cornersFeature: 'ניבוי\nקורנרים',
+    cornersFeature: 'ניבוי\nקרנות',
 
     // Setup modal
     setupRequired: 'נדרשת הגדרה',
@@ -263,7 +275,7 @@ export const translations = {
     // Prediction form
     fullTimeResult: 'תוצאה סופית',
     exactScore: 'תוצאה מדויקת',
-    totalCorners: 'סה"כ קורנרים',
+    totalCorners: 'סה"כ קרנות',
     cornersUnder9: '≤ 9',
     cornersTen: '10',
     cornersOver11: '≥ 11',
@@ -273,8 +285,8 @@ export const translations = {
     predictionSaved: '✓ ניבוי נשמר — עדכן',
     predictionLocked: 'לא בוצע ניבוי למשחק זה',
     result: 'תוצאה',
-    score: 'ניקוד',
-    corners: 'קורנרים',
+    score: 'סקור',
+    corners: 'קרנות',
     btts: 'שתיים מבקיעות',
     goals: 'שערים',
     home: 'בית',
@@ -315,9 +327,9 @@ export const translations = {
 
     // Info tips
     infoRank: 'המיקום שלך בטבלת הדירוג לתקופה הנבחרת. הדירוג ממויין לפי נקודות.',
-    infoPoints: 'נקודות שנצברו בתקופה זו. כל משחק: תוצאה סופית (3), ניקוד מדויק (+7), קורנרים (4), שתיים מבקיעות (2), מעל/מתחת 2.5 (3). מקסימום 19 נק׳.',
+    infoPoints: 'נקודות שנצברו בתקופה זו. כל משחק: תוצאה סופית (3), תוצאה מדויקת (+7), קרנות (4), שתיים מבקיעות (2), מעל/מתחת 2.5 (3). מקסימום 19 נק׳.',
     infoHitRate: 'ניבויי תוצאה סופית נכונים ÷ סך ניבויי תוצאה. נספרים רק משחקים שניבאת עבורם תוצאה (ניצחון בית / תיקו / ניצחון חוץ).',
-    infoTotalPoints: 'סכום כל הנקודות שנצברו ממשחקים שנפתרו. מקורות: תוצאה סופית (3), ניקוד מדויק (+7), קורנרים (4), שתיים מבקיעות (2), מעל/מתחת 2.5 (3).',
+    infoTotalPoints: 'סכום כל הנקודות שנצברו ממשחקים שנפתרו. מקורות: תוצאה סופית (3), תוצאה מדויקת (+7), קרנות (4), שתיים מבקיעות (2), מעל/מתחת 2.5 (3).',
     infoPredictions: 'סך הניבויים שביצעת בקבוצה זו. "נפתר" משמעותו שהמשחק הסתיים והנקודות חושבו.',
 
     // Settings — admin controls
@@ -408,6 +420,18 @@ export const translations = {
     // Guide buttons
     scoringBtn: 'ניקוד',
     coinsBtn: 'מטבעות',
+
+    // Match breakdown labels (used in resolved tier rows)
+    overUnder: 'מעל/מתחת',
+    matchStats: 'נתוני משחק',
+    matchTimeline: 'ציר זמן',
+    lockedAt90: 'נעול ב-90′',
+
+    // Coin summary labels
+    coinsLabel: 'מטבעות',
+    stakedLabel: 'הימור',
+    backLabel: 'החזר',
+    profitLabel: 'רווח',
   },
 } as const;
 

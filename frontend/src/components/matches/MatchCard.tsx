@@ -319,7 +319,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             {/* Corners — show count when available (live or finished, any card) */}
             {match.corners_total != null && (isInProgress || isFinished) && (
               <span className="text-blue-400/70 text-[10px] mt-0.5">
-                🚩 {match.corners_total} corners
+                🚩 {match.corners_total} {t('corners')}
               </span>
             )}
             {/* Lock countdown — shown only for upcoming matches not yet locked */}
@@ -422,6 +422,18 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   );
 }
 
+function tierLabel(key: string, t: (k: string) => string): string {
+  switch (key) {
+    case 'result': return t('result');
+    case 'score': return t('exactScore');
+    case 'ht': return t('halfTime');
+    case 'corners': return t('corners');
+    case 'btts': return t('btts');
+    case 'ou': return t('overUnder');
+    default: return key;
+  }
+}
+
 // Shown when prediction was resolved at 90' but match is still in ET/PEN
 function ResolvedETPanel({ prediction, match }: { prediction: Prediction; match: Match }) {
   const { t } = useLangStore();
@@ -444,7 +456,7 @@ function ResolvedETPanel({ prediction, match }: { prediction: Prediction; match:
         }`}
       >
         <div className="flex flex-col">
-          <span className="text-[10px] text-amber-400/70 font-semibold uppercase tracking-widest">Locked at 90′</span>
+          <span className="text-[10px] text-amber-400/70 font-semibold uppercase tracking-widest">{t('lockedAt90')}</span>
           <span className="text-xs text-white/50 mt-0.5 tabular-nums">{regHome} — {regAway}</span>
         </div>
         <span className={`text-xl font-bebas tracking-wide ${prediction.points_earned > 0 ? 'text-accent-green' : 'text-white/25'}`}>
@@ -466,7 +478,7 @@ function ResolvedETPanel({ prediction, match }: { prediction: Prediction; match:
             >
               <span className={`flex items-center gap-1.5 ${tier.earned ? 'text-accent-green' : 'text-text-muted opacity-60'}`}>
                 <span>{tier.earned ? '✓' : '✗'}</span>
-                <span>{tier.label}</span>
+                <span>{tierLabel(tier.key, t)}</span>
               </span>
               <span className={`font-bold tabular-nums ${tier.earned ? 'text-accent-green' : 'text-white/25'}`}>
                 {tier.earned ? `+${tier.pts}` : '0'}
@@ -544,7 +556,7 @@ function MatchActualStats({ match }: { match: Match }) {
       {/* ET / Penalty summary — reuses shared block */}
       <ETSummaryBlock match={match} />
 
-      <p className="text-white/30 text-[10px] uppercase tracking-wider mb-1">Match stats</p>
+      <p className="text-white/30 text-[10px] uppercase tracking-wider mb-1">{t('matchStats')}</p>
       {[
         { label: t('btts'), value: btts ? t('yes') : t('no'), positive: btts },
         { label: t('goals'), value: `${totalGoals} (${isOver ? t('over25') : t('under25')})`, positive: isOver },
@@ -580,6 +592,7 @@ function MatchCoinBadge({ coinsBet, pointsEarned }: { coinsBet: number; pointsEa
 
 /** Expanded coin economy row — staked / back / net */
 function MatchCoinSummary({ coinsBet, pointsEarned }: { coinsBet: number; pointsEarned: number }) {
+  const { t } = useLangStore();
   const coinsBack = pointsEarned * 2;
   const net = coinsBack - coinsBet;
   return (
@@ -591,23 +604,23 @@ function MatchCoinSummary({ coinsBet, pointsEarned }: { coinsBet: number; points
     >
       <div className="flex items-center gap-1.5">
         <CoinIcon size={13} />
-        <span className="text-[10px] uppercase tracking-widest font-semibold text-amber-400/45">Coins</span>
+        <span className="text-[10px] uppercase tracking-widest font-semibold text-amber-400/45">{t('coinsLabel')}</span>
       </div>
       <div className="flex items-center gap-2.5 text-xs">
         <div className="flex items-center gap-1 text-white/35">
-          <span>Staked</span>
+          <span>{t('stakedLabel')}</span>
           <span className="font-bold tabular-nums">−{coinsBet}</span>
         </div>
         <div className="w-px h-3 bg-white/10 shrink-0" />
         <div className="flex items-center gap-1 text-white/35">
-          <span>Back</span>
+          <span>{t('backLabel')}</span>
           <span className={`font-bold tabular-nums ${coinsBack > 0 ? 'text-amber-400/70' : ''}`}>+{coinsBack}</span>
         </div>
         {net > 0 && (
           <>
             <div className="w-px h-3 bg-white/10 shrink-0" />
             <div className="flex items-center gap-0.5 font-bold tabular-nums text-emerald-400">
-              <span className="text-[10px] font-normal opacity-60">profit</span>
+              <span className="text-[10px] font-normal opacity-60">{t('profitLabel')}</span>
               <span>+{net}</span>
             </div>
           </>

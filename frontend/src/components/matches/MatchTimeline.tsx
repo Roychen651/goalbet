@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
 import { LEAGUE_ESPN_SLUG } from '../../lib/constants';
+import { useLangStore } from '../../stores/langStore';
 import type { Match } from '../../lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -298,6 +299,7 @@ function Skeleton() {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function MatchTimeline({ match }: { match: Match }) {
+  const { t } = useLangStore();
   const [open, setOpen] = useState(false);
   const [events, setEvents] = useState<MatchEvent[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -351,7 +353,7 @@ export function MatchTimeline({ match }: { match: Match }) {
         className="w-full flex items-center justify-between px-2 py-1 rounded-xl hover:bg-white/3 transition-colors group"
       >
         <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30 group-hover:text-white/50 transition-colors">
-          Match Timeline
+          {t('matchTimeline')}
           {hasEvents && (
             <span className="ml-1.5 text-white/18 normal-case tracking-normal">
               · {events.filter(e => ['goal','own_goal','penalty_goal'].includes(e.type)).length} goals

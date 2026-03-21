@@ -487,6 +487,7 @@ function CoinStakedPill({ coins }: { coins: number }) {
 
 /** Full coin economy row shown inside the expanded breakdown */
 function CoinSummaryBar({ coinsBet, pointsEarned }: { coinsBet: number; pointsEarned: number }) {
+  const { t } = useLangStore();
   const coinsBack = pointsEarned * 2;
   const net = coinsBack - coinsBet;
   return (
@@ -498,23 +499,23 @@ function CoinSummaryBar({ coinsBet, pointsEarned }: { coinsBet: number; pointsEa
     >
       <div className="flex items-center gap-1.5">
         <CoinIcon size={13} />
-        <span className="text-[10px] uppercase tracking-widest font-semibold text-amber-400/45">Coins</span>
+        <span className="text-[10px] uppercase tracking-widest font-semibold text-amber-400/45">{t('coinsLabel')}</span>
       </div>
       <div className="flex items-center gap-2.5 text-xs">
         <div className="flex items-center gap-1 text-white/35">
-          <span>Staked</span>
+          <span>{t('stakedLabel')}</span>
           <span className="font-bold tabular-nums">−{coinsBet}</span>
         </div>
         <div className="w-px h-3 bg-white/10 shrink-0" />
         <div className="flex items-center gap-1 text-white/35">
-          <span>Back</span>
+          <span>{t('backLabel')}</span>
           <span className={`font-bold tabular-nums ${coinsBack > 0 ? 'text-amber-400/70' : ''}`}>+{coinsBack}</span>
         </div>
         {net > 0 && (
           <>
             <div className="w-px h-3 bg-white/10 shrink-0" />
             <div className="flex items-center gap-0.5 font-bold tabular-nums text-emerald-400">
-              <span className="text-[11px] font-normal opacity-60">profit</span>
+              <span className="text-[11px] font-normal opacity-60">{t('profitLabel')}</span>
               <span>+{net}</span>
             </div>
           </>
@@ -612,6 +613,18 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
     }
   };
 
+  const tierName = (key: string): string => {
+    switch (key) {
+      case 'result': return t('result');
+      case 'score': return t('exactScore');
+      case 'ht': return t('halfTime');
+      case 'corners': return t('corners');
+      case 'btts': return t('btts');
+      case 'ou': return t('overUnder');
+      default: return key;
+    }
+  };
+
   // Compute actual values to show alongside wrong predictions
   const scoringHome = match.regulation_home ?? match.home_score;
   const scoringAway = match.regulation_away ?? match.away_score;
@@ -655,7 +668,7 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
         )}
         {prediction.predicted_halftime_outcome && (
           <div className="flex flex-col items-center py-2 rounded-xl bg-white/4 border border-white/8">
-            <span className="text-white/40 text-xs">Half Time</span>
+            <span className="text-white/40 text-xs">{t('halfTime')}</span>
             <span className="text-white text-sm font-semibold mt-0.5">{teamLabel(prediction.predicted_halftime_outcome)}</span>
           </div>
         )}
@@ -692,7 +705,7 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
           <div key={tier.key} className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs ${tier.earned ? 'bg-accent-green/8 border border-accent-green/15' : isPending ? 'bg-blue-500/6 border border-blue-500/15' : 'bg-white/3 border border-white/5'}`}>
             <span className={`flex items-center gap-1 min-w-0 flex-wrap ${tier.earned ? 'text-accent-green' : isPending ? 'text-blue-400 opacity-70' : 'text-white/35'}`}>
               <span className="shrink-0">{tier.earned ? '✓' : isPending ? '…' : '✗'}</span>
-              <span className="shrink-0">{tier.label}</span>
+              <span className="shrink-0">{tierName(tier.key)}</span>
               {detail && (
                 <span className={`shrink-0 font-semibold ${tier.earned ? 'text-accent-green' : 'text-white/40'}`}>· {detail}</span>
               )}
