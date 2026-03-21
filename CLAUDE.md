@@ -123,6 +123,7 @@ CI repairs migration history for 001–014 automatically.
 | `frontend/src/lib/constants.ts` | Points values, coin costs, league list, status lists |
 | `frontend/src/stores/coinsStore.ts` | Coin balance, daily bonus state |
 | `frontend/src/stores/themeStore.ts` | Dark/light mode toggle |
+| `frontend/src/components/leaderboard/H2HModal.tsx` | Head-to-Head comparison modal — opens when clicking another user's row |
 | `frontend/src/components/ui/InfoTip.tsx` | Tooltip — uses CSS vars for theme support |
 | `frontend/src/components/ui/ScoringGuide.tsx` | Per-tier scoring explainer modal |
 | `frontend/src/components/ui/CoinGuide.tsx` | Coin economy explainer modal |
@@ -148,5 +149,6 @@ CI repairs migration history for 001–014 automatically.
 - **Old predictions** have `predicted_halftime_outcome` set; new predictions have `predicted_corners`. Both are handled in `_computeBreakdown` in `utils.ts`.
 - **`Avatar` component** expects emoji avatars as `emoji:🏆` (with prefix). Raw emoji strings fail as image URLs.
 - **Hardcoded dark backgrounds in modals** cause light-mode breakage — use `card-elevated` CSS class instead of hex colors like `#0c1610`.
+- **H2H modal** opens when clicking ANOTHER user's leaderboard row. Clicking your OWN row still opens `UserMatchHistoryModal`. Privacy rule: friend's prediction is hidden (`🔒`) until the match kicks off (`status !== 'NS' || kickoff <= now`).
 - **Coin display** — never show negative amounts. Use `coinsBack = pointsEarned * 2` and show `+coinsBack`. Only show profit line when `coinsBack > coinsBet`.
 - **Daily bonus timezone** — `claim_daily_bonus` uses `(NOW() AT TIME ZONE 'Asia/Jerusalem')::DATE`, not `CURRENT_DATE`.

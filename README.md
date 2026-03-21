@@ -17,6 +17,7 @@
 | 🏆 **Group leaderboards** | Compete in private groups, weekly & all-time standings |
 | 🚩 **Corners prediction** | Predict ≤9 / exactly 10 / ≥11 corners |
 | 📊 **Points breakdown** | After each match, see exactly which of your tiers scored |
+| ⚔️ **Head-to-Head** | Tap any player's leaderboard row to open a side-by-side H2H comparison — match wins tally, per-match outcomes, green winner highlight |
 | 👥 **Friend presence** | See who in your group has already predicted (without revealing their picks) |
 | ✏️ **Edit predictions** | Update any prediction up to 15 minutes before kickoff |
 | 🔒 **Auto-lock** | Predictions lock automatically 15 min before kickoff |
@@ -250,6 +251,8 @@ coin_transactions user_id, amount, type, created_at
 **Corners over Half-time** — Tier 3 was changed from half-time result (H/D/A) to total corners (≤9/10/≥11). Old predictions retain their half-time data for display; new predictions use corners.
 
 **Positive coin UX** — We never show negative coin numbers. When a user spends 16 coins and earns 10 back, we show `+10` (what they earned), not `-6` (the net loss). The brain processes earnings as joy; losses as pain — we lean into joy.
+
+**Head-to-Head privacy rule** — Friend's prediction is hidden (🔒) for any match that hasn't kicked off yet (`status === 'NS' && kickoff > now`). Once a match starts or finishes, both picks are revealed for comparison. This prevents tactical copying while keeping the rivalry alive post-match.
 
 ---
 
