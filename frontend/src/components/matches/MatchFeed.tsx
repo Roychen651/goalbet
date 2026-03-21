@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { MatchCard } from './MatchCard';
 import { EmptyState } from '../ui/EmptyState';
-import { MatchCardSkeleton } from './MatchCardSkeleton';
+import { PageLoader } from '../ui/LoadingSpinner';
 import { PredictionData } from './PredictionForm';
 import { LIVE_STATUSES, FINISHED_STATUSES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
@@ -96,11 +96,7 @@ export function MatchFeed({
     }));
   }, [matches, activeTab, predictions]);
 
-  if (loading) return (
-    <div className="space-y-3">
-      {[1, 2, 3].map(i => <MatchCardSkeleton key={i} />)}
-    </div>
-  );
+  if (loading) return <PageLoader />;
 
   if (groupedByDate.length === 0) {
     if (activeTab === 'live') return <EmptyState icon="📡" title={t('noLiveMatches')} description={t('noLiveDesc')} />;
