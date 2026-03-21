@@ -32,10 +32,10 @@ export function TopBar() {
         <div className="relative flex-1 min-w-0">
           <button
             onClick={() => setShowGroupMenu(prev => !prev)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white w-full max-w-[160px] mx-auto"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/12 border border-white/20 text-sm font-medium text-white w-full"
           >
-            <span className="flex-1 truncate text-start">{activeGroup?.name ?? t('noGroupYet').slice(0, 10)}</span>
-            <span className="text-text-muted shrink-0">▾</span>
+            <span className="flex-1 truncate text-start min-w-0">{activeGroup?.name ?? '—'}</span>
+            <span className="text-text-muted shrink-0 text-xs">▾</span>
           </button>
 
           {showGroupMenu && (
@@ -78,7 +78,7 @@ export function TopBar() {
             <CoinIcon size={16} />
             <span className="text-amber-400 text-xs font-bold tabular-nums">{coins}</span>
           </div>
-          <LangToggle />
+          <LangToggle compact />
           <ThemeToggle inline />
           {profile && <Avatar src={profile.avatar_url} name={profile.username} size="sm" />}
         </div>

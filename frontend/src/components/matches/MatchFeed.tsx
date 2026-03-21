@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { MatchCard } from './MatchCard';
 import { EmptyState } from '../ui/EmptyState';
-import { PageLoader } from '../ui/LoadingSpinner';
+import { PageLoader, MatchCardSkeleton } from '../ui/LoadingSpinner';
 import { PredictionData } from './PredictionForm';
 import { LIVE_STATUSES, FINISHED_STATUSES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
@@ -96,7 +96,17 @@ export function MatchFeed({
     }));
   }, [matches, activeTab, predictions]);
 
-  if (loading) return <PageLoader />;
+  if (loading) {
+    // Show skeleton cards for live/all tabs; full page loader elsewhere
+    if (activeTab === 'live' || activeTab === 'all') {
+      return (
+        <div className="space-y-3 px-0 py-2">
+          {[1, 2, 3].map(i => <MatchCardSkeleton key={i} />)}
+        </div>
+      );
+    }
+    return <PageLoader />;
+  }
 
   if (groupedByDate.length === 0) {
     if (activeTab === 'live') return <EmptyState icon="📡" title={t('noLiveMatches')} description={t('noLiveDesc')} />;

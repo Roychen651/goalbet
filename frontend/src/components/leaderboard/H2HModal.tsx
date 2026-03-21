@@ -241,13 +241,14 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
 
       <motion.div
         className="relative w-full max-w-sm"
+        style={{ maxHeight: 'min(88vh, calc(100svh - 2rem))' }}
         initial={{ opacity: 0, y: 48, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 24, scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 320, damping: 30 }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="rounded-2xl card-elevated border border-white/10 overflow-hidden max-h-[88vh] flex flex-col">
+        <div className="rounded-2xl card-elevated border border-white/10 overflow-hidden flex flex-col h-full">
 
           {/* ── Header ─────────────────────────────────────────────────────── */}
           <div className="px-5 pt-5 pb-4 border-b border-white/8 shrink-0 bg-white/2">

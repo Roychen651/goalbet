@@ -355,10 +355,12 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
             // If ESPN linescores are still null at FT (very rare), fall back to whatever
             // halftime value is already stored in DB (captured earlier during 1H/HT/2H).
             // For ET/penalty matches, effectiveData.regulation_home holds the 90-min score.
+            // Use fresh ESPN corners if available, fall back to DB value.
+            // (Corners are typically set manually after the match so both may be null at FT.)
             const count = await resolveMatchPredictions(match.id, {
               home_score: effectiveData.home_score,
               away_score: effectiveData.away_score,
-              corners_total: match.corners_total,
+              corners_total: effectiveData.corners_total ?? match.corners_total,
               regulation_home: effectiveData.regulation_home,
               regulation_away: effectiveData.regulation_away,
             });
@@ -422,6 +424,84 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
     } catch (err) {
       logger.error(`[scoreUpdater] Error checking league ${leagueId}:`, err);
     }
+  }
+
+  // ── Corners re-score: fix predictions scored before corners_total was set ──
+  // corners_total is entered manually after the match. If predictions were already
+  // resolved with corners_total = null, they got 0 corners pts. This pass finds
+  // those and applies the correct delta (positive only — never subtracts points).
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: cornersMatches } = await supabaseAdmin
+      .from('matches')
+      .select('id, home_score, away_score, corners_total, regulation_home, regulation_away')
+      .eq('status', 'FT')
+      .not('corners_total', 'is', null)
+      .not('home_score', 'is', null)
+      .gte('kickoff_time', sevenDaysAgo);
+
+    for (const m of (cornersMatches ?? []) as { id: string; home_score: number; away_score: number; corners_total: number; regulation_home: number | null; regulation_away: number | null }[]) {
+      const { data: cornersPreds } = await supabaseAdmin
+        .from('predictions')
+        .select('*')
+        .eq('match_id', m.id)
+        .not('predicted_corners', 'is', null)
+        .eq('is_resolved', true);
+
+      for (const pred of (cornersPreds ?? []) as Prediction[]) {
+        const scoringResult = {
+          home_score: m.regulation_home ?? m.home_score,
+          away_score: m.regulation_away ?? m.away_score,
+          corners_total: m.corners_total,
+        };
+        const correctBreakdown = calculatePoints(pred, scoringResult);
+        const delta = correctBreakdown.total - (pred as unknown as { points_earned: number }).points_earned;
+
+        if (delta <= 0) continue; // already correct or an edge case — never subtract
+
+        logger.info(`[scoreUpdater] Corners re-score: prediction ${pred.id} +${delta} pts (corners_total=${m.corners_total})`);
+
+        await supabaseAdmin
+          .from('predictions')
+          .update({ points_earned: correctBreakdown.total })
+          .eq('id', pred.id);
+
+        const { data: lbData } = await supabaseAdmin
+          .from('leaderboard')
+          .select('total_points, weekly_points')
+          .eq('user_id', pred.user_id)
+          .eq('group_id', pred.group_id)
+          .single();
+
+        if (lbData) {
+          await supabaseAdmin
+            .from('leaderboard')
+            .update({
+              total_points: (lbData as { total_points: number }).total_points + delta,
+              weekly_points: (lbData as { weekly_points: number }).weekly_points + delta,
+            })
+            .eq('user_id', pred.user_id)
+            .eq('group_id', pred.group_id);
+        }
+
+        const coinsToAward = delta * 2;
+        const { error: coinError } = await supabaseAdmin.rpc('increment_coins', {
+          p_user_id: pred.user_id,
+          p_group_id: pred.group_id,
+          p_match_id: m.id,
+          p_amount: coinsToAward,
+          p_description: `Corners re-score: +${delta} pts → +${coinsToAward} coins`,
+        });
+        if (coinError) {
+          logger.error(`[scoreUpdater] Corners re-score coin award failed for ${pred.id}: ${coinError.message ?? JSON.stringify(coinError)}`);
+        } else {
+          logger.info(`[scoreUpdater] Corners re-score awarded ${coinsToAward} coins to user ${pred.user_id}`);
+        }
+        totalResolved++;
+      }
+    }
+  } catch (err) {
+    logger.error('[scoreUpdater] Corners re-score error:', err);
   }
 
   // ── Catch-up: resolve FT matches that still have unresolved predictions ──
