@@ -41,7 +41,7 @@ export function TopBar() {
           {showGroupMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowGroupMenu(false)} />
-              <div className="absolute top-full mt-2 start-0 w-52 glass rounded-xl border border-white/10 shadow-card overflow-hidden z-50">
+              <div className="absolute top-full mt-2 start-0 w-52 rounded-xl border border-white/15 overflow-hidden z-50 shadow-[0_8px_32px_rgba(0,0,0,0.6)]" style={{ background: 'var(--color-tooltip-bg)' }}>
                 {groups.map(group => (
                   <button
                     key={group.id}
@@ -54,9 +54,9 @@ export function TopBar() {
                     {group.name}
                   </button>
                 ))}
-                <div className="border-t border-white/8">
-                  <button onClick={() => { openModal('createGroup'); setShowGroupMenu(false); }} className="w-full text-start px-4 py-3 text-sm text-text-muted hover:text-white hover:bg-white/5 transition-colors">{t('newGroup')}</button>
-                  <button onClick={() => { openModal('joinGroup'); setShowGroupMenu(false); }} className="w-full text-start px-4 py-3 text-sm text-text-muted hover:text-white hover:bg-white/5 transition-colors">{t('joinGroupShort')}</button>
+                <div className="border-t border-white/10">
+                  <button onClick={() => { openModal('createGroup'); setShowGroupMenu(false); }} className="w-full text-start px-4 py-3 text-sm text-text-muted hover:text-white hover:bg-white/8 transition-colors">{t('newGroup')}</button>
+                  <button onClick={() => { openModal('joinGroup'); setShowGroupMenu(false); }} className="w-full text-start px-4 py-3 text-sm text-text-muted hover:text-white hover:bg-white/8 transition-colors">{t('joinGroupShort')}</button>
                 </div>
               </div>
             </>

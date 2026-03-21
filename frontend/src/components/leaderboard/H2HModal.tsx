@@ -185,6 +185,13 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
   const [friendPreds, setFriendPreds] = useState<SimplePred[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Lock body scroll while modal is open (prevents background scroll-through on iOS)
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -326,7 +333,7 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
           </div>
 
           {/* ── Match list ───────────────────────────────────────────────────── */}
-          <div className="overflow-y-auto px-3 py-3 space-y-2 flex-1">
+          <div className="overflow-y-auto overscroll-contain px-3 py-3 space-y-2 flex-1">
             {loading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map(i => (
