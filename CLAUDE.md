@@ -1,7 +1,7 @@
 # GoalBet — Claude Code Guide
 
 ## Project Overview
-Full-stack football prediction game. Users predict match outcomes across 5 tiers, compete on group leaderboards.
+Full-stack football prediction game for friend groups. Users predict match outcomes across 5 tiers, stake coins on predictions, and compete on group leaderboards.
 
 - **Frontend**: React 18 + Vite + TypeScript + TailwindCSS + Framer Motion → deployed on Vercel
 - **Backend**: Node.js + Express + TypeScript → deployed on Render (free tier, sleeps when inactive)
@@ -26,6 +26,25 @@ Max: 19 pts per match. No streak bonus (removed). Tier 3 used to be half-time re
 
 ---
 
+## Coin Economy
+
+Users stake coins on predictions and earn back `points_earned × 2` coins when resolved.
+
+| Event | Coins |
+|-------|-------|
+| Join bonus (one-time) | +120 |
+| Daily bonus | +30 |
+| Coins staked per prediction | = sum of tiers bet on |
+| Coins earned back | points_earned × 2 |
+
+**UX philosophy**: Never show negative coin numbers to users. Always show `+coinsBack` (always ≥ 0). Only show a "profit" line when `coinsBack > coinsBet`.
+
+**Coin costs per tier** (in `constants.ts → COIN_COSTS`): Result=3, Score=10 (result+exact), Corners=4, BTTS=2, O/U=3. Max staked per match = 19 (mirrors max pts).
+
+Key DB functions: `increment_coins(user_id, amount)`, `claim_daily_bonus(user_id)` (uses `Asia/Jerusalem` timezone for daily reset).
+
+---
+
 ## Key Architecture Notes
 
 ### Why the backend sleeps
@@ -37,19 +56,42 @@ Two mechanisms:
 2. **GitHub Actions cron** (`sync-cron.yml`): runs every 30 min, calls `POST /api/sync/matches` and `POST /api/sync/scores`. This wakes the backend AND syncs data. **No auth required** on these endpoints.
 
 ### Fixture window
-`matchSync.ts` calls `fetchLeagueMatches(leagueId, 7, 21)` — 7 days back, 21 days ahead. During international breaks, club matches genuinely don't exist beyond the next round, so the fixture list may not extend far.
+`matchSync.ts` calls `fetchLeagueMatches(leagueId, 7, 21)` — 7 days back, 21 days ahead.
 
 ### Corners data
 `corners_total` on the `matches` table must be set manually in Supabase dashboard after each match. Once set, the backend resolves corners predictions on the next 30s poll cycle.
 
 ### Extra time / penalties
-Knockout matches can go to ET (`ET1`, `ET2`, `AET`) and then penalties (`PEN`). These are valid status codes stored in the DB. `STATUS_FINAL_AET` and `STATUS_FINAL_PK` from ESPN both map to `'FT'` in our system.
+Knockout matches can go to ET (`ET1`, `ET2`, `AET`) then penalties (`PEN`). `STATUS_FINAL_AET` and `STATUS_FINAL_PK` from ESPN both map to `'FT'` in our system.
 
-`regulation_home` / `regulation_away` columns store the 90-minute score for ET/penalty matches. Prediction scoring always uses these (not the final ET/penalty score). If `regulation_home` is null (normal FT), `home_score`/`away_score` are used directly.
+`regulation_home` / `regulation_away` store the 90-minute score. Prediction scoring always uses these. `went_to_penalties` (boolean) and `penalty_home`/`penalty_away` store shootout result.
 
-The frontend shows:
-- Amber ET/AET/PENS badge for in-progress ET
-- "90': X–Y" sub-text under the score for FT matches that went to ET
+---
+
+## Theme System
+
+The app supports **dark mode** (default) and **light mode** toggled via `ThemeToggle`.
+
+- `html.light` class is applied to `<html>` element when light mode is active (`themeStore.ts`)
+- CSS design tokens defined in `index.css` under `:root` (dark) and `html.light` (light)
+- Key tokens: `--color-tooltip-bg`, `--color-tooltip-text`, `--color-tooltip-border` (used by `InfoTip`)
+- Light mode overrides for Tailwind opacity utilities (e.g. `text-white/18`, `bg-white/25`) are in `index.css`
+- **Never use hardcoded dark hex colors** in modals/tooltips — use `card-elevated` class or CSS vars instead
+
+---
+
+## Internationalisation (i18n)
+
+All UI strings live in `frontend/src/lib/i18n.ts` as `en` and `he` objects. The `TranslationKey` type is auto-derived from the `en` object.
+
+- Language toggle in Settings — stored in `langStore.ts`
+- RTL layout applied automatically via `useRTLDirection` hook when language is Hebrew
+- Use `ms-`/`me-` instead of `ml-`/`mr-` in Tailwind for RTL compatibility
+
+**Hebrew football terminology** (important for translations):
+- Corners → **קרנות** (not קורנרים)
+- Score → **סקור** (not ניקוד)
+- FT Result hit rate → **ניחוש תוצאה**
 
 ---
 
@@ -61,8 +103,8 @@ The frontend shows:
 ---
 
 ## Database Migrations
-Migrations are in `supabase/migrations/`. Current sequence: 001 → 014.
-After adding a migration: run `supabase db push --linked` OR apply via Supabase dashboard SQL editor.
+Migrations are in `supabase/migrations/`. Current sequence: **001 → 021**.
+After adding a migration: apply via Supabase dashboard SQL editor or `supabase db push --linked`.
 CI repairs migration history for 001–014 automatically.
 
 ---
@@ -72,13 +114,18 @@ CI repairs migration history for 001–014 automatically.
 | File | Purpose |
 |------|---------|
 | `backend/src/services/pointsEngine.ts` | Pure scoring function — source of truth |
-| `backend/src/services/scoreUpdater.ts` | Resolves predictions, updates leaderboard |
+| `backend/src/services/scoreUpdater.ts` | Resolves predictions, updates leaderboard + coins |
 | `backend/src/services/matchSync.ts` | Syncs ESPN fixtures into Supabase |
 | `backend/src/services/espn.ts` | ESPN API client |
 | `backend/src/cron/scheduler.ts` | Cron jobs + startup catch-up |
 | `frontend/src/lib/utils.ts` | `calcBreakdown()` — mirrors pointsEngine client-side |
-| `frontend/src/lib/i18n.ts` | All UI strings in EN + HE |
-| `frontend/src/lib/constants.ts` | Points values, league list, status lists |
+| `frontend/src/lib/i18n.ts` | All UI strings in EN + HE; `TranslationKey` type |
+| `frontend/src/lib/constants.ts` | Points values, coin costs, league list, status lists |
+| `frontend/src/stores/coinsStore.ts` | Coin balance, daily bonus state |
+| `frontend/src/stores/themeStore.ts` | Dark/light mode toggle |
+| `frontend/src/components/ui/InfoTip.tsx` | Tooltip — uses CSS vars for theme support |
+| `frontend/src/components/ui/ScoringGuide.tsx` | Per-tier scoring explainer modal |
+| `frontend/src/components/ui/CoinGuide.tsx` | Coin economy explainer modal |
 | `.github/workflows/sync-cron.yml` | 30-min GitHub Actions sync cron |
 | `.github/workflows/ci.yml` | TypeScript + build CI |
 
@@ -94,7 +141,12 @@ CI repairs migration history for 001–014 automatically.
 ---
 
 ## Common Pitfalls
-- Don't add `SYNC_SECRET` auth back to sync routes — it caused GitHub Actions to fail with 401.
-- Don't use `t('halfTimeResult')` — that i18n key was removed. Use the string `"Half Time"` for backward-compat display.
-- Old predictions have `predicted_halftime_outcome` set; new predictions have `predicted_corners` set. Both are handled in `_computeBreakdown` in utils.ts.
-- `Avatar` component expects emoji avatars as `emoji:🏆` (with prefix). Raw emoji strings will fail as image URLs.
+
+- **Don't add `SYNC_SECRET` auth back to sync routes** — it caused GitHub Actions to fail with 401.
+- **`t()` accepts only `TranslationKey`** — passing a plain `string` is a TS error. Always import `TranslationKey` from `../../lib/i18n` when using `t` in helper functions.
+- **Don't use `t('halfTimeResult')`** — that key was removed. Use the literal string `"Half Time"` for backward-compat HT display.
+- **Old predictions** have `predicted_halftime_outcome` set; new predictions have `predicted_corners`. Both are handled in `_computeBreakdown` in `utils.ts`.
+- **`Avatar` component** expects emoji avatars as `emoji:🏆` (with prefix). Raw emoji strings fail as image URLs.
+- **Hardcoded dark backgrounds in modals** cause light-mode breakage — use `card-elevated` CSS class instead of hex colors like `#0c1610`.
+- **Coin display** — never show negative amounts. Use `coinsBack = pointsEarned * 2` and show `+coinsBack`. Only show profit line when `coinsBack > coinsBet`.
+- **Daily bonus timezone** — `claim_daily_bonus` uses `(NOW() AT TIME ZONE 'Asia/Jerusalem')::DATE`, not `CURRENT_DATE`.

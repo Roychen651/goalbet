@@ -1,7 +1,7 @@
 # GoalBet ⚽
 
 > **A full-stack football prediction game for friend groups.**
-> Predict match outcomes across 5 tiers, compete on a live leaderboard — all free, no real money.
+> Predict match outcomes across 5 tiers, stake coins, compete on a live leaderboard — all free, no real money.
 
 ![CI](https://github.com/Roychen651/goalbet/actions/workflows/ci.yml/badge.svg)
 ![Sync](https://github.com/Roychen651/goalbet/actions/workflows/sync-cron.yml/badge.svg)
@@ -13,13 +13,15 @@
 | Feature | Description |
 |---------|-------------|
 | 🎯 **Multi-tier predictions** | Up to 5 prediction types per match: full-time result, exact score, total corners, BTTS, over/under 2.5 |
+| 🪙 **Coin economy** | Stake coins on your predictions — correct tiers pay back 2× points earned |
 | 🏆 **Group leaderboards** | Compete in private groups, weekly & all-time standings |
-| 🚩 **Corners prediction** | Predict ≤9 / exactly 10 / ≥11 corners — new Tier 3 replacing half-time |
+| 🚩 **Corners prediction** | Predict ≤9 / exactly 10 / ≥11 corners |
 | 📊 **Points breakdown** | After each match, see exactly which of your tiers scored |
-| 👥 **Friend presence** | See who in your group has already predicted (without seeing their picks) |
+| 👥 **Friend presence** | See who in your group has already predicted (without revealing their picks) |
 | ✏️ **Edit predictions** | Update any prediction up to 15 minutes before kickoff |
 | 🔒 **Auto-lock** | Predictions lock automatically 15 min before kickoff |
 | 🌍 **Hebrew + English** | Full RTL support, language toggle in Settings |
+| ☀️ **Dark & Light mode** | Full theme support — toggle in Settings |
 | 📱 **Mobile-first** | Responsive design with bottom navigation on mobile |
 | ⚡ **Real-time** | Supabase Realtime keeps leaderboard live across all devices |
 | 🔄 **Always synced** | GitHub Actions cron runs every 30 min — scores and fixtures update even when the backend is asleep |
@@ -39,6 +41,21 @@
 **Maximum per match: 19 pts**
 
 Getting the exact score right automatically awards Tier 1 (the outcome is implied).
+
+---
+
+## Coin Economy
+
+Coins are a fun in-game currency — no real money involved.
+
+| Event | Coins |
+|-------|-------|
+| Join bonus (one-time) | +120 🪙 |
+| Daily login bonus | +30 🪙 |
+| Stake on a prediction | −(cost of tiers selected) |
+| Earn back per correct tier | points_earned × 2 |
+
+Staking costs mirror the points available: Result = 3, Exact Score = 10, Corners = 4, BTTS = 2, O/U = 3. If you predict all tiers you stake 19 coins and can earn up to 38 back.
 
 ---
 
@@ -64,16 +81,19 @@ goalbet/
 │   └── src/
 │       ├── components/
 │       │   ├── layout/        # AppShell, TopBar, BottomNav, Sidebar
-│       │   ├── matches/       # MatchCard, MatchFeed, PredictionForm
+│       │   ├── matches/       # MatchCard, MatchFeed, PredictionForm, MatchTimeline
 │       │   ├── leaderboard/   # LeaderboardTable, LeaderboardRow, UserMatchHistoryModal
 │       │   ├── groups/        # CreateGroupModal, JoinGroupModal
 │       │   ├── profile/       # AvatarPicker
-│       │   └── ui/            # GlassCard, NeonButton, ScoringGuide, Toast, Avatar...
+│       │   └── ui/            # GlassCard, NeonButton, ScoringGuide, CoinGuide,
+│       │                      # InfoTip, ThemeToggle, LangToggle, Toast, Avatar...
 │       ├── hooks/             # useMatches, usePredictions, useLeaderboard,
-│       │                      # useGroupMatchPredictions, useMatchSync, useNewPointsAlert
+│       │                      # useGroupMatchPredictions, useMatchSync,
+│       │                      # useNewPointsAlert, useLiveClock, useRTLDirection
 │       ├── lib/               # supabase.ts, utils.ts, i18n.ts, constants.ts
 │       ├── pages/             # HomePage, LeaderboardPage, ProfilePage, SettingsPage, LoginPage
-│       └── stores/            # authStore, groupStore, langStore, uiStore (Zustand)
+│       └── stores/            # authStore, groupStore, coinsStore, langStore,
+│                              # themeStore, uiStore (Zustand)
 │
 ├── backend/                   # Express API + cron scheduler
 │   └── src/
@@ -81,13 +101,13 @@ goalbet/
 │       ├── services/
 │       │   ├── espn.ts        # ESPN API client — fetches match data by league slug
 │       │   ├── matchSync.ts   # Syncs ESPN data into Supabase (7 days back, 21 days ahead)
-│       │   ├── scoreUpdater.ts# Resolves predictions after FT, updates leaderboard
+│       │   ├── scoreUpdater.ts# Resolves predictions after FT, updates leaderboard + coins
 │       │   └── pointsEngine.ts# Pure scoring function — zero side effects, unit-testable
 │       ├── cron/              # Scheduler: startup sync, daily sync, score poller (30s), weekly reset
 │       └── lib/               # supabaseAdmin.ts (service role), logger.ts
 │
 ├── supabase/
-│   └── migrations/            # SQL migrations 001 → 014 (run in order)
+│   └── migrations/            # SQL migrations 001 → 021 (run in order)
 │
 └── .github/
     └── workflows/
@@ -118,7 +138,7 @@ cd ../backend && npm install
 
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Open the **SQL Editor** and run migrations in order:
-   `supabase/migrations/001_initial_schema.sql` → `014_corners_prediction.sql`
+   `supabase/migrations/001_initial_schema.sql` → `021_fix_coins.sql`
 3. In **Authentication → Providers**, enable Google OAuth
 4. In **Authentication → URL Configuration**, add:
    - Site URL: `http://localhost:5173`
@@ -184,7 +204,7 @@ The `sync-cron.yml` workflow runs every 30 minutes and calls:
 **Required GitHub Secret (one-time setup):**
 - `BACKEND_URL` — your backend URL, e.g. `https://goalbet-api.onrender.com`
 
-No other secrets needed. The sync endpoints are public (they only read ESPN public data).
+No other secrets needed. The sync endpoints are public.
 
 ---
 
@@ -202,12 +222,17 @@ No other secrets needed. The sync endpoints are public (they only read ESPN publ
 ## Database Schema
 
 ```sql
-profiles        id (uuid, FK auth.users), username, avatar_url
+profiles        id (uuid, FK auth.users), username, avatar_url, coins
 groups          id, name, invite_code (unique 8-char), active_leagues (int[])
 group_members   group_id + user_id (composite PK)
-matches         id, external_id, league_id, teams, scores, status, kickoff_time, corners_total
-predictions     user_id + match_id + group_id (unique), all tier fields, predicted_corners, points_earned, is_resolved
-leaderboard     user_id + group_id (unique), total_points, weekly_points, hit_count, total_resolved
+matches         id, external_id, league_id, teams, scores, status, kickoff_time,
+                regulation_home/away, went_to_penalties, penalty_home/away,
+                red_cards_home/away, corners_total
+predictions     user_id + match_id + group_id (unique), all tier fields,
+                predicted_corners, coins_bet, points_earned, is_resolved
+leaderboard     user_id + group_id (unique), total_points, weekly_points,
+                last_week_points, predictions_made, correct_predictions
+coin_transactions user_id, amount, type, created_at
 ```
 
 **Row-Level Security** is enforced on every table. All data is scoped to groups the authenticated user belongs to.
@@ -218,11 +243,13 @@ leaderboard     user_id + group_id (unique), total_points, weekly_points, hit_co
 
 **ESPN over TheSportsDB** — TheSportsDB's free API key (`"3"`) ignores the `?id=` parameter and returns wrong data. ESPN's public scoreboard endpoint requires no auth and returns reliable real-time data.
 
-**GitHub Actions as sync heartbeat** — Free-tier backends (Render, Railway) sleep after inactivity. Rather than pay for an always-on dyno, a GitHub Actions cron pings the backend every 30 minutes. This both wakes the server and triggers the sync, keeping everything current 24/7.
+**GitHub Actions as sync heartbeat** — Free-tier backends (Render, Railway) sleep after inactivity. Rather than pay for an always-on dyno, a GitHub Actions cron pings the backend every 30 minutes. This wakes the server and triggers the sync, keeping everything current 24/7.
 
 **Pure points engine** — `backend/src/services/pointsEngine.ts` is a pure function with zero side effects. The same logic is mirrored client-side in `frontend/src/lib/utils.ts → calcBreakdown()` to show per-tier results without a round-trip.
 
 **Corners over Half-time** — Tier 3 was changed from half-time result (H/D/A) to total corners (≤9/10/≥11). Old predictions retain their half-time data for display; new predictions use corners.
+
+**Positive coin UX** — We never show negative coin numbers. When a user spends 16 coins and earns 10 back, we show `+10` (what they earned), not `-6` (the net loss). The brain processes earnings as joy; losses as pain — we lean into joy.
 
 ---
 
