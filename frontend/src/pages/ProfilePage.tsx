@@ -459,18 +459,17 @@ function PredictionSection({ title, predictions, expandedIds, toggleExpanded, co
   );
 }
 
-/** Compact coin net badge for card headers (+profit or -loss) */
+/** Compact coin badge for card headers — shows coins earned back (always positive framing) */
 function CoinNetPill({ coinsBet, pointsEarned }: { coinsBet: number; pointsEarned: number }) {
   const coinsBack = pointsEarned * 2;
-  const net = coinsBack - coinsBet;
-  const won = net > 0;
+  const profit = coinsBack > coinsBet;
   return (
     <div className={`flex items-center gap-0.5 rounded-lg px-1.5 py-0.5 border ${
-      won ? 'bg-amber-400/12 border-amber-400/25' : 'bg-white/4 border-white/10'
+      profit ? 'bg-amber-400/12 border-amber-400/25' : 'bg-white/4 border-white/10'
     }`}>
       <CoinIcon size={10} />
-      <span className={`font-bebas text-sm leading-none ${won ? 'text-amber-400' : 'text-white/28'}`}>
-        {net > 0 ? `+${net}` : net}
+      <span className={`font-bebas text-sm leading-none ${profit ? 'text-amber-400' : 'text-white/28'}`}>
+        {coinsBack > 0 ? `+${coinsBack}` : '0'}
       </span>
     </div>
   );
@@ -481,7 +480,7 @@ function CoinStakedPill({ coins }: { coins: number }) {
   return (
     <div className="flex items-center gap-0.5 bg-amber-400/8 border border-amber-400/18 rounded-lg px-1.5 py-0.5">
       <CoinIcon size={10} />
-      <span className="font-bebas text-sm text-amber-400/45 leading-none">{coins}</span>
+      <span className="font-bebas text-sm text-amber-400/45 leading-none">−{coins}</span>
     </div>
   );
 }
@@ -511,13 +510,15 @@ function CoinSummaryBar({ coinsBet, pointsEarned }: { coinsBet: number; pointsEa
           <span>Back</span>
           <span className={`font-bold tabular-nums ${coinsBack > 0 ? 'text-amber-400/70' : ''}`}>+{coinsBack}</span>
         </div>
-        <div className="w-px h-3 bg-white/10 shrink-0" />
-        <div className={`flex items-center gap-0.5 font-bold tabular-nums ${
-          net > 0 ? 'text-emerald-400' : net < 0 ? 'text-red-400/55' : 'text-white/25'
-        }`}>
-          <span className="text-[11px] font-normal opacity-60">net</span>
-          <span>{net > 0 ? `+${net}` : net === 0 ? '±0' : `${net}`}</span>
-        </div>
+        {net > 0 && (
+          <>
+            <div className="w-px h-3 bg-white/10 shrink-0" />
+            <div className="flex items-center gap-0.5 font-bold tabular-nums text-emerald-400">
+              <span className="text-[11px] font-normal opacity-60">profit</span>
+              <span>+{net}</span>
+            </div>
+          </>
+        )}
       </div>
     </motion.div>
   );
