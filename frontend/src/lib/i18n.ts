@@ -218,6 +218,12 @@ export const translations = {
     stakedLabel: 'Staked',
     backLabel: 'Back',
     profitLabel: 'Profit',
+
+    // Head to Head
+    h2hTitle: 'Head to Head',
+    h2hLocked: 'Locked',
+    h2hNoData: 'No predictions this week',
+    h2hTied: 'Tied',
   },
 
   he: {
@@ -434,6 +440,12 @@ export const translations = {
     stakedLabel: 'הימור',
     backLabel: 'החזר',
     profitLabel: 'רווח',
+
+    // Head to Head
+    h2hTitle: 'ראש בראש',
+    h2hLocked: 'נעול',
+    h2hNoData: 'אין ניבויים השבוע',
+    h2hTied: 'שוויון',
   },
 } as const;
 

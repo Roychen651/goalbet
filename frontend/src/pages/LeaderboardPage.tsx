@@ -7,6 +7,7 @@ import { useLangStore } from '../stores/langStore';
 import { supabase } from '../lib/supabase';
 import { LeaderboardTable } from '../components/leaderboard/LeaderboardTable';
 import { UserMatchHistoryModal } from '../components/leaderboard/UserMatchHistoryModal';
+import { H2HModal, H2HUser } from '../components/leaderboard/H2HModal';
 import { GlassCard } from '../components/ui/GlassCard';
 import { InfoTip } from '../components/ui/InfoTip';
 import { cn } from '../lib/utils';
@@ -38,6 +39,7 @@ function getWeekBoundsMs(type: 'weekly' | 'lastWeek'): { start: number; end: num
 export function LeaderboardPage() {
   const [type, setType] = useState<LeaderboardType>('total');
   const [selectedUser, setSelectedUser] = useState<SelectedUser | null>(null);
+  const [h2hFriend, setH2hFriend] = useState<H2HUser | null>(null);
   const [periodStats, setPeriodStats] = useState<{ made: number; correct: number } | null>(null);
   const { entries, loading } = useLeaderboard(type);
   const { user } = useAuthStore();
@@ -170,7 +172,15 @@ export function LeaderboardPage() {
         loading={loading}
         currentUserId={user?.id}
         type={type}
-        onUserClick={(entry) => setSelectedUser({ user_id: entry.user_id, username: entry.username, avatar_url: entry.avatar_url ?? null })}
+        onUserClick={(entry) => {
+          if (entry.user_id === user?.id) {
+            // Own row → show personal match history
+            setSelectedUser({ user_id: entry.user_id, username: entry.username, avatar_url: entry.avatar_url ?? null });
+          } else {
+            // Another user → H2H comparison
+            setH2hFriend({ user_id: entry.user_id, username: entry.username, avatar_url: entry.avatar_url ?? null, weekly_points: entry.weekly_points ?? 0 });
+          }
+        }}
       />
 
       <AnimatePresence>
@@ -180,6 +190,22 @@ export function LeaderboardPage() {
             groupId={activeGroupId}
             type={type}
             onClose={() => setSelectedUser(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {h2hFriend && activeGroupId && currentUserEntry && (
+          <H2HModal
+            me={{
+              user_id: currentUserEntry.user_id,
+              username: currentUserEntry.username,
+              avatar_url: currentUserEntry.avatar_url ?? null,
+              weekly_points: currentUserEntry.weekly_points ?? 0,
+            }}
+            friend={h2hFriend}
+            groupId={activeGroupId}
+            onClose={() => setH2hFriend(null)}
           />
         )}
       </AnimatePresence>
