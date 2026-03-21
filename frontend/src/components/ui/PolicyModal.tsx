@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLangStore } from '../../stores/langStore';
 
@@ -28,7 +30,14 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
   const isHe = lang === 'he';
   const sections = isHe ? SECTIONS_HE : SECTIONS_EN;
 
-  return (
+  // Lock body scroll + escape any stacking context via portal
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  return createPortal(
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -43,7 +52,8 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
           exit={{ y: 60, opacity: 0, scale: 0.97 }}
           transition={{ type: 'spring', stiffness: 260, damping: 28 }}
           onClick={e => e.stopPropagation()}
-          className="w-full sm:max-w-lg bg-surface dark:bg-[#0c1610] border border-border dark:border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden max-h-[88vh] flex flex-col"
+          className="w-full sm:max-w-lg bg-surface dark:bg-[#0c1610] border border-border dark:border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col"
+          style={{ maxHeight: 'min(88vh, calc(100svh - 1rem))' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border dark:border-white/8 shrink-0">
@@ -90,6 +100,7 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
