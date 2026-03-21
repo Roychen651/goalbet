@@ -224,6 +224,9 @@ export const translations = {
     h2hLocked: 'Locked',
     h2hNoData: 'No predictions this week',
     h2hTied: 'Tied',
+
+    // User Guide
+    userGuide: 'User Guide',
   },
 
   he: {
@@ -446,6 +449,9 @@ export const translations = {
     h2hLocked: 'נעול',
     h2hNoData: 'אין ניבויים השבוע',
     h2hTied: 'שוויון',
+
+    // User Guide
+    userGuide: 'מדריך משתמש',
   },
 } as const;
 

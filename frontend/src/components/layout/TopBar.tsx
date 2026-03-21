@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { HelpCircle } from 'lucide-react';
 import { useGroupStore } from '../../stores/groupStore';
 import { useUIStore } from '../../stores/uiStore';
 import { Avatar } from '../ui/Avatar';
@@ -62,8 +63,16 @@ export function TopBar() {
           )}
         </div>
 
-        {/* Right side: coins + lang + theme + avatar */}
+        {/* Right side: help + coins + lang + theme + avatar */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Help button */}
+          <button
+            onClick={() => openModal('helpGuide')}
+            className="p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/8 transition-all"
+            aria-label="User Guide"
+          >
+            <HelpCircle size={17} />
+          </button>
           {/* Coin balance pill */}
           <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
             <CoinIcon size={16} />

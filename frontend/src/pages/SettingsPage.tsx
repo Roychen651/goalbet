@@ -18,7 +18,7 @@ export function SettingsPage() {
   const { groups, activeGroupId, setActiveGroup, updateGroupLeagues, updateGroupName, leaveGroup } = useGroupStore();
   const { user } = useAuthStore();
   const { addToast, openModal } = useUIStore();
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
   const [savingLeagues, setSavingLeagues] = useState(false);
   const [showPolicy, setShowPolicy] = useState(false);
   const [leavingGroupId, setLeavingGroupId] = useState<string | null>(null);
@@ -311,6 +311,20 @@ export function SettingsPage() {
           </section>
         </>
       )}
+
+      {/* User Guide */}
+      <GlassCard className="p-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-white text-sm font-medium">{t('userGuide')}</p>
+          <p className="text-text-muted text-xs mt-0.5">{lang === 'he' ? 'ניקוד, מטבעות ואיך לשחק' : 'Scoring, coins, and how to play'}</p>
+        </div>
+        <button
+          onClick={() => openModal('helpGuide')}
+          className="shrink-0 px-3 py-1.5 rounded-xl bg-white/6 border border-white/12 text-white/70 hover:text-white hover:bg-white/10 text-xs font-medium transition-all"
+        >
+          {lang === 'he' ? 'פתח' : 'Open'}
+        </button>
+      </GlassCard>
 
       <div className="sm:hidden pt-2 text-center">
         <button onClick={() => setShowPolicy(true)} className="text-text-muted text-xs opacity-40 hover:opacity-70 transition-opacity">
