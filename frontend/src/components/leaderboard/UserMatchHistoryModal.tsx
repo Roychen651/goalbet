@@ -101,7 +101,7 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
         transition={{ type: 'spring', stiffness: 300, damping: 28 }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="relative rounded-2xl bg-[#0f1a14] border border-white/10 overflow-hidden max-h-[80vh] flex flex-col">
+        <div className="relative rounded-2xl card-elevated border border-white/10 overflow-hidden max-h-[80vh] flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/8 shrink-0">
             <div className="flex items-center gap-3">

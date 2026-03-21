@@ -33,10 +33,10 @@ const TIERS = [
   {
     emoji: '🚩',
     label: 'Total Corners',
-    labelHe: 'סה"כ קורנרים',
+    labelHe: 'סה"כ קרנות',
     pts: 4,
     detail: '≤ 9 corners / exactly 10 / ≥ 11 corners',
-    detailHe: '≤ 9 קורנרים / בדיוק 10 / ≥ 11 קורנרים',
+    detailHe: '≤ 9 קרנות / בדיוק 10 / ≥ 11 קרנות',
     color: 'from-blue-500/20 to-blue-600/10',
     border: 'border-blue-500/30',
     textColor: 'text-blue-400',
@@ -91,8 +91,7 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
         className="relative w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        {/* Always-dark modal regardless of app theme */}
-        <div className="bg-[#0c1610] border border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden">
+        <div className="card-elevated border border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden">
 
           {/* Ambient gradient */}
           <div className="absolute inset-0 pointer-events-none">

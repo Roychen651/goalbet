@@ -115,8 +115,7 @@ export function CoinGuide({ onClose }: CoinGuideProps) {
         className="relative w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        {/* Always-dark modal — same pattern as ScoringGuide */}
-        <div className="bg-[#100c00] border border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden">
+        <div className="card-elevated border border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden">
 
           {/* Ambient gold glow */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden">

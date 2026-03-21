@@ -461,3 +461,126 @@ html.light a  { color: inherit; }
 html.light .hover\:text-white:hover      { color: #0f1e13 !important; }
 html.light .hover\:text-white\/80:hover  { color: rgba(15,30,19,0.8) !important; }
 html.light .hover\:text-white\/60:hover  { color: rgba(15,30,19,0.6) !important; }
+
+/* ── Extended light-mode overrides ─────────────────────────────────────── */
+
+/* Extra text-white opacity variants not covered above */
+html.light .text-white\/28 { color: rgba(15, 30, 19, 0.32) !important; }
+html.light .text-white\/18 { color: rgba(15, 30, 19, 0.22) !important; }
+html.light .text-white\/22 { color: rgba(15, 30, 19, 0.26) !important; }
+html.light .text-white\/45 { color: rgba(15, 30, 19, 0.50) !important; }
+html.light .text-white\/55 { color: rgba(15, 30, 19, 0.58) !important; }
+html.light .text-white\/65 { color: rgba(15, 30, 19, 0.65) !important; }
+html.light .text-white\/75 { color: rgba(15, 30, 19, 0.75) !important; }
+
+/* Extra border-white opacity variants */
+html.light .border-white\/18 { border-color: rgba(0, 80, 40, 0.16) !important; }
+html.light .border-white\/25 { border-color: rgba(0, 80, 40, 0.22) !important; }
+html.light .border-white\/28 { border-color: rgba(0, 80, 40, 0.24) !important; }
+html.light .border-white\/30 { border-color: rgba(0, 80, 40, 0.26) !important; }
+html.light .border-white\/35 { border-color: rgba(0, 80, 40, 0.28) !important; }
+
+/* Extra bg-white opacity variants */
+html.light .bg-white\/28 { background-color: rgba(0, 60, 30, 0.14) !important; }
+html.light .bg-white\/25 { background-color: rgba(0, 60, 30, 0.13) !important; }
+
+/* Pastel text colors — nearly invisible on white, need dark equivalents */
+html.light .text-blue-200     { color: #1d4ed8 !important; }
+html.light .text-violet-200   { color: #6d28d9 !important; }
+html.light .text-teal-200     { color: #0f766e !important; }
+html.light .text-emerald-200  { color: #065f46 !important; }
+html.light .text-amber-200    { color: #92400e !important; }
+html.light .text-red-200      { color: #991b1b !important; }
+html.light .text-yellow-200   { color: #78350f !important; }
+
+/* Medium spectrum colors — too light on white background */
+html.light .text-emerald-400  { color: #047857 !important; }
+html.light .text-red-400      { color: #b91c1c !important; }
+html.light .text-red-400\/55  { color: rgba(185, 28, 28, 0.80) !important; }
+html.light .text-yellow-400   { color: #b45309 !important; }
+
+/* Amber — #fbbf24 is nearly invisible on white */
+html.light .text-amber-400         { color: #b45309 !important; }
+html.light .text-amber-400\/45     { color: rgba(180, 83, 9, 0.70) !important; }
+html.light .text-amber-400\/70     { color: rgba(180, 83, 9, 0.88) !important; }
+html.light .bg-amber-400\/8        { background-color: rgba(180, 83, 9, 0.07) !important; }
+html.light .bg-amber-400\/12       { background-color: rgba(180, 83, 9, 0.09) !important; }
+html.light .border-amber-400\/18   { border-color: rgba(180, 83, 9, 0.22) !important; }
+html.light .border-amber-400\/25   { border-color: rgba(180, 83, 9, 0.28) !important; }
+html.light .border-amber-400\/35   { border-color: rgba(180, 83, 9, 0.32) !important; }
+html.light .bg-amber-500\/8        { background-color: rgba(180, 83, 9, 0.06) !important; }
+html.light .bg-amber-500\/20       { background-color: rgba(180, 83, 9, 0.10) !important; }
+html.light .border-amber-500\/20   { border-color: rgba(180, 83, 9, 0.22) !important; }
+
+/* Emerald */
+html.light .bg-emerald-400\/8      { background-color: rgba(4, 120, 87, 0.07) !important; }
+html.light .bg-emerald-400\/10     { background-color: rgba(4, 120, 87, 0.08) !important; }
+html.light .bg-emerald-500\/20     { background-color: rgba(4, 120, 87, 0.08) !important; }
+html.light .border-emerald-400\/15 { border-color: rgba(4, 120, 87, 0.20) !important; }
+html.light .border-emerald-500\/20 { border-color: rgba(4, 120, 87, 0.22) !important; }
+html.light .border-emerald-500\/30 { border-color: rgba(4, 120, 87, 0.28) !important; }
+
+/* Blue */
+html.light .bg-blue-500\/6         { background-color: rgba(37, 99, 235, 0.05) !important; }
+html.light .bg-blue-500\/12        { background-color: rgba(37, 99, 235, 0.08) !important; }
+html.light .bg-blue-500\/15        { background-color: rgba(37, 99, 235, 0.09) !important; }
+html.light .bg-blue-500\/20        { background-color: rgba(37, 99, 235, 0.08) !important; }
+html.light .border-blue-500\/15    { border-color: rgba(37, 99, 235, 0.20) !important; }
+
+/* Violet */
+html.light .bg-violet-500\/20      { background-color: rgba(109, 40, 217, 0.07) !important; }
+html.light .border-violet-400\/35  { border-color: rgba(109, 40, 217, 0.28) !important; }
+
+/* Teal */
+html.light .bg-teal-500\/20        { background-color: rgba(13, 148, 136, 0.07) !important; }
+html.light .border-teal-400\/35    { border-color: rgba(13, 148, 136, 0.28) !important; }
+
+/* Red */
+html.light .bg-red-400\/8          { background-color: rgba(185, 28, 28, 0.06) !important; }
+html.light .bg-red-400\/10         { background-color: rgba(185, 28, 28, 0.07) !important; }
+html.light .hover\:bg-red-400\/10:hover { background-color: rgba(185, 28, 28, 0.07) !important; }
+
+/* Accent-green opacity variants */
+html.light .bg-accent-green\/6     { background-color: rgba(0, 122, 61, 0.05) !important; }
+html.light .bg-accent-green\/8     { background-color: rgba(0, 122, 61, 0.06) !important; }
+html.light .bg-accent-green\/10    { background-color: rgba(0, 122, 61, 0.07) !important; }
+html.light .bg-accent-green\/12    { background-color: rgba(0, 122, 61, 0.08) !important; }
+html.light .border-accent-green\/10 { border-color: rgba(0, 122, 61, 0.14) !important; }
+html.light .border-accent-green\/12 { border-color: rgba(0, 122, 61, 0.16) !important; }
+html.light .border-accent-green\/15 { border-color: rgba(0, 122, 61, 0.20) !important; }
+html.light .border-accent-green\/30 { border-color: rgba(0, 122, 61, 0.22) !important; }
+
+/* Live card glow colors in light mode */
+html.light .shadow-\[0_0_30px_rgba\(0\,255\,135\,0\.08\)\,inset_0_1px_0_rgba\(0\,255\,135\,0\.08\)\] {
+  box-shadow: 0 0 16px rgba(0, 122, 61, 0.10), inset 0 1px 0 rgba(0, 122, 61, 0.08) !important;
+}
+
+/* Tooltip/popup backgrounds — use surface color */
+html.light .tooltip-surface {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 80, 40, 0.15) !important;
+  color: #0f1e13 !important;
+}
+
+/* Scrollbar thumb in light */
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 80, 40, 0.15);
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 80, 40, 0.25);
+}
+
+/* Card hover shadow in light */
+html.light .card-clickable:hover {
+  box-shadow: 0 4px 20px rgba(0, 60, 30, 0.13), 0 0 0 1px rgba(0, 122, 61, 0.20) !important;
+  transform: translateY(-1px);
+}
+
+/* Yellow/amber border & bg for info tips */
+html.light .border-yellow-500\/20  { border-color: rgba(133, 77, 14, 0.28) !important; }
+html.light .border-yellow-500\/30  { border-color: rgba(133, 77, 14, 0.35) !important; }
+html.light .bg-yellow-500\/20      { background-color: rgba(133, 77, 14, 0.09) !important; }
+html.light .border-yellow-500\/40  { border-color: rgba(133, 77, 14, 0.40) !important; }
+html.light .text-yellow-400        { color: #92400e !important; }
+html.light .text-yellow-200\/85    { color: rgba(92, 40, 0, 0.90) !important; }
+html.light .hover\:bg-yellow-500\/35:hover { background-color: rgba(133, 77, 14, 0.14) !important; }

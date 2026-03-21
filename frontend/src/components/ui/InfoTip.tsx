@@ -20,7 +20,7 @@ export function InfoTip({ text }: InfoTipProps) {
         i
       </button>
       {show && (
-        <span className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 z-50 w-52 px-3 py-2 rounded-xl bg-[#1c1c2e] border border-yellow-500/20 text-yellow-200/85 text-[10px] leading-snug shadow-2xl text-center pointer-events-none whitespace-normal">
+        <span className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 z-50 w-52 px-3 py-2 rounded-xl tooltip-surface border border-yellow-500/20 text-yellow-200/85 text-[10px] leading-snug shadow-2xl text-center pointer-events-none whitespace-normal" style={{ backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text-primary)' }}>
           {text}
         </span>
       )}
