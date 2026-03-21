@@ -10,6 +10,7 @@ import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown }
 import { CoinIcon } from '../ui/CoinIcon';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
+import type { TranslationKey } from '../../lib/i18n';
 import { useLiveClock } from '../../hooks/useLiveClock';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -422,7 +423,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   );
 }
 
-function tierLabel(key: string, t: (k: string) => string): string {
+function tierLabel(key: string, t: (k: TranslationKey) => string): string {
   switch (key) {
     case 'result': return t('result');
     case 'score': return t('exactScore');
