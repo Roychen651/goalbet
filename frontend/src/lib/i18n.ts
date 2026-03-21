@@ -99,8 +99,9 @@ export const translations = {
     noLeaderboardDesc: 'Start predicting matches to appear on the leaderboard.',
 
     // Stats labels & sublabels
-    hitRate: 'Hit Rate',
-    ftResultCorrect: 'FT Result correct',
+    hitRate: 'Result Picks',
+    ftResultCorrect: 'Win / Draw / Loss correct',
+    resolvedLabel: 'resolved',
     allTimeLabel: 'all time',
     pastWeekLabel: 'past week',
     avgLabel: 'avg',
@@ -111,11 +112,11 @@ export const translations = {
     ptsLiveLabel: 'pts live',
 
     // Info tips
-    infoRank: 'Your position in the standings for the selected period. Rank is sorted by points earned.',
-    infoPoints: 'Points earned this period. Each match: FT Result (3 pts), Exact Score (+7 pts), Corners (4 pts), BTTS (2 pts), Over/Under (3 pts). Max 19 pts per match.',
-    infoHitRate: 'Correct Full Time result predictions ÷ total FT result predictions made. Only counts matches where you chose Home / Draw / Away.',
-    infoTotalPoints: 'Sum of all points earned from resolved matches. Sources: FT Result (3 pts), Exact Score (+7 pts), Corners (4 pts), BTTS (2 pts), Over/Under (3 pts). Max 19 pts per match.',
-    infoPredictions: 'Total predictions you have made in this group. "Resolved" means the match finished and points were calculated.',
+    infoRank: 'Your position in the standings, sorted by points.',
+    infoPoints: 'Total points this period. Max 19 pts per match.',
+    infoHitRate: 'How many times you correctly predicted the final result (Home win / Draw / Away win). The #1 stat in football prediction.',
+    infoTotalPoints: 'Sum of all points from resolved matches. FT Result (3), Exact Score (+7), Corners (4), BTTS (2), Over/Under (3). Max 19 pts.',
+    infoPredictions: 'Total predictions placed. "Resolved" = match finished and points calculated.',
 
     // Settings — admin controls
     renameGroup: 'Rename group',
@@ -314,8 +315,9 @@ export const translations = {
     noLeaderboardDesc: 'התחל לנבא משחקים כדי להופיע בטבלת הדירוג.',
 
     // Stats labels & sublabels
-    hitRate: 'אחוז הצלחה',
-    ftResultCorrect: 'תוצאה סופית נכונה',
+    hitRate: 'ניחוש תוצאה',
+    ftResultCorrect: 'ניצחון / תיקו / ניצחון חוץ',
+    resolvedLabel: 'נפתרו',
     allTimeLabel: 'כל הזמנים',
     pastWeekLabel: 'שבוע שעבר',
     avgLabel: 'ממוצע',
@@ -326,11 +328,11 @@ export const translations = {
     ptsLiveLabel: 'נק׳ חי',
 
     // Info tips
-    infoRank: 'המיקום שלך בטבלת הדירוג לתקופה הנבחרת. הדירוג ממויין לפי נקודות.',
-    infoPoints: 'נקודות שנצברו בתקופה זו. כל משחק: תוצאה סופית (3), תוצאה מדויקת (+7), קרנות (4), שתיים מבקיעות (2), מעל/מתחת 2.5 (3). מקסימום 19 נק׳.',
-    infoHitRate: 'ניבויי תוצאה סופית נכונים ÷ סך ניבויי תוצאה. נספרים רק משחקים שניבאת עבורם תוצאה (ניצחון בית / תיקו / ניצחון חוץ).',
-    infoTotalPoints: 'סכום כל הנקודות שנצברו ממשחקים שנפתרו. מקורות: תוצאה סופית (3), תוצאה מדויקת (+7), קרנות (4), שתיים מבקיעות (2), מעל/מתחת 2.5 (3).',
-    infoPredictions: 'סך הניבויים שביצעת בקבוצה זו. "נפתר" משמעותו שהמשחק הסתיים והנקודות חושבו.',
+    infoRank: 'המיקום שלך בטבלה, לפי נקודות.',
+    infoPoints: 'סה"כ נקודות בתקופה זו. מקסימום 19 נק׳ למשחק.',
+    infoHitRate: 'כמה פעמים ניחשת נכון את תוצאת המשחק (ניצחון בית / תיקו / ניצחון חוץ). הסטטיסטיקה הכי חשובה בניבוי כדורגל.',
+    infoTotalPoints: 'סכום כל הנקודות ממשחקים שנפתרו. תוצאה (3), מדויק (+7), קרנות (4), שתיים מבקיעות (2), מעל/מתחת (3). מקס׳ 19 נק׳.',
+    infoPredictions: 'סה"כ ניבויים שביצעת. "נפתרו" = המשחק הסתיים והנקודות חושבו.',
 
     // Settings — admin controls
     renameGroup: 'שנה שם קבוצה',

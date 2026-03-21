@@ -22,6 +22,10 @@
   --accent-orange: var(--color-accent-orange);
   --glow-green: 0 0 20px rgba(0, 255, 135, 0.3);
   --glow-orange: 0 0 20px rgba(255, 107, 53, 0.3);
+  /* tooltip — needs solid bg so text is always readable */
+  --color-tooltip-bg: #111a16;
+  --color-tooltip-text: rgba(255, 255, 255, 0.88);
+  --color-tooltip-border: rgba(0, 80, 40, 0.35);
   /* card semantic vars (dark defaults) */
   --card-bg: rgba(255, 255, 255, 0.05);
   --card-border: rgba(255, 255, 255, 0.08);
@@ -34,6 +38,9 @@
 /* ─── Light mode ─── */
 html.light {
   color-scheme: light;
+  --color-tooltip-bg: #ffffff;
+  --color-tooltip-text: #0f1e13;
+  --color-tooltip-border: rgba(0, 80, 40, 0.22);
   --color-bg-base: #e8f0eb;
   --color-bg-surface: rgba(255, 255, 255, 0.6);
   --color-bg-card: #ffffff;

@@ -219,22 +219,24 @@ export function ProfilePage() {
       <motion.div className="grid grid-cols-3 gap-3" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } }}>
         {[
           {
+            label: t('hitRate'),
+            value: ftPredictions.length > 0 ? `${ftCorrect.length}/${ftPredictions.length}` : '—',
+            highlight: true,
+            sub: ftPredictions.length > 0
+              ? `${Math.round(ftCorrect.length / ftPredictions.length * 100)}% ${t('ftResultCorrect')}`
+              : t('ftResultCorrect'),
+            info: t('infoHitRate'),
+          },
+          {
             label: t('totalPoints'),
             value: totalPoints,
-            highlight: true,
             sub: resolved.length > 0 ? `${t('avgLabel')} ${(totalPoints / resolved.length).toFixed(1)} ${t('perMatch')}` : t('allTimeLabel'),
             info: t('infoTotalPoints'),
           },
           {
-            label: t('hitRate'),
-            value: ftPredictions.length > 0 ? `${ftCorrect.length}/${ftPredictions.length}` : '—',
-            sub: t('ftResultCorrect'),
-            info: t('infoHitRate'),
-          },
-          {
             label: t('predictions'),
             value: `${history.length}`,
-            sub: `${resolved.length} ${t('accurate')}`,
+            sub: `${resolved.length} ${t('resolvedLabel')}`,
             info: t('infoPredictions'),
           },
         ].map(stat => (

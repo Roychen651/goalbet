@@ -100,6 +100,7 @@ export function LeaderboardPage() {
   const hitMade = periodStats !== null ? periodStats.made : (currentUserEntry?.predictions_made ?? 0);
   const hitCorrect = periodStats !== null ? periodStats.correct : (currentUserEntry?.correct_predictions ?? 0);
   const hitDisplay = hitMade > 0 ? `${hitCorrect}/${hitMade}` : '—';
+  const hitPct = hitMade > 0 ? `${Math.round(hitCorrect / hitMade * 100)}%` : null;
 
   return (
     <div className="space-y-4">
@@ -158,7 +159,7 @@ export function LeaderboardPage() {
             </div>
             <div className="font-bebas text-xl sm:text-2xl text-white">{hitDisplay}</div>
             <div className="text-white/25 text-[9px] mt-0.5 leading-tight">
-              {periodStats !== null ? pointsSub : t('allTimeLabel')}
+              {hitPct ?? (periodStats !== null ? pointsSub : t('allTimeLabel'))}
             </div>
           </div>
         </GlassCard>
