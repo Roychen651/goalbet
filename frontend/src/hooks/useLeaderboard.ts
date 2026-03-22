@@ -5,6 +5,24 @@ import { calcLiveBreakdown } from '../lib/utils';
 
 export type LeaderboardType = 'total' | 'weekly' | 'lastWeek';
 
+// Sun-start week bounds (ISO strings). Each week runs Sun 00:00 UTC → next Sun 00:00 UTC.
+// Predictions are counted in the week where their match's kickoff_time falls.
+function getWeekBoundsISO(type: 'weekly' | 'lastWeek'): { start: string; end: string } {
+  const now = new Date();
+  const thisSunday = new Date(now);
+  thisSunday.setUTCDate(now.getUTCDate() - now.getUTCDay());
+  thisSunday.setUTCHours(0, 0, 0, 0);
+
+  const lastSunday = new Date(thisSunday);
+  lastSunday.setUTCDate(thisSunday.getUTCDate() - 7);
+  const nextSunday = new Date(thisSunday);
+  nextSunday.setUTCDate(thisSunday.getUTCDate() + 7);
+
+  return type === 'weekly'
+    ? { start: thisSunday.toISOString(), end: nextSunday.toISOString() }
+    : { start: lastSunday.toISOString(), end: thisSunday.toISOString() };
+}
+
 // Fetch leaderboard using direct table queries — shows ALL group members including 0-point users.
 // Does not depend on the get_group_leaderboard RPC being up to date.
 async function fetchGroupLeaderboard(
@@ -31,13 +49,54 @@ async function fetchGroupLeaderboard(
 
   const lbMap = new Map((lbRes.data ?? []).map(l => [l.user_id, l]));
 
-  // 3. Merge — every member gets an entry; non-leaderboard members get 0s
+  // 3. Compute period points from predictions (source of truth) for weekly/lastWeek.
+  //    The leaderboard.weekly_points column depends on a backend cron that may not fire
+  //    reliably on a free-tier server that sleeps. Reading from predictions directly
+  //    guarantees correctness regardless of whether the reset cron ran.
+  let weeklyPointsMap: Map<string, number> | null = null;
+  let lastWeekPointsMap: Map<string, number> | null = null;
+
+  if (type === 'weekly' || type === 'lastWeek') {
+    const targetType = type;
+    const { start, end } = getWeekBoundsISO(targetType);
+
+    const { data: weekMatches } = await supabase
+      .from('matches')
+      .select('id')
+      .gte('kickoff_time', start)
+      .lt('kickoff_time', end);
+
+    const matchIds = (weekMatches ?? []).map((m: { id: string }) => m.id);
+    const pointsMap = new Map<string, number>();
+
+    if (matchIds.length > 0) {
+      const { data: weekPreds } = await supabase
+        .from('predictions')
+        .select('user_id, points_earned')
+        .eq('group_id', groupId)
+        .eq('is_resolved', true)
+        .in('match_id', matchIds);
+
+      for (const pred of (weekPreds ?? []) as { user_id: string; points_earned: number }[]) {
+        pointsMap.set(pred.user_id, (pointsMap.get(pred.user_id) ?? 0) + pred.points_earned);
+      }
+    }
+
+    if (targetType === 'weekly') weeklyPointsMap = pointsMap;
+    else lastWeekPointsMap = pointsMap;
+  }
+
+  // 4. Merge — every member gets an entry; non-leaderboard members get 0s
   const sortField = type === 'weekly' ? 'weekly_points'
     : type === 'lastWeek' ? 'last_week_points'
     : 'total_points';
 
   const merged: LeaderboardEntryWithProfile[] = (profilesRes.data ?? []).map(profile => {
     const lb = lbMap.get(profile.id);
+    // Use prediction-computed period points when available (correct regardless of cron state).
+    // Fall back to leaderboard column only for 'total' type.
+    const computedWeekly = weeklyPointsMap?.get(profile.id) ?? (weeklyPointsMap ? 0 : (lb?.weekly_points ?? 0));
+    const computedLastWeek = lastWeekPointsMap?.get(profile.id) ?? (lastWeekPointsMap ? 0 : (lb?.last_week_points ?? 0));
     return {
       id: lb?.id ?? profile.id,
       user_id: profile.id,
@@ -45,8 +104,8 @@ async function fetchGroupLeaderboard(
       username: profile.username,
       avatar_url: profile.avatar_url,
       total_points: lb?.total_points ?? 0,
-      weekly_points: lb?.weekly_points ?? 0,
-      last_week_points: lb?.last_week_points ?? 0,
+      weekly_points: computedWeekly,
+      last_week_points: computedLastWeek,
       predictions_made: lb?.predictions_made ?? 0,
       correct_predictions: lb?.correct_predictions ?? 0,
       current_streak: lb?.current_streak ?? 0,

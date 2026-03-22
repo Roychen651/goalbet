@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { Avatar } from '../ui/Avatar';
 import { useLangStore } from '../../stores/langStore';
@@ -35,7 +36,11 @@ export interface H2HUser {
   username: string;
   avatar_url: string | null;
   weekly_points: number;
+  total_points?: number;
+  last_week_points?: number;
 }
+
+type H2HPeriod = 'allTime' | 'weekly' | 'lastWeek';
 
 interface H2HModalProps {
   me: H2HUser;
@@ -46,12 +51,18 @@ interface H2HModalProps {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function thisWeekStart(): number {
+function getPeriodBoundsMs(period: H2HPeriod): { start: number | null; end: number | null } {
+  if (period === 'allTime') return { start: null, end: null };
   const now = new Date();
-  const sunday = new Date(now);
-  sunday.setUTCDate(now.getUTCDate() - now.getUTCDay());
-  sunday.setUTCHours(0, 0, 0, 0);
-  return sunday.getTime();
+  const thisSunday = new Date(now);
+  thisSunday.setUTCDate(now.getUTCDate() - now.getUTCDay());
+  thisSunday.setUTCHours(0, 0, 0, 0);
+  if (period === 'weekly') {
+    return { start: thisSunday.getTime(), end: null };
+  }
+  const lastSunday = new Date(thisSunday);
+  lastSunday.setUTCDate(thisSunday.getUTCDate() - 7);
+  return { start: lastSunday.getTime(), end: thisSunday.getTime() };
 }
 
 function isLocked(match: MatchInfo): boolean {
@@ -73,8 +84,7 @@ function outcomeWord(outcome: string | null, t: (k: TranslationKey) => string): 
   }
 }
 
-async function fetchWeeklyPreds(userId: string, groupId: string): Promise<SimplePred[]> {
-  const start = thisWeekStart();
+async function fetchPreds(userId: string, groupId: string, period: H2HPeriod): Promise<SimplePred[]> {
   const { data } = await supabase
     .from('predictions')
     .select(`
@@ -85,10 +95,16 @@ async function fetchWeeklyPreds(userId: string, groupId: string): Promise<Simple
     .eq('user_id', userId)
     .eq('group_id', groupId)
     .order('created_at', { ascending: false })
-    .limit(60);
+    .limit(100);
 
   const all = (data as unknown as SimplePred[]) ?? [];
-  return all.filter(p => new Date(p.match?.kickoff_time ?? 0).getTime() >= start);
+  if (period === 'allTime') return all;
+
+  const { start, end } = getPeriodBoundsMs(period);
+  return all.filter(p => {
+    const kickoff = new Date(p.match?.kickoff_time ?? 0).getTime();
+    return (start === null || kickoff >= start) && (end === null || kickoff < end);
+  });
 }
 
 // ── PredCell ─────────────────────────────────────────────────────────────────
@@ -180,7 +196,9 @@ function PredCell({
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
+  const isHe = lang === 'he';
+  const [period, setPeriod] = useState<H2HPeriod>('allTime');
   const [myPreds, setMyPreds] = useState<SimplePred[]>([]);
   const [friendPreds, setFriendPreds] = useState<SimplePred[]>([]);
   const [loading, setLoading] = useState(true);
@@ -195,16 +213,16 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetchWeeklyPreds(me.user_id, groupId),
-      fetchWeeklyPreds(friend.user_id, groupId),
+      fetchPreds(me.user_id, groupId, period),
+      fetchPreds(friend.user_id, groupId, period),
     ]).then(([mine, theirs]) => {
       setMyPreds(mine);
       setFriendPreds(theirs);
       setLoading(false);
     });
-  }, [me.user_id, friend.user_id, groupId]);
+  }, [me.user_id, friend.user_id, groupId, period]);
 
-  // Merge into per-match rows sorted by kickoff
+  // Merge into per-match rows sorted newest kickoff first
   const rows = useMemo(() => {
     const map = new Map<string, { match: MatchInfo; myPred: SimplePred | null; friendPred: SimplePred | null }>();
     for (const p of myPreds) map.set(p.match_id, { match: p.match, myPred: p, friendPred: null });
@@ -214,9 +232,17 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
       else map.set(p.match_id, { match: p.match, myPred: null, friendPred: p });
     }
     return [...map.values()].sort(
-      (a, b) => new Date(a.match?.kickoff_time ?? 0).getTime() - new Date(b.match?.kickoff_time ?? 0).getTime()
+      (a, b) => new Date(b.match?.kickoff_time ?? 0).getTime() - new Date(a.match?.kickoff_time ?? 0).getTime()
     );
   }, [myPreds, friendPreds]);
+
+  // Period-specific points derived from fetched predictions (avoids stale DB columns)
+  const myPeriodPts = useMemo(() =>
+    myPreds.filter(p => p.is_resolved).reduce((s, p) => s + p.points_earned, 0),
+    [myPreds]);
+  const friendPeriodPts = useMemo(() =>
+    friendPreds.filter(p => p.is_resolved).reduce((s, p) => s + p.points_earned, 0),
+    [friendPreds]);
 
   // Match-level win tally (only resolved head-to-head matches)
   const { myWins, friendWins, matchTies } = useMemo(() => {
@@ -232,11 +258,17 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
     return { myWins: myW, friendWins: friendW, matchTies: ties };
   }, [rows]);
 
-  const meLeading = me.weekly_points > friend.weekly_points;
-  const tied = me.weekly_points === friend.weekly_points;
+  const meLeading = myPeriodPts > friendPeriodPts;
+  const tied = myPeriodPts === friendPeriodPts;
   const firstName = (name: string) => name.split(' ')[0];
 
-  return (
+  const PERIOD_TABS: { key: H2HPeriod; label: string }[] = [
+    { key: 'allTime', label: isHe ? 'כל הזמן' : 'All Time' },
+    { key: 'weekly',  label: t('thisWeek') },
+    { key: 'lastWeek', label: t('lastWeek') },
+  ];
+
+  return createPortal(
     <motion.div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
       initial={{ opacity: 0 }}
@@ -278,7 +310,7 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
                   'font-bebas text-3xl leading-none tracking-wide',
                   meLeading ? 'text-accent-green' : tied ? 'text-white' : 'text-white/40',
                 )}>
-                  {me.weekly_points}
+                  {myPeriodPts}
                   <span className="text-sm font-sans font-normal ms-0.5 tracking-normal">{t('pts')}</span>
                 </span>
               </div>
@@ -327,10 +359,28 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
                   'font-bebas text-3xl leading-none tracking-wide',
                   !meLeading && !tied ? 'text-accent-green' : tied ? 'text-white' : 'text-white/40',
                 )}>
-                  {friend.weekly_points}
+                  {friendPeriodPts}
                   <span className="text-sm font-sans font-normal ms-0.5 tracking-normal">{t('pts')}</span>
                 </span>
               </div>
+            </div>
+
+            {/* Period tabs */}
+            <div className="flex gap-1 mt-3 bg-white/5 rounded-xl p-1">
+              {PERIOD_TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setPeriod(tab.key)}
+                  className={cn(
+                    'flex-1 py-1.5 text-[11px] font-medium rounded-lg transition-all duration-150',
+                    period === tab.key
+                      ? 'bg-accent-green text-bg-base shadow-glow-green-sm'
+                      : 'text-text-muted hover:text-white',
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -437,6 +487,7 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
 
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }

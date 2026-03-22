@@ -240,7 +240,7 @@ export function ProfilePage() {
             info: t('infoPredictions'),
           },
         ].map(stat => (
-          <motion.div key={stat.label} variants={{ hidden: { opacity: 0, y: 20, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 100, damping: 18 } } }} whileHover={{ scale: 1.04, y: -3 }} transition={{ type: 'spring', stiffness: 300 }}>
+          <motion.div key={stat.label} className="h-full" variants={{ hidden: { opacity: 0, y: 20, scale: 0.95 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 100, damping: 18 } } }} whileHover={{ scale: 1.04, y: -3 }} transition={{ type: 'spring', stiffness: 300 }}>
             <StatCard label={stat.label} value={stat.value} highlight={stat.highlight} sub={stat.sub} info={stat.info} />
           </motion.div>
         ))}
@@ -529,13 +529,13 @@ function CoinSummaryBar({ coinsBet, pointsEarned }: { coinsBet: number; pointsEa
 
 function StatCard({ label, value, highlight, sub, info }: { label: string; value: string | number; highlight?: boolean; sub?: string; info?: string }) {
   return (
-    <GlassCard className="p-4 text-center">
+    <GlassCard className="p-4 text-center h-full flex flex-col items-center justify-between min-h-[88px]">
       <div className="flex items-center justify-center text-text-muted text-xs uppercase tracking-wider mb-1 gap-0.5">
         {label}
         {info && <InfoTip text={info} />}
       </div>
       <div className={`font-bebas text-2xl tracking-wider ${highlight ? 'text-accent-green text-glow-green' : 'text-white'}`}>{value}</div>
-      {sub && <div className="text-white/20 text-[10px] mt-0.5 leading-tight">{sub}</div>}
+      <div className="text-white/20 text-[10px] mt-0.5 leading-tight min-h-[14px]">{sub ?? ''}</div>
     </GlassCard>
   );
 }

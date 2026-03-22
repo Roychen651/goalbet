@@ -178,7 +178,7 @@ export function LeaderboardPage() {
             setSelectedUser({ user_id: entry.user_id, username: entry.username, avatar_url: entry.avatar_url ?? null });
           } else {
             // Another user → H2H comparison
-            setH2hFriend({ user_id: entry.user_id, username: entry.username, avatar_url: entry.avatar_url ?? null, weekly_points: entry.weekly_points ?? 0 });
+            setH2hFriend({ user_id: entry.user_id, username: entry.username, avatar_url: entry.avatar_url ?? null, weekly_points: entry.weekly_points ?? 0, total_points: entry.total_points, last_week_points: entry.last_week_points ?? 0 });
           }
         }}
       />
@@ -202,6 +202,8 @@ export function LeaderboardPage() {
               username: currentUserEntry.username,
               avatar_url: currentUserEntry.avatar_url ?? null,
               weekly_points: currentUserEntry.weekly_points ?? 0,
+              total_points: currentUserEntry.total_points,
+              last_week_points: currentUserEntry.last_week_points ?? 0,
             }}
             friend={h2hFriend}
             groupId={activeGroupId}
