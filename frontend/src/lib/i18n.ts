@@ -118,6 +118,25 @@ export const translations = {
     infoTotalPoints: 'Sum of all points from resolved matches. FT Result (3), Exact Score (+7), Corners (4), BTTS (2), Over/Under (3). Max 19 pts.',
     infoPredictions: 'Total predictions placed. "Resolved" = match finished and points calculated.',
 
+    // Personal Analytics & Economy
+    analyticsTitle: 'Analytics & Economy',
+    bestTier: 'Best Tier',
+    bestTierSub: 'highest hit rate',
+    coinEfficiency: 'Coins Won',
+    coinEfficiencyWinRate: 'win rate',
+    coinEfficiencyProfit: 'profit',
+    perfectMatches: 'Perfect Matches',
+    perfectMatchesSub: 'max score · 19 pts',
+    infoBestTier: 'The prediction tier where you have the best hit rate — you score from it most often.',
+    infoCoinEfficiency: 'Total coins earned back from resolved predictions (points × 2). Win rate = matches where you earned more coins than you staked.',
+    infoPerfectMatches: 'Matches where you hit all 5 tiers and scored the maximum 19 points.',
+    tierResult: 'Result',
+    tierScore: 'Exact Score',
+    tierCorners: 'Corners',
+    tierBTTS: 'BTTS',
+    tierOU: 'Over/Under',
+    noAnalyticsYet: 'Resolve more predictions to see your analytics.',
+
     // Settings — admin controls
     renameGroup: 'Rename group',
     syncMatchesTitle: 'Sync Matches',
@@ -342,6 +361,25 @@ export const translations = {
     infoHitRate: 'כמה פעמים ניחשת נכון את תוצאת המשחק (ניצחון בית / תיקו / ניצחון חוץ). הסטטיסטיקה הכי חשובה בניבוי כדורגל.',
     infoTotalPoints: 'סכום כל הנקודות ממשחקים שנפתרו. תוצאה (3), מדויק (+7), קרנות (4), שתיים מבקיעות (2), מעל/מתחת (3). מקס׳ 19 נק׳.',
     infoPredictions: 'סה"כ ניבויים שביצעת. "נפתרו" = המשחק הסתיים והנקודות חושבו.',
+
+    // Personal Analytics & Economy
+    analyticsTitle: 'אנליטיקה וכלכלה',
+    bestTier: 'טייר מוביל',
+    bestTierSub: 'אחוז הצלחה הגבוה ביותר',
+    coinEfficiency: 'מטבעות שנצחתם',
+    coinEfficiencyWinRate: 'אחוז זכייה',
+    coinEfficiencyProfit: 'רווח',
+    perfectMatches: 'משחקים מושלמים',
+    perfectMatchesSub: 'ניקוד מקסימלי · 19 נק׳',
+    infoBestTier: 'הטייר שבו אחוז ההצלחה שלך הגבוה ביותר — אתה מנקד ממנו הכי הרבה.',
+    infoCoinEfficiency: 'סה"כ מטבעות שהרווחת ממשחקים שנפתרו (נקודות × 2). אחוז זכייה = משחקים שבהם הרווחת יותר ממה שהימרת.',
+    infoPerfectMatches: 'משחקים שבהם פגעת בכל 5 הטיירים וקיבלת 19 נקודות — הניקוד המקסימלי.',
+    tierResult: 'תוצאה',
+    tierScore: 'מדויק',
+    tierCorners: 'קרנות',
+    tierBTTS: 'שתיים מבקיעות',
+    tierOU: 'מעל/מתחת',
+    noAnalyticsYet: 'פתור יותר ניבויים כדי לראות את האנליטיקה שלך.',
 
     // Settings — admin controls
     renameGroup: 'שנה שם קבוצה',
