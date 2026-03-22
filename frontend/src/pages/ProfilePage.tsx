@@ -159,10 +159,12 @@ export function ProfilePage() {
     return (p.predicted_outcome as string) === actual;
   });
 
-  // ── Personal Analytics & Economy ─────────────────────────────────────────
+  // ── Personal Analytics ────────────────────────────────────────────────────
   const ftResolved = resolved.filter(p => p.match.status === 'FT');
 
-  // Per-tier: how many times bet, how many times scored (only FT with real data)
+  // ── Card 1: Best Tier ─────────────────────────────────────────────────────
+  // For each prediction tier, count attempts and hits on finished matches.
+  // Minimum 3 attempts per tier before surfacing it (avoids misleading 100% from 1 try).
   const tierStats = {
     result:  { bet: 0, won: 0 },
     score:   { bet: 0, won: 0 },
@@ -174,7 +176,6 @@ export function ProfilePage() {
     const m = p.match;
     const sH = (m as unknown as { regulation_home: number | null }).regulation_home ?? m.home_score!;
     const sA = (m as unknown as { regulation_away: number | null }).regulation_away ?? m.away_score!;
-    const totalGoals = sH + sA;
     const outcome = sH > sA ? 'H' : sH < sA ? 'A' : 'D';
     const btts = sH > 0 && sA > 0;
     const corners = (m as unknown as { corners_total: number | null }).corners_total;
@@ -198,7 +199,7 @@ export function ProfilePage() {
     }
     if (p.predicted_over_under !== null) {
       tierStats.ou.bet++;
-      if ((p.predicted_over_under === 'over') === (totalGoals > 2.5)) tierStats.ou.won++;
+      if ((p.predicted_over_under === 'over') === ((sH + sA) > 2.5)) tierStats.ou.won++;
     }
   }
 
@@ -218,15 +219,38 @@ export function ProfilePage() {
   }
   const bestTierStat = bestTierKey ? tierStats[bestTierKey] : null;
 
-  // Coin economy
-  const totalCoinsWon = resolved.reduce((s, p) => s + p.points_earned * 2, 0);
-  const totalCoinsBet = resolved.reduce((s, p) => s + (p.coins_bet ?? 0), 0);
-  const coinMatchWins = resolved.filter(p => p.points_earned * 2 > (p.coins_bet ?? 0)).length;
-  const coinWinRate = resolved.length > 0 ? Math.round(coinMatchWins / resolved.length * 100) : 0;
-  const coinProfit = totalCoinsWon - totalCoinsBet;
+  // ── Card 2: Coin ROI ──────────────────────────────────────────────────────
+  // Each prediction stakes `coins_bet` coins; when resolved the user receives
+  // `points_earned × 2` coins back. ROI = returned / staked × 100.
+  // If all predictions pre-date the coin system (coins_bet === 0) we fall back
+  // to just showing total coins returned without a percentage.
+  const totalCoinsReturned = ftResolved.reduce((s, p) => s + p.points_earned * 2, 0);
+  const totalCoinsStaked   = resolved.reduce((s, p) => s + (p.coins_bet ?? 0), 0);
+  const hasStakeData = totalCoinsStaked > 0;
+  const roi = hasStakeData ? Math.round((totalCoinsReturned / totalCoinsStaked) * 100) : null;
+  // ROI colour: green = profitable (>100%), amber = break-even (=100%), muted = loss (<100%)
+  const roiColor = roi === null ? 'text-amber-400'
+    : roi > 100 ? 'text-accent-green'
+    : roi === 100 ? 'text-white'
+    : 'text-amber-400';
 
-  // Perfect matches (all 5 tiers correct = 19 pts)
-  const perfectCount = ftResolved.filter(p => p.points_earned === 19).length;
+  // ── Card 3: Best Match ────────────────────────────────────────────────────
+  // Show the single highest-scoring match. If tied, prefer most recent kickoff.
+  // When points_earned === 19 the user hit every tier — mark as a "perfect match".
+  const bestPred = ftResolved.reduce<PredictionWithMatch | null>((best, p) => {
+    if (!best) return p;
+    if (p.points_earned > best.points_earned) return p;
+    if (p.points_earned === best.points_earned &&
+        new Date(p.match.kickoff_time) > new Date(best.match.kickoff_time)) return p;
+    return best;
+  }, null);
+  const isPerfect = bestPred?.points_earned === 19;
+  const shortTeam = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    // Use last word unless the whole name is ≤ 8 chars
+    return parts.length > 1 && name.length > 8 ? parts[parts.length - 1] : name;
+  };
+
   const hasAnalytics = ftResolved.length >= 3;
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -317,7 +341,7 @@ export function ProfilePage() {
         ))}
       </motion.div>
 
-      {/* ── Personal Analytics & Economy ─────────────────────────────────── */}
+      {/* ── Personal Analytics ────────────────────────────────────────────── */}
       {!loading && (
         <motion.div
           initial="hidden"
@@ -334,92 +358,153 @@ export function ProfilePage() {
 
           {!hasAnalytics ? (
             <motion.p
-              className="text-text-muted text-xs text-center py-4 opacity-60"
+              className="text-text-muted text-xs text-center py-4 opacity-50"
               variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 120, damping: 20 } } }}
             >
               {t('noAnalyticsYet')}
             </motion.p>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2.5">
 
-              {/* Best Tier */}
+              {/* ── Card 1: Best Tier ───────────────────────────────────────── */}
               <motion.div
+                className="h-full"
                 variants={{ hidden: { opacity: 0, y: 16, scale: 0.94 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 120, damping: 18 } } }}
                 whileHover={{ scale: 1.03, y: -2 }}
                 transition={{ type: 'spring', stiffness: 300 }}
               >
-                <GlassCard className="p-3 flex flex-col items-center text-center h-full min-h-[96px] justify-between border-violet-400/20 bg-violet-500/5">
-                  <div className="flex items-center justify-center gap-0.5 text-text-muted text-[9px] uppercase tracking-widest mb-1">
-                    {t('bestTier')}
+                <GlassCard className="p-3 flex flex-col h-full min-h-[108px] border-violet-400/20 bg-violet-500/[0.06]">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-text-muted text-[9px] uppercase tracking-widest leading-none">{t('bestTier')}</span>
                     <InfoTip text={t('infoBestTier')} />
                   </div>
+
                   {bestTierKey ? (
-                    <>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-2xl leading-none">{TIER_ICONS[bestTierKey]}</span>
-                        <span className="text-violet-300 font-bebas text-sm tracking-wide leading-tight">
+                    <div className="flex flex-col flex-1 justify-between">
+                      {/* Icon + name */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xl leading-none shrink-0">{TIER_ICONS[bestTierKey]}</span>
+                        <span className="text-violet-300 font-bebas text-base tracking-wide leading-tight truncate">
                           {t(TIER_LABELS[bestTierKey])}
                         </span>
                       </div>
-                      <div className="text-white/30 text-[10px] leading-tight">
-                        {bestTierStat!.won}/{bestTierStat!.bet} · {Math.round(bestTierRate * 100)}%
+                      {/* Hit rate + mini bar */}
+                      <div className="mt-1.5">
+                        <div className="flex items-baseline justify-between mb-1">
+                          <span className="font-bebas text-2xl leading-none text-violet-300">
+                            {Math.round(bestTierRate * 100)}%
+                          </span>
+                          <span className="text-white/30 text-[9px]">
+                            {bestTierStat!.won}/{bestTierStat!.bet}
+                          </span>
+                        </div>
+                        {/* Progress bar */}
+                        <div className="h-1 rounded-full bg-white/8 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-violet-400/60 transition-all duration-700"
+                            style={{ width: `${Math.round(bestTierRate * 100)}%` }}
+                          />
+                        </div>
                       </div>
-                    </>
+                    </div>
                   ) : (
-                    <span className="text-text-muted text-xs">—</span>
+                    <div className="flex-1 flex items-center justify-center">
+                      <span className="text-text-muted text-xs opacity-50">—</span>
+                    </div>
                   )}
                 </GlassCard>
               </motion.div>
 
-              {/* Coins Won */}
+              {/* ── Card 2: Coin ROI ────────────────────────────────────────── */}
+              {/* ROI = (coins returned ÷ coins staked) × 100               */}
+              {/* 100% = break even · >100% = profitable · <100% = loss     */}
               <motion.div
+                className="h-full"
                 variants={{ hidden: { opacity: 0, y: 16, scale: 0.94 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 120, damping: 18 } } }}
                 whileHover={{ scale: 1.03, y: -2 }}
                 transition={{ type: 'spring', stiffness: 300 }}
               >
-                <GlassCard className="p-3 flex flex-col items-center text-center h-full min-h-[96px] justify-between border-amber-400/20 bg-amber-500/5">
-                  <div className="flex items-center justify-center gap-0.5 text-text-muted text-[9px] uppercase tracking-widest mb-1">
-                    {t('coinEfficiency')}
-                    <InfoTip text={t('infoCoinEfficiency')} />
+                <GlassCard className="p-3 flex flex-col h-full min-h-[108px] border-amber-400/20 bg-amber-500/[0.06]">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-text-muted text-[9px] uppercase tracking-widest leading-none">{t('coinROI')}</span>
+                    <InfoTip text={t('infoCoinROI')} />
                   </div>
-                  <div className="flex flex-col items-center gap-0.5">
-                    <span className="font-bebas text-2xl leading-none text-amber-400">
-                      +{totalCoinsWon}
-                    </span>
-                    {coinProfit > 0 && (
-                      <span className="text-amber-500/70 text-[9px] font-semibold">
-                        +{coinProfit} {t('coinEfficiencyProfit')}
-                      </span>
+
+                  <div className="flex flex-col flex-1 justify-between">
+                    {/* Hero metric */}
+                    <div>
+                      {roi !== null ? (
+                        <>
+                          <div className={`font-bebas text-2xl leading-none ${roiColor}`}>
+                            {roi}%
+                          </div>
+                          <div className="text-white/30 text-[9px] mt-0.5 leading-tight">
+                            {roi > 100 ? '▲ profitable' : roi === 100 ? '= break even' : '▼ loss'}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="font-bebas text-2xl leading-none text-amber-400">
+                            +{totalCoinsReturned}
+                          </div>
+                          <div className="text-white/30 text-[9px] mt-0.5">coins earned</div>
+                        </>
+                      )}
+                    </div>
+                    {/* Staked vs returned breakdown */}
+                    {hasStakeData && (
+                      <div className="text-white/25 text-[9px] leading-tight mt-1 space-y-0.5">
+                        <div>{totalCoinsStaked} {t('roiStaked')}</div>
+                        <div className={totalCoinsReturned >= totalCoinsStaked ? 'text-accent-green/50' : ''}>
+                          {totalCoinsReturned} {t('roiReturned')}
+                        </div>
+                      </div>
                     )}
-                  </div>
-                  <div className="text-white/30 text-[10px] leading-tight">
-                    {coinWinRate}% {t('coinEfficiencyWinRate')}
                   </div>
                 </GlassCard>
               </motion.div>
 
-              {/* Perfect Matches */}
+              {/* ── Card 3: Best Match ──────────────────────────────────────── */}
+              {/* Your single highest-scoring match. 19 pts = perfect match.  */}
               <motion.div
+                className="h-full"
                 variants={{ hidden: { opacity: 0, y: 16, scale: 0.94 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 120, damping: 18 } } }}
                 whileHover={{ scale: 1.03, y: -2 }}
                 transition={{ type: 'spring', stiffness: 300 }}
               >
-                <GlassCard className="p-3 flex flex-col items-center text-center h-full min-h-[96px] justify-between border-accent-green/20 bg-accent-green/5">
-                  <div className="flex items-center justify-center gap-0.5 text-text-muted text-[9px] uppercase tracking-widest mb-1">
-                    {t('perfectMatches')}
-                    <InfoTip text={t('infoPerfectMatches')} />
+                <GlassCard className="p-3 flex flex-col h-full min-h-[108px] border-accent-green/20 bg-accent-green/[0.04]">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-text-muted text-[9px] uppercase tracking-widest leading-none">{t('bestMatch')}</span>
+                    <InfoTip text={t('infoBestMatch')} />
                   </div>
-                  <div className="flex flex-col items-center gap-0.5">
-                    <span className={`font-bebas text-3xl leading-none ${perfectCount > 0 ? 'text-accent-green text-glow-green' : 'text-white/30'}`}>
-                      {perfectCount}
-                    </span>
-                    {perfectCount > 0 && (
-                      <span className="text-[9px] text-accent-green/60">✦✦✦</span>
-                    )}
-                  </div>
-                  <div className="text-white/30 text-[10px] leading-tight">
-                    {t('perfectMatchesSub')}
-                  </div>
+
+                  {bestPred ? (
+                    <div className="flex flex-col flex-1 justify-between">
+                      {/* Score + perfect badge */}
+                      <div className="flex items-end gap-1">
+                        <span className={`font-bebas text-3xl leading-none ${isPerfect ? 'text-accent-green text-glow-green' : 'text-white'}`}>
+                          {bestPred.points_earned}
+                        </span>
+                        <span className="text-white/30 text-[10px] mb-0.5 leading-none">{t('bestMatchPts')}</span>
+                      </div>
+                      {isPerfect && (
+                        <span className="text-[8px] font-bold tracking-widest text-accent-green/80 uppercase leading-none mt-0.5">
+                          ✦ {t('perfectBadge')}
+                        </span>
+                      )}
+                      {/* Match teams */}
+                      <div className="text-white/25 text-[9px] leading-tight mt-1 truncate">
+                        {shortTeam(bestPred.match.home_team)} v {shortTeam(bestPred.match.away_team)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center">
+                      <span className="text-text-muted text-xs opacity-50">—</span>
+                    </div>
+                  )}
                 </GlassCard>
               </motion.div>
             </div>

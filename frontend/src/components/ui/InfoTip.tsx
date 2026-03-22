@@ -5,18 +5,22 @@ interface InfoTipProps {
   text: string;
 }
 
+const TOOLTIP_W = 208; // w-52 = 13rem
+
 export function InfoTip({ text }: InfoTipProps) {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  // Compute position on show so tooltip renders at the right place in the portal
   useEffect(() => {
     if (!show || !btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2 + window.scrollX;
+    // Clamp so tooltip never exits the visible viewport on either side
+    const clampedLeft = Math.max(8, Math.min(window.innerWidth - TOOLTIP_W - 8, centerX - TOOLTIP_W / 2));
     setPos({
-      top: rect.top + window.scrollY - 8,   // 8px gap above button
-      left: rect.left + rect.width / 2 + window.scrollX,
+      top: rect.top + window.scrollY - 8, // 8px gap above button
+      left: clampedLeft,
     });
   }, [show]);
 
@@ -35,10 +39,11 @@ export function InfoTip({ text }: InfoTipProps) {
       </button>
       {show && createPortal(
         <span
-          className="fixed z-[9999] w-52 px-3 py-2 rounded-xl text-[10px] leading-snug shadow-2xl text-center pointer-events-none whitespace-normal -translate-x-1/2 -translate-y-full"
+          className="fixed z-[9999] px-3 py-2 rounded-xl text-[10px] leading-snug shadow-2xl text-start pointer-events-none whitespace-normal -translate-y-full"
           style={{
             top: pos.top,
             left: pos.left,
+            width: TOOLTIP_W,
             backgroundColor: 'var(--color-tooltip-bg)',
             color: 'var(--color-tooltip-text)',
             borderWidth: '1px',
