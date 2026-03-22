@@ -219,37 +219,58 @@ export function ProfilePage() {
   }
   const bestTierStat = bestTierKey ? tierStats[bestTierKey] : null;
 
-  // ── Card 2: Coin ROI ──────────────────────────────────────────────────────
-  // Each prediction stakes `coins_bet` coins; when resolved the user receives
-  // `points_earned × 2` coins back. ROI = returned / staked × 100.
-  // If all predictions pre-date the coin system (coins_bet === 0) we fall back
-  // to just showing total coins returned without a percentage.
-  const totalCoinsReturned = ftResolved.reduce((s, p) => s + p.points_earned * 2, 0);
-  const totalCoinsStaked   = resolved.reduce((s, p) => s + (p.coins_bet ?? 0), 0);
-  const hasStakeData = totalCoinsStaked > 0;
-  const roi = hasStakeData ? Math.round((totalCoinsReturned / totalCoinsStaked) * 100) : null;
-  // ROI colour: green = profitable (>100%), amber = break-even (=100%), muted = loss (<100%)
-  const roiColor = roi === null ? 'text-amber-400'
-    : roi > 100 ? 'text-accent-green'
-    : roi === 100 ? 'text-white'
-    : 'text-amber-400';
+  // ── Card 2: Score Precision ───────────────────────────────────────────────
+  // "How many goals off is your score prediction on average?"
+  // Only uses predictions where the user actually predicted the score.
+  // avg_diff = mean of (|pred_home − actual_home| + |pred_away − actual_away|)
+  // This is purely from the prediction+match data — no coin fields involved.
+  const scorePreds = ftResolved.filter(
+    p => p.predicted_home_score !== null && p.predicted_away_score !== null,
+  );
+  const avgGoalsDiff = scorePreds.length > 0
+    ? scorePreds.reduce((sum, p) => {
+        const sH = (p.match as unknown as { regulation_home: number | null }).regulation_home ?? p.match.home_score!;
+        const sA = (p.match as unknown as { regulation_away: number | null }).regulation_away ?? p.match.away_score!;
+        return sum + Math.abs(p.predicted_home_score! - sH) + Math.abs(p.predicted_away_score! - sA);
+      }, 0) / scorePreds.length
+    : null;
+  const exactScoreCount = scorePreds.filter(p => {
+    const sH = (p.match as unknown as { regulation_home: number | null }).regulation_home ?? p.match.home_score!;
+    const sA = (p.match as unknown as { regulation_away: number | null }).regulation_away ?? p.match.away_score!;
+    return p.predicted_home_score === sH && p.predicted_away_score === sA;
+  }).length;
+  // Precision colour: sharp (avg < 1.0) → green, decent (< 2.0) → amber, rough → muted
+  const precisionColor = avgGoalsDiff === null ? 'text-amber-400'
+    : avgGoalsDiff < 1.0 ? 'text-accent-green'
+    : avgGoalsDiff < 2.0 ? 'text-amber-400'
+    : 'text-white/50';
 
-  // ── Card 3: Best Match ────────────────────────────────────────────────────
-  // Show the single highest-scoring match. If tied, prefer most recent kickoff.
-  // When points_earned === 19 the user hit every tier — mark as a "perfect match".
-  const bestPred = ftResolved.reduce<PredictionWithMatch | null>((best, p) => {
-    if (!best) return p;
-    if (p.points_earned > best.points_earned) return p;
-    if (p.points_earned === best.points_earned &&
-        new Date(p.match.kickoff_time) > new Date(best.match.kickoff_time)) return p;
-    return best;
-  }, null);
-  const isPerfect = bestPred?.points_earned === 19;
-  const shortTeam = (name: string) => {
-    const parts = name.trim().split(/\s+/);
-    // Use last word unless the whole name is ≤ 8 chars
-    return parts.length > 1 && name.length > 8 ? parts[parts.length - 1] : name;
-  };
+  // ── Card 3: Recent Form ───────────────────────────────────────────────────
+  // Last 5 FT matches where the user predicted the full-time result (H/D/A).
+  // Sorted from oldest→newest so dots read left-to-right chronologically.
+  // Also computes the current correct-result streak (consecutive from most recent).
+  const resultPreds = ftResolved
+    .filter(p => p.predicted_outcome !== null)
+    .sort((a, b) => new Date(a.match.kickoff_time).getTime() - new Date(b.match.kickoff_time).getTime());
+
+  const last5 = resultPreds.slice(-5).map(p => {
+    const sH = (p.match as unknown as { regulation_home: number | null }).regulation_home ?? p.match.home_score!;
+    const sA = (p.match as unknown as { regulation_away: number | null }).regulation_away ?? p.match.away_score!;
+    const actual = sH > sA ? 'H' : sH < sA ? 'A' : 'D';
+    return p.predicted_outcome === actual;
+  });
+
+  // Current streak: count consecutive correct from the most recent prediction backwards
+  let currentStreak = 0;
+  for (let i = resultPreds.length - 1; i >= 0; i--) {
+    const p = resultPreds[i];
+    const sH = (p.match as unknown as { regulation_home: number | null }).regulation_home ?? p.match.home_score!;
+    const sA = (p.match as unknown as { regulation_away: number | null }).regulation_away ?? p.match.away_score!;
+    const actual = sH > sA ? 'H' : sH < sA ? 'A' : 'D';
+    if (p.predicted_outcome === actual) currentStreak++;
+    else break;
+  }
+  const last5Correct = last5.filter(Boolean).length;
 
   const hasAnalytics = ftResolved.length >= 3;
   // ─────────────────────────────────────────────────────────────────────────
@@ -416,9 +437,8 @@ export function ProfilePage() {
                 </GlassCard>
               </motion.div>
 
-              {/* ── Card 2: Coin ROI ────────────────────────────────────────── */}
-              {/* ROI = (coins returned ÷ coins staked) × 100               */}
-              {/* 100% = break even · >100% = profitable · <100% = loss     */}
+              {/* ── Card 2: Score Precision ─────────────────────────────────── */}
+              {/* avg goal diff on exact-score predictions (lower = sharper) */}
               <motion.div
                 className="h-full"
                 variants={{ hidden: { opacity: 0, y: 16, scale: 0.94 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 120, damping: 18 } } }}
@@ -426,48 +446,38 @@ export function ProfilePage() {
                 transition={{ type: 'spring', stiffness: 300 }}
               >
                 <GlassCard className="p-3 flex flex-col h-full min-h-[108px] border-amber-400/20 bg-amber-500/[0.06]">
-                  {/* Header */}
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-text-muted text-[9px] uppercase tracking-widest leading-none">{t('coinROI')}</span>
-                    <InfoTip text={t('infoCoinROI')} />
+                    <span className="text-text-muted text-[9px] uppercase tracking-widest leading-none">{t('scorePrecision')}</span>
+                    <InfoTip text={t('infoScorePrecision')} />
                   </div>
 
                   <div className="flex flex-col flex-1 justify-between">
-                    {/* Hero metric */}
-                    <div>
-                      {roi !== null ? (
-                        <>
-                          <div className={`font-bebas text-2xl leading-none ${roiColor}`}>
-                            {roi}%
+                    {avgGoalsDiff !== null ? (
+                      <>
+                        <div>
+                          <div className={`font-bebas text-2xl leading-none ${precisionColor}`}>
+                            {avgGoalsDiff.toFixed(1)}
                           </div>
                           <div className="text-white/30 text-[9px] mt-0.5 leading-tight">
-                            {roi > 100 ? '▲ profitable' : roi === 100 ? '= break even' : '▼ loss'}
+                            {t('goalsOff')}
                           </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="font-bebas text-2xl leading-none text-amber-400">
-                            +{totalCoinsReturned}
-                          </div>
-                          <div className="text-white/30 text-[9px] mt-0.5">coins earned</div>
-                        </>
-                      )}
-                    </div>
-                    {/* Staked vs returned breakdown */}
-                    {hasStakeData && (
-                      <div className="text-white/25 text-[9px] leading-tight mt-1 space-y-0.5">
-                        <div>{totalCoinsStaked} {t('roiStaked')}</div>
-                        <div className={totalCoinsReturned >= totalCoinsStaked ? 'text-accent-green/50' : ''}>
-                          {totalCoinsReturned} {t('roiReturned')}
                         </div>
+                        <div className="text-white/25 text-[9px] leading-tight mt-1">
+                          {exactScoreCount}{' '}
+                          {exactScoreCount === 1 ? t('exactScoreHits') : t('exactScoreHitsPlural')}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center">
+                        <span className="text-text-muted text-[9px] opacity-50 text-center leading-snug">{t('noScorePreds')}</span>
                       </div>
                     )}
                   </div>
                 </GlassCard>
               </motion.div>
 
-              {/* ── Card 3: Best Match ──────────────────────────────────────── */}
-              {/* Your single highest-scoring match. 19 pts = perfect match.  */}
+              {/* ── Card 3: Recent Form ──────────────────────────────────────── */}
+              {/* Last 5 FT result predictions as animated dots + streak      */}
               <motion.div
                 className="h-full"
                 variants={{ hidden: { opacity: 0, y: 16, scale: 0.94 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 120, damping: 18 } } }}
@@ -475,29 +485,44 @@ export function ProfilePage() {
                 transition={{ type: 'spring', stiffness: 300 }}
               >
                 <GlassCard className="p-3 flex flex-col h-full min-h-[108px] border-accent-green/20 bg-accent-green/[0.04]">
-                  {/* Header */}
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-text-muted text-[9px] uppercase tracking-widest leading-none">{t('bestMatch')}</span>
-                    <InfoTip text={t('infoBestMatch')} />
+                    <span className="text-text-muted text-[9px] uppercase tracking-widest leading-none">{t('recentForm')}</span>
+                    <InfoTip text={t('infoRecentForm')} />
                   </div>
 
-                  {bestPred ? (
+                  {last5.length > 0 ? (
                     <div className="flex flex-col flex-1 justify-between">
-                      {/* Score + perfect badge */}
-                      <div className="flex items-end gap-1">
-                        <span className={`font-bebas text-3xl leading-none ${isPerfect ? 'text-accent-green text-glow-green' : 'text-white'}`}>
-                          {bestPred.points_earned}
-                        </span>
-                        <span className="text-white/30 text-[10px] mb-0.5 leading-none">{t('bestMatchPts')}</span>
+                      {/* Animated dots — oldest left, newest right */}
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {last5.map((correct, i) => (
+                          <motion.span
+                            key={i}
+                            className={`w-4 h-4 rounded-full flex-shrink-0 ${correct ? 'bg-accent-green shadow-[0_0_6px_rgba(0,255,135,0.7)]' : 'bg-red-500/70'}`}
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 16, delay: 0.35 + i * 0.08 }}
+                          />
+                        ))}
+                        {/* Ghost dots for < 5 predictions */}
+                        {Array.from({ length: 5 - last5.length }).map((_, i) => (
+                          <span key={`ghost-${i}`} className="w-4 h-4 rounded-full bg-white/8 flex-shrink-0" />
+                        ))}
                       </div>
-                      {isPerfect && (
-                        <span className="text-[8px] font-bold tracking-widest text-accent-green/80 uppercase leading-none mt-0.5">
-                          ✦ {t('perfectBadge')}
-                        </span>
-                      )}
-                      {/* Match teams */}
-                      <div className="text-white/25 text-[9px] leading-tight mt-1 truncate">
-                        {shortTeam(bestPred.match.home_team)} v {shortTeam(bestPred.match.away_team)}
+                      {/* Streak + ratio */}
+                      <div>
+                        <div className="flex items-baseline gap-1">
+                          {currentStreak > 0 && (
+                            <span className="font-bebas text-2xl leading-none text-accent-green">
+                              {currentStreak}
+                            </span>
+                          )}
+                          <span className="text-white/30 text-[9px] leading-tight">
+                            {currentStreak > 0 ? t('formStreak') : `${last5Correct} ${t('formOf')}`}
+                          </span>
+                        </div>
+                        <div className="text-white/20 text-[9px] leading-tight">
+                          {last5Correct}/{last5.length} {t('formStreakOf')}
+                        </div>
                       </div>
                     </div>
                   ) : (
