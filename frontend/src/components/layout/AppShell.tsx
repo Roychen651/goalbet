@@ -26,26 +26,37 @@ export function AppShell() {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  // Fire-and-forget background sync ping — wakes the Render backend and triggers
-  // a score update so stale match data clears quickly after page load or tab focus.
+  // Background sync: wakes the Render backend and triggers a score update.
+  // Fires immediately on mount, then retries at 20s (catches cold-start: first
+  // request wakes the server, second one runs the actual sync while it's awake).
+  // Dispatches 'goalbet:synced' after each successful response so data hooks refetch.
   const lastSyncRef = useRef(0);
+  const SYNC_THROTTLE_MS = 30_000;
+
   const pingSync = useCallback(() => {
     const now = Date.now();
-    if (now - lastSyncRef.current < 60_000) return; // at most once per minute
+    if (now - lastSyncRef.current < SYNC_THROTTLE_MS) return;
     lastSyncRef.current = now;
     const url = import.meta.env.VITE_BACKEND_URL;
     if (!url) return;
-    fetch(`${url}/api/sync/scores`, { method: 'POST' }).catch(() => {/* silent */});
+    fetch(`${url}/api/sync/scores`, { method: 'POST' })
+      .then(() => window.dispatchEvent(new Event('goalbet:synced')))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    // Ping on mount (delayed slightly so UI renders first)
-    const timer = setTimeout(pingSync, 3_000);
-    // Also ping when tab comes back to foreground
+    // Ping immediately (no delay)
+    pingSync();
+    // Retry at 20s: Render cold-start takes ~15s, so second ping syncs while awake
+    const retryTimer = setTimeout(() => {
+      lastSyncRef.current = 0; // bypass throttle for this deliberate retry
+      pingSync();
+    }, 20_000);
+    // Re-sync when tab comes back to foreground (throttled)
     const onVisible = () => { if (!document.hidden) pingSync(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
-      clearTimeout(timer);
+      clearTimeout(retryTimer);
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [pingSync]);

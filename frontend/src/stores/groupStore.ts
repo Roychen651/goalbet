@@ -12,6 +12,8 @@ interface GroupState {
   createGroup: (name: string, activeLeagues: number[]) => Promise<Group>;
   joinGroup: (inviteCode: string, userId: string) => Promise<Group>;
   leaveGroup: (groupId: string, userId: string) => Promise<void>;
+  deleteGroup: (groupId: string) => Promise<void>;
+  removeMember: (groupId: string, targetUserId: string) => Promise<void>;
   updateGroupLeagues: (groupId: string, leagueIds: number[]) => Promise<void>;
   updateGroupName: (groupId: string, name: string) => Promise<void>;
 }
@@ -226,6 +228,32 @@ export const useGroupStore = create<GroupState>()(
               : state.activeGroupId,
           };
         });
+      },
+
+      deleteGroup: async (groupId) => {
+        const { error } = await supabase
+          .from('groups')
+          .delete()
+          .eq('id', groupId);
+        if (error) throw error;
+        set(state => {
+          const newGroups = state.groups.filter(g => g.id !== groupId);
+          return {
+            groups: newGroups,
+            activeGroupId: state.activeGroupId === groupId
+              ? (newGroups[0]?.id ?? null)
+              : state.activeGroupId,
+          };
+        });
+      },
+
+      removeMember: async (groupId, targetUserId) => {
+        const { error } = await supabase
+          .from('group_members')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', targetUserId);
+        if (error) throw error;
       },
 
       updateGroupLeagues: async (groupId, leagueIds) => {

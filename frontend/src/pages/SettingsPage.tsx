@@ -15,7 +15,7 @@ import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
 export function SettingsPage() {
-  const { groups, activeGroupId, setActiveGroup, updateGroupLeagues, updateGroupName, leaveGroup } = useGroupStore();
+  const { groups, activeGroupId, setActiveGroup, updateGroupLeagues, updateGroupName, leaveGroup, deleteGroup, removeMember } = useGroupStore();
   const { user } = useAuthStore();
   const { addToast, openModal } = useUIStore();
   const { t, lang } = useLangStore();
@@ -28,6 +28,8 @@ export function SettingsPage() {
   const [savingName, setSavingName] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const isAdmin = !!user && !!activeGroup && user.id === activeGroup.created_by;
@@ -87,6 +89,26 @@ export function SettingsPage() {
     } finally {
       setResetting(false);
     }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!activeGroupId || !isAdmin) return;
+    setDeletingGroup(true);
+    try {
+      await deleteGroup(activeGroupId);
+      addToast('Group deleted', 'success');
+      setConfirmDeleteGroup(false);
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to delete group', 'error');
+    } finally {
+      setDeletingGroup(false);
+    }
+  };
+
+  const handleRemoveMember = async (targetUserId: string) => {
+    if (!activeGroupId || !isAdmin) return;
+    await removeMember(activeGroupId, targetUserId);
+    addToast('Member removed', 'success');
   };
 
   const handleLeaveGroup = async (groupId: string) => {
@@ -160,7 +182,12 @@ export function SettingsPage() {
           {/* Group members */}
           <section>
             <h2 className="text-text-muted text-xs uppercase tracking-wider mb-2">{t('groupMembers')}</h2>
-            <GroupMembersList groupId={activeGroup.id} createdBy={activeGroup.created_by} />
+            <GroupMembersList
+              groupId={activeGroup.id}
+              createdBy={activeGroup.created_by}
+              isAdmin={isAdmin}
+              onRemoveMember={isAdmin ? handleRemoveMember : undefined}
+            />
           </section>
 
           {/* Group switcher + leave */}
@@ -253,50 +280,98 @@ export function SettingsPage() {
             </GlassCard>
           </section>
 
-          {/* Admin: Reset All Scores */}
+          {/* Admin: Danger Zone */}
           {isAdmin && (
             <section>
               <h2 className="text-text-muted text-xs uppercase tracking-wider mb-2">{t('dangerZone')}</h2>
-              <GlassCard className="p-4 border border-red-500/15">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-white text-sm font-medium">{t('resetAllScores')}</p>
-                    <p className="text-text-muted text-xs mt-0.5">{t('resetScoresDesc')}</p>
+              <GlassCard className="p-4 border border-red-500/15 space-y-4">
+                {/* Reset All Scores */}
+                <div>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-white text-sm font-medium">{t('resetAllScores')}</p>
+                      <p className="text-text-muted text-xs mt-0.5">{t('resetScoresDesc')}</p>
+                    </div>
+                    {!confirmReset && (
+                      <NeonButton variant="danger" size="sm" onClick={() => setConfirmReset(true)} className="shrink-0">
+                        {t('resetBtn')}
+                      </NeonButton>
+                    )}
                   </div>
-                  {!confirmReset && (
-                    <NeonButton variant="danger" size="sm" onClick={() => setConfirmReset(true)} className="shrink-0">
-                      {t('resetBtn')}
-                    </NeonButton>
-                  )}
+
+                  <AnimatePresence>
+                    {confirmReset && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 pt-3 border-t border-red-500/20">
+                          <p className="text-red-400 text-xs font-semibold mb-3">
+                            {t('resetScoresWarning')}
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setConfirmReset(false)}
+                              className="flex-1 py-2 rounded-xl text-xs text-text-muted hover:text-white border border-white/10 hover:bg-white/5 transition-all"
+                            >
+                              {t('cancel')}
+                            </button>
+                            <NeonButton variant="danger" size="sm" loading={resetting} onClick={handleResetScores} className="flex-1">
+                              {t('yesResetAll')}
+                            </NeonButton>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                <AnimatePresence>
-                  {confirmReset && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="mt-3 pt-3 border-t border-red-500/20">
-                        <p className="text-red-400 text-xs font-semibold mb-3">
-                          {t('resetScoresWarning')}
-                        </p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setConfirmReset(false)}
-                            className="flex-1 py-2 rounded-xl text-xs text-text-muted hover:text-white border border-white/10 hover:bg-white/5 transition-all"
-                          >
-                            {t('cancel')}
-                          </button>
-                          <NeonButton variant="danger" size="sm" loading={resetting} onClick={handleResetScores} className="flex-1">
-                            {t('yesResetAll')}
-                          </NeonButton>
+                <div className="border-t border-white/8" />
+
+                {/* Delete Group */}
+                <div>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-white text-sm font-medium">Delete Group</p>
+                      <p className="text-text-muted text-xs mt-0.5">Permanently remove this group and all its data.</p>
+                    </div>
+                    {!confirmDeleteGroup && (
+                      <NeonButton variant="danger" size="sm" onClick={() => setConfirmDeleteGroup(true)} className="shrink-0">
+                        Delete
+                      </NeonButton>
+                    )}
+                  </div>
+
+                  <AnimatePresence>
+                    {confirmDeleteGroup && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 pt-3 border-t border-red-500/20">
+                          <p className="text-red-400 text-xs font-semibold mb-3">
+                            This will permanently delete "{activeGroup.name}" for all members. This cannot be undone.
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setConfirmDeleteGroup(false)}
+                              className="flex-1 py-2 rounded-xl text-xs text-text-muted hover:text-white border border-white/10 hover:bg-white/5 transition-all"
+                            >
+                              {t('cancel')}
+                            </button>
+                            <NeonButton variant="danger" size="sm" loading={deletingGroup} onClick={handleDeleteGroup} className="flex-1">
+                              Yes, Delete Group
+                            </NeonButton>
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </GlassCard>
             </section>
           )}

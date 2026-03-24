@@ -9,11 +9,14 @@ import { GlassCard } from '../ui/GlassCard';
 interface GroupMembersListProps {
   groupId: string;
   createdBy?: string | null;
+  isAdmin?: boolean;
+  onRemoveMember?: (userId: string) => Promise<void>;
 }
 
-export function GroupMembersList({ groupId, createdBy }: GroupMembersListProps) {
+export function GroupMembersList({ groupId, createdBy, isAdmin, onRemoveMember }: GroupMembersListProps) {
   const [members, setMembers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const { user } = useAuthStore();
   const { t } = useLangStore();
 
@@ -32,6 +35,17 @@ export function GroupMembersList({ groupId, createdBy }: GroupMembersListProps) 
         setLoading(false);
       });
   }, [groupId]);
+
+  const handleRemove = async (memberId: string) => {
+    if (!onRemoveMember) return;
+    setRemovingId(memberId);
+    try {
+      await onRemoveMember(memberId);
+      setMembers(prev => prev.filter(m => m.id !== memberId));
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -67,6 +81,7 @@ export function GroupMembersList({ groupId, createdBy }: GroupMembersListProps) 
         {members.map(member => {
           const isMe = member.id === user?.id;
           const isGroupAdmin = member.id === createdBy;
+          const canRemove = isAdmin && !isMe && !isGroupAdmin && onRemoveMember;
           return (
             <motion.div
               key={member.id}
@@ -88,6 +103,15 @@ export function GroupMembersList({ groupId, createdBy }: GroupMembersListProps) 
                   )}
                 </div>
               </div>
+              {canRemove && (
+                <button
+                  onClick={() => handleRemove(member.id)}
+                  disabled={removingId === member.id}
+                  className="text-xs text-text-muted hover:text-red-400 px-2 py-1 rounded-lg hover:bg-red-400/10 transition-all disabled:opacity-40"
+                >
+                  {removingId === member.id ? '…' : 'Remove'}
+                </button>
+              )}
             </motion.div>
           );
         })}

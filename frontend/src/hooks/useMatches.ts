@@ -219,10 +219,15 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
     const onVisible = () => {
       if (!document.hidden) { fetchMatches(); subscribeToMatches(); }
     };
+    // After background sync completes, refetch so UI shows updated scores
+    const onSynced = () => fetchMatches();
+
     document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('goalbet:synced', onSynced);
 
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('goalbet:synced', onSynced);
       channelRef.current?.unsubscribe();
     };
   }, [fetchMatches, subscribeToMatches]);
