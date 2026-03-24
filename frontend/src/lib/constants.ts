@@ -105,7 +105,7 @@ export const LEAGUE_ESPN_SLUG: Record<number, string> = {
   4344: 'usa.1',
   4351: 'bra.1',
   4350: 'arg.1',
-  4396: 'friendly',    // International Friendlies
+  4396: 'fifa.friendly', // International Friendlies
 };
 
 // App routes

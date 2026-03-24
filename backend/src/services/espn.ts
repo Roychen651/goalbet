@@ -33,7 +33,7 @@ export const LEAGUE_ESPN_MAP: Record<number, string> = {
   4344: 'usa.1',           // MLS
   4351: 'bra.1',           // Brazilian Série A
   4350: 'arg.1',           // Argentine Primera
-  4396: 'friendly',        // International Friendlies
+  4396: 'fifa.friendly',   // International Friendlies (men's)
   // Israeli Premier League (4354) has no ESPN coverage — skipped
 };
 
