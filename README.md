@@ -6,8 +6,6 @@
 Predict match outcomes across 5 tiers, stake coins, and compete on a live leaderboard — free, no real money.
 
 [![CI](https://github.com/Roychen651/goalbet/actions/workflows/ci.yml/badge.svg)](https://github.com/Roychen651/goalbet/actions/workflows/ci.yml)
-[![Sync](https://github.com/Roychen651/goalbet/actions/workflows/sync-cron.yml/badge.svg)](https://github.com/Roychen651/goalbet/actions/workflows/sync-cron.yml)
-
 </div>
 
 ---
