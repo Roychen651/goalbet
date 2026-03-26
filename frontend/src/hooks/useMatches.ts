@@ -64,7 +64,7 @@ async function queryMatches(
       .from('matches')
       .select('*')
       .in('league_id', leagueIds)
-      .in('status', ['FT', 'PST', 'CANC'])
+      .eq('status', 'FT')
       .gte('kickoff_time', since)
       .order('kickoff_time', { ascending: false })
       .limit(100);
@@ -98,7 +98,7 @@ async function queryMatches(
 
     supabase.from('matches').select('*')
       .in('league_id', leagueIds)
-      .in('status', ['FT', 'PST', 'CANC'])
+      .eq('status', 'FT')
       .gte('kickoff_time', completedSince)
       .order('kickoff_time', { ascending: false }).limit(100),
   ]);
@@ -120,7 +120,7 @@ async function queryMatches(
   }
 
   const liveSet = new Set(['1H', 'HT', '2H']);
-  const doneSet = new Set(['FT', 'PST', 'CANC']);
+  const doneSet = new Set(['FT']);
   all.sort((a, b) => {
     const aLive = liveSet.has(a.status) || (a.status === 'NS' && new Date(a.kickoff_time).getTime() < Date.now());
     const bLive = liveSet.has(b.status) || (b.status === 'NS' && new Date(b.kickoff_time).getTime() < Date.now());

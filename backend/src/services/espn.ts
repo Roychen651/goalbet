@@ -34,6 +34,8 @@ export const LEAGUE_ESPN_MAP: Record<number, string> = {
   4351: 'bra.1',           // Brazilian Série A
   4350: 'arg.1',           // Argentine Primera
   4396: 'fifa.friendly',   // International Friendlies (men's)
+  4635: 'uefa.nations',   // UEFA Nations League
+  5000: 'uefa.worldq',    // UEFA World Cup Qualifiers 2026
   // Israeli Premier League (4354) has no ESPN coverage — skipped
 };
 

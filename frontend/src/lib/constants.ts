@@ -12,6 +12,7 @@ export const FOOTBALL_LEAGUES = [
   { id: 4877, name: 'Conference League', country: 'Europe', badge: '🔵', espnLogoId: 2310 },
   // International
   { id: 4480, name: 'World Cup', country: 'World', badge: '🌎', espnLogoId: 4 },
+  { id: 5000, name: 'World Cup Qualifiers', country: 'Europe', badge: '🏆', espnLogoId: null },
   { id: 4467, name: 'Euro Championship', country: 'Europe', badge: '🇪🇺', espnLogoId: null },
   { id: 4635, name: 'Nations League', country: 'Europe', badge: '🏅', espnLogoId: null },
   { id: 4396, name: 'International Friendlies', country: 'World', badge: '🌐', espnLogoId: null },
@@ -106,6 +107,8 @@ export const LEAGUE_ESPN_SLUG: Record<number, string> = {
   4351: 'bra.1',
   4350: 'arg.1',
   4396: 'fifa.friendly', // International Friendlies
+  4635: 'uefa.nations',  // UEFA Nations League
+  5000: 'uefa.worldq',   // UEFA World Cup Qualifiers
 };
 
 // App routes

@@ -27,15 +27,19 @@ export function AppShell() {
   }, [lang]);
 
   // Background sync: wakes the Render backend and triggers a score update.
-  // Fires immediately on mount, then retries at 20s (catches cold-start: first
-  // request wakes the server, second one runs the actual sync while it's awake).
+  // - Fires immediately on mount
+  // - Retries at 20s (catches Render cold-start: first request wakes the server,
+  //   second runs the actual sync while awake)
+  // - Polls every 45s to keep live match scores fresh during active sessions
+  // - On tab visibility restore after >5 min absence, bypasses throttle immediately
   // Dispatches 'goalbet:synced' after each successful response so data hooks refetch.
   const lastSyncRef = useRef(0);
-  const SYNC_THROTTLE_MS = 30_000;
+  const lastHiddenRef = useRef(0);
+  const SYNC_THROTTLE_MS = 40_000;
 
-  const pingSync = useCallback(() => {
+  const pingSync = useCallback((force = false) => {
     const now = Date.now();
-    if (now - lastSyncRef.current < SYNC_THROTTLE_MS) return;
+    if (!force && now - lastSyncRef.current < SYNC_THROTTLE_MS) return;
     lastSyncRef.current = now;
     const url = import.meta.env.VITE_BACKEND_URL;
     if (!url) return;
@@ -45,18 +49,25 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    // Ping immediately (no delay)
-    pingSync();
-    // Retry at 20s: Render cold-start takes ~15s, so second ping syncs while awake
-    const retryTimer = setTimeout(() => {
-      lastSyncRef.current = 0; // bypass throttle for this deliberate retry
-      pingSync();
-    }, 20_000);
-    // Re-sync when tab comes back to foreground (throttled)
-    const onVisible = () => { if (!document.hidden) pingSync(); };
+    pingSync(true);
+    // Retry at 20s: Render cold-start takes ~15s
+    const retryTimer = setTimeout(() => pingSync(true), 20_000);
+    // Poll every 45s to keep live scores current during active viewing
+    const pollInterval = setInterval(() => pingSync(), 45_000);
+
+    const onVisible = () => {
+      if (document.hidden) {
+        lastHiddenRef.current = Date.now();
+      } else {
+        // If tab was hidden for more than 5 minutes, force an immediate sync
+        const hiddenMs = Date.now() - lastHiddenRef.current;
+        pingSync(hiddenMs > 5 * 60_000);
+      }
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearTimeout(retryTimer);
+      clearInterval(pollInterval);
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [pingSync]);
