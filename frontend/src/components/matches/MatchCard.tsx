@@ -170,7 +170,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             )}
             <MatchStatusBadge
               status={
-                isPastKickoffNS ? '1H'
+                isPastKickoffNS ? 'DELAYED'
                 : wentToPens ? 'PEN'
                 : wentToET ? 'AET'            // finished after ET (no pens) → "AET"
                 : isAET ? 'ET_HT'            // live break between ET halves → "AET HT"

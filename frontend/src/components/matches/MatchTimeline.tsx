@@ -325,9 +325,11 @@ export function MatchTimeline({ match }: { match: Match }) {
   if (match.status !== 'FT') return null;
   // Hide toggle for leagues with no ESPN coverage
   if (!LEAGUE_ESPN_SLUG[match.league_id]) return null;
+  // Hide entirely once we know there are no events (e.g. small-nation internationals)
+  if (events !== null && events.length === 0 && !loading) return null;
 
   const hasEvents = events !== null && events.length > 0;
-  const isEmpty   = events !== null && events.length === 0 && !loading;
+  const isEmpty   = false; // never shown — we return null above when empty
 
   // Compute running goal scores for score pins
   const goalsUpTo = (upToPeriod: number, inclusive = true) => {

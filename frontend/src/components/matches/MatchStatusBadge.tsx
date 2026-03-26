@@ -16,6 +16,7 @@ export function MatchStatusBadge({ status, className }: MatchStatusBadgeProps) {
 
   const getLabel = () => {
     switch (status) {
+      case 'DELAYED': return 'Delayed';
       case 'NS': return t('upcoming_status');
       case '1H': case '2H': return t('live_status');
       case 'HT': return t('halfTime_status');
@@ -43,6 +44,7 @@ export function MatchStatusBadge({ status, className }: MatchStatusBadgeProps) {
         status === 'NS' && 'bg-white/5 text-text-muted border border-white/8',
         status === 'HT' && 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
         status === 'PEN' && 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+        status === 'DELAYED' && 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
         (status === 'PST' || status === 'CANC') && 'bg-red-500/15 text-red-400 border border-red-500/30',
         className
       )}
