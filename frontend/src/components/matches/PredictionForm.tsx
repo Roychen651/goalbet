@@ -5,6 +5,9 @@ import { NeonButton } from '../ui/NeonButton';
 import { CoinIcon } from '../ui/CoinIcon';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, POINTS, calcPredictionCost } from '../../lib/constants';
+
+// International Friendlies: hundreds of matches per week, corners never tracked
+const LEAGUES_WITHOUT_CORNERS = new Set([4396]);
 import { useLangStore } from '../../stores/langStore';
 import { useCoinsStore } from '../../stores/coinsStore';
 
@@ -170,7 +173,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
         />
       ),
     },
-    {
+    ...(!LEAGUES_WITHOUT_CORNERS.has(match.league_id) ? [{
       key: 'tier3',
       label: t('totalCorners'),
       pts: POINTS.TIER3_CORNERS,
@@ -182,7 +185,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
           color={TIER_COLORS[2]}
         />
       ),
-    },
+    }] : []),
     {
       key: 'tier5',
       label: t('bothTeamsToScore'),
