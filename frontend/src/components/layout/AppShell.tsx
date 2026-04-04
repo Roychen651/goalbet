@@ -53,23 +53,26 @@ export function AppShell() {
 
   const lastSyncRef = useRef(0);
   const lastHiddenRef = useRef(0);
-  const POLL_THROTTLE_MS = 40_000;
+  const POLL_THROTTLE_MS = 30_000;
 
+  // Score sync with a 75s timeout so it survives Render's cold start (45-60s).
+  // The initial call on mount will likely time out while Render wakes, but the
+  // 25s retry runs once the backend is warm and resolves in seconds.
   const pingScores = useCallback((force = false) => {
     const url = import.meta.env.VITE_BACKEND_URL;
     if (!url) return;
     const now = Date.now();
     if (!force && now - lastSyncRef.current < POLL_THROTTLE_MS) return;
     lastSyncRef.current = now;
-    postWithTimeout(`${url}/api/sync/scores`, 30_000).then(dispatch).catch(() => {});
+    postWithTimeout(`${url}/api/sync/scores`, 75_000).then(dispatch).catch(() => {});
   }, []);
 
   useEffect(() => {
     const url = import.meta.env.VITE_BACKEND_URL;
     if (!url) return;
 
-    // 1. Full fixture sync on every mount (handles cold starts + stale fixtures)
-    //    90 s timeout: Render cold start (~45 s) + ESPN calls for N leagues (~30 s)
+    // 1. Full fixture sync on every mount (wakes Render + pulls fresh fixtures)
+    //    90s timeout: cold start (~45s) + ESPN calls for N leagues (~30s)
     const matchCtrl = new AbortController();
     const matchTimeout = setTimeout(() => matchCtrl.abort(), 90_000);
     postWithTimeout(`${url}/api/sync/matches`, 90_000)
@@ -77,22 +80,23 @@ export function AppShell() {
       .catch(() => {})
       .finally(() => clearTimeout(matchTimeout));
 
-    // 2. Immediate score update (resolves any overnight/weekend predictions)
+    // 2. Immediate score sync — might time out on first cold start, that's OK.
+    //    With the 75s timeout it will likely succeed even on cold start.
     pingScores(true);
 
-    // 3. Score retry at 20 s — backend is awake by now after the match sync woke it
-    const retryTimer = setTimeout(() => pingScores(true), 20_000);
+    // 3. Score retry at 25 s — backend is definitely warm by now
+    const retryTimer = setTimeout(() => pingScores(true), 25_000);
 
-    // 4. Live-score poll every 45 s
-    const pollInterval = setInterval(() => pingScores(), 45_000);
+    // 4. Live-score poll every 30 s (tighter interval for live match responsiveness)
+    const pollInterval = setInterval(() => pingScores(), 30_000);
 
-    // 5. Tab restore: force sync if hidden >5 min
+    // 5. Tab restore: force sync whenever hidden >90s (not 5 min — live games need fast updates)
     const onVisible = () => {
       if (document.hidden) {
         lastHiddenRef.current = Date.now();
       } else {
         const hiddenMs = Date.now() - lastHiddenRef.current;
-        pingScores(hiddenMs > 5 * 60_000);
+        pingScores(hiddenMs > 90_000); // force after just 90 seconds away
       }
     };
     document.addEventListener('visibilitychange', onVisible);

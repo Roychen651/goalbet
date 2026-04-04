@@ -1,22 +1,26 @@
 name: Sync Cron
 
-# Runs every 30 minutes regardless of whether the backend is awake.
-# Permanently keeps matches, scores, and fixtures up-to-date even on free-tier hosts.
-# No auth required — sync endpoints are public (they only fetch public ESPN data).
+# Runs every 5 minutes, 24/7.
+# Permanently keeps scores, predictions, and fixtures current even on free-tier hosts.
+#
+# CRITICAL DESIGN RULE:
+#   Score resolution (step 3) MUST always run, even if fixture sync (step 2) fails.
+#   Coins are awarded during score resolution. A failed ESPN fixture call must never
+#   prevent users from receiving their earned coins.
 #
 # Required GitHub Secret:
-#   BACKEND_URL   — e.g. https://your-app.onrender.com
+#   BACKEND_URL — e.g. https://goalbet-api.onrender.com
 
 on:
   schedule:
-    - cron: '*/10 * * * *'   # every 10 minutes, 24/7
+    - cron: '*/5 * * * *'   # every 5 minutes, 24/7
   workflow_dispatch:          # allow manual trigger from GitHub Actions UI
 
 jobs:
   sync:
     name: Sync matches & scores
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
 
     steps:
       - name: Check BACKEND_URL is configured
@@ -32,45 +36,60 @@ jobs:
             echo "::warning::BACKEND_URL not set — skipping sync. Add BACKEND_URL to GitHub Secrets."
           fi
 
-      # 1. Wake the backend (free-tier hosts sleep after inactivity)
+      # 1. Wake the backend — free-tier Render takes 30-60s to cold start.
+      #    Wait up to 75s, retry until we get HTTP 200 or exhaust retries.
+      #    The || true means this step never fails the workflow.
       - name: Wake backend
         if: steps.secrets.outputs.ok == 'true'
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
         run: |
-          curl -s -o /dev/null -w "Health: HTTP %{http_code}\n" \
-            --max-time 30 "$BACKEND_URL/api/health" || true
+          echo "⏳ Waking backend..."
+          for i in 1 2 3; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$BACKEND_URL/api/health" || echo "000")
+            echo "  Attempt $i → HTTP $CODE"
+            if [ "$CODE" = "200" ]; then
+              echo "✅ Backend is awake"
+              break
+            fi
+            if [ $i -lt 3 ]; then sleep 10; fi
+          done
 
-      # 2. Sync upcoming fixtures (keeps fixture list always 21 days ahead)
-      - name: Sync match fixtures
-        if: steps.secrets.outputs.ok == 'true'
-        env:
-          BACKEND_URL: ${{ secrets.BACKEND_URL }}
-        run: |
-          STATUS=$(curl -s -o /tmp/matches_response.json -w "%{http_code}" \
-            --max-time 60 \
-            -X POST "$BACKEND_URL/api/sync/matches" \
-            -H "Content-Type: application/json")
-          echo "HTTP $STATUS"
-          cat /tmp/matches_response.json
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Match sync returned HTTP $STATUS"
-            exit 1
-          fi
-
-      # 3. Resolve scores for finished/live matches
+      # 2. Resolve scores & award coins — ALWAYS runs, even if step 3 fails.
+      #    This is the most important step: awards coins and resolves predictions.
+      #    continue-on-error: true ensures step 3 (fixture sync) never blocks coin payouts.
       - name: Sync scores & resolve predictions
         if: steps.secrets.outputs.ok == 'true'
+        continue-on-error: false
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
         run: |
+          echo "⚽ Syncing scores..."
           STATUS=$(curl -s -o /tmp/scores_response.json -w "%{http_code}" \
-            --max-time 60 \
+            --max-time 75 \
             -X POST "$BACKEND_URL/api/sync/scores" \
             -H "Content-Type: application/json")
           echo "HTTP $STATUS"
           cat /tmp/scores_response.json
           if [ "$STATUS" != "200" ]; then
-            echo "::error::Score sync returned HTTP $STATUS"
-            exit 1
+            echo "::warning::Score sync returned HTTP $STATUS (coins may be delayed)"
+          fi
+
+      # 3. Sync upcoming fixtures — runs after scores so a fixture timeout never
+      #    blocks coin payouts. This step failing is non-critical.
+      - name: Sync match fixtures
+        if: steps.secrets.outputs.ok == 'true'
+        continue-on-error: true
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+        run: |
+          echo "📅 Syncing fixtures..."
+          STATUS=$(curl -s -o /tmp/matches_response.json -w "%{http_code}" \
+            --max-time 75 \
+            -X POST "$BACKEND_URL/api/sync/matches" \
+            -H "Content-Type: application/json")
+          echo "HTTP $STATUS"
+          cat /tmp/matches_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::Match fixture sync returned HTTP $STATUS"
           fi

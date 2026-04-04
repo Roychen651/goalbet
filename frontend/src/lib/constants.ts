@@ -119,4 +119,5 @@ export const ROUTES = {
   PROFILE: '/profile',
   SETTINGS: '/settings',
   AUTH_CALLBACK: '/auth/callback',
+  ADMIN: '/admin',
 } as const;

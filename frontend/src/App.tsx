@@ -14,6 +14,11 @@ import { SettingsPage } from './pages/SettingsPage';
 import { PageLoader } from './components/ui/LoadingSpinner';
 import { ROUTES } from './lib/constants';
 import { ReAuthModal } from './components/auth-v2/ReAuthModal';
+import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
+import { AdminLayout } from './components/admin/AdminLayout';
+import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
+import { UserManagement } from './components/admin/UserManagement';
+import { GroupManagement } from './components/admin/GroupManagement';
 
 const pageVariants = {
   initial: { opacity: 0, y: 12, scale: 0.99 },
@@ -150,6 +155,20 @@ export default function App() {
             <Route path="leaderboard" element={<AnimatedOutlet><LeaderboardPage /></AnimatedOutlet>} />
             <Route path="profile" element={<AnimatedOutlet><ProfilePage /></AnimatedOutlet>} />
             <Route path="settings" element={<AnimatedOutlet><SettingsPage /></AnimatedOutlet>} />
+          </Route>
+
+          {/* Admin console */}
+          <Route
+            path="/admin"
+            element={
+              <AdminProtectedRoute>
+                <AdminLayout />
+              </AdminProtectedRoute>
+            }
+          >
+            <Route index element={<AdminDashboardPage />} />
+            <Route path="users"  element={<UserManagement />} />
+            <Route path="groups" element={<GroupManagement />} />
           </Route>
 
           {/* Fallback */}
