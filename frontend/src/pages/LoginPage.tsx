@@ -6,6 +6,8 @@ import { LangToggle } from '../components/ui/LangToggle';
 import { useAuthStore } from '../stores/authStore';
 import { useLangStore } from '../stores/langStore';
 import { ROUTES } from '../lib/constants';
+import { FEATURE_FLAGS } from '../lib/featureFlags';
+import { AuthContainer } from '../components/auth-v2/AuthContainer';
 
 // Stagger container for the main content block
 const contentVariants = {
@@ -41,6 +43,9 @@ export function LoginPage() {
   useEffect(() => {
     if (!loading && user) navigate(ROUTES.HOME, { replace: true });
   }, [user, loading, navigate]);
+
+  // ── Feature flag: render new auth system in place of this page ──
+  if (FEATURE_FLAGS.AUTH_V2) return <AuthContainer />;
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-bg-base">

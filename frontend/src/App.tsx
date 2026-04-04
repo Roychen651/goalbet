@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthStore } from './stores/authStore';
 import { useGroupStore } from './stores/groupStore';
@@ -13,6 +13,8 @@ import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PageLoader } from './components/ui/LoadingSpinner';
 import { ROUTES } from './lib/constants';
+import { FEATURE_FLAGS } from './lib/featureFlags';
+import { ReAuthModal } from './components/auth-v2/ReAuthModal';
 
 const pageVariants = {
   initial: { opacity: 0, y: 12, scale: 0.99 },
@@ -39,15 +41,43 @@ function AnimatedOutlet({ children }: { children: React.ReactNode }) {
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading, initialized } = useAuthStore();
+  const { user, loading, initialized, signOut } = useAuthStore();
+  const navigate = useNavigate();
+  const hadUser = useRef(false);
+  const [showReAuth, setShowReAuth] = useState(false);
 
-  if (!initialized || loading) {
-    return <PageLoader />;
+  // Track whether user was ever authenticated in this session
+  useEffect(() => {
+    if (user) {
+      hadUser.current = true;
+      setShowReAuth(false); // dismiss modal if user re-authenticates
+    }
+  }, [user]);
+
+  // Detect unexpected session expiry (was logged in → now logged out)
+  useEffect(() => {
+    if (initialized && !loading && !user && hadUser.current && FEATURE_FLAGS.AUTH_V2) {
+      setShowReAuth(true);
+    }
+  }, [user, initialized, loading]);
+
+  if (!initialized || loading) return <PageLoader />;
+
+  // Session expired while in-app → show re-auth overlay (AUTH_V2 only)
+  if (!user && showReAuth && FEATURE_FLAGS.AUTH_V2) {
+    return (
+      <ReAuthModal
+        onSuccess={() => setShowReAuth(false)}
+        onSignOut={() => {
+          hadUser.current = false;
+          setShowReAuth(false);
+          signOut().finally(() => navigate(ROUTES.LOGIN, { replace: true }));
+        }}
+      />
+    );
   }
 
-  if (!user) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
-  }
+  if (!user) return <Navigate to={ROUTES.LOGIN} replace />;
 
   return <>{children}</>;
 }
