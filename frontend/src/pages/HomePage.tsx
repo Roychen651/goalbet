@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMatches } from '../hooks/useMatches';
-import { useMatchSync } from '../hooks/useMatchSync';
 import { usePredictions } from '../hooks/usePredictions';
 import { useGroupMatchPredictions } from '../hooks/useGroupMatchPredictions';
 import { useGroupStore } from '../stores/groupStore';
@@ -22,12 +21,10 @@ export function HomePage() {
   const [activeTab, setActiveTab] = useState<Tab>('all');
   const [showScoringGuide, setShowScoringGuide] = useState(false);
   const [showCoinGuide, setShowCoinGuide] = useState(false);
-  const { matches, loading, loadingMore, error, refetch, loadMore, upcomingDays } = useMatches(activeTab);
+  const { matches, loading, loadingMore, error, loadMore, upcomingDays } = useMatches(activeTab);
   const { predictions, saving, savePrediction } = usePredictions(matches.map(m => m.id));
   const { groups, activeGroupId, loading: groupsLoading, setActiveGroup } = useGroupStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
-  const activeLeagues = activeGroup?.active_leagues ?? [];
-  const { syncing, triggerSync } = useMatchSync(activeLeagues, matches.length, refetch);
   const predictorsByMatch = useGroupMatchPredictions(matches.map(m => m.id), activeGroupId);
   const { openModal, addToast } = useUIStore();
   const { t } = useLangStore();
@@ -95,9 +92,6 @@ export function HomePage() {
           <h1 className="font-bebas text-2xl tracking-wider text-white">{t('matchDay')}</h1>
           <div className="flex items-center gap-2">
             {activeGroup && <p className="text-text-muted text-xs">{activeGroup.name}</p>}
-            {syncing && (
-              <span className="text-accent-green text-xs animate-pulse">⟳ syncing...</span>
-            )}
           </div>
         </div>
         <motion.button
@@ -191,7 +185,6 @@ export function HomePage() {
               const y = window.scrollY;
               await loadMore();
               requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' }));
-              triggerSync();
             }}
             disabled={loadingMore}
             whileHover={{ scale: loadingMore ? 1 : 1.03 }}

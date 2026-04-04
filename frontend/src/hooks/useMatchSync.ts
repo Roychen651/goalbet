@@ -1,25 +1,30 @@
 /**
- * Auto-sync hook — calls the backend sync API on page load to ensure fixtures
- * and scores are always fresh. Uses a 20-minute cooldown to avoid hammering the backend.
+ * Manual sync hook — exposes `triggerSync` for the Settings "Sync Now" button.
  *
- * This works even on free-tier backends that sleep: the request wakes the server
- * and immediately triggers a sync from ESPN.
+ * Automatic background sync is handled entirely by AppShell (on mount, polling,
+ * and tab-restore). This hook is ONLY for on-demand user-initiated syncs.
+ *
+ * All fetches are AbortController-gated with a 60 s timeout so the button
+ * never gets stuck in a permanent "Syncing…" state.
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 
-const SYNC_COOLDOWN_MS = 20 * 60 * 1000; // 20 minutes between auto-syncs
+const FETCH_TIMEOUT_MS = 60_000;
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string | undefined;
-
-// Module-level timestamp so cooldown persists across tab re-renders
-let lastSyncTimestamp = 0;
 
 async function callBackendSync(): Promise<void> {
   if (!BACKEND_URL) return;
-  // Fire both in parallel — don't await, let it run in background
-  const opts: RequestInit = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
+
+  const withTimeout = (url: string) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+    return fetch(url, { method: 'POST', signal: ctrl.signal }).finally(() => clearTimeout(t));
+  };
+
+  // Fire both in parallel — allSettled so one failure doesn't block the other
   await Promise.allSettled([
-    fetch(`${BACKEND_URL}/api/sync/matches`, opts),
-    fetch(`${BACKEND_URL}/api/sync/scores`, opts),
+    withTimeout(`${BACKEND_URL}/api/sync/matches`),
+    withTimeout(`${BACKEND_URL}/api/sync/scores`),
   ]);
 }
 
@@ -36,27 +41,19 @@ export function useMatchSync(
     if (syncRef.current || activeLeagues.length === 0) return;
     syncRef.current = true;
     setSyncing(true);
-    lastSyncTimestamp = Date.now();
     try {
       await callBackendSync();
       setLastSynced(new Date());
+      // Notify data hooks to refetch
+      window.dispatchEvent(new Event('goalbet:synced'));
       onSyncComplete?.();
     } catch {
-      // Sync failed silently — existing DB data still shows
+      // Timed out or network error — clear spinner, data will refresh via AppShell's next poll
     } finally {
       setSyncing(false);
       syncRef.current = false;
     }
   };
-
-  // Sync on mount and whenever leagues change, respecting cooldown
-  useEffect(() => {
-    if (activeLeagues.length === 0) return;
-    const sinceLastSync = Date.now() - lastSyncTimestamp;
-    if (sinceLastSync < SYNC_COOLDOWN_MS) return;
-    triggerSync();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLeagues.join(',')]);
 
   return { syncing, lastSynced, triggerSync };
 }
