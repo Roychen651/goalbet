@@ -61,6 +61,8 @@ backend/.env
   PORT=3001
 ```
 
+> **Note:** `VITE_AUTH_V2` is no longer needed — the full email + password auth system is the default and requires no flag.
+
 ---
 
 ## 3. Architecture Overview
@@ -333,7 +335,7 @@ const LEAGUES_WITHOUT_CORNERS = new Set([4396]);
 
 ## 9. Database & Migrations
 
-Migrations live in `supabase/migrations/`. Current sequence: **001 → 022**.
+Migrations live in `supabase/migrations/`. Current sequence: **001 → 022**. Apply via Supabase SQL editor or `supabase db push --linked`.
 
 | File | What it adds |
 |------|-------------|
@@ -437,10 +439,20 @@ t('matchDay') // → "Match Day" or "יום משחק"
 |------|---------|
 | `frontend/src/pages/HomePage.tsx` | Main match feed with tab filtering (All / Upcoming / Live / Results) |
 | `frontend/src/pages/LeaderboardPage.tsx` | Group leaderboard with H2H modal |
-| `frontend/src/pages/ProfilePage.tsx` | User stats, prediction history, analytics |
-| `frontend/src/pages/SettingsPage.tsx` | Group management, leagues, admin tools, manual sync button |
-| `frontend/src/pages/LoginPage.tsx` | Google OAuth sign-in |
-| `frontend/src/pages/AuthCallbackPage.tsx` | Handles Supabase OAuth callback |
+| `frontend/src/pages/ProfilePage.tsx` | User stats, prediction history, analytics. Contains sign-out button |
+| `frontend/src/pages/SettingsPage.tsx` | Group management, leagues, admin tools, manual sync, **Account section** (sign out + change password) |
+| `frontend/src/pages/LoginPage.tsx` | Thin wrapper — redirects already-logged-in users, renders `<AuthContainer />` |
+| `frontend/src/pages/AuthCallbackPage.tsx` | Handles Supabase OAuth callback after Google sign-in |
+
+### Frontend — Auth (auth-v2/)
+
+The complete auth ecosystem. Self-contained — no global state written, no dependencies on other components.
+
+| File | Purpose |
+|------|---------|
+| `frontend/src/components/auth-v2/AuthContainer.tsx` | Master auth UI. Glassmorphism card that morphs between 8 views with spring-physics slide transitions. Handles: email entry, sign-in, sign-up, Google OAuth, identity-collision detection, forgot password (anti-enumeration), password recovery, success screen |
+| `frontend/src/components/auth-v2/PasswordStrength.tsx` | Animated 4-bar strength meter + 5 SVG checkmark requirement rows (8 chars, upper, lower, number, special). Used in AuthContainer sign-up and SettingsPage change-password |
+| `frontend/src/components/auth-v2/ReAuthModal.tsx` | Full-screen re-auth overlay. Slides in when session expires mid-session. Sub-views: Google re-auth, password re-auth, set-new-password. `onSuccess` clears the modal; `onSignOut` navigates to login |
 
 ### Frontend — Layout
 
@@ -491,6 +503,8 @@ t('matchDay') // → "Match Day" or "יום משחק"
 | `frontend/src/lib/i18n.ts` | All UI strings (EN + HE) and `TranslationKey` type |
 | `frontend/src/lib/supabase.ts` | Supabase client (anon key) + TypeScript types for all tables |
 | `frontend/src/lib/utils.ts` | `calcBreakdown()` (client-side scoring mirror), `cn()` (classname util) |
+| `frontend/src/lib/authSchema.ts` | Auth validation: `checkPasswordRequirements()`, `getPasswordStrength()`, `isPasswordValid()`, `isEmailValid()`, `isUsernameValid()`, `mapAuthError()`. Single source of truth for all auth form validation |
+| `frontend/src/lib/featureFlags.ts` | Feature flag registry. Currently empty of active flags — kept for future use |
 
 ---
 
@@ -520,7 +534,8 @@ All stores use Zustand + persist (localStorage where noted).
 | `useLeaderboard.ts` | Fetches leaderboard data for active group |
 | `useLiveClock.ts` | Ticking clock display for live matches. Increments from `display_clock` value |
 | `useNewPointsAlert.ts` | Detects newly earned points since last visit, triggers toast |
-| `useAuth.ts` | Google OAuth sign-in / sign-out |
+| `useAuth.ts` | Google OAuth sign-in / sign-out (legacy — kept for backward compat) |
+| `useAuthV2.ts` | Full auth state machine for `AuthContainer`. Manages 8 views: `email → signin \| signup → oauth-merge \| forgot → check-email \| set-password → success`. Detects `?type=recovery` URL param for password reset flow. Handles identity-collision detection via `signUp()` 422 response |
 | `useRTLDirection.ts` | Sets `document.dir` based on active language |
 
 ---
@@ -596,3 +611,13 @@ All stores use Zustand + persist (localStorage where noted).
 
 - **H2H modal** opens when clicking ANOTHER user's leaderboard row. Clicking your own row opens `UserMatchHistoryModal`. This is intentional.
 - **Friend prediction privacy**: a friend's prediction is hidden (🔒) until the match kicks off (`status !== 'NS'` OR `kickoff <= now`). Never show NS predictions to other users.
+
+### Auth system (auth-v2)
+
+- **LoginPage is a thin wrapper.** It only owns the redirect-if-logged-in `useEffect`. All auth UI and logic is in `AuthContainer` + `useAuthV2`. Do not add auth logic to `LoginPage`.
+- **Identity collision signal**: `supabase.signUp()` returning "User already registered" (HTTP 422) is the only reliable way to detect a Google-only account attempting email sign-up. The UI morphs to `OAuthMergeView`. Do not use a separate "check if email exists" endpoint — that breaks anti-enumeration.
+- **Forgot password is intentionally non-informative.** `handleForgotPassword()` always navigates to `check-email` regardless of whether the email exists. Never show an error or "email not found" message — that enumerates accounts.
+- **Password recovery URL:** `resetPasswordForEmail` redirects to `/login?type=recovery`. `useAuthV2` detects `?type=recovery` on mount, verifies the recovery session, navigates to `set-password`, and cleans the URL with `history.replaceState`. Do not redirect to `/auth/callback` for password resets — that loses the recovery context.
+- **ReAuthModal triggers on any unexpected sign-out** (session expiry, token revocation). It cannot distinguish session expiry from a manual sign-out in another tab — the modal's "Sign out completely" button handles both gracefully. This is an accepted limitation.
+- **`PasswordStrength` is shared** between `AuthContainer` (sign-up view) and `SettingsPage` (change password). Do not duplicate the component.
+- **Change password in Settings** calls `supabase.auth.updateUser({ password })` directly — same as `set-password` view in AuthContainer. Google-only accounts without a password set can also use this flow once they have a session.

@@ -139,6 +139,21 @@ Full Hebrew support with automatic RTL layout. Language toggle in Settings. Dark
 
 ---
 
+## Sign In
+
+GoalBet supports two sign-in methods — your choice, both available on the same screen.
+
+**Google OAuth** — one tap, no password to remember. Preferred for most users.
+
+**Email + password** — full account with live password strength validation. Supports:
+- Forgot password (reset link via email, link expires in 1 hour)
+- Change password at any time from Settings → Account
+- Smart identity detection: if you sign up with an email that belongs to a Google account, the UI tells you and offers to switch
+
+Session expiry is handled silently — a re-auth modal slides in over your current page so you never lose context mid-session.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -168,6 +183,8 @@ goalbet/
 ├── frontend/                  # React + Vite SPA
 │   └── src/
 │       ├── components/
+│       │   ├── auth-v2/       # AuthContainer (8-view auth flow), PasswordStrength,
+│       │   │                  # ReAuthModal (session-expiry overlay)
 │       │   ├── layout/        # AppShell, TopBar, BottomNav, Sidebar
 │       │   ├── matches/       # MatchCard, MatchFeed, PredictionForm
 │       │   ├── leaderboard/   # LeaderboardTable, H2HModal, UserMatchHistoryModal
@@ -175,9 +192,11 @@ goalbet/
 │       │   └── ui/            # GlassCard, NeonButton, ScoringGuide, CoinGuide,
 │       │                      # HelpGuideModal, InfoTip, ThemeToggle, Avatar…
 │       ├── hooks/             # useMatches, usePredictions, useLeaderboard,
-│       │                      # useGroupMatchPredictions, useNewPointsAlert…
-│       ├── lib/               # supabase.ts, utils.ts, i18n.ts, constants.ts
-│       ├── pages/             # HomePage, LeaderboardPage, ProfilePage, SettingsPage
+│       │                      # useAuthV2, useGroupMatchPredictions, useNewPointsAlert…
+│       ├── lib/               # supabase.ts, utils.ts, i18n.ts, constants.ts,
+│       │                      # authSchema.ts (password validation), featureFlags.ts
+│       ├── pages/             # HomePage, LeaderboardPage, ProfilePage, SettingsPage,
+│       │                      # LoginPage (renders AuthContainer)
 │       └── stores/            # authStore, groupStore, coinsStore, langStore,
 │                              # themeStore, uiStore (Zustand)
 │
@@ -186,13 +205,15 @@ goalbet/
 │       ├── routes/            # GET /health · POST /api/sync/matches · POST /api/sync/scores
 │       ├── services/
 │       │   ├── espn.ts        # ESPN API client
-│       │   ├── matchSync.ts   # Syncs ESPN data into Supabase (7 days back, 21 ahead)
+│       │   ├── matchSync.ts   # Syncs ESPN data into Supabase (7 days back, 42 ahead)
 │       │   ├── scoreUpdater.ts# Resolves predictions after FT, updates leaderboard + coins
 │       │   └── pointsEngine.ts# Pure scoring function — zero side effects, unit-testable
 │       └── cron/              # Startup sync, 30s score poller, daily sync, weekly reset
 │
-└── supabase/
-    └── migrations/            # SQL migrations 001 → 021 (run in order)
+├── supabase/
+│   ├── migrations/            # SQL migrations 001 → 022 (run in order)
+│   └── email-templates/       # confirm-signup.html, reset-password.html
+│                              # (paste into Supabase Auth → Email Templates)
 ```
 
 ---
@@ -218,11 +239,16 @@ cd ../backend && npm install
 
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Open the **SQL Editor** and run migrations in order:
-   `supabase/migrations/001_initial_schema.sql` → `021_fix_coins.sql`
-3. In **Authentication → Providers**, enable Google OAuth
+   `supabase/migrations/001_initial_schema.sql` → `022_admin_features.sql`
+3. In **Authentication → Providers**:
+   - Enable **Email** (already on by default — confirm it's enabled)
+   - Enable **Google OAuth** (Client ID + Secret from Google Cloud Console)
 4. In **Authentication → URL Configuration**, add:
    - Site URL: `http://localhost:5173`
    - Redirect URL: `http://localhost:5173/auth/callback`
+5. *(Optional but recommended)* In **Authentication → Email Templates**, paste the contents of:
+   - `supabase/email-templates/confirm-signup.html` → Confirm signup template
+   - `supabase/email-templates/reset-password.html` → Reset password template
 
 ### 3. Environment variables
 
@@ -240,6 +266,8 @@ SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
 NODE_ENV=development
 ```
+
+> No feature flags required. Email + password auth is active by default.
 
 ### 4. Run locally
 
@@ -259,7 +287,8 @@ cd backend && npm run dev
 
 1. Connect your GitHub repo to [Vercel](https://vercel.com), root dir = `frontend`
 2. Add env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_BACKEND_URL`
-3. Auto-deploys on every push to `main`
+3. In Vercel's Supabase Auth settings, add your production domain to **Redirect URLs**
+4. Auto-deploys on every push to `main`
 
 ### Backend → Render
 
