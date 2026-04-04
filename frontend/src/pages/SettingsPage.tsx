@@ -10,13 +10,15 @@ import { NeonButton } from '../components/ui/NeonButton';
 import { InviteCodeDisplay } from '../components/groups/InviteCodeDisplay';
 import { GroupMembersList } from '../components/groups/GroupMembersList';
 import { PolicyModal } from '../components/ui/PolicyModal';
+import { PasswordStrength } from '../components/auth-v2/PasswordStrength';
+import { isPasswordValid } from '../lib/authSchema';
 import { FOOTBALL_LEAGUES } from '../lib/constants';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
 export function SettingsPage() {
   const { groups, activeGroupId, setActiveGroup, updateGroupLeagues, updateGroupName, leaveGroup, deleteGroup, removeMember } = useGroupStore();
-  const { user } = useAuthStore();
+  const { user, signOut } = useAuthStore();
   const { addToast, openModal } = useUIStore();
   const { t, lang } = useLangStore();
   const [savingLeagues, setSavingLeagues] = useState(false);
@@ -30,6 +32,13 @@ export function SettingsPage() {
   const [resetting, setResetting] = useState(false);
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(false);
+
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const isAdmin = !!user && !!activeGroup && user.id === activeGroup.created_by;
@@ -109,6 +118,33 @@ export function SettingsPage() {
     if (!activeGroupId || !isAdmin) return;
     await removeMember(activeGroupId, targetUserId);
     addToast('Member removed', 'success');
+  };
+
+  const handleChangePassword = async () => {
+    if (!isPasswordValid(newPassword)) return;
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
+    setChangingPassword(true);
+    setPasswordError('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      addToast('Password updated successfully', 'success');
+      setShowChangePassword(false);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Failed to update password');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await signOut();
   };
 
   const handleLeaveGroup = async (groupId: string) => {
@@ -400,6 +436,112 @@ export function SettingsPage() {
           {lang === 'he' ? 'פתח' : 'Open'}
         </button>
       </GlassCard>
+
+      {/* Account */}
+      <section>
+        <h2 className="text-text-muted text-xs uppercase tracking-wider mb-2">Account</h2>
+        <GlassCard className="p-4 space-y-4">
+
+          {/* Email */}
+          <div>
+            <p className="text-white/40 text-xs mb-0.5">Signed in as</p>
+            <p className="text-white text-sm font-medium truncate">{user?.email}</p>
+          </div>
+
+          <div className="border-t border-white/8" />
+
+          {/* Change password */}
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white text-sm font-medium">Change password</p>
+                <p className="text-text-muted text-xs mt-0.5">Set a new sign-in password</p>
+              </div>
+              {!showChangePassword && (
+                <button
+                  onClick={() => { setShowChangePassword(true); setPasswordError(''); setNewPassword(''); setConfirmPassword(''); }}
+                  className="shrink-0 px-3 py-1.5 rounded-xl bg-white/6 border border-white/12 text-white/70 hover:text-white hover:bg-white/10 text-xs font-medium transition-all"
+                >
+                  Change
+                </button>
+              )}
+            </div>
+
+            <AnimatePresence>
+              {showChangePassword && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={e => { setNewPassword(e.target.value); setPasswordError(''); }}
+                        placeholder="New password"
+                        className="w-full px-4 py-2.5 rounded-xl bg-white/8 border border-white/15 text-white text-sm placeholder-white/25 focus:outline-none focus:border-accent-green/50 transition-colors"
+                        autoComplete="new-password"
+                      />
+                      {newPassword.length > 0 && (
+                        <div className="mt-2">
+                          <PasswordStrength password={newPassword} />
+                        </div>
+                      )}
+                    </div>
+                    <AnimatePresence>
+                      {isPasswordValid(newPassword) && (
+                        <motion.input
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          type="password"
+                          value={confirmPassword}
+                          onChange={e => { setConfirmPassword(e.target.value); setPasswordError(''); }}
+                          placeholder="Confirm new password"
+                          className="w-full px-4 py-2.5 rounded-xl bg-white/8 border border-white/15 text-white text-sm placeholder-white/25 focus:outline-none focus:border-accent-green/50 transition-colors"
+                          autoComplete="new-password"
+                        />
+                      )}
+                    </AnimatePresence>
+                    {passwordError && (
+                      <p className="text-red-400 text-xs">{passwordError}</p>
+                    )}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => setShowChangePassword(false)}
+                        className="flex-1 py-2 rounded-xl text-xs text-text-muted hover:text-white border border-white/10 hover:bg-white/5 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <NeonButton
+                        variant="green"
+                        size="sm"
+                        loading={changingPassword}
+                        onClick={handleChangePassword}
+                        disabled={!isPasswordValid(newPassword) || confirmPassword.length === 0}
+                        className="flex-1"
+                      >
+                        Save password
+                      </NeonButton>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="border-t border-white/8" />
+
+          {/* Sign out */}
+          <NeonButton variant="danger" loading={signingOut} onClick={handleSignOut} className="w-full">
+            Sign out
+          </NeonButton>
+
+        </GlassCard>
+      </section>
 
       <div className="sm:hidden pt-2 text-center">
         <button onClick={() => setShowPolicy(true)} className="text-text-muted text-xs opacity-40 hover:opacity-70 transition-opacity">
