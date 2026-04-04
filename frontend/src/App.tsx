@@ -13,7 +13,6 @@ import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PageLoader } from './components/ui/LoadingSpinner';
 import { ROUTES } from './lib/constants';
-import { FEATURE_FLAGS } from './lib/featureFlags';
 import { ReAuthModal } from './components/auth-v2/ReAuthModal';
 
 const pageVariants = {
@@ -56,15 +55,15 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // Detect unexpected session expiry (was logged in → now logged out)
   useEffect(() => {
-    if (initialized && !loading && !user && hadUser.current && FEATURE_FLAGS.AUTH_V2) {
+    if (initialized && !loading && !user && hadUser.current) {
       setShowReAuth(true);
     }
   }, [user, initialized, loading]);
 
   if (!initialized || loading) return <PageLoader />;
 
-  // Session expired while in-app → show re-auth overlay (AUTH_V2 only)
-  if (!user && showReAuth && FEATURE_FLAGS.AUTH_V2) {
+  // Session expired while in-app → show re-auth overlay instead of hard redirect
+  if (!user && showReAuth) {
     return (
       <ReAuthModal
         onSuccess={() => setShowReAuth(false)}
