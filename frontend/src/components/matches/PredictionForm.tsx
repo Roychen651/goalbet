@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { NeonButton } from '../ui/NeonButton';
@@ -47,7 +47,7 @@ function deriveOutcomeFromScore(home: string, away: string): OutcomeOption | nul
   return 'D';
 }
 
-export function PredictionForm({ match, existingPrediction, onSave, saving }: PredictionFormProps) {
+export const PredictionForm = memo(function PredictionForm({ match, existingPrediction, onSave, saving }: PredictionFormProps) {
   const { t } = useLangStore();
   const locked = isMatchLocked(match.kickoff_time) || match.status !== 'NS';
   const resolved = existingPrediction?.is_resolved ?? false;
@@ -287,7 +287,7 @@ export function PredictionForm({ match, existingPrediction, onSave, saving }: Pr
       </AnimatePresence>
     </div>
   );
-}
+});
 
 // ============================================================
 // Sub-components

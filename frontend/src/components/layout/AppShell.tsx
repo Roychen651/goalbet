@@ -42,12 +42,13 @@ export function AppShell() {
   // Single, authoritative sync system:
   //
   //   • On mount: POST /api/sync/matches  (90 s timeout — handles cold start + ESPN calls)
-  //               POST /api/sync/scores   (30 s timeout — resolves in-progress predictions)
-  //   • At 20 s:  POST /api/sync/scores   (backend is awake by now → fast)
-  //   • Every 45 s: POST /api/sync/scores (live-score polling)
-  //   • Tab restore after >5 min: force score sync
+  //               POST /api/sync/scores   (75 s timeout — resolves in-progress predictions)
+  //   • At 25 s:  POST /api/sync/scores   (backend is warm by now → fast)
+  //   • Every 30 s: POST /api/sync/scores (live-score polling)
+  //   • Tab restore after >90 s: force score sync
   //
-  // Each successful response dispatches 'goalbet:synced' → useMatches refetches.
+  // Each successful response dispatches 'goalbet:synced' → useMatches.backgroundFetch().
+  // backgroundFetch() never sets loading=true — PredictionForm state is never destroyed.
   // All fetches are AbortController-gated so no spinner ever hangs indefinitely.
   // ────────────────────────────────────────────────────────────────────────────
 

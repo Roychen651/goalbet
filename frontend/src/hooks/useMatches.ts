@@ -4,6 +4,34 @@ import { useGroupStore } from '../stores/groupStore';
 
 type StatusFilter = 'all' | 'upcoming' | 'live' | 'completed';
 
+// ─── Smart merge ──────────────────────────────────────────────────────────────
+// Preserves object identity for matches that haven't changed.
+// React's reconciler compares by reference — if the object is the same reference,
+// the entire MatchCard + PredictionForm subtree is skipped during diffing.
+// Only records whose score/status/clock actually changed get new references.
+function mergeMatches(prev: Match[], next: Match[]): Match[] {
+  const prevMap = new Map(prev.map(m => [m.id, m]));
+  return next.map(m => {
+    const p = prevMap.get(m.id);
+    if (!p) return m; // new match — use incoming
+    if (
+      p.status         === m.status         &&
+      p.home_score     === m.home_score     &&
+      p.away_score     === m.away_score     &&
+      p.display_clock  === m.display_clock  &&
+      p.regulation_home === m.regulation_home &&
+      p.regulation_away === m.regulation_away &&
+      p.penalty_home   === m.penalty_home   &&
+      p.penalty_away   === m.penalty_away   &&
+      p.halftime_home  === m.halftime_home  &&
+      p.halftime_away  === m.halftime_away
+    ) {
+      return p; // nothing changed — same reference, React bails out of subtree
+    }
+    return { ...p, ...m }; // surgical update of changed fields
+  });
+}
+
 const INITIAL_UPCOMING_DAYS = 30; // show 30 days ahead by default (covers international breaks)
 const LOAD_MORE_DAYS = 14;        // each "Load More" click adds 14 more days
 const COMPLETED_DAYS = 14;        // show results from last 14 days
@@ -148,6 +176,10 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
   const activeLeagues = activeGroup?.active_leagues ?? [];
   const leaguesKey = [...activeLeagues].sort().join(',');
 
+  // ── Full fetch (shows loading spinner) ────────────────────────────────────
+  // Use ONLY for: initial mount, group/league changes, manual "Sync Now".
+  // Never call this from background sync paths — it sets loading=true which
+  // unmounts the match list and destroys all PredictionForm state.
   const fetchMatches = useCallback(async (days?: number) => {
     if (!activeGroupId) {
       setMatches([]);
@@ -173,6 +205,23 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
       setError(err instanceof Error ? err.message : 'Failed to load matches');
     } finally {
       setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupId, leaguesKey, statusFilter, groupsLoading, upcomingDays]);
+
+  // ── Background fetch (zero UI disruption) ─────────────────────────────────
+  // Called by: goalbet:synced event, tab restore after inactivity.
+  // Never sets loading=true — the match list stays mounted, PredictionForm
+  // state (user's in-progress selections) is fully preserved.
+  // Uses mergeMatches to keep object identity stable for unchanged records,
+  // so React's reconciler skips subtrees that haven't actually changed.
+  const backgroundFetch = useCallback(async () => {
+    if (!activeGroupId || groupsLoading || activeLeagues.length === 0) return;
+    try {
+      const data = await queryMatches(activeLeagues, statusFilter, upcomingDays);
+      setMatches(prev => mergeMatches(prev, data));
+    } catch {
+      // Silent — existing data stays, user is not disrupted
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGroupId, leaguesKey, statusFilter, groupsLoading, upcomingDays]);
@@ -213,14 +262,22 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
   }, [leaguesKey]);
 
   useEffect(() => {
-    fetchMatches();
+    fetchMatches();       // initial load — spinner is appropriate here
     subscribeToMatches();
 
+    // Tab restore: re-subscribe in case the Realtime connection dropped,
+    // then silently refresh data without a loading spinner.
     const onVisible = () => {
-      if (!document.hidden) { fetchMatches(); subscribeToMatches(); }
+      if (!document.hidden) {
+        subscribeToMatches();
+        backgroundFetch(); // ← never sets loading=true
+      }
     };
-    // After background sync completes, refetch so UI shows updated scores
-    const onSynced = () => fetchMatches();
+
+    // Background sync completed — merge new data without destroying form state.
+    // Previously this called fetchMatches() which set loading=true, unmounted
+    // the match list, and wiped all PredictionForm useState selections.
+    const onSynced = () => backgroundFetch();
 
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('goalbet:synced', onSynced);
@@ -230,7 +287,7 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
       window.removeEventListener('goalbet:synced', onSynced);
       channelRef.current?.unsubscribe();
     };
-  }, [fetchMatches, subscribeToMatches]);
+  }, [fetchMatches, subscribeToMatches, backgroundFetch]);
 
   return { matches, loading, loadingMore, error, refetch: fetchMatches, loadMore, upcomingDays };
 }
