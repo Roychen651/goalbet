@@ -26,7 +26,8 @@ Read this before touching any file. Everything here reflects the live codebase.
 17. [Stores](#17-stores)
 18. [Hooks](#18-hooks)
 19. [CI / GitHub Actions](#19-ci--github-actions)
-20. [Common Pitfalls](#20-common-pitfalls)
+20. [Admin Console](#20-admin-console)
+21. [Common Pitfalls](#21-common-pitfalls)
 
 ---
 
@@ -84,6 +85,12 @@ cd backend && npm run sync
 
 # Seed dev data
 cd backend && npm run seed
+
+# Deploy all pending migrations to remote Supabase
+supabase db push --linked
+
+# Check migration status (what's applied vs pending)
+supabase migration list --linked
 ```
 
 **Required env files** — never committed to git:
@@ -102,6 +109,18 @@ backend/.env
 ```
 
 No feature flags required. Email + password auth is active by default; no env var needed.
+
+### Auto-migration hook
+
+`.claude/settings.local.json` contains a PostToolUse hook that automatically runs
+`supabase db push --linked` whenever Claude writes or edits a file matching
+`supabase/migrations/*.sql`. This requires the Supabase CLI to be authenticated:
+
+```bash
+supabase login   # one-time browser auth — do this before working on migrations
+```
+
+After login, every migration file Claude writes is auto-deployed to the remote DB.
 
 ---
 
@@ -208,6 +227,35 @@ className="ml-2 pl-4"
 className="ms-2 ps-4"
 ```
 
+### 4.11 Admin RPCs are SECURITY DEFINER — never skip the email check
+
+```sql
+-- ❌ Skipping the admin guard exposes destructive RPCs to any authenticated user
+CREATE OR REPLACE FUNCTION admin_delete_group(p_group_id UUID) ...
+
+-- ✅ Every admin function must call is_super_admin() as its FIRST action
+BEGIN
+  IF NOT is_super_admin() THEN
+    RAISE EXCEPTION 'Access denied: super-admin only';
+  END IF;
+  ...
+```
+
+### 4.12 Coins live in `group_members.coins` — not a separate column
+
+The authoritative coin balance for a user in a group is `group_members.coins`.
+`user_coins` is a legacy/supplementary table (created in migration 020) but the
+primary balance used by `increment_coins`, `claim_daily_bonus`, and all admin RPCs
+is `group_members.coins`.
+
+```sql
+-- ✅ Correct — read/write coins from group_members
+UPDATE group_members SET coins = GREATEST(0, coins + p_delta)
+WHERE user_id = p_user_id AND group_id = p_group_id;
+
+-- ❌ Do not read totals from user_coins for balance display
+```
+
 ---
 
 ## 5. File & Folder Map
@@ -217,108 +265,120 @@ goalbet/
 ├── frontend/
 │   └── src/
 │       ├── components/
+│       │   ├── admin/
+│       │   │   ├── AdminLayout.tsx        # Admin shell: sidebar (desktop) + top bar (mobile), Outlet
+│       │   │   ├── AdminProtectedRoute.tsx # Email guard: only roychen651@gmail.com; silently redirects
+│       │   │   ├── DangerModal.tsx        # Confirms destructive actions — requires typing "DELETE"
+│       │   │   ├── GroupManagement.tsx    # Rename, view members, delete groups with DangerModal
+│       │   │   └── UserManagement.tsx     # Edit name, manage coins per group, reset password, delete
 │       │   ├── auth-v2/
-│       │   │   ├── AuthContainer.tsx     # Master auth UI — 8-view glassmorphism card
-│       │   │   ├── PasswordStrength.tsx  # Animated strength meter + 5 SVG checkmarks
-│       │   │   └── ReAuthModal.tsx       # Session-expiry overlay — slides in over current page
+│       │   │   ├── AuthContainer.tsx      # Master auth UI — 8-view glassmorphism card
+│       │   │   ├── PasswordStrength.tsx   # Animated strength meter + 5 SVG checkmarks
+│       │   │   └── ReAuthModal.tsx        # Session-expiry overlay — slides in over current page
 │       │   ├── auth/
-│       │   │   └── GoogleLoginButton.tsx # Legacy Google button (unused in auth-v2 flow)
+│       │   │   └── GoogleLoginButton.tsx  # Legacy Google button (unused in auth-v2 flow)
 │       │   ├── groups/
 │       │   │   ├── CreateGroupModal.tsx
 │       │   │   ├── InviteCodeDisplay.tsx
 │       │   │   └── JoinGroupModal.tsx
 │       │   ├── layout/
-│       │   │   ├── AppShell.tsx          # Root layout + ONLY place for auto-sync
-│       │   │   ├── BottomNav.tsx         # Mobile bottom navigation
-│       │   │   ├── Sidebar.tsx           # Desktop sidebar
-│       │   │   └── TopBar.tsx            # Mobile header: logo, group selector, coins, avatar
+│       │   │   ├── AppShell.tsx           # Root layout + ONLY place for auto-sync
+│       │   │   ├── BottomNav.tsx          # Mobile bottom navigation
+│       │   │   ├── Sidebar.tsx            # Desktop sidebar
+│       │   │   └── TopBar.tsx             # Mobile header: logo, group selector, coins, avatar
 │       │   ├── leaderboard/
-│       │   │   ├── H2HModal.tsx          # Head-to-head comparison (tap another user's row)
-│       │   │   ├── LeaderboardRow.tsx    # Own row → history modal; other row → H2H modal
+│       │   │   ├── H2HModal.tsx           # Head-to-head comparison (tap another user's row)
+│       │   │   ├── LeaderboardRow.tsx     # Own row → history modal; other row → H2H modal
 │       │   │   ├── LeaderboardTable.tsx
 │       │   │   └── UserMatchHistoryModal.tsx
 │       │   ├── matches/
-│       │   │   ├── MatchCard.tsx         # Computes isPastKickoffNS, DELAYED sentinel, live clock
-│       │   │   ├── MatchFeed.tsx         # Date-grouped list of MatchCards
-│       │   │   ├── MatchStatusBadge.tsx  # Status pill: Live/HT/Delayed/FT/PST/CANC
-│       │   │   ├── MatchTimeline.tsx     # ESPN summary events (returns null when no data)
-│       │   │   └── PredictionForm.tsx    # 5-tier prediction input; corners hidden for league 4396
+│       │   │   ├── MatchCard.tsx          # Computes isPastKickoffNS, DELAYED sentinel, live clock
+│       │   │   ├── MatchFeed.tsx          # Date-grouped list of MatchCards
+│       │   │   ├── MatchStatusBadge.tsx   # Status pill: Live/HT/Delayed/FT/PST/CANC
+│       │   │   ├── MatchTimeline.tsx      # ESPN summary events (returns null when no data)
+│       │   │   └── PredictionForm.tsx     # 5-tier prediction input; corners hidden for league 4396
 │       │   └── ui/
-│       │       ├── Avatar.tsx            # Expects emoji:🏆 prefix
+│       │       ├── Avatar.tsx             # Expects emoji:🏆 prefix
 │       │       ├── CoinGuide.tsx
 │       │       ├── GlassCard.tsx
 │       │       ├── HelpGuideModal.tsx
-│       │       ├── InfoTip.tsx           # Tooltip using CSS vars (works in both themes)
+│       │       ├── InfoTip.tsx            # Tooltip using CSS vars (works in both themes)
 │       │       ├── LangToggle.tsx
 │       │       ├── LoadingSpinner.tsx
-│       │       ├── NeonButton.tsx        # Variants: green / ghost / danger
+│       │       ├── NeonButton.tsx         # Variants: green / ghost / danger
 │       │       ├── PolicyModal.tsx
 │       │       ├── ScoringGuide.tsx
 │       │       ├── ThemeToggle.tsx
 │       │       ├── Toast.tsx
-│       │       └── WelcomeAnimation.tsx  # First-login welcome sequence
+│       │       └── WelcomeAnimation.tsx   # First-login welcome sequence
 │       ├── hooks/
-│       │   ├── useAuth.ts                # Legacy Google OAuth (kept for backward compat)
-│       │   ├── useAuthV2.ts              # Auth-v2 state machine (8 views)
+│       │   ├── useAuth.ts                 # Legacy Google OAuth (kept for backward compat)
+│       │   ├── useAuthV2.ts               # Auth-v2 state machine (8 views)
 │       │   ├── useGroupMatchPredictions.ts
 │       │   ├── useLeaderboard.ts
-│       │   ├── useLiveClock.ts           # Ticking clock for live matches
-│       │   ├── useMatches.ts             # Fetches + Realtime + goalbet:synced listener
-│       │   ├── useMatchSync.ts           # Manual sync ONLY (Settings button) — 60s timeout
-│       │   ├── useNewPointsAlert.ts      # Toast on newly earned points since last visit
+│       │   ├── useLiveClock.ts            # Ticking clock for live matches
+│       │   ├── useMatches.ts              # Fetches + Realtime + goalbet:synced listener
+│       │   ├── useMatchSync.ts            # Manual sync ONLY (Settings button) — 60s timeout
+│       │   ├── useNewPointsAlert.ts       # Toast on newly earned points since last visit
 │       │   ├── usePredictions.ts
-│       │   └── useRTLDirection.ts        # Sets document.dir from active language
+│       │   └── useRTLDirection.ts         # Sets document.dir from active language
 │       ├── lib/
-│       │   ├── authSchema.ts             # Password validation: strength, requirements, error mapping
-│       │   ├── constants.ts              # FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG, POINTS, COIN_COSTS, ROUTES
-│       │   ├── featureFlags.ts           # Feature flag registry (currently no active flags)
-│       │   ├── i18n.ts                   # EN + HE translations, TranslationKey type
-│       │   ├── supabase.ts               # Supabase client (anon key) + all TypeScript table types
-│       │   └── utils.ts                  # calcBreakdown() (client-side scoring mirror), cn()
+│       │   ├── authSchema.ts              # Password validation: strength, requirements, error mapping
+│       │   ├── constants.ts               # FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG, POINTS, COIN_COSTS, ROUTES
+│       │   ├── featureFlags.ts            # Feature flag registry (currently no active flags)
+│       │   ├── i18n.ts                    # EN + HE translations, TranslationKey type
+│       │   ├── supabase.ts                # Supabase client (anon key) + all TypeScript table types
+│       │   └── utils.ts                   # calcBreakdown() (client-side scoring mirror), cn()
 │       ├── pages/
-│       │   ├── AuthCallbackPage.tsx      # Handles Supabase OAuth redirect
-│       │   ├── HomePage.tsx              # Match feed — All / Upcoming / Live / Results tabs
-│       │   ├── LeaderboardPage.tsx       # Group standings with H2H modal
-│       │   ├── LoginPage.tsx             # Thin wrapper — redirect if logged in, render AuthContainer
-│       │   ├── ProfilePage.tsx           # Stats, prediction history, sign-out button
-│       │   └── SettingsPage.tsx          # Group mgmt, leagues, admin tools, Account section
+│       │   ├── admin/
+│       │   │   └── AdminDashboardPage.tsx # Bento grid KPIs + system health actions
+│       │   ├── AuthCallbackPage.tsx       # Handles Supabase OAuth redirect
+│       │   ├── HomePage.tsx               # Match feed — All / Upcoming / Live / Results tabs
+│       │   ├── LeaderboardPage.tsx        # Group standings with H2H modal
+│       │   ├── LoginPage.tsx              # Thin wrapper — redirect if logged in, render AuthContainer
+│       │   ├── ProfilePage.tsx            # Stats, prediction history, sign-out button
+│       │   └── SettingsPage.tsx           # Group mgmt, leagues, admin tools, Account section
 │       └── stores/
-│           ├── authStore.ts              # user, profile, session; signInWithGoogle, signOut
-│           ├── coinsStore.ts             # coins, lastDailyBonus; synced from DB
-│           ├── groupStore.ts             # groups[], activeGroupId; persisted to localStorage
-│           ├── langStore.ts              # lang ('en'|'he'); persisted to localStorage
-│           ├── themeStore.ts             # theme ('dark'|'light'); persisted to localStorage
-│           └── uiStore.ts                # activeModal, toasts[]; memory only
+│           ├── authStore.ts               # user, profile, session; signInWithGoogle, signOut
+│           ├── coinsStore.ts              # coins, lastDailyBonus; synced from DB
+│           ├── groupStore.ts              # groups[], activeGroupId; persisted to localStorage
+│           ├── langStore.ts               # lang ('en'|'he'); persisted to localStorage
+│           ├── themeStore.ts              # theme ('dark'|'light'); persisted to localStorage
+│           └── uiStore.ts                 # activeModal, toasts[]; memory only
 │
 ├── backend/
 │   └── src/
 │       ├── cron/
-│       │   └── scheduler.ts              # Startup catch-up + 30s score poller + daily/weekly crons
+│       │   └── scheduler.ts               # Startup catch-up + 30s score poller + daily/weekly crons
 │       ├── lib/
-│       │   └── supabaseAdmin.ts          # Supabase client with service-role key (bypasses RLS)
+│       │   └── supabaseAdmin.ts           # Supabase client with service-role key (bypasses RLS)
 │       ├── routes/
-│       │   ├── health.ts                 # GET /api/health → { status: 'ok' }
-│       │   └── sync.ts                   # POST /api/sync/matches · POST /api/sync/scores
+│       │   ├── admin.ts                   # DELETE /api/admin/users/:id · POST /api/admin/reset-password
+│       │   ├── health.ts                  # GET /api/health → { status: 'ok' }
+│       │   └── sync.ts                    # POST /api/sync/matches · POST /api/sync/scores
 │       ├── scripts/
-│       │   ├── manualSync.ts             # npm run sync — dev helper
-│       │   └── seed.ts                   # npm run seed — populates dev data
+│       │   ├── manualSync.ts              # npm run sync — dev helper
+│       │   └── seed.ts                    # npm run seed — populates dev data
 │       └── services/
-│           ├── espn.ts                   # ESPN API client + LEAGUE_ESPN_MAP
-│           ├── matchSync.ts              # syncLeague(id), syncAllActiveLeagues()
-│           ├── pointsEngine.ts           # PURE scoring function — no DB calls, fully testable
-│           ├── scoreUpdater.ts           # Resolves predictions after FT, writes leaderboard + coins
-│           └── sportsdb.ts              # DBMatch type definition (legacy, kept for types)
+│           ├── espn.ts                    # ESPN API client + LEAGUE_ESPN_MAP
+│           ├── matchSync.ts               # syncLeague(id), syncAllActiveLeagues()
+│           ├── pointsEngine.ts            # PURE scoring function — no DB calls, fully testable
+│           ├── scoreUpdater.ts            # Resolves predictions after FT, writes leaderboard + coins
+│           └── sportsdb.ts               # DBMatch type definition (legacy, kept for types)
 │
 ├── supabase/
 │   ├── email-templates/
-│   │   ├── confirm-signup.html           # Green-theme onboarding email (paste into Supabase dashboard)
-│   │   └── reset-password.html           # Orange-theme recovery email (paste into Supabase dashboard)
-│   └── migrations/                       # 001 → 022 — run in order via SQL editor
+│   │   ├── confirm-signup.html            # Green-theme onboarding email (paste into Supabase dashboard)
+│   │   └── reset-password.html            # Orange-theme recovery email (paste into Supabase dashboard)
+│   └── migrations/                        # 001 → 023 — auto-deployed via PostToolUse hook on write
+│
+├── .claude/
+│   └── settings.local.json                # PostToolUse hook: auto-runs `supabase db push --linked` on migration writes
 │
 └── .github/
     └── workflows/
-        ├── ci.yml                        # Type-check + build on every push/PR
-        └── sync-cron.yml                 # Pings backend every 10 min (keep-alive + data sync)
+        ├── ci.yml                         # Type-check + build on every push/PR
+        └── sync-cron.yml                  # Every 5 min: wake → scores (critical) → fixtures (non-critical)
 ```
 
 ---
@@ -332,6 +392,9 @@ goalbet/
 /leaderboard     → LeaderboardPage    (protected via AuthGuard → AppShell)
 /profile         → ProfilePage        (protected via AuthGuard → AppShell)
 /settings        → SettingsPage       (protected via AuthGuard → AppShell)
+/admin           → AdminDashboardPage (protected via AdminProtectedRoute → AdminLayout)
+/admin/users     → UserManagement     (protected via AdminProtectedRoute → AdminLayout)
+/admin/groups    → GroupManagement    (protected via AdminProtectedRoute → AdminLayout)
 *                → redirect to /
 ```
 
@@ -339,6 +402,11 @@ goalbet/
 - Renders `<PageLoader />` while `!initialized || loading`
 - On unexpected session expiry (user was logged in → now null): shows `<ReAuthModal>` instead of redirecting
 - On deliberate sign-out with no session: `<Navigate to="/login" replace />`
+
+**`AdminProtectedRoute`** (in `components/admin/AdminProtectedRoute.tsx`):
+- Client-side email check: `user.email === 'roychen651@gmail.com'`
+- Silently redirects to `/` for any other user — no error message shown
+- Server-side: every admin RPC calls `is_super_admin()` as its first action (double protection)
 
 **`AppInitializer`** (wraps entire app):
 - Calls `authStore.init()` once on mount (restores session, subscribes to `onAuthStateChange`)
@@ -361,20 +429,22 @@ Browser
   │
   └─ Render (Express API — free tier, sleeps after ~15 min)
        ├─ POST /api/sync/matches  → syncAllActiveLeagues() pulls fixtures from ESPN
-       ├─ POST /api/sync/scores   → checkAndUpdateScores() resolves finished predictions
+       ├─ POST /api/sync/scores   → checkAndUpdateScores() resolves finished predictions + awards coins
        ├─ GET  /api/health        → { status: 'ok' }
+       ├─ DELETE /api/admin/users/:id     → hard-delete from auth.users (service role, admin only)
+       ├─ POST  /api/admin/reset-password → send password reset email (service role, admin only)
        └─ setInterval 30s         → live score polling while awake
 ```
 
 **Data flow on page load:**
 1. `AppShell` fires `POST /api/sync/matches` (90s timeout) — wakes Render + pulls fresh fixtures
-2. `AppShell` fires `POST /api/sync/scores` immediately + retries at 20s
+2. `AppShell` fires `POST /api/sync/scores` immediately (75s timeout) + retries at 20s
 3. Each successful response: `window.dispatchEvent(new Event('goalbet:synced'))`
 4. `useMatches` hears `goalbet:synced` → calls `fetchMatches()` → UI updates
 5. Supabase Realtime also pushes row-level changes for live score diffs
 
 **GitHub Actions as heartbeat:**
-`sync-cron.yml` runs every 10 minutes. Pings `/api/health` → `/api/sync/matches` → `/api/sync/scores`. Keeps Render awake 24/7, data current even with zero active users.
+`sync-cron.yml` runs every **5 minutes**. Wakes backend → resolves scores (coins) → syncs fixtures. Keeps Render alive 24/7 and data current even with zero active users.
 
 ---
 
@@ -473,14 +543,19 @@ mapAuthError(message: string): string                    // maps Supabase error 
 ```
 Mount
   ├─ POST /api/sync/matches  (90s AbortController timeout) — wakes Render + pulls fixtures
-  ├─ POST /api/sync/scores   (30s timeout) — resolves any finished predictions immediately
+  ├─ POST /api/sync/scores   (75s timeout) — resolves any finished predictions immediately
   ├─ setTimeout 20s → POST /api/sync/scores — backend is warm by now, fast retry
-  └─ setInterval 45s → POST /api/sync/scores — live-score polling
+  └─ setInterval 30s → POST /api/sync/scores — live-score polling
 
-Tab restore (hidden > 5 min) → force POST /api/sync/scores
+Tab restore (hidden > 90s) → force POST /api/sync/scores
+POLL_THROTTLE_MS = 30,000  → debounces rapid successive calls
 ```
 
 All fetches use `AbortController` with explicit timeouts. If the backend times out (cold start), the fetch aborts cleanly — `setSyncing` is never stuck, the next interval retries.
+
+**Why 75s for score sync?** Render free tier takes 45–60s to cold start. The previous 30s timeout meant score sync was always failing on cold start, causing coin payouts to be delayed until the next GitHub Actions run.
+
+**Why 90s tab restore threshold?** Live games update every minute. The previous 5-minute threshold meant users returning to the tab during a live match would see data up to 5 minutes stale before a forced refresh.
 
 ### Manual sync: `useMatchSync.ts`
 
@@ -703,8 +778,8 @@ curl "https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard"
 
 ## 14. Database & Migrations
 
-Migrations live in `supabase/migrations/`. Current sequence: **001 → 022**.
-Apply via Supabase SQL editor or `supabase db push --linked`.
+Migrations live in `supabase/migrations/`. Current sequence: **001 → 023**.
+Apply via `supabase db push --linked` (auto-runs via hook on migration file write once logged in).
 
 | Migration | What it adds |
 |-----------|-------------|
@@ -724,12 +799,22 @@ Apply via Supabase SQL editor or `supabase db push --linked`.
 | `014` | `predicted_corners` column (replaces `predicted_halftime_outcome` for new predictions) |
 | `015` | `regulation_home` / `regulation_away` columns |
 | `016` | `went_to_penalties` boolean |
-| `017` | Predictions delete policy |
+| `017` | Predictions delete policy (idempotent — uses DROP POLICY IF EXISTS) |
 | `018` | `penalty_home` / `penalty_away` columns |
 | `019` | `red_cards_home` / `red_cards_away` columns |
 | `020` | Coins system: `user_coins` table, `increment_coins`, `claim_daily_bonus` |
 | `021` | Coins bug fixes |
-| `022` | Admin features: `delete_group` RPC, `remove_member` RPC |
+| `022` | Admin features: group delete policy, group_members delete policy (idempotent) |
+| `023` | Admin security RPCs: `is_super_admin`, `admin_get_stats`, `admin_get_users`, `admin_get_groups`, `admin_get_user_coins`, `admin_adjust_coins`, `admin_update_username`, `admin_delete_group`, `admin_delete_user_data`, `admin_rename_group` |
+
+### Migration idempotency
+
+All migrations from 017 onward use `DROP … IF EXISTS` before `CREATE` so they can be re-applied safely without errors. If the Supabase CLI records a migration as applied despite a partial failure, use:
+
+```bash
+supabase migration repair --linked --status reverted <version>
+supabase db push --linked
+```
 
 ### CI migration repair
 
@@ -745,7 +830,9 @@ Apply via Supabase SQL editor or `supabase db push --linked`.
 
 **`leaderboard`** — `id`, `user_id`, `group_id`, `total_points`, `weekly_points`, `last_week_points`, `predictions_made`, `correct_predictions`, `streak_bonus` (always 0), `updated_at`
 
-**`user_coins`** — `id`, `user_id`, `group_id`, `coins`, `last_daily_claim`, `updated_at`
+**`group_members`** — `user_id`, `group_id`, `coins` ← **this is the authoritative coin balance**, `joined_at`
+
+**`user_coins`** — `id`, `user_id`, `group_id`, `coins`, `last_daily_claim`, `updated_at` (supplementary — created in 020)
 
 ### RLS summary
 
@@ -753,7 +840,7 @@ Apply via Supabase SQL editor or `supabase db push --linked`.
 - **matches**: public read; service role writes only (backend)
 - **predictions**: readable by group members; writable by owner; NOT readable by others when `status = 'NS'` (pre-kickoff privacy)
 - **leaderboard**: readable by all group members; service role writes
-- **user_coins**: readable by owner; service role writes (increment_coins function)
+- **group_members**: readable by group members; service role writes coins
 
 ---
 
@@ -852,13 +939,16 @@ All stores use Zustand. Persistence uses `localStorage` where noted.
 
 ## 19. CI / GitHub Actions
 
-### `sync-cron.yml` — every 10 minutes, 24/7
+### `sync-cron.yml` — every 5 minutes, 24/7
 
 ```
-1. GET  /api/health         → wakes Render (30s curl timeout)
-2. POST /api/sync/matches   → pull ESPN fixtures (60s curl timeout)
-3. POST /api/sync/scores    → resolve predictions (60s curl timeout)
+1. Check BACKEND_URL secret is set
+2. GET  /api/health         → wake Render, retry 3× with 10s delays (30s per attempt)
+3. POST /api/sync/scores    → resolve predictions + award coins (75s curl timeout) ← ALWAYS runs
+4. POST /api/sync/matches   → pull ESPN fixtures (75s curl timeout, continue-on-error: true)
 ```
+
+**Critical design invariant:** Score resolution (step 3) runs **before** fixture sync (step 4), and step 4 has `continue-on-error: true`. This guarantees coin payouts are never blocked by an ESPN fixture timeout. An ESPN outage delays fixture updates but never delays coin awards.
 
 **No auth required** — sync endpoints are intentionally public. Do not add `SYNC_SECRET` back.
 
@@ -880,12 +970,108 @@ All stores use Zustand. Persistence uses `localStorage` where noted.
 
 ---
 
-## 20. Common Pitfalls
+## 20. Admin Console
+
+The admin console is accessible at `/admin` **only** for `roychen651@gmail.com`. It is invisible to all other users — the route silently redirects to `/`.
+
+### Security model: double protection
+
+| Layer | Mechanism |
+|-------|-----------|
+| Client-side | `AdminProtectedRoute` checks `user.email === 'roychen651@gmail.com'` before rendering |
+| Server-side (RPCs) | Every admin SQL function starts with `IF NOT is_super_admin() THEN RAISE EXCEPTION` |
+| Server-side (backend) | `resolveAdminEmail()` verifies JWT via service role; returns 403 if not admin |
+
+**Never remove either layer.** Client-side is UX; server-side is security.
+
+### `is_super_admin()` function
+
+```sql
+CREATE OR REPLACE FUNCTION is_super_admin()
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT (auth.jwt() ->> 'email') = 'roychen651@gmail.com';
+$$;
+```
+
+All admin RPCs call this as their first action. They are `SECURITY DEFINER` — they run with the Supabase service role's privileges, so the email check is the only access gate.
+
+### Admin RPCs (migration 023)
+
+| Function | Purpose |
+|----------|---------|
+| `admin_get_stats()` | Platform KPIs: total users, groups, matches, predictions, coins circulating |
+| `admin_get_users()` | All users with email, username, group count, total coins |
+| `admin_get_groups()` | All groups with admin email, member count, invite code |
+| `admin_get_user_coins(user_id)` | Per-group coin balance for a specific user |
+| `admin_adjust_coins(user_id, group_id, delta)` | Add or subtract coins (floor at 0), logs to coin_transactions |
+| `admin_update_username(user_id, username)` | Rename any user |
+| `admin_rename_group(group_id, name)` | Rename any group |
+| `admin_delete_group(group_id)` | Cascade-delete group and all members/predictions |
+| `admin_delete_user_data(user_id)` | Wipe all public-schema rows for user (call before backend delete) |
+
+### Admin backend routes
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `DELETE` | `/api/admin/users/:userId` | Hard-delete user from `auth.users` (service role) |
+| `POST` | `/api/admin/reset-password` | Send password reset email via Supabase admin API |
+
+Both require a valid `Authorization: Bearer <jwt>` from `roychen651@gmail.com`. The `resolveAdminEmail()` middleware calls `supabaseAdmin.auth.getUser(token)` to verify identity server-side.
+
+### User deletion flow (two-step)
+
+```
+1. Frontend: supabase.rpc('admin_delete_user_data', { p_user_id })
+   → wipes all public-schema rows (predictions, group_members, leaderboard, etc.)
+
+2. Frontend: fetch('DELETE /api/admin/users/:userId', { Authorization: Bearer jwt })
+   → backend calls supabaseAdmin.auth.admin.deleteUser(userId)
+   → removes the auth.users row permanently
+```
+
+Step 1 **must complete before** step 2. Reversing the order leaves orphaned data.
+
+### Admin UI components
+
+**`AdminDashboardPage`** (`pages/admin/AdminDashboardPage.tsx`)
+- Calls `admin_get_stats()` on mount
+- Bento grid of 5 animated KPI cards (staggered Framer Motion fade-in)
+- System health section: Force Score Sync button, Sync Fixtures button, Health Check link
+
+**`UserManagement`** (`components/admin/UserManagement.tsx`)
+- Search filter on email / username
+- Staggered row animations (`delay: i * 0.025`)
+- Edit name → `admin_update_username` RPC
+- Manage coins → `admin_get_user_coins` → per-group `admin_adjust_coins`
+- Reset password → `POST /api/admin/reset-password`
+- Delete → `admin_delete_user_data` RPC then `DELETE /api/admin/users/:id`
+
+**`GroupManagement`** (`components/admin/GroupManagement.tsx`)
+- Search filter on name / admin email / invite code
+- Rename → `admin_rename_group` RPC
+- View members → `group_members` direct query with coins per member
+- Delete → `admin_delete_group` RPC wrapped in `DangerModal`
+
+**`DangerModal`** (`components/admin/DangerModal.tsx`)
+- Spring animation (`y: 40 → 0`)
+- Requires typing `"DELETE"` exactly to enable the confirm button
+- Used for both group deletion and user deletion
+
+**`AdminLayout`** (`components/admin/AdminLayout.tsx`)
+- Desktop: fixed sidebar with logo + "ADMIN" badge, nav links, "Back to App" button
+- Mobile: fixed top bar with nav links
+- Renders `<Outlet />` for nested admin routes
+
+---
+
+## 21. Common Pitfalls
 
 ### Sync
 
 - **Never add auto-sync to page components.** `AppShell` owns all automatic sync. Two auto-triggers create race conditions.
-- **Never remove `AbortController` timeouts** from sync fetches. Without them, the UI hangs indefinitely on Render cold starts (30–90s).
+- **Never remove `AbortController` timeouts** from sync fetches. Without them, the UI hangs indefinitely on Render cold starts (45–60s).
+- **Score sync timeout must be ≥ 75s.** Render cold start takes 45–60s. A shorter timeout means score sync always fails on cold start, delaying coin payouts until the next cron run.
+- **Score resolution must run before fixture sync in `sync-cron.yml`.** A failed ESPN call must never block coin payouts. `continue-on-error: true` on the fixture step is intentional — never remove it.
 - **Adding a league to `FOOTBALL_LEAGUES` without adding it to `LEAGUE_ESPN_MAP`** silently produces no data — no error, no log. Always add to both.
 - **Wrong ESPN slug returns 400.** Verify: `curl "https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard"`
 
@@ -923,3 +1109,11 @@ All stores use Zustand. Persistence uses `localStorage` where noted.
 - **Daily bonus uses Israel timezone** (`Asia/Jerusalem`). `CURRENT_DATE` is wrong.
 - **Friend prediction privacy:** predictions are hidden (🔒) when `status = 'NS'` AND `kickoff > now`. Never show pre-kickoff predictions to other group members.
 - **H2H modal** opens when clicking ANOTHER user's leaderboard row. Clicking your own row opens `UserMatchHistoryModal`. This is intentional.
+
+### Admin
+
+- **Never skip `is_super_admin()` in admin RPCs.** All `SECURITY DEFINER` functions run with elevated privileges — the email check is the only gate.
+- **Always call `admin_delete_user_data()` before `DELETE /api/admin/users/:id`.** Reversing the order leaves orphaned rows in public schema with no foreign-key owner.
+- **Admin routes on the backend use service-role JWT verification**, not anon key. Never swap `supabaseAdmin` for the regular `supabase` client in `backend/src/routes/admin.ts`.
+- **`DangerModal` requires typing `"DELETE"` exactly.** Do not pre-fill or bypass the input check for "convenience".
+- **Migrations that already exist in the remote history** can be force-reapplied with `supabase migration repair --linked --status reverted <version>` then `supabase db push --linked`.
