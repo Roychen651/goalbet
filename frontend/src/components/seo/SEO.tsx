@@ -18,7 +18,7 @@ import { Helmet } from 'react-helmet-async';
 
 const SITE_NAME   = 'GoalBet';
 const BASE_URL    = 'https://goalbet.vercel.app';
-const OG_IMAGE    = `${BASE_URL}/og-image.png`;
+const OG_IMAGE    = `${BASE_URL}/og-image.svg`;
 const TWITTER_HANDLE = '@goalbet_app';
 
 const JSON_LD = {
