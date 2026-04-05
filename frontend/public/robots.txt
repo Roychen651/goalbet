@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Allow: /login
+
+# Private routes — keep off search engines
+Disallow: /admin/
+Disallow: /admin
+Disallow: /settings/
+Disallow: /settings
+Disallow: /profile/
+Disallow: /profile
+Disallow: /auth/
+Disallow: /auth
+
+# Assets that don't need indexing
+Disallow: /src/
+
+Sitemap: https://goalbet.vercel.app/sitemap.xml

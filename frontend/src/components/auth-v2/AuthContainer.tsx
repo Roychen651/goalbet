@@ -84,6 +84,7 @@ function GoogleButton({
       type="button"
       onClick={onClick}
       disabled={loading}
+      aria-label={label}
       whileHover={{ scale: loading ? 1 : 1.02 }}
       whileTap={{ scale: loading ? 1 : 0.97 }}
       className="flex items-center justify-center gap-2.5 w-full py-3 rounded-xl bg-white text-gray-900 text-sm font-semibold
@@ -1033,7 +1034,7 @@ export function AuthContainer() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-bg-base">
+      <main className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-bg-base" aria-label="GoalBet — sign in or create account">
 
         {/* ── Ambient orbs (match LoginPage atmosphere) ── */}
         <div
@@ -1064,22 +1065,24 @@ export function AuthContainer() {
         {/* ── Brand logo — compact above the card ── */}
         <AnimatePresence>
           {view !== 'success' && (
-            <motion.div
+            <motion.header
               className="relative z-10 flex items-baseline gap-0 mb-5"
               initial={{ opacity: 0, y: -16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16 }}
               transition={{ type: 'spring', stiffness: 260, damping: 24 }}
             >
-              <span className="font-bebas text-3xl tracking-widest text-white">GOAL</span>
+              <h1 className="sr-only">GoalBet</h1>
+              <span className="font-bebas text-3xl tracking-widest text-white" aria-hidden>GOAL</span>
               <span
                 className="font-bebas text-3xl tracking-widest text-accent-green"
                 style={{ textShadow: '0 0 20px rgba(0,255,135,0.4)' }}
+                aria-hidden
               >
                 BET
               </span>
-              <span className="text-2xl ms-2">⚽</span>
-            </motion.div>
+              <span className="text-2xl ms-2" aria-hidden>⚽</span>
+            </motion.header>
           )}
         </AnimatePresence>
 
@@ -1189,7 +1192,7 @@ export function AuthContainer() {
           className="absolute bottom-0 left-0 right-0 h-28 pointer-events-none"
           style={{ background: 'linear-gradient(to top, rgba(8,13,10,0.7), transparent)' }}
         />
-      </div>
+      </main>
     </MotionConfig>
   );
 }

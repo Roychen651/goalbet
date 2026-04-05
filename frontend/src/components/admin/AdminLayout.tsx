@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
+import { SEO } from '../seo/SEO';
 
 const NAV = [
   { to: '/admin',        label: 'Dashboard', icon: '⬡', exact: true },
@@ -13,6 +14,7 @@ export function AdminLayout() {
 
   return (
     <div className="flex min-h-screen bg-[#070b09] text-white">
+      <SEO title="Admin Console" noindex />
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside className="hidden w-56 shrink-0 flex-col border-r border-white/[0.06] bg-[#060a07]/80 backdrop-blur-xl sm:flex">
         {/* Logo */}
