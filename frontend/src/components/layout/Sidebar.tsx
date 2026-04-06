@@ -9,12 +9,16 @@ import { useCoinsStore } from '../../stores/coinsStore';
 import { LangToggle } from '../ui/LangToggle';
 import { PolicyModal } from '../ui/PolicyModal';
 import { CoinIcon } from '../ui/CoinIcon';
+import { NotificationBell, NotificationCenter } from './NotificationCenter';
+import { useNotifications } from '../../hooks/useNotifications';
 
 export function Sidebar() {
   const { groups, activeGroupId } = useGroupStore();
   const { t } = useLangStore();
   const coins = useCoinsStore(s => s.coins);
   const [showPolicy, setShowPolicy] = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
+  const { unreadCount } = useNotifications();
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
   const NAV_ITEMS = [
@@ -62,6 +66,37 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      {/* Notification bell */}
+      <div className="relative mx-2 mb-2">
+        <button
+          onClick={() => setShowNotif(p => !p)}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
+            'text-text-muted hover:bg-white/5 hover:text-white',
+          )}
+          aria-label="Open notifications"
+        >
+          <span className="relative text-base">
+            🔔
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -end-1 w-2.5 h-2.5 rounded-full bg-accent-green
+                               shadow-[0_0_6px_rgba(0,255,135,0.7)] animate-pulse" />
+            )}
+          </span>
+          <span>{t('notifications')}</span>
+          {unreadCount > 0 && (
+            <span className="ms-auto text-[10px] font-bold bg-accent-green text-bg-base rounded-full px-1.5 py-0.5 leading-none">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+        <NotificationCenter
+          open={showNotif}
+          onClose={() => setShowNotif(false)}
+          placement="right"
+        />
+      </div>
 
       {/* Coin balance */}
       <div className="mx-2 mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20">

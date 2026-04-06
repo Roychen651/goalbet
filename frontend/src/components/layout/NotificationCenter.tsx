@@ -1,17 +1,12 @@
 /**
  * NotificationCenter — Bell icon + glassmorphism dropdown.
  *
- * Architecture:
- *   - Bell button lives in TopBar (mobile) and Sidebar (desktop future).
- *   - Unread badge: animated pulse ring, shows count up to 9+.
- *   - Dropdown: spring-animated glass panel, max-height scroll.
- *   - Notification rows: unread vs read via opacity; tap → markRead.
- *   - "Mark all as read" CTA at the top.
- *   - Empty state: animated trophy + copy.
+ * Placement:
+ *   - TopBar (mobile):  fixed below TopBar, spans full width minus margins.
+ *   - Sidebar (desktop): absolute to the right of the bell item.
  *
- * i18n: all static labels via useLangStore().t(). Dynamic content (team
- * names, scores, pts, coins) is constructed inline from notification.metadata
- * so language switches are reflected immediately without DB round-trips.
+ * Theming: uses CSS token classes (text-text-primary, text-text-muted,
+ * var(--color-tooltip-bg), var(--card-border)) so it adapts to dark/light mode.
  */
 
 import { useEffect, useRef } from 'react';
@@ -23,8 +18,8 @@ import { cn } from '../../lib/utils';
 
 // ─── Time formatting ──────────────────────────────────────────────────────────
 
-function useRelativeTime(createdAt: string, lang: 'en' | 'he'): string {
-  const diffMs = Date.now() - new Date(createdAt).getTime();
+function relativeTime(createdAt: string, lang: 'en' | 'he'): string {
+  const diffMs  = Date.now() - new Date(createdAt).getTime();
   const diffMin = Math.floor(diffMs / 60_000);
   const diffHr  = Math.floor(diffMs / 3_600_000);
   const diffDay = Math.floor(diffMs / 86_400_000);
@@ -45,88 +40,68 @@ function useRelativeTime(createdAt: string, lang: 'en' | 'he'): string {
 
 function buildContent(notif: AppNotification, lang: 'en' | 'he') {
   if (notif.type === 'prediction_result') {
-    const { home_team = '', away_team = '', home_score, away_score, points_earned = 0, coins_earned = 0 } = notif.metadata;
+    const {
+      home_team = '', away_team = '',
+      home_score, away_score,
+      points_earned = 0, coins_earned = 0,
+    } = notif.metadata;
+
     const scoreStr = (home_score != null && away_score != null)
-      ? ` ${home_score}–${away_score} `
-      : ' ';
+      ? ` ${home_score}–${away_score} ` : ' ';
 
-    const matchLine = `${home_team}${scoreStr}${away_team}`;
-
-    if (lang === 'he') {
-      return {
-        title: 'ניבוי נפתר',
-        body:  matchLine,
-        badge: `+${points_earned} נק׳  ·  +${coins_earned} 🪙`,
-        positive: points_earned > 0,
-      };
-    }
     return {
-      title: 'Prediction Resolved',
-      body:  matchLine,
-      badge: `+${points_earned} pts  ·  +${coins_earned} coins`,
+      title:    lang === 'he' ? 'ניבוי נפתר' : 'Prediction Resolved',
+      body:     `${home_team}${scoreStr}${away_team}`,
+      badge:    lang === 'he'
+        ? `+${points_earned} נק׳  ·  +${coins_earned} 🪙`
+        : `+${points_earned} pts  ·  +${coins_earned} coins`,
       positive: points_earned > 0,
     };
   }
-
-  // Generic fallback
-  return {
-    title: notif.title_key,
-    body:  notif.body_key,
-    badge: null,
-    positive: false,
-  };
+  return { title: notif.title_key, body: notif.body_key, badge: null, positive: false };
 }
 
 // ─── Single notification row ──────────────────────────────────────────────────
 
-function NotifRow({
-  notif,
-  lang,
-  onRead,
-}: {
+function NotifRow({ notif, lang, onRead }: {
   notif: AppNotification;
   lang: 'en' | 'he';
   onRead: (id: string) => void;
 }) {
   const { title, body, badge, positive } = buildContent(notif, lang);
-  const timeLabel = useRelativeTime(notif.created_at, lang);
+  const timeLabel = relativeTime(notif.created_at, lang);
 
   return (
     <motion.button
       layout
       onClick={() => !notif.is_read && onRead(notif.id)}
       className={cn(
-        'w-full text-start px-4 py-3.5 border-b border-white/[0.06] last:border-0',
-        'transition-colors duration-200 hover:bg-white/[0.04] active:bg-white/[0.07]',
+        'w-full text-start px-4 py-3.5 border-b border-[var(--card-border)] last:border-0',
+        'transition-colors duration-150 hover:bg-white/[0.04]',
         notif.is_read ? 'opacity-50' : 'opacity-100',
       )}
     >
       <div className="flex items-start gap-3">
         {/* Unread dot */}
-        <div className="mt-1.5 shrink-0">
-          {!notif.is_read ? (
+        <div className="mt-1.5 shrink-0 w-2">
+          {!notif.is_read && (
             <span className="block w-2 h-2 rounded-full bg-accent-green shadow-[0_0_6px_rgba(0,255,135,0.7)]" />
-          ) : (
-            <span className="block w-2 h-2" />
           )}
         </div>
 
         <div className="flex-1 min-w-0">
           {/* Title + time */}
           <div className="flex items-center justify-between gap-2 mb-0.5">
-            <span className={cn(
-              'text-xs font-semibold uppercase tracking-wider',
-              notif.is_read ? 'text-white/40' : 'text-white/70',
-            )}>
+            <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
               {title}
             </span>
-            <span className="text-[10px] text-white/25 shrink-0">{timeLabel}</span>
+            <span className="text-[10px] text-text-muted opacity-60 shrink-0">{timeLabel}</span>
           </div>
 
           {/* Match line */}
           <p className={cn(
-            'text-sm leading-snug truncate',
-            notif.is_read ? 'text-white/35' : 'text-white/85',
+            'text-sm leading-snug truncate text-text-primary',
+            notif.is_read && 'opacity-60',
           )}>
             {body}
           </p>
@@ -137,7 +112,7 @@ function NotifRow({
               'inline-block mt-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full',
               positive
                 ? 'bg-accent-green/15 text-accent-green'
-                : 'bg-white/8 text-white/40',
+                : 'bg-white/8 text-text-muted',
             )}>
               {badge}
             </span>
@@ -165,10 +140,10 @@ function EmptyState({ lang }: { lang: 'en' | 'he' }) {
       >
         ⚽
       </motion.div>
-      <p className="text-white/60 text-sm font-medium text-center">
+      <p className="text-text-primary text-sm font-medium text-center opacity-70">
         {lang === 'he' ? 'אתה מעודכן!' : "You're all caught up!"}
       </p>
-      <p className="text-white/25 text-xs text-center">
+      <p className="text-text-muted text-xs text-center opacity-70">
         {lang === 'he' ? 'נקודות שתרוויח יופיעו כאן' : 'Earned points will appear here'}
       </p>
     </motion.div>
@@ -180,36 +155,41 @@ function EmptyState({ lang }: { lang: 'en' | 'he' }) {
 interface NotificationCenterProps {
   open: boolean;
   onClose: () => void;
+  /** 'bottom' (default) = dropdown below button (TopBar). 'right' = panel to the right (Sidebar). */
+  placement?: 'bottom' | 'right';
 }
 
-export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
+export function NotificationCenter({ open, onClose, placement = 'bottom' }: NotificationCenterProps) {
   const { notifications, unreadCount, loading, markAllRead, markRead } = useNotifications();
-  const { lang, t } = useLangStore();
+  const { lang } = useLangStore();
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        onClose();
-      }
+    const h = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
   }, [open, onClose]);
 
   // Close on Escape
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
   }, [open, onClose]);
 
-  const handleMarkAll = async () => {
-    await markAllRead();
-  };
+  // Positioning strategy:
+  //   bottom / mobile : fixed, inset-x-2 (8 px from edges), 58 px from top (below TopBar)
+  //   bottom / sm+    : absolute dropdown, end-aligned, standard width
+  //   right           : absolute to the right of the sidebar bell button
+  const positionClasses = placement === 'right'
+    ? 'absolute start-full ms-3 top-0 w-[340px]'
+    // Mobile: fixed full-width; sm+: sm:absolute overrides fixed via higher specificity media query
+    : 'fixed inset-x-2 top-[58px] sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:w-[340px]';
 
   return (
     <AnimatePresence>
@@ -217,24 +197,30 @@ export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
         <motion.div
           ref={panelRef}
           key="notif-panel"
-          initial={{ opacity: 0, y: -8, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -8, scale: 0.97 }}
+          initial={{ opacity: 0, y: placement === 'right' ? 0 : -8, x: placement === 'right' ? -8 : 0, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+          exit={{ opacity: 0, y: placement === 'right' ? 0 : -8, x: placement === 'right' ? -8 : 0, scale: 0.97 }}
           transition={{ type: 'spring', stiffness: 340, damping: 28, mass: 0.75 }}
-          className="absolute end-0 top-full mt-2 w-[340px] max-w-[calc(100vw-2rem)] z-50
-                     rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.7)]"
+          className={cn(
+            'z-50 rounded-2xl overflow-hidden',
+            'shadow-[0_20px_60px_rgba(0,0,0,0.5)]',
+            positionClasses,
+          )}
           style={{
-            background: 'rgba(10,16,12,0.92)',
-            backdropFilter: 'blur(28px)',
-            WebkitBackdropFilter: 'blur(28px)',
-            border: '1px solid rgba(255,255,255,0.09)',
+            background: 'var(--color-tooltip-bg)',
+            border: '1px solid var(--card-border)',
           }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07]">
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: '1px solid var(--card-border)' }}
+          >
             <div className="flex items-center gap-2">
-              <Bell size={14} className="text-white/50" />
-              <span className="text-sm font-semibold text-white/80">{t('notifications')}</span>
+              <Bell size={14} className="text-text-muted" />
+              <span className="text-sm font-semibold text-text-primary">
+                {lang === 'he' ? 'התראות' : 'Notifications'}
+              </span>
               {unreadCount > 0 && (
                 <span className="text-[10px] font-bold bg-accent-green text-bg-base rounded-full px-1.5 py-0.5 leading-none">
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -243,32 +229,27 @@ export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
             </div>
             {unreadCount > 0 && (
               <button
-                onClick={handleMarkAll}
-                className="flex items-center gap-1.5 text-[11px] text-white/40 hover:text-accent-green transition-colors"
+                onClick={markAllRead}
+                className="flex items-center gap-1.5 text-[11px] text-text-muted hover:text-accent-green transition-colors"
               >
                 <CheckCheck size={12} />
-                {t('notifMarkAllRead')}
+                {lang === 'he' ? 'סמן הכל כנקרא' : 'Mark all as read'}
               </button>
             )}
           </div>
 
           {/* List */}
-          <div className="max-h-[400px] overflow-y-auto overscroll-contain">
+          <div className="max-h-[380px] overflow-y-auto overscroll-contain">
             {loading && notifications.length === 0 ? (
               <div className="flex justify-center items-center py-10">
-                <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-accent-green animate-spin" />
+                <div className="w-5 h-5 rounded-full border-2 border-[var(--card-border)] border-t-accent-green animate-spin" />
               </div>
             ) : notifications.length === 0 ? (
               <EmptyState lang={lang} />
             ) : (
               <motion.div layout>
-                {notifications.map((n) => (
-                  <NotifRow
-                    key={n.id}
-                    notif={n}
-                    lang={lang}
-                    onRead={markRead}
-                  />
+                {notifications.map(n => (
+                  <NotifRow key={n.id} notif={n} lang={lang} onRead={markRead} />
                 ))}
               </motion.div>
             )}
@@ -279,20 +260,25 @@ export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
   );
 }
 
-// ─── Bell button (exported separately for TopBar) ─────────────────────────────
+// ─── Bell button ──────────────────────────────────────────────────────────────
 
 export function NotificationBell({
   unreadCount,
   onClick,
+  className,
 }: {
   unreadCount: number;
   onClick: () => void;
+  className?: string;
 }) {
   return (
     <button
       onClick={onClick}
       aria-label="Open notifications"
-      className="relative p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/8 transition-all"
+      className={cn(
+        'relative p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/8 transition-all',
+        className,
+      )}
     >
       <Bell size={17} />
 
@@ -306,11 +292,9 @@ export function NotificationBell({
             transition={{ type: 'spring', stiffness: 500, damping: 22 }}
             className="absolute -top-0.5 -end-0.5 flex items-center justify-center
                        min-w-[14px] h-[14px] rounded-full bg-accent-green text-bg-base
-                       text-[9px] font-black leading-none px-0.5
-                       shadow-[0_0_8px_rgba(0,255,135,0.6)]"
+                       text-[9px] font-black leading-none px-0.5"
           >
-            {/* Pulse ring */}
-            <span className="absolute inset-0 rounded-full bg-accent-green animate-ping opacity-60" />
+            <span className="absolute inset-0 rounded-full bg-accent-green animate-ping opacity-50" />
             <span className="relative z-10">{unreadCount > 9 ? '9+' : unreadCount}</span>
           </motion.span>
         )}
