@@ -23,7 +23,7 @@ export function TopBar() {
   const { t, lang, setLang }                      = useLangStore();
   const { theme, toggle: toggleTheme }            = useThemeStore();
   const coins                                     = useCoinsStore(s => s.coins);
-  const { unreadCount }                           = useNotifications();
+  const { unreadCount, notifications, loading, markAllRead, markRead } = useNotifications();
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
   return (
@@ -168,7 +168,15 @@ export function TopBar() {
         </div>
 
         {/* Notification panel anchors here */}
-        <NotificationCenter open={showNotif} onClose={() => setShowNotif(false)} />
+        <NotificationCenter
+          open={showNotif}
+          onClose={() => setShowNotif(false)}
+          notifications={notifications}
+          unreadCount={unreadCount}
+          loading={loading}
+          markAllRead={markAllRead}
+          markRead={markRead}
+        />
 
       </div>
     </header>

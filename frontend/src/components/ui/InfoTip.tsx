@@ -15,11 +15,12 @@ export function InfoTip({ text }: InfoTipProps) {
   useEffect(() => {
     if (!show || !btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2 + window.scrollX;
+    // fixed positioning is viewport-relative — no scrollX/scrollY offset needed
+    const centerX = rect.left + rect.width / 2;
     // Clamp so tooltip never exits the visible viewport on either side
     const clampedLeft = Math.max(8, Math.min(window.innerWidth - TOOLTIP_W - 8, centerX - TOOLTIP_W / 2));
     setPos({
-      top: rect.top + window.scrollY - 8, // 8px gap above button
+      top: rect.top - 8, // viewport-relative; -translate-y-full renders it above
       left: clampedLeft,
     });
   }, [show]);

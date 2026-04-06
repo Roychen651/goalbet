@@ -19,7 +19,7 @@ export function Sidebar() {
   const coins = useCoinsStore(s => s.coins);
   const [showPolicy, setShowPolicy] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
-  const { unreadCount } = useNotifications();
+  const { unreadCount, notifications, loading, markAllRead, markRead } = useNotifications();
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
   const NAV_ITEMS = [
@@ -100,6 +100,11 @@ export function Sidebar() {
           open={showNotif}
           onClose={() => setShowNotif(false)}
           placement="right"
+          notifications={notifications}
+          unreadCount={unreadCount}
+          loading={loading}
+          markAllRead={markAllRead}
+          markRead={markRead}
         />
       </div>
 

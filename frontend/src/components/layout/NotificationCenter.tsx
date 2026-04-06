@@ -12,7 +12,7 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, CheckCheck } from 'lucide-react';
-import { useNotifications, AppNotification } from '../../hooks/useNotifications';
+import { AppNotification } from '../../hooks/useNotifications';
 import { useLangStore } from '../../stores/langStore';
 import { cn } from '../../lib/utils';
 
@@ -157,10 +157,15 @@ interface NotificationCenterProps {
   onClose: () => void;
   /** 'bottom' (default) = dropdown below button (TopBar). 'right' = panel to the right (Sidebar). */
   placement?: 'bottom' | 'right';
+  /** Pass from the parent's useNotifications() instance to avoid duplicate state */
+  notifications: AppNotification[];
+  unreadCount: number;
+  loading: boolean;
+  markAllRead: () => Promise<void>;
+  markRead: (id: string) => Promise<void>;
 }
 
-export function NotificationCenter({ open, onClose, placement = 'bottom' }: NotificationCenterProps) {
-  const { notifications, unreadCount, loading, markAllRead, markRead } = useNotifications();
+export function NotificationCenter({ open, onClose, placement = 'bottom', notifications, unreadCount, loading, markAllRead, markRead }: NotificationCenterProps) {
   const { lang } = useLangStore();
   const panelRef = useRef<HTMLDivElement>(null);
 
