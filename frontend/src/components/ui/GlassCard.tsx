@@ -9,9 +9,11 @@ interface GlassCardProps {
   variant?: Variant;
   onClick?: React.MouseEventHandler<HTMLDivElement>;
   as?: 'div' | 'article' | 'section';
+  style?: React.CSSProperties;
+  leagueAccent?: string;
 }
 
-export function GlassCard({ children, className, variant = 'default', onClick, as: Tag = 'div' }: GlassCardProps) {
+export function GlassCard({ children, className, variant = 'default', onClick, as: Tag = 'div', style, leagueAccent }: GlassCardProps) {
   const base = cn(
     'rounded-2xl border backdrop-blur-glass transition-all duration-200',
     'card-base',
@@ -28,13 +30,17 @@ export function GlassCard({ children, className, variant = 'default', onClick, a
     className
   );
 
+  const dynamicStyle: React.CSSProperties = leagueAccent
+    ? { ...style, borderInlineStartColor: leagueAccent, borderInlineStartWidth: '3px' }
+    : { ...style };
+
   if (onClick) {
     return (
       <motion.div
-        whileHover={{ scale: 1.005, y: -2, rotateX: 0.8, rotateY: 0.4 }}
-        whileTap={{ scale: 0.995, y: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-        style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
+        whileHover={{ scale: 1.003, y: -2 }}
+        whileTap={{ scale: 0.997, y: 0 }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+        style={dynamicStyle}
         onClick={onClick}
         className={cn(base, 'cursor-pointer')}
       >
@@ -44,7 +50,7 @@ export function GlassCard({ children, className, variant = 'default', onClick, a
   }
 
   return (
-    <Tag className={base}>
+    <Tag className={base} style={dynamicStyle}>
       {children}
     </Tag>
   );

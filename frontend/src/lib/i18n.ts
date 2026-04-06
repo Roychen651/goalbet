@@ -229,6 +229,17 @@ export const translations = {
     scoringBtn: 'Scoring',
     coinsBtn: 'Coins',
 
+    // Bento stats
+    bentoFtWinRate: 'FT Win Rate',
+    bentoCurrentStreak: 'Current Streak',
+    bentoConsecutiveCorrect: 'consecutive correct',
+    bentoPredictToSee: 'Predict scores to see',
+    bentoSharp: 'Sharp',
+    bentoDecent: 'Decent',
+    bentoRough: 'Rough',
+    bentoExact: 'exact',
+    bentoOfCorrect: 'correct',
+
     // Match breakdown labels (used in resolved tier rows)
     overUnder: 'Over/Under',
     matchStats: 'Match stats',
@@ -488,6 +499,17 @@ export const translations = {
     // Guide buttons
     scoringBtn: 'ניקוד',
     coinsBtn: 'מטבעות',
+
+    // Bento stats
+    bentoFtWinRate: 'אחוז ניחוש',
+    bentoCurrentStreak: 'רצף נוכחי',
+    bentoConsecutiveCorrect: 'ניחושים רצופים',
+    bentoPredictToSee: 'נבא סקורים כדי לפתוח',
+    bentoSharp: 'חד',
+    bentoDecent: 'סביר',
+    bentoRough: 'גס',
+    bentoExact: 'מדויקים',
+    bentoOfCorrect: 'נכונים',
 
     // Match breakdown labels (used in resolved tier rows)
     overUnder: 'מעל/מתחת',

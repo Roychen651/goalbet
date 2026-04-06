@@ -62,7 +62,7 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
                 {isHe ? 'מדיניות ותנאים' : 'Policy & Terms'}
               </h2>
               <p className="text-text-muted text-xs mt-0.5">
-                {isHe ? 'GoalBet v1.0 — לבידור בלבד' : 'GoalBet v1.0 — Entertainment only'}
+                {isHe ? 'GoalBet v2.0 — לבידור בלבד' : 'GoalBet v2.0 — Entertainment only'}
               </p>
             </div>
             <button

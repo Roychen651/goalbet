@@ -89,7 +89,7 @@ export function HomePage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-bebas text-2xl tracking-wider text-white">{t('matchDay')}</h1>
+          <h1 className="font-barlow font-bold text-3xl tracking-wide uppercase text-white">{t('matchDay')}</h1>
           <div className="flex items-center gap-2">
             {activeGroup && <p className="text-text-muted text-xs">{activeGroup.name}</p>}
           </div>

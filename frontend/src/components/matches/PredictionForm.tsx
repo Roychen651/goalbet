@@ -186,42 +186,10 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         />
       ),
     }] : []),
-    {
-      key: 'tier5',
-      label: t('bothTeamsToScore'),
-      pts: POINTS.TIER5_BTTS,
-      active: btts !== null,
-      content: (
-        <BoolPicker
-          value={btts}
-          onChange={(v) => { setBtts(v); setSaved(false); }}
-          yesLabel={t('yes')}
-          noLabel={t('no')}
-          color={TIER_COLORS[3]}
-          impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
-        />
-      ),
-    },
-    {
-      key: 'tier6',
-      label: t('totalGoals'),
-      pts: POINTS.TIER6_OVER_UNDER,
-      active: overUnder !== null,
-      content: (
-        <BoolPicker
-          value={overUnder === null ? null : overUnder === 'over'}
-          onChange={(v) => { setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
-          yesLabel={t('over25')}
-          noLabel={t('under25')}
-          color={TIER_COLORS[4]}
-          impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
-        />
-      ),
-    },
   ];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {tiers.map((tier, i) => (
         <motion.div
           key={tier.key}
@@ -240,6 +208,32 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           </TierRow>
         </motion.div>
       ))}
+
+      {/* BTTS + O/U as compact single-line rows */}
+      <InlineBoolTier
+        label={t('bothTeamsToScore')}
+        pts={POINTS.TIER5_BTTS}
+        active={btts !== null}
+        color={TIER_COLORS[tiers.length]}
+        value={btts}
+        onChange={(v) => { setBtts(v); setSaved(false); }}
+        yesLabel={t('yes')}
+        noLabel={t('no')}
+        impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
+        delay={tiers.length * 0.05}
+      />
+      <InlineBoolTier
+        label={t('totalGoals')}
+        pts={POINTS.TIER6_OVER_UNDER}
+        active={overUnder !== null}
+        color={TIER_COLORS[tiers.length + 1]}
+        value={overUnder === null ? null : overUnder === 'over'}
+        onChange={(v) => { setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
+        yesLabel="O 2.5"
+        noLabel="U 2.5"
+        impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
+        delay={(tiers.length + 1) * 0.05}
+      />
 
       {/* Coin cost bar + submit */}
       <AnimatePresence>
@@ -306,12 +300,12 @@ function TierRow({
   const { t } = useLangStore();
   return (
     <div className={cn(
-      'rounded-xl border p-2.5 transition-all duration-200',
+      'rounded-xl border p-2 transition-all duration-200',
       active
         ? 'bg-white/5 border-white/12 tier-row-active'
         : 'bg-white/2 border-white/6 tier-row-inactive',
     )}>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
           <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color.dot)} />
           <span className="text-text-muted text-xs font-medium tracking-wide">{label}</span>
@@ -327,6 +321,63 @@ function TierRow({
       </div>
       {children}
     </div>
+  );
+}
+
+function InlineBoolTier({
+  label, pts, active, color, value, onChange, yesLabel, noLabel, impossibleValue, delay,
+}: {
+  label: string;
+  pts: number;
+  active: boolean;
+  color: typeof TIER_COLORS[number];
+  value: boolean | null;
+  onChange: (v: boolean | null) => void;
+  yesLabel: string;
+  noLabel: string;
+  impossibleValue?: boolean;
+  delay?: number;
+}) {
+  const { t } = useLangStore();
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: delay ?? 0, type: 'spring', stiffness: 200, damping: 24 }}
+      className={cn(
+        'flex items-center gap-2 px-2.5 py-2 rounded-xl border transition-all duration-200',
+        active ? 'bg-white/5 border-white/12 tier-row-active' : 'bg-white/2 border-white/6 tier-row-inactive',
+      )}
+    >
+      <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color.dot)} />
+      <span className="text-text-muted text-[10px] font-medium flex-1 leading-tight">{label}</span>
+      <span className={cn('text-[10px] font-bold tabular-nums me-1 shrink-0', active ? color.pts : 'text-text-muted opacity-40')}>
+        +{pts} {t('pts')}
+      </span>
+      <div className="flex gap-1 shrink-0">
+        {([true, false] as const).map((v) => {
+          const isImpossible = impossibleValue !== undefined && impossibleValue === v;
+          const isSelected = value === v;
+          return (
+            <button
+              key={String(v)}
+              onClick={() => { if (!isImpossible) onChange(isSelected ? null : v); }}
+              disabled={isImpossible}
+              className={cn(
+                'px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all duration-150 border whitespace-nowrap',
+                isSelected && !isImpossible
+                  ? cn('border-current text-current bg-current/10', color.pts)
+                  : isImpossible
+                  ? 'opacity-25 cursor-not-allowed bg-white/3 border-white/5 text-text-muted'
+                  : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:text-text-primary',
+              )}
+            >
+              {v ? yesLabel : noLabel}
+            </button>
+          );
+        })}
+      </div>
+    </motion.div>
   );
 }
 
@@ -355,7 +406,7 @@ function OutcomePicker({
           onClick={() => { if (!lockedByScore) onChange(val); }}
           disabled={lockedByScore}
           className={cn(
-            'py-2 rounded-lg text-sm font-semibold transition-all duration-150 border truncate',
+            'py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border truncate',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
@@ -398,7 +449,7 @@ function ScoreInput({ value, onChange }: { value: string; onChange: (v: string) 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder="0"
-      className="flex-1 py-2 text-center text-xl font-bebas tracking-wider rounded-lg border bg-transparent border-border-subtle text-text-primary placeholder:text-text-muted focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
+      className="flex-1 py-1.5 text-center text-lg font-bebas tracking-wider rounded-lg border bg-transparent border-border-subtle text-text-primary placeholder:text-text-muted focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
       style={{ WebkitAppearance: 'none', opacity: 1 }}
     />
   );
@@ -427,7 +478,7 @@ function BoolPicker({
             disabled={isImpossible}
             title={isImpossible ? 'Not possible with your score' : undefined}
             className={cn(
-              'py-2 rounded-lg text-sm font-semibold transition-all duration-150 border relative',
+              'py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border relative',
               isSelected && !isImpossible
                 ? cn('border-current text-current bg-current/10', color.pts, color.glow)
                 : isImpossible
@@ -667,7 +718,7 @@ function CornersPicker({
           // Clicking the already-selected option deselects it (returns null = removes this tier)
           onClick={() => onChange(value === val ? null : val)}
           className={cn(
-            'py-2 rounded-lg text-sm font-semibold transition-all duration-150 border',
+            'py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',

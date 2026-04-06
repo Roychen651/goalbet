@@ -19,8 +19,13 @@ const config: Config = {
         'border-bright': 'var(--color-border-bright)',
       },
       fontFamily: {
-        bebas: ['"Bebas Neue"', 'sans-serif'],
-        dm: ['"DM Sans"', 'sans-serif'],
+        display:  ['"Inter"', '"Heebo"', 'sans-serif'],        /* Scores, Big numbers, Logo */
+        headline: ['"Barlow Condensed"', '"Heebo"', 'sans-serif'],
+        barlow:   ['"Barlow Condensed"', '"Heebo"', 'sans-serif'],
+        bebas:    ['"Bebas Neue"', '"Heebo"', 'sans-serif'],
+        dm:       ['"Inter"', '"Heebo"', 'system-ui', 'sans-serif'],
+        sans:     ['"Inter"', '"Heebo"', 'system-ui', 'sans-serif'],
+        mono:     ['"SF Mono"', '"Roboto Mono"', 'Menlo', 'monospace'],
       },
       backgroundImage: {
         'glow-green': 'radial-gradient(ellipse at center, rgba(0,255,135,0.15) 0%, transparent 70%)',
@@ -28,11 +33,12 @@ const config: Config = {
         'stadium-noise': "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E\")",
       },
       boxShadow: {
-        'glow-green': '0 0 20px rgba(0,255,135,0.3), 0 0 40px rgba(0,255,135,0.1)',
-        'glow-orange': '0 0 20px rgba(255,107,53,0.3), 0 0 40px rgba(255,107,53,0.1)',
-        'glow-green-sm': '0 0 10px rgba(0,255,135,0.2)',
-        'card': '0 4px 24px rgba(0,0,0,0.4)',
-        'card-hover': '0 8px 40px rgba(0,0,0,0.6)',
+        'glow-green':    '0 0 24px rgba(73,136,196,0.35), 0 0 48px rgba(73,136,196,0.12)',
+        'glow-green-sm': '0 0 12px rgba(73,136,196,0.28)',
+        'glow-orange':   '0 0 20px rgba(255,51,102,0.3), 0 0 40px rgba(255,51,102,0.1)',
+        'glow-purple':   '0 0 20px rgba(73,136,196,0.3), 0 0 40px rgba(73,136,196,0.1)',
+        'card':          '0 4px 24px rgba(0,0,0,0.4)',
+        'card-hover':    '0 8px 40px rgba(0,0,0,0.6)',
       },
       animation: {
         'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
@@ -59,8 +65,8 @@ const config: Config = {
       },
       keyframes: {
         pulseGlow: {
-          '0%, 100%': { boxShadow: '0 0 10px rgba(0,255,135,0.2)' },
-          '50%': { boxShadow: '0 0 30px rgba(0,255,135,0.5), 0 0 60px rgba(0,255,135,0.2)' },
+          '0%, 100%': { boxShadow: '0 0 10px rgba(73,136,196,0.25)' },
+          '50%': { boxShadow: '0 0 30px rgba(73,136,196,0.5), 0 0 60px rgba(73,136,196,0.18)' },
         },
         scorePop: {
           '0%': { transform: 'scale(0.8)', opacity: '0' },

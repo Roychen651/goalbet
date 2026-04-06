@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
@@ -362,13 +363,19 @@ export function MatchTimeline({ match }: { match: Match }) {
             </span>
           )}
         </span>
-        <motion.span
+        <motion.div
           animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.18 }}
-          className="text-white/22 text-[11px] group-hover:text-white/40"
+          transition={{ duration: 0.25, ease: 'easeInOut' as const }}
+          className={cn(
+            'flex items-center justify-center w-7 h-7 rounded-full transition-colors duration-200',
+            'border border-border-subtle',
+            open
+              ? 'bg-[rgba(73,136,196,0.18)] text-text-primary'
+              : 'bg-transparent text-text-muted group-hover:bg-[rgba(73,136,196,0.10)] group-hover:text-text-primary',
+          )}
         >
-          ▾
-        </motion.span>
+          <ChevronDown size={14} strokeWidth={2.5} />
+        </motion.div>
       </button>
 
       <AnimatePresence initial={false}>

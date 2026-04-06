@@ -163,7 +163,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="font-bebas text-2xl tracking-wider text-white">{t('settings')}</h1>
+      <h1 className="font-barlow font-bold text-3xl tracking-wide uppercase text-white">{t('settings')}</h1>
 
       {!activeGroup ? (
         <GlassCard className="p-5 text-center space-y-4">

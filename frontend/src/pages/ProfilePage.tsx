@@ -13,6 +13,7 @@ import { PageLoader } from '../components/ui/LoadingSpinner';
 import { MatchStatusBadge } from '../components/matches/MatchStatusBadge';
 import { PredictionForm, PredictionData } from '../components/matches/PredictionForm';
 import { AvatarPicker } from '../components/profile/AvatarPicker';
+import { ProfileBentoV2 } from '../components/profile/ProfileBentoV2';
 import { formatKickoffTime, isMatchLocked, calcBreakdown } from '../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, calcPredictionCost } from '../lib/constants';
 import { InfoTip } from '../components/ui/InfoTip';
@@ -291,6 +292,8 @@ export function ProfilePage() {
     .filter(p => FINISHED_STATUSES.includes(p.match.status))
     .sort((a, b) => new Date(b.match.kickoff_time).getTime() - new Date(a.match.kickoff_time).getTime());
 
+  const USE_ELITE_UI = true;
+
   return (
     <motion.div className="space-y-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
 
@@ -331,7 +334,19 @@ export function ProfilePage() {
         </GlassCard>
       </motion.div>
 
-      {/* Stats grid */}
+      {/* ── Stats section ─────────────────────────────────────────────────── */}
+      {USE_ELITE_UI ? (
+        <ProfileBentoV2
+          totalPoints={totalPoints}
+          predictions={history.length}
+          resolved={resolved.length}
+          ftHits={ftCorrect.length}
+          ftTotal={ftPredictions.length}
+          currentStreak={currentStreak}
+          avgGoalsDiff={avgGoalsDiff}
+          exactScoreCount={exactScoreCount}
+        />
+      ) : (
       <motion.div className="grid grid-cols-3 gap-3" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } }}>
         {[
           {
@@ -361,6 +376,7 @@ export function ProfilePage() {
           </motion.div>
         ))}
       </motion.div>
+      )}
 
       {/* ── Personal Analytics ────────────────────────────────────────────── */}
       {!loading && (

@@ -846,31 +846,78 @@ supabase db push --linked
 
 ## 15. Theme System
 
+**Version: GoalBet v2.0 — "Cold Sea Navy / Frost"**
+
 Dark mode is the default. Light mode toggled via `ThemeToggle` in the top bar.
 
 **Mechanism:** `html.light` class on `<html>` managed by `themeStore.ts`.
 **CSS tokens:** defined in `frontend/src/index.css` under `:root` (dark) and `html.light` (light overrides).
 
-### Design tokens
+### Design tokens — Dark ("Cold Sea Navy")
 
 ```css
-/* Dark (default) */
---color-bg-base: #080d0a
---color-bg-card: rgba(255,255,255,0.055)
---color-accent-green: #00ff87
---color-accent-orange: #ff6b35
---color-text-muted: rgba(255,255,255,0.45)
---glow-green: 0 0 20px rgba(0,255,135,0.3)
+--color-bg-base: #0a1733              /* Deep Navy */
+--color-bg-card: rgba(15,40,84,0.4)   /* Rich navy glass */
+--color-accent-green: #BDE8F5         /* Bright Ice Blue — primary accent */
+--color-accent-secondary: #4988C4    /* Steel Blue */
+--color-accent-orange: #FF3366
+--color-text-primary: #FFFFFF
+--color-text-muted: rgba(189,232,245,0.60)
+--color-border-subtle: rgba(73,136,196,0.20)
+--color-border-bright: rgba(189,232,245,0.40)
+--glow-green: 0 0 24px rgba(73,136,196,0.40)
 ```
 
-Fonts: **Bebas Neue** (headings, `font-bebas`), **DM Sans** (body) — imported from Google Fonts in `index.html`.
+Body background: navy `#0F2854` ellipse from top + steel blue blooms at bottom corners, fixed attachment.
+`body::after`: tactical dot matrix (`24×24px` radial dots at `rgba(189,232,245,0.10)`), masked to fade at top/bottom edges, `z-index: -1`.
+
+### Design tokens — Light ("Frost")
+
+```css
+--color-bg-base: #F2F6FA             /* Icy sky */
+--color-bg-card: #FFFFFF
+--color-accent-green: #1C4D8D        /* Deep Navy */
+--color-accent-secondary: #4988C4
+--color-text-primary: #0A1733
+--color-text-muted: #4988C4
+--color-border-subtle: rgba(15,40,84,0.08)
+```
+
+Body background: white ellipse bloom from top + ice-blue corner.
+`body::after`: navy dot matrix (`rgba(15,40,84,0.05)`), same grid/mask as dark.
+
+### Fonts
+
+- **`font-display`** / **`font-sans`** / **`font-dm`**: **Inter** + Heebo fallback — all UI body text and numbers
+- **`font-barlow`** / **`font-headline`**: Barlow Condensed — labels, stat headers
+- **`font-bebas`**: Bebas Neue — score display
+- **`font-mono`**: SF Mono / Roboto Mono
+
+### Bento card classes (ProfileBentoV2)
+
+Use semantic CSS classes — never hardcode rgba in bento components:
+
+| Class | Dark | Light |
+|-------|------|-------|
+| `bento-card-accent` | volt tint | navy tint |
+| `bento-card-purple` | purple tint | steel blue tint |
+| `bento-card-default` | white/3 | white/90 |
+| `bento-hero-card` | volt border | navy border |
+
+### Hover effects
+
+- **Match cards** (`MatchCardV2`): diagonal shimmer sweep on hover entry. No tilt — preserves prediction form UX.
+- **Profile bento** (`TiltCardV2`): 3° tilt with spring physics. No glare overlay.
+- **Buttons** (`MagneticButtonV2`): magnetic pull within 80px radius. Variants: `volt`, `ghost`, `purple`.
 
 ### Rules
 
 - **Never hardcode dark hex colors** in modals, tooltips, or cards — they break in light mode
-- Use `card-elevated` CSS class instead of `bg-[#0c1610]` or similar
+- Use `card-elevated` CSS class instead of raw hex backgrounds
 - Use CSS vars (`var(--color-tooltip-bg)`) for dynamic surfaces
-- Test every new component in both dark and light mode
+- For new bento/stat cards: add a `bento-*` CSS class pair, not inline rgba
+- All `text-white/*` opacity variants have `html.light` overrides mapping to navy — if adding a new opacity variant, add it to both sets
+- `text-white/85` and below all have overrides; if a new variant is invisible in light mode, add `html.light .text-white\/XX` to `index.css`
 
 ---
 

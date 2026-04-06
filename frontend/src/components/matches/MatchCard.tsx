@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
@@ -13,6 +14,20 @@ import { useLangStore } from '../../stores/langStore';
 import type { TranslationKey } from '../../lib/i18n';
 import { useLiveClock } from '../../hooks/useLiveClock';
 import { useAuthStore } from '../../stores/authStore';
+
+const LEAGUE_ACCENT: Record<number, string> = {
+  4346: '#1a4fa8', // Champions League (UEFA Blue)
+  4399: '#e05a1e', // Europa League (Orange)
+  4877: '#2da562', // Conference League (Teal)
+  4328: '#c01c28', // Premier League (Crimson)
+  4335: '#a51f22', // La Liga (Red)
+  4331: '#242424', // Bundesliga (Dark Charcoal)
+  4332: '#004c99', // Serie A (Blue)
+  4334: '#002654', // Ligue 1 (Deep Blue)
+  9001: '#002654', // FA Cup
+  9002: '#002654', // League Cup
+  9003: '#a51f22', // Copa del Rey
+};
 
 interface MatchCardProps {
   match: Match;
@@ -83,6 +98,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
     <GlassCard
       as="article"
       variant={cardVariant}
+      leagueAccent={LEAGUE_ACCENT[match.league_id]}
       className="overflow-hidden"
     >
       {/* Card header */}
@@ -374,10 +390,16 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
         <div className="flex justify-center mt-2">
           <motion.div
             animate={{ rotate: expanded ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-            className="text-text-muted text-xs group-hover:text-white/60 transition-colors"
+            transition={{ duration: 0.25, ease: 'easeInOut' as const }}
+            className={cn(
+              'flex items-center justify-center w-7 h-7 rounded-full transition-colors duration-200',
+              'border border-border-subtle',
+              expanded
+                ? 'bg-[rgba(73,136,196,0.18)] text-text-primary'
+                : 'bg-transparent text-text-muted group-hover:bg-[rgba(73,136,196,0.10)] group-hover:text-text-primary',
+            )}
           >
-            ▾
+            <ChevronDown size={14} strokeWidth={2.5} />
           </motion.div>
         </div>
       </button>
@@ -393,7 +415,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
             transition={{ type: 'spring', stiffness: 280, damping: 30 }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 border-t border-white/5 pt-4">
+            <div className="px-3 pb-3 border-t border-white/5 pt-3">
               {isFinished && !hasPrediction ? (
                 <MatchActualStats match={match} />
               ) : prediction?.is_resolved && isInProgress ? (
@@ -671,8 +693,8 @@ function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 
         )}
       </div>
       <span className={cn(
-        'text-center text-xs leading-tight transition-colors duration-300',
-        highlight ? 'text-accent-green font-semibold' : 'text-text-muted',
+        'text-center text-xs font-barlow font-bold leading-tight transition-colors duration-300',
+        highlight ? 'text-accent-green' : 'text-text-muted',
       )}>
         {shortName}
       </span>

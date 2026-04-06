@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Swords, Trophy, User, Settings } from 'lucide-react';
 import { ROUTES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { useGroupStore } from '../../stores/groupStore';
@@ -22,10 +23,10 @@ export function Sidebar() {
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
   const NAV_ITEMS = [
-    { to: ROUTES.HOME, icon: '⚽', label: t('matches') },
-    { to: ROUTES.LEADERBOARD, icon: '🏆', label: t('leaderboard') },
-    { to: ROUTES.PROFILE, icon: '👤', label: t('myProfile') },
-    { to: ROUTES.SETTINGS, icon: '⚙️', label: t('settings') },
+    { to: ROUTES.HOME, Icon: Swords, label: t('matches') },
+    { to: ROUTES.LEADERBOARD, Icon: Trophy, label: t('leaderboard') },
+    { to: ROUTES.PROFILE, Icon: User, label: t('myProfile') },
+    { to: ROUTES.SETTINGS, Icon: Settings, label: t('settings') },
   ];
 
   return (
@@ -33,12 +34,12 @@ export function Sidebar() {
       {/* Logo */}
       <div className="mb-8 px-2">
         <motion.div
-          className="font-bebas text-3xl tracking-widest cursor-default"
+          className="font-barlow font-extrabold text-4xl tracking-wide uppercase cursor-default"
           whileHover={{ scale: 1.04 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         >
           <span className="text-white">Goal</span>
-          <span className="text-accent-green logo-bet-glow">
+          <span className="text-accent-green drop-shadow-[0_0_12px_rgba(232,160,32,0.4)]">
             Bet
           </span>
         </motion.div>
@@ -49,20 +50,24 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex flex-col gap-1 flex-1">
-        {NAV_ITEMS.map(item => (
+        {NAV_ITEMS.map(({ to, Icon, label }) => (
           <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === ROUTES.HOME}
+            key={to}
+            to={to}
+            end={to === ROUTES.HOME}
             className={({ isActive }) => cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
+              'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.98]',
               isActive
                 ? 'bg-accent-green/10 text-accent-green border border-accent-green/20'
                 : 'text-text-muted hover:bg-white/5 hover:text-white'
             )}
           >
-            <span className="text-base">{item.icon}</span>
-            {item.label}
+            {({ isActive }) => (
+              <>
+                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.5} className="shrink-0" />
+                {label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -113,7 +118,7 @@ export function Sidebar() {
       <div className="flex flex-col gap-3 px-2">
         <LangToggle />
         <div className="text-text-muted text-xs opacity-50 leading-relaxed">
-          GoalBet v1.0<br/>
+          GoalBet v2.0<br/>
           <span className="opacity-70">© Roy Chen 2026</span>
         </div>
         <button

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { LeaderboardEntryWithProfile } from '../../lib/supabase';
 import { LeaderboardRow } from './LeaderboardRow';
+import { GlassCard } from '../ui/GlassCard';
 import { PageLoader } from '../ui/LoadingSpinner';
 import { EmptyState } from '../ui/EmptyState';
 import { useLangStore } from '../../stores/langStore';
@@ -22,35 +23,43 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
   }
 
   return (
-    <motion.div
-      className="space-y-1"
-      initial="hidden"
-      animate="show"
-      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
-    >
-      {entries.map((entry, i) => (
-        <motion.div
-          key={entry.user_id}
-          variants={{
-            hidden: { opacity: 0, x: -24, scale: 0.97 },
-            show: {
-              opacity: 1,
-              x: 0,
-              scale: 1,
-              transition: { type: 'spring', stiffness: 90, damping: 18 },
-            },
-          }}
-          whileHover={{ scale: 1.01, x: 2 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-        >
-          <LeaderboardRow
-            entry={entry}
-            isCurrentUser={entry.user_id === currentUserId}
-            type={type}
-            onClick={onUserClick ? () => onUserClick(entry) : undefined}
-          />
-        </motion.div>
-      ))}
-    </motion.div>
+    <GlassCard variant="default" className="overflow-hidden">
+      {/* Table header */}
+      <div className="flex items-center px-4 py-2 border-b border-white/8 text-[11px] text-text-muted uppercase tracking-widest font-barlow">
+        <span className="w-7 text-center shrink-0">#</span>
+        <span className="flex-1 ms-3">PLAYER</span>
+        <span className="text-end">PTS</span>
+      </div>
+
+      {/* Rows */}
+      <motion.div
+        initial="hidden"
+        animate="show"
+        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
+      >
+        {entries.map((entry) => (
+          <motion.div
+            key={entry.user_id}
+            variants={{
+              hidden: { opacity: 0, y: 10 },
+              show: {
+                opacity: 1,
+                y: 0,
+                transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] as const },
+              },
+            }}
+            whileHover={{ scale: 1.005 }}
+            transition={{ duration: 0.18, ease: 'easeOut' as const }}
+          >
+            <LeaderboardRow
+              entry={entry}
+              isCurrentUser={entry.user_id === currentUserId}
+              type={type}
+              onClick={onUserClick ? () => onUserClick(entry) : undefined}
+            />
+          </motion.div>
+        ))}
+      </motion.div>
+    </GlassCard>
   );
 }

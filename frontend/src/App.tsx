@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Lenis from 'lenis';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthStore } from './stores/authStore';
@@ -96,6 +97,18 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   const { fetchGroups, activeGroupId } = useGroupStore();
   const initCoins = useCoinsStore(s => s.initCoins);
   const lastInitDateRef = useRef<string>('');
+
+  // Lenis smooth scrolling — liquid premium feel
+  useEffect(() => {
+    const lenis = new Lenis({ lerp: 0.1, smoothWheel: true });
+    let raf: number;
+    function frame(time: number) {
+      lenis.raf(time);
+      raf = requestAnimationFrame(frame);
+    }
+    raf = requestAnimationFrame(frame);
+    return () => { lenis.destroy(); cancelAnimationFrame(raf); };
+  }, []);
 
   useEffect(() => {
     const cleanup = init();
