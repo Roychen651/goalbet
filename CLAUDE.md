@@ -748,7 +748,6 @@ Must be kept in sync between **both** files:
 | FA Cup | 9001 | `eng.fa` |
 | League Cup (Carabao) | 9002 | `eng.league_cup` |
 | Copa del Rey | 9003 | `esp.copa_del_rey` |
-| Israeli Premier League | 4354 | `isr.1` |
 | International Friendlies | 4396 | `fifa.friendly` |
 | UEFA Nations League | 4635 | `uefa.nations` |
 | World Cup Qualifiers 2026 | 5000 | `uefa.worldq` |
@@ -757,6 +756,10 @@ Must be kept in sync between **both** files:
 
 - **World Cup** (4480) — only relevant during tournament years
 - **Euro Championship** (4467) — only relevant every 4 years
+
+### Removed leagues
+
+- **Israeli Premier League** (4354 / `isr.1`) — removed April 2026. ESPN only covers the 2024-25 season; all 2026-date queries return 0 events. API-Football free plan blocks season 2025. Removed from `FOOTBALL_LEAGUES`, `LEAGUE_ESPN_SLUG`, and `LEAGUE_ESPN_MAP` entirely.
 
 ### Adding a new league
 
