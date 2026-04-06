@@ -100,6 +100,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
       variant={cardVariant}
       leagueAccent={LEAGUE_ACCENT[match.league_id]}
       className="overflow-hidden"
+      interactive
     >
       {/* Card header */}
       <button
