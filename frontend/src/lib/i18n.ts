@@ -249,6 +249,19 @@ export const translations = {
 
     // User Guide
     userGuide: 'User Guide',
+
+    // Notification Center
+    notifications: 'Notifications',
+    notifMarkAllRead: 'Mark all as read',
+    notifEmpty: "You're all caught up!",
+    notifEmptyDesc: 'Earned points will appear here',
+    notifPredictionResult: 'Prediction Resolved',
+    notifPts: 'pts',
+    notifCoins: 'coins',
+    notifJustNow: 'Just now',
+    notifMinAgo: 'm ago',
+    notifHrAgo: 'h ago',
+    notifDayAgo: 'd ago',
   },
 
   he: {
@@ -496,6 +509,19 @@ export const translations = {
 
     // User Guide
     userGuide: 'מדריך משתמש',
+
+    // Notification Center
+    notifications: 'התראות',
+    notifMarkAllRead: 'סמן הכל כנקרא',
+    notifEmpty: 'אתה מעודכן!',
+    notifEmptyDesc: 'נקודות שתרוויח יופיעו כאן',
+    notifPredictionResult: 'ניבוי נפתר',
+    notifPts: 'נק׳',
+    notifCoins: 'מטבעות',
+    notifJustNow: 'עכשיו',
+    notifMinAgo: 'ד׳ לפני',
+    notifHrAgo: 'ש׳ לפני',
+    notifDayAgo: 'י׳ לפני',
   },
 } as const;
 

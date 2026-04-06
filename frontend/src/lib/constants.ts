@@ -1,30 +1,27 @@
 // Football leagues from TheSportsDB (free tier)
 export const FOOTBALL_LEAGUES = [
   // Top 5 European leagues
-  { id: 4328, name: 'Premier League', country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: 23 },
-  { id: 4335, name: 'La Liga', country: 'Spain', badge: '🇪🇸', espnLogoId: 87 },
-  { id: 4331, name: 'Bundesliga', country: 'Germany', badge: '🇩🇪', espnLogoId: 10 },
-  { id: 4332, name: 'Serie A', country: 'Italy', badge: '🇮🇹', espnLogoId: 12 },
-  { id: 4334, name: 'Ligue 1', country: 'France', badge: '🇫🇷', espnLogoId: 9 },
+  { id: 4328, name: 'Premier League',    country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: 23 },
+  { id: 4335, name: 'La Liga',           country: 'Spain',   badge: '🇪🇸', espnLogoId: 87 },
+  { id: 4331, name: 'Bundesliga',        country: 'Germany', badge: '🇩🇪', espnLogoId: 10 },
+  { id: 4332, name: 'Serie A',           country: 'Italy',   badge: '🇮🇹', espnLogoId: 12 },
+  { id: 4334, name: 'Ligue 1',           country: 'France',  badge: '🇫🇷', espnLogoId: 9  },
   // European club competitions
-  { id: 4346, name: 'Champions League', country: 'Europe', badge: '⭐', espnLogoId: 2 },
-  { id: 4399, name: 'Europa League', country: 'Europe', badge: '🌍', espnLogoId: 600 },
-  { id: 4877, name: 'Conference League', country: 'Europe', badge: '🔵', espnLogoId: 2310 },
+  { id: 4346, name: 'Champions League',  country: 'Europe',  badge: '⭐', espnLogoId: 2    },
+  { id: 4399, name: 'Europa League',     country: 'Europe',  badge: '🌍', espnLogoId: 600  },
+  { id: 4877, name: 'Conference League', country: 'Europe',  badge: '🔵', espnLogoId: 2310 },
+  // Domestic cups
+  { id: 9001, name: 'FA Cup',            country: 'England', badge: '🏆', espnLogoId: null },
+  { id: 9002, name: 'League Cup',        country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: null },
+  { id: 9003, name: 'Copa del Rey',      country: 'Spain',   badge: '👑', espnLogoId: null },
   // International
-  { id: 4480, name: 'World Cup', country: 'World', badge: '🌎', espnLogoId: 4 },
-  { id: 5000, name: 'World Cup Qualifiers', country: 'Europe', badge: '🏆', espnLogoId: null },
-  { id: 4467, name: 'Euro Championship', country: 'Europe', badge: '🇪🇺', espnLogoId: null },
-  { id: 4635, name: 'Nations League', country: 'Europe', badge: '🏅', espnLogoId: null },
+  { id: 4480, name: 'World Cup',              country: 'World',  badge: '🌎', espnLogoId: 4    },
+  { id: 5000, name: 'World Cup Qualifiers',   country: 'Europe', badge: '🏆', espnLogoId: null },
+  { id: 4467, name: 'Euro Championship',      country: 'Europe', badge: '🇪🇺', espnLogoId: null },
+  { id: 4635, name: 'Nations League',         country: 'Europe', badge: '🏅', espnLogoId: null },
   { id: 4396, name: 'International Friendlies', country: 'World', badge: '🌐', espnLogoId: null },
   // Other European leagues
   { id: 4354, name: 'Israeli Premier League', country: 'Israel', badge: '🇮🇱', espnLogoId: null },
-  { id: 4337, name: 'Eredivisie', country: 'Netherlands', badge: '🇳🇱', espnLogoId: 11 },
-  { id: 4338, name: 'Süper Lig', country: 'Turkey', badge: '🇹🇷', espnLogoId: 89 },
-  { id: 4330, name: 'Scottish Premiership', country: 'Scotland', badge: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', espnLogoId: 41 },
-  // Americas
-  { id: 4344, name: 'MLS', country: 'USA', badge: '🇺🇸', espnLogoId: 19 },
-  { id: 4351, name: 'Brazilian Série A', country: 'Brazil', badge: '🇧🇷', espnLogoId: 83 },
-  { id: 4350, name: 'Argentine Primera', country: 'Argentina', badge: '🇦🇷', espnLogoId: 37 },
 ] as const;
 
 export type LeagueId = typeof FOOTBALL_LEAGUES[number]['id'];
@@ -92,23 +89,21 @@ export const FINISHED_STATUSES = ['FT', 'PST', 'CANC'];
 
 // Map our internal league IDs → ESPN league slugs (mirrors backend espn.ts)
 export const LEAGUE_ESPN_SLUG: Record<number, string> = {
-  4328: 'eng.1',
-  4335: 'esp.1',
-  4331: 'ger.1',
-  4332: 'ita.1',
-  4334: 'fra.1',
-  4346: 'uefa.champions',
-  4399: 'uefa.europa',
-  4877: 'uefa.europa.conf',
-  4337: 'ned.1',
-  4338: 'tur.1',
-  4330: 'sco.1',
-  4344: 'usa.1',
-  4351: 'bra.1',
-  4350: 'arg.1',
-  4396: 'fifa.friendly', // International Friendlies
-  4635: 'uefa.nations',  // UEFA Nations League
-  5000: 'uefa.worldq',   // UEFA World Cup Qualifiers
+  4328: 'eng.1',            // Premier League
+  4335: 'esp.1',            // La Liga
+  4331: 'ger.1',            // Bundesliga
+  4332: 'ita.1',            // Serie A
+  4334: 'fra.1',            // Ligue 1
+  4346: 'uefa.champions',   // Champions League
+  4399: 'uefa.europa',      // Europa League
+  4877: 'uefa.europa.conf', // Conference League
+  9001: 'eng.fa',           // FA Cup
+  9002: 'eng.league_cup',   // League Cup (Carabao)
+  9003: 'esp.copa_del_rey', // Copa del Rey
+  4354: 'isr.1',            // Israeli Premier League
+  4396: 'fifa.friendly',    // International Friendlies
+  4635: 'uefa.nations',     // UEFA Nations League
+  5000: 'uefa.worldq',      // UEFA World Cup Qualifiers
 };
 
 // App routes

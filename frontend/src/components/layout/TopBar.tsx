@@ -10,14 +10,18 @@ import { useLangStore } from '../../stores/langStore';
 import { useCoinsStore } from '../../stores/coinsStore';
 import { CoinIcon } from '../ui/CoinIcon';
 import { cn } from '../../lib/utils';
+import { NotificationBell, NotificationCenter } from './NotificationCenter';
+import { useNotifications } from '../../hooks/useNotifications';
 
 export function TopBar() {
   const [showGroupMenu, setShowGroupMenu] = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
   const { groups, activeGroupId, setActiveGroup } = useGroupStore();
   const { openModal } = useUIStore();
   const { profile } = useAuthStore();
   const { t } = useLangStore();
   const coins = useCoinsStore(s => s.coins);
+  const { unreadCount } = useNotifications();
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
   return (
@@ -63,7 +67,7 @@ export function TopBar() {
           )}
         </div>
 
-        {/* Right side: help + coins + lang + theme + avatar */}
+        {/* Right side: help + bell + coins + lang + theme + avatar */}
         <div className="flex items-center gap-2 shrink-0">
           {/* Help button */}
           <button
@@ -73,6 +77,19 @@ export function TopBar() {
           >
             <HelpCircle size={17} />
           </button>
+
+          {/* Notification bell */}
+          <div className="relative">
+            <NotificationBell
+              unreadCount={unreadCount}
+              onClick={() => setShowNotif(prev => !prev)}
+            />
+            <NotificationCenter
+              open={showNotif}
+              onClose={() => setShowNotif(false)}
+            />
+          </div>
+
           {/* Coin balance pill */}
           <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
             <CoinIcon size={16} />

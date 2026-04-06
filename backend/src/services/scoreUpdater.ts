@@ -163,6 +163,8 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
   corners_total: number | null;
   regulation_home?: number | null;
   regulation_away?: number | null;
+  home_team?: string;
+  away_team?: string;
 }): Promise<number> {
   const { data: predictions, error } = await supabaseAdmin
     .from('predictions')
@@ -235,6 +237,31 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
           );
         } else {
           logger.info(`[scoreUpdater] Awarded ${coinsToAward} coins (${finalPoints} pts × 2) to user ${prediction.user_id}`);
+        }
+
+        // ── Insert persistent notification ────────────────────────────────────
+        // Stores language-independent raw data; the client constructs translated
+        // strings from type + metadata at render time (supports language switching).
+        const { error: notifError } = await supabaseAdmin
+          .from('notifications')
+          .insert({
+            user_id:   prediction.user_id,
+            group_id:  prediction.group_id,
+            type:      'prediction_result',
+            title_key: 'notif_prediction_result',
+            body_key:  'notif_prediction_result_body',
+            metadata: {
+              match_id:     matchId,
+              home_team:    matchResult.home_team  ?? '',
+              away_team:    matchResult.away_team  ?? '',
+              home_score:   matchResult.regulation_home ?? matchResult.home_score,
+              away_score:   matchResult.regulation_away ?? matchResult.away_score,
+              points_earned: finalPoints,
+              coins_earned:  coinsToAward,
+            },
+          });
+        if (notifError) {
+          logger.warn(`[scoreUpdater] Notification insert failed for prediction ${prediction.id}: ${notifError.message}`);
         }
       }
 
@@ -363,6 +390,8 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
               corners_total: effectiveData.corners_total ?? match.corners_total,
               regulation_home: effectiveData.regulation_home,
               regulation_away: effectiveData.regulation_away,
+              home_team: effectiveData.home_team,
+              away_team: effectiveData.away_team,
             });
             totalResolved += count;
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
@@ -408,6 +437,8 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
                 home_score: regulationHome,
                 away_score: regulationAway!,
                 corners_total: match.corners_total,
+                home_team: effectiveData.home_team,
+                away_team: effectiveData.away_team,
               });
               if (count > 0) {
                 totalResolved += count;

@@ -19,24 +19,21 @@ export type DBMatchWithClock = DBMatch & {
 
 // Map our internal TheSportsDB league IDs → ESPN league slugs
 export const LEAGUE_ESPN_MAP: Record<number, string> = {
-  4328: 'eng.1',           // Premier League
-  4335: 'esp.1',           // La Liga
-  4331: 'ger.1',           // Bundesliga
-  4332: 'ita.1',           // Serie A
-  4334: 'fra.1',           // Ligue 1
-  4346: 'uefa.champions',  // Champions League
-  4399: 'uefa.europa',     // Europa League
-  4877: 'uefa.europa.conf',// Conference League
-  4337: 'ned.1',           // Eredivisie
-  4338: 'tur.1',           // Süper Lig
-  4330: 'sco.1',           // Scottish Premiership
-  4344: 'usa.1',           // MLS
-  4351: 'bra.1',           // Brazilian Série A
-  4350: 'arg.1',           // Argentine Primera
-  4396: 'fifa.friendly',   // International Friendlies (men's)
-  4635: 'uefa.nations',   // UEFA Nations League
-  5000: 'uefa.worldq',    // UEFA World Cup Qualifiers 2026
-  // Israeli Premier League (4354) has no ESPN coverage — skipped
+  4328: 'eng.1',            // Premier League
+  4335: 'esp.1',            // La Liga
+  4331: 'ger.1',            // Bundesliga
+  4332: 'ita.1',            // Serie A
+  4334: 'fra.1',            // Ligue 1
+  4346: 'uefa.champions',   // Champions League
+  4399: 'uefa.europa',      // Europa League
+  4877: 'uefa.europa.conf', // Conference League
+  9001: 'eng.fa',           // FA Cup
+  9002: 'eng.league_cup',   // League Cup (Carabao)
+  9003: 'esp.copa_del_rey', // Copa del Rey
+  4354: 'isr.1',            // Israeli Premier League
+  4396: 'fifa.friendly',    // International Friendlies (men's)
+  4635: 'uefa.nations',     // UEFA Nations League
+  5000: 'uefa.worldq',      // UEFA World Cup Qualifiers 2026
 };
 
 function mapEspnStatus(statusName: string, period: number, state: string): string {
