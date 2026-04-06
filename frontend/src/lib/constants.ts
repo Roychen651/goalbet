@@ -100,7 +100,7 @@ export const LEAGUE_ESPN_SLUG: Record<number, string> = {
   9001: 'eng.fa',           // FA Cup
   9002: 'eng.league_cup',   // League Cup (Carabao)
   9003: 'esp.copa_del_rey', // Copa del Rey
-  4354: 'isr.1',            // Israeli Premier League
+  // 4354 Israeli Premier League — no ESPN timeline (data sourced from API-Football)
   4396: 'fifa.friendly',    // International Friendlies
   4635: 'uefa.nations',     // UEFA Nations League
   5000: 'uefa.worldq',      // UEFA World Cup Qualifiers

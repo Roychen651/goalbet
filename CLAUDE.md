@@ -745,19 +745,16 @@ Must be kept in sync between **both** files:
 | Champions League | 4346 | `uefa.champions` |
 | Europa League | 4399 | `uefa.europa` |
 | Conference League | 4877 | `uefa.europa.conf` |
-| Eredivisie | 4337 | `ned.1` |
-| Süper Lig | 4338 | `tur.1` |
-| Scottish Premiership | 4330 | `sco.1` |
-| MLS | 4344 | `usa.1` |
-| Brazilian Série A | 4351 | `bra.1` |
-| Argentine Primera | 4350 | `arg.1` |
+| FA Cup | 9001 | `eng.fa` |
+| League Cup (Carabao) | 9002 | `eng.league_cup` |
+| Copa del Rey | 9003 | `esp.copa_del_rey` |
+| Israeli Premier League | 4354 | `isr.1` |
 | International Friendlies | 4396 | `fifa.friendly` |
 | UEFA Nations League | 4635 | `uefa.nations` |
 | World Cup Qualifiers 2026 | 5000 | `uefa.worldq` |
 
 ### Leagues with NO ESPN coverage (silently skipped)
 
-- **Israeli Premier League** (4354) — not on ESPN
 - **World Cup** (4480) — only relevant during tournament years
 - **Euro Championship** (4467) — only relevant every 4 years
 

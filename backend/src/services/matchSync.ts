@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, LEAGUE_ESPN_MAP } from './espn';
+import { fetchIsraeliLeagueMatches, ISRAELI_LEAGUE_ID } from './apiFootball';
 import { DBMatch } from './sportsdb';
 import { logger } from '../lib/logger';
 
@@ -52,7 +53,10 @@ export async function syncLeague(leagueId: number): Promise<SyncResult> {
   let errors = 0;
 
   try {
-    const matches = await fetchLeagueMatches(leagueId, 7, 42);
+    // Israeli Premier League uses API-Football (ESPN only has the 2024-25 season)
+    const matches = leagueId === ISRAELI_LEAGUE_ID
+      ? await fetchIsraeliLeagueMatches(7, 42)
+      : await fetchLeagueMatches(leagueId, 7, 42);
 
     if (matches.length > 0) {
       const result = await upsertMatches(matches);
@@ -99,8 +103,8 @@ export async function syncAllActiveLeagues(): Promise<SyncResult[]> {
     leagueIds = defaults;
   }
 
-  // Only sync leagues ESPN actually covers
-  leagueIds = leagueIds.filter(id => id in LEAGUE_ESPN_MAP);
+  // Only sync leagues that have a data source: ESPN or API-Football (Israeli league)
+  leagueIds = leagueIds.filter(id => id in LEAGUE_ESPN_MAP || id === ISRAELI_LEAGUE_ID);
 
   logger.info(`[matchSync] Syncing ${leagueIds.length} leagues: ${leagueIds.join(', ')}`);
 

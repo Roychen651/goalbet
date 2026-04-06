@@ -1,7 +1,14 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, fetchMatchHalftimeScore, fetchMatchLinescoreRepair, fetchMatchKeyEvents, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
+import { fetchIsraeliLiveScores, ISRAELI_LEAGUE_ID } from './apiFootball';
 import { calculatePoints } from './pointsEngine';
 import { logger } from '../lib/logger';
+
+// Rate-limit API-Football live score checks to once per 5 minutes
+// (free tier: 100 req/day; live poller runs every 30 s — without this cap
+//  a single 90-min game = ~180 API calls, blowing the daily budget).
+let lastIsraeliCheck = 0;
+const ISRAELI_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 interface PendingMatch {
   id: string;
@@ -314,7 +321,49 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
   let totalResolved = 0;
 
   for (const [leagueId, matches] of byLeague) {
-    // Skip leagues ESPN doesn't cover — those matches won't auto-resolve via API
+    // ── Israeli Premier League: API-Football (rate-limited to once per 5 min) ──
+    if (leagueId === ISRAELI_LEAGUE_ID) {
+      const now = Date.now();
+      if (now - lastIsraeliCheck < ISRAELI_CHECK_INTERVAL_MS) {
+        logger.debug('[scoreUpdater] Israeli league score check skipped (rate limit)');
+        continue;
+      }
+      lastIsraeliCheck = now;
+
+      try {
+        const recentMatches = await fetchIsraeliLiveScores(3, 1);
+        for (const match of matches) {
+          const freshData = recentMatches.find(e => e.external_id === match.external_id);
+          if (!freshData) {
+            logger.debug(`[scoreUpdater] No fresh data for Israeli match ${match.id} (${match.external_id})`);
+            continue;
+          }
+          if (freshData.status === 'FT' || freshData.status === 'PST' || freshData.status === 'CANC') {
+            await updateMatchScore(match.id, freshData);
+            if (freshData.status === 'FT' && freshData.home_score !== null && freshData.away_score !== null) {
+              const count = await resolveMatchPredictions(match.id, {
+                home_score:      freshData.home_score,
+                away_score:      freshData.away_score,
+                corners_total:   freshData.corners_total ?? match.corners_total,
+                regulation_home: freshData.regulation_home,
+                regulation_away: freshData.regulation_away,
+                home_team:       freshData.home_team,
+                away_team:       freshData.away_team,
+              });
+              totalResolved += count;
+              logger.info(`[scoreUpdater] Israeli match ${match.id}: ${freshData.home_score}-${freshData.away_score}, resolved ${count} predictions`);
+            }
+          } else {
+            await updateMatchScore(match.id, freshData);
+          }
+        }
+      } catch (err) {
+        logger.error('[scoreUpdater] Israeli league score update failed:', err);
+      }
+      continue;
+    }
+
+    // Skip leagues neither ESPN nor API-Football covers
     if (!(leagueId in LEAGUE_ESPN_MAP)) {
       logger.debug(`[scoreUpdater] League ${leagueId} not in ESPN map, skipping auto-resolve`);
       continue;
