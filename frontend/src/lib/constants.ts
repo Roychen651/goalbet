@@ -20,8 +20,6 @@ export const FOOTBALL_LEAGUES = [
   { id: 4467, name: 'Euro Championship',      country: 'Europe', badge: '🇪🇺', espnLogoId: null },
   { id: 4635, name: 'Nations League',         country: 'Europe', badge: '🏅', espnLogoId: null },
   { id: 4396, name: 'International Friendlies', country: 'World', badge: '🌐', espnLogoId: null },
-  // Other European leagues
-  { id: 4354, name: 'Israeli Premier League', country: 'Israel', badge: '🇮🇱', espnLogoId: null },
 ] as const;
 
 export type LeagueId = typeof FOOTBALL_LEAGUES[number]['id'];
@@ -100,7 +98,6 @@ export const LEAGUE_ESPN_SLUG: Record<number, string> = {
   9001: 'eng.fa',           // FA Cup
   9002: 'eng.league_cup',   // League Cup (Carabao)
   9003: 'esp.copa_del_rey', // Copa del Rey
-  // 4354 Israeli Premier League — no ESPN timeline (data sourced from API-Football)
   4396: 'fifa.friendly',    // International Friendlies
   4635: 'uefa.nations',     // UEFA Nations League
   5000: 'uefa.worldq',      // UEFA World Cup Qualifiers
