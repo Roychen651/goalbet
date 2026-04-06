@@ -15,8 +15,9 @@ import { DBMatchWithClock } from './espn';
 const BASE_URL = 'https://v3.football.api-sports.io';
 
 // Israeli Premier League identifiers in API-Football
-const APF_LEAGUE_ID = 271;
-const APF_SEASON    = 2025; // 2025-26 season
+// League 383 = Ligat Ha'al (Israeli Premier League) — verified via /leagues?country=Israel
+const APF_LEAGUE_ID = 383;
+const APF_SEASON    = 2025; // 2025-26 season (requires Starter plan or above)
 
 // Our internal league ID — the only league this module handles
 export const ISRAELI_LEAGUE_ID = 4354;
