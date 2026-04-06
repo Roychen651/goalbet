@@ -98,16 +98,23 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   const initCoins = useCoinsStore(s => s.initCoins);
   const lastInitDateRef = useRef<string>('');
 
-  // Lenis smooth scrolling — liquid premium feel
+  // Lenis smooth scrolling — exponential easing for premium liquid feel
   useEffect(() => {
-    const lenis = new Lenis({ lerp: 0.1, smoothWheel: true });
-    let raf: number;
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      gestureOrientation: 'vertical',
+      smoothWheel: true,
+      touchMultiplier: 2,
+    });
+    let rafId: number;
     function frame(time: number) {
       lenis.raf(time);
-      raf = requestAnimationFrame(frame);
+      rafId = requestAnimationFrame(frame);
     }
-    raf = requestAnimationFrame(frame);
-    return () => { lenis.destroy(); cancelAnimationFrame(raf); };
+    rafId = requestAnimationFrame(frame);
+    return () => { lenis.destroy(); cancelAnimationFrame(rafId); };
   }, []);
 
   useEffect(() => {

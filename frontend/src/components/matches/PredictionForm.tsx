@@ -1,7 +1,7 @@
 import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
-import { NeonButton } from '../ui/NeonButton';
+import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
 import { CoinIcon } from '../ui/CoinIcon';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, POINTS, calcPredictionCost } from '../../lib/constants';
@@ -266,16 +266,15 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
                 Not enough coins — remove some tiers or wait for your daily bonus
               </p>
             )}
-            <NeonButton
-              variant={saved ? 'ghost' : 'green'}
+            <MagneticButtonV2
+              variant={saved ? 'ghost' : 'volt'}
               size="lg"
-              loading={saving}
               onClick={handleSubmit}
-              disabled={insufficientCoins}
+              disabled={insufficientCoins || saving}
               className="w-full"
             >
-              {saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
-            </NeonButton>
+              {saving ? '···' : saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
+            </MagneticButtonV2>
           </motion.div>
         )}
       </AnimatePresence>

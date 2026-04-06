@@ -97,21 +97,21 @@ export function MagneticButtonV2({
         size === 'sm' && 'px-4 py-2 text-sm',
         size === 'md' && 'px-6 py-3 text-sm',
         size === 'lg' && 'px-8 py-4 text-base',
-        // Variants
+        // Variants — uses CSS tokens so they adapt to dark/light mode
         variant === 'volt' && [
-          'bg-[#CCFF00] text-[#09090b]',
-          'hover:shadow-[0_0_32px_rgba(204,255,0,0.45),0_0_64px_rgba(204,255,0,0.15)]',
+          'bg-accent-green text-bg-base',
+          'hover:shadow-[0_0_32px_rgba(189,232,245,0.45),0_0_64px_rgba(189,232,245,0.15)]',
           'hover:brightness-105',
         ],
         variant === 'ghost' && [
-          'bg-transparent text-white border border-white/12',
-          'hover:bg-white/5 hover:border-white/20',
-          'hover:shadow-[0_0_20px_rgba(255,255,255,0.06)]',
+          'bg-transparent text-text-primary border border-border-subtle',
+          'hover:bg-white/5 hover:border-border-bright',
+          'hover:shadow-[0_0_20px_rgba(189,232,245,0.08)]',
         ],
         variant === 'purple' && [
-          'bg-[#7B61FF] text-white',
-          'hover:shadow-[0_0_32px_rgba(123,97,255,0.45)]',
-          'hover:brightness-110',
+          'bg-[rgba(73,136,196,0.20)] text-accent-green border border-[rgba(73,136,196,0.30)]',
+          'hover:bg-[rgba(73,136,196,0.30)]',
+          'hover:shadow-[0_0_32px_rgba(73,136,196,0.35)]',
         ],
         className,
       )}
