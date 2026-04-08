@@ -1,11 +1,23 @@
 <div align="center">
 
-# ⚽ GoalBet
+# GoalBet
 
 **The football prediction game for you and your friends.**
+
 Predict match outcomes across 5 tiers, stake coins, and compete on a live leaderboard — free, no real money.
 
 [![CI](https://github.com/Roychen651/goalbet/actions/workflows/ci.yml/badge.svg)](https://github.com/Roychen651/goalbet/actions/workflows/ci.yml)
+
+<br />
+
+<p>
+  <img src="docs/screenshots/01-match-feed-dark.png" width="260" alt="Match feed — dark mode" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/03-match-feed-light.png" width="260" alt="Match feed — light mode" />
+</p>
+
+<sub>Upcoming matches with predictions, dark & light mode</sub>
+
 </div>
 
 ---
@@ -16,24 +28,16 @@ GoalBet started as a simple question: *what if you could predict every detail of
 
 No bookmakers. No real money. Just a points game where being specific pays off more. Predict the exact score, call the corner count, guess BTTS — every tier you nail adds to your tally. A wrong result can still score you points on goals and corners. The leaderboard is live. The rivalry is real.
 
-<p align="center">
-  <img src="docs/screenshots/01-match-feed-light.png" width="260" alt="Match feed — light mode" />
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/02-match-feed-dark.png" width="260" alt="Match feed — dark mode" />
-</p>
-
-<p align="center">
-  <sub>Upcoming matches from your active leagues — dark & light mode, English & Hebrew</sub>
-</p>
-
 ---
 
 ## Pick Your Tiers
 
 Each match has up to 5 prediction tiers. You choose which ones to play — stake coins on each, earn back double per point scored.
 
+Expand a match card to see team form (last 5 results), venue info, and all 5 prediction tiers laid out cleanly.
+
 <p align="center">
-  <img src="docs/screenshots/03-prediction-form.png" width="300" alt="Prediction form — all 5 tiers" />
+  <img src="docs/screenshots/02-prediction-form.png" width="300" alt="Prediction form — all 5 tiers with team form" />
 </p>
 
 | Tier | Category | Points |
@@ -47,60 +51,88 @@ Each match has up to 5 prediction tiers. You choose which ones to play — stake
 **Maximum: 19 pts per match.** Getting the exact score right automatically gives you Tier 1 — because the result is implied.
 
 <p align="center">
-  <img src="docs/screenshots/04-scoring-guide.png" width="300" alt="Scoring guide modal" />
+  <img src="docs/screenshots/16-scoring-guide.png" width="300" alt="Scoring guide modal" />
 </p>
 
 ---
 
 ## After the Whistle
 
-Once a match ends, predictions resolve automatically. Every card in your history shows you exactly which tiers hit — green ticks for points, times for misses. No ambiguity.
+Once a match ends, predictions resolve automatically. Every card shows exactly which tiers hit — green checkmarks for points earned, crosses for misses. BTTS, goal count, corners — all broken down per tier with coin profit displayed.
 
 <p align="center">
-  <img src="docs/screenshots/05-results-feed.png" width="260" alt="Results feed with resolved predictions" />
+  <img src="docs/screenshots/04-results-feed.png" width="260" alt="Results feed — match stats collapsed" />
   &nbsp;&nbsp;
-  <img src="docs/screenshots/06-match-breakdown.png" width="260" alt="Match breakdown — tier-by-tier result" />
+  <img src="docs/screenshots/05-results-breakdown-light.png" width="260" alt="Results breakdown — tier-by-tier scoring in light mode" />
 </p>
 
 <p align="center">
-  <sub>Left: results feed with corners data and point badges · Right: per-tier breakdown after full time</sub>
+  <sub>Left: completed match with stats summary · Right: per-tier breakdown with coin profit (light mode)</sub>
 </p>
 
-Corners are entered manually after each match (corner data isn't in any free live API). Once the number is set, corners predictions resolve on the next sync — usually within minutes.
+### Match Details
 
-Match timelines show goals, yellow/red cards, and substitutions — so you can see exactly why your exact score missed by one.
+Expand any completed match to see full stats, timeline, and lineups — all pulled from ESPN.
 
 <p align="center">
-  <img src="docs/screenshots/07-match-timeline.png" width="300" alt="Match timeline — goals, cards, subs" />
+  <img src="docs/screenshots/06-match-stats.png" width="220" alt="Match stats — possession, shots, corners" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/07-match-timeline.png" width="220" alt="Match timeline — goals, cards, subs" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/08-lineups.png" width="220" alt="Team lineups with formations" />
+</p>
+
+<p align="center">
+  <sub>Match stats · Goal-by-goal timeline with commentary · Full lineups with formation</sub>
 </p>
 
 ---
 
 ## The Leaderboard
 
-Standings update in real-time via Supabase Realtime. Three views: **All Time**, **This Week**, **Last Week**. Your rank card shows points and result-pick hit rate for the current period.
+Standings update in real-time via Supabase Realtime. Three views: **All Time**, **This Week**, **Last Week**.
+
+Your rank card shows total points, accuracy rate, and three insight badges — *On Fire* (top points), *The Sniper* (highest accuracy), *The Grinder* (most predictions).
 
 <p align="center">
-  <img src="docs/screenshots/08-leaderboard.png" width="260" alt="Leaderboard — all time standings" />
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/09-profile.png" width="260" alt="Profile — prediction history and stats" />
-</p>
-
-<p align="center">
-  <sub>Left: group standings with accuracy % · Right: personal prediction history</sub>
+  <img src="docs/screenshots/09-leaderboard.jpeg" width="300" alt="Leaderboard — all time standings with insight badges" />
 </p>
 
 ---
 
 ## Head to Head
 
-Tap any player's leaderboard row to open a side-by-side comparison — who called what, who won each match, and the overall H2H tally for the week.
+Tap any player's leaderboard row to open a side-by-side comparison — who called what, who won each match, and the overall H2H tally.
 
 <p align="center">
-  <img src="docs/screenshots/10-h2h-modal.png" width="300" alt="Head to Head comparison modal" />
+  <img src="docs/screenshots/10-h2h-locked.png" width="260" alt="H2H modal — locked predictions before kickoff" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/11-h2h-resolved.png" width="260" alt="H2H modal — resolved predictions with points" />
 </p>
 
-Predictions are hidden (🔒) for matches that haven't kicked off yet — no tactical copying. Once a match starts, both picks are revealed. The rivalry is visible only after it can't be gamed.
+<p align="center">
+  <sub>Left: pre-kickoff picks are locked (no peeking) · Right: resolved picks with point breakdowns</sub>
+</p>
+
+Predictions are hidden (locked) for matches that haven't kicked off yet — no tactical copying. Once a match starts, both picks are revealed.
+
+---
+
+## Profile & Analytics
+
+Your profile page is a personal analytics dashboard. Bento-grid layout with total points, FT win rate, prediction count, current streak, and score precision.
+
+Scroll down for personal analytics (best tier, recent form) and full prediction history with per-match breakdowns.
+
+<p align="center">
+  <img src="docs/screenshots/12-profile-stats.png" width="260" alt="Profile — bento grid with stats overview" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/13-profile-history.png" width="260" alt="Profile — personal analytics and prediction history" />
+</p>
+
+<p align="center">
+  <sub>Left: stats overview with streak & precision · Right: analytics + upcoming/resolved prediction history</sub>
+</p>
 
 ---
 
@@ -109,17 +141,42 @@ Predictions are hidden (🔒) for matches that haven't kicked off yet — no tac
 Coins keep the game interesting without any real money involved. You stake them when you predict and earn back double per point scored.
 
 <p align="center">
-  <img src="docs/screenshots/11-coin-guide.png" width="300" alt="Coin economy guide" />
+  <img src="docs/screenshots/17-coin-guide.png" width="300" alt="Coin economy guide — earn, stake, and return breakdown" />
 </p>
 
 | Event | Coins |
 |-------|-------|
-| Join bonus (one-time) | **+120** 🪙 |
-| Daily login bonus | **+30** 🪙 |
+| Join bonus (one-time) | **+120** |
+| Daily login bonus | **+30 / day** |
 | Stake on a prediction | −(cost of tiers) |
-| Earn back per correct tier | **points × 2** |
+| Earn back per correct tier | **points x 2** |
 
-Stake all 5 tiers → 19 coins out. Hit them all → 38 coins back. Your balance is always shown as ≥ 0. No negative numbers, no punishment messaging — just earnings.
+Stake all 5 tiers = 19 coins out. Hit them all = 38 coins back. Your balance is always shown as >= 0.
+
+---
+
+## Notifications
+
+Real-time notifications when your predictions resolve. See which matches scored, how many points and coins you earned — all from the bell icon dropdown.
+
+<p align="center">
+  <img src="docs/screenshots/15-notifications.png" width="300" alt="Notification center — prediction results with points and coins" />
+</p>
+
+---
+
+## Settings — The Vault
+
+Preferences, account management, and group admin tools — all in one place.
+
+- **Language** toggle (English / Hebrew) with instant RTL switch
+- **Theme** toggle (Dark / Light)
+- **Live Match Animations** toggle
+- **Account** section: email display, change password, sign out
+
+<p align="center">
+  <img src="docs/screenshots/14-settings.png" width="300" alt="Settings page — preferences, account, theme toggle" />
+</p>
 
 ---
 
@@ -128,13 +185,21 @@ Stake all 5 tiers → 19 coins out. Hit them all → 38 coins back. Your balance
 Full Hebrew support with automatic RTL layout. Language toggle in Settings. Dark and light mode — toggle from the top bar.
 
 <p align="center">
-  <img src="docs/screenshots/12-leaderboard-he.png" width="260" alt="Leaderboard in Hebrew — RTL layout" />
+  <img src="docs/screenshots/19-hebrew-rtl.png" width="260" alt="Hebrew RTL — match stats in right-to-left layout" />
   &nbsp;&nbsp;
-  <img src="docs/screenshots/13-user-guide.png" width="260" alt="User guide modal — How to Play tab" />
+  <img src="docs/screenshots/20-hebrew-leaderboard.jpeg" width="260" alt="Hebrew leaderboard — full RTL with insight badges" />
 </p>
 
 <p align="center">
-  <sub>Left: Hebrew leaderboard (full RTL) · Right: built-in User Guide — tap the ? icon anywhere in the app</sub>
+  <sub>Full Hebrew RTL: match stats & leaderboard — every element flips correctly</sub>
+</p>
+
+### Built-in User Guide
+
+New users? Tap the help icon anywhere in the app. The guide covers: How to Play, Predictions, Results, and Coins — all in a single, tabbed modal.
+
+<p align="center">
+  <img src="docs/screenshots/18-user-guide.png" width="300" alt="User guide modal — How to Play tab" />
 </p>
 
 ---
@@ -147,7 +212,7 @@ GoalBet supports two sign-in methods — your choice, both available on the same
 
 **Email + password** — full account with live password strength validation. Supports:
 - Forgot password (reset link via email, link expires in 1 hour)
-- Change password at any time from Settings → Account
+- Change password at any time from Settings
 - Smart identity detection: if you sign up with an email that belongs to a Google account, the UI tells you and offers to switch
 
 Session expiry is handled silently — a re-auth modal slides in over your current page so you never lose context mid-session.
@@ -163,7 +228,7 @@ Session expiry is handled silently — a re-auth modal slides in over your curre
 | **Database** | Supabase — PostgreSQL, Row-Level Security, Realtime, Auth |
 | **Football data** | ESPN public scoreboard API — free, no key required |
 | **State** | Zustand with localStorage persistence |
-| **CI/CD** | GitHub Actions — type-check + build on push, sync cron every 30 min |
+| **CI/CD** | GitHub Actions — type-check + build on push, sync cron every 5 min |
 | **Deployment** | Vercel (frontend) · Render (backend) |
 
 ### Why ESPN over TheSportsDB
@@ -172,7 +237,28 @@ TheSportsDB's free key (`"3"`) ignores the `?id=` parameter and returns wrong le
 
 ### Why GitHub Actions as a heartbeat
 
-The backend runs on Render's free tier — it sleeps after ~15 min of inactivity. Rather than pay for an always-on dyno, a GitHub Actions cron pings the backend every 30 minutes. This wakes it *and* triggers the sync. Scores and fixtures stay current 24/7 at zero cost.
+The backend runs on Render's free tier — it sleeps after ~15 min of inactivity. Rather than pay for an always-on dyno, a GitHub Actions cron pings the backend every 5 minutes. This wakes it *and* triggers the sync. Scores and fixtures stay current 24/7 at zero cost.
+
+---
+
+## Supported Leagues
+
+| League | Coverage |
+|--------|----------|
+| Premier League | Full |
+| La Liga | Full |
+| Bundesliga | Full |
+| Serie A | Full |
+| Ligue 1 | Full |
+| Champions League | Full |
+| Europa League | Full |
+| Conference League | Full |
+| FA Cup | Full |
+| League Cup (Carabao) | Full |
+| Copa del Rey | Full |
+| UEFA Nations League | Full |
+| World Cup Qualifiers 2026 | Full |
+| International Friendlies | Full (no corners) |
 
 ---
 
@@ -183,37 +269,34 @@ goalbet/
 ├── frontend/                  # React + Vite SPA
 │   └── src/
 │       ├── components/
-│       │   ├── auth-v2/       # AuthContainer (8-view auth flow), PasswordStrength,
-│       │   │                  # ReAuthModal (session-expiry overlay)
+│       │   ├── admin/         # Admin console (super-admin only)
+│       │   ├── auth-v2/       # AuthContainer, PasswordStrength, ReAuthModal
+│       │   ├── groups/        # Create/Join group modals
 │       │   ├── layout/        # AppShell, TopBar, BottomNav, Sidebar
-│       │   ├── matches/       # MatchCard, MatchFeed, PredictionForm
-│       │   ├── leaderboard/   # LeaderboardTable, H2HModal, UserMatchHistoryModal
-│       │   ├── groups/        # CreateGroupModal, JoinGroupModal
+│       │   ├── leaderboard/   # LeaderboardTable, H2HModal, UserMatchHistory
+│       │   ├── matches/       # MatchCard, MatchFeed, PredictionForm, Timeline
 │       │   └── ui/            # GlassCard, NeonButton, ScoringGuide, CoinGuide,
-│       │                      # HelpGuideModal, InfoTip, ThemeToggle, Avatar…
+│       │                      # HelpGuideModal, Avatar, ThemeToggle, Toast...
 │       ├── hooks/             # useMatches, usePredictions, useLeaderboard,
-│       │                      # useAuthV2, useGroupMatchPredictions, useNewPointsAlert…
-│       ├── lib/               # supabase.ts, utils.ts, i18n.ts, constants.ts,
-│       │                      # authSchema.ts (password validation), featureFlags.ts
-│       ├── pages/             # HomePage, LeaderboardPage, ProfilePage, SettingsPage,
-│       │                      # LoginPage (renders AuthContainer)
+│       │                      # useAuthV2, useLiveClock, useNewPointsAlert...
+│       ├── lib/               # supabase.ts, i18n.ts, constants.ts, utils.ts
+│       ├── pages/             # Home, Leaderboard, Profile, Settings, Login, Admin
 │       └── stores/            # authStore, groupStore, coinsStore, langStore,
 │                              # themeStore, uiStore (Zustand)
 │
 ├── backend/                   # Express API + cron scheduler
 │   └── src/
-│       ├── routes/            # GET /health · POST /api/sync/matches · POST /api/sync/scores
-│       ├── services/
-│       │   ├── espn.ts        # ESPN API client
-│       │   ├── matchSync.ts   # Syncs ESPN data into Supabase (7 days back, 42 ahead)
-│       │   ├── scoreUpdater.ts# Resolves predictions after FT, updates leaderboard + coins
-│       │   └── pointsEngine.ts# Pure scoring function — zero side effects, unit-testable
-│       └── cron/              # Startup sync, 30s score poller, daily sync, weekly reset
+│       ├── routes/            # health, sync, admin
+│       ├── services/          # espn.ts, matchSync.ts, scoreUpdater.ts, pointsEngine.ts
+│       └── cron/              # 30s score poller, daily sync, weekly reset
 │
 ├── supabase/
-│   ├── migrations/            # SQL migrations 001 → 022 (run in order)
-│   └── email-templates/       # confirm-signup.html, reset-password.html
-│                              # (paste into Supabase Auth → Email Templates)
+│   ├── migrations/            # SQL migrations 001 → 023
+│   └── email-templates/       # Themed signup + reset emails
+│
+└── .github/workflows/
+    ├── ci.yml                 # Type-check + build on push
+    └── sync-cron.yml          # 5-min heartbeat: wake → scores → fixtures
 ```
 
 ---
@@ -239,7 +322,7 @@ cd ../backend && npm install
 
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Open the **SQL Editor** and run migrations in order:
-   `supabase/migrations/001_initial_schema.sql` → `022_admin_features.sql`
+   `supabase/migrations/001_initial_schema.sql` → `023_admin_security_rpcs.sql`
 3. In **Authentication → Providers**:
    - Enable **Email** (already on by default — confirm it's enabled)
    - Enable **Google OAuth** (Client ID + Secret from Google Cloud Console)
@@ -287,7 +370,7 @@ cd backend && npm run dev
 
 1. Connect your GitHub repo to [Vercel](https://vercel.com), root dir = `frontend`
 2. Add env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_BACKEND_URL`
-3. In Vercel's Supabase Auth settings, add your production domain to **Redirect URLs**
+3. In Supabase Auth settings, add your production domain to **Redirect URLs**
 4. Auto-deploys on every push to `main`
 
 ### Backend → Render
