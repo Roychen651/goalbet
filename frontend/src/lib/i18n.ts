@@ -390,6 +390,19 @@ export const translations = {
     notifMinAgo: 'm ago',
     notifHrAgo: 'h ago',
     notifDayAgo: 'd ago',
+
+    // Coin History
+    coinHistory: 'Transaction History',
+    coinHistoryBalance: 'Current Balance',
+    dailyBonusRow: 'Daily Check-in Bonus',
+    matchRewardRow: 'Match Prediction Win',
+    betPlacedRow: 'Prediction Stake',
+    joinBonusRow: 'Welcome Bonus',
+    adminAdjustRow: 'Admin Adjustment',
+    emptyLedger: 'Your ledger is empty',
+    emptyLedgerDesc: 'Start predicting to earn coins!',
+    coinHistoryStaked: 'Staked',
+    coinHistoryEarned: 'Earned',
   },
 
   he: {
@@ -778,6 +791,19 @@ export const translations = {
     notifMinAgo: 'ד׳ לפני',
     notifHrAgo: 'ש׳ לפני',
     notifDayAgo: 'י׳ לפני',
+
+    // Coin History
+    coinHistory: 'פירוט תנועות מטבעות',
+    coinHistoryBalance: 'יתרה נוכחית',
+    dailyBonusRow: 'בונוס כניסה יומי',
+    matchRewardRow: 'זכייה בניחוש משחק',
+    betPlacedRow: 'הימור על ניחוש',
+    joinBonusRow: 'בונוס הצטרפות',
+    adminAdjustRow: 'התאמת מנהל',
+    emptyLedger: 'לוח התנועות שלך ריק',
+    emptyLedgerDesc: 'זה הזמן להתחיל לנחש!',
+    coinHistoryStaked: 'הושקע',
+    coinHistoryEarned: 'הרווח',
   },
 } as const;
 

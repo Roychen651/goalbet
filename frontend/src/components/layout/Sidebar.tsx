@@ -12,11 +12,13 @@ import { PolicyModal } from '../ui/PolicyModal';
 import { CoinIcon } from '../ui/CoinIcon';
 import { NotificationBell, NotificationCenter } from './NotificationCenter';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useUIStore } from '../../stores/uiStore';
 
 export function Sidebar() {
   const { groups, activeGroupId } = useGroupStore();
   const { t } = useLangStore();
   const coins = useCoinsStore(s => s.coins);
+  const { openModal } = useUIStore();
   const [showPolicy, setShowPolicy] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const { unreadCount, notifications, loading, markAllRead, markRead } = useNotifications();
@@ -109,7 +111,10 @@ export function Sidebar() {
       </div>
 
       {/* Coin balance */}
-      <div className="mx-2 mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20">
+      <button
+        onClick={() => openModal('coinHistory')}
+        className="mx-2 mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20 hover:bg-amber-500/15 hover:border-amber-500/35 active:scale-[0.98] transition-all text-start w-[calc(100%-1rem)]"
+      >
         <div className="flex items-center gap-2.5">
           <CoinIcon size={22} />
           <div>
@@ -117,7 +122,7 @@ export function Sidebar() {
             <div className="text-amber-500/50 text-[10px] mt-0.5 uppercase tracking-widest">Coins</div>
           </div>
         </div>
-      </div>
+      </button>
 
       {/* Language toggle + version */}
       <div className="flex flex-col gap-3 px-2">

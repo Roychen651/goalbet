@@ -42,12 +42,15 @@ export function TopBar() {
           <div className="flex items-stretch h-9 rounded-full bg-white/8 border border-white/12 overflow-hidden shrink-0">
 
             {/* Coins */}
-            <div className="flex items-center gap-1.5 px-3 border-e border-white/10">
+            <button
+              onClick={() => openModal('coinHistory')}
+              className="flex items-center gap-1.5 px-3 border-e border-white/10 hover:bg-white/8 active:bg-white/15 transition-colors"
+            >
               <CoinIcon size={13} />
               <span className="text-amber-400 text-[11px] font-bold tabular-nums leading-none">
                 {coins}
               </span>
-            </div>
+            </button>
 
             {/* Bell */}
             <button

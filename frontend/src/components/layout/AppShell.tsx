@@ -9,6 +9,7 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 import { CreateGroupModal } from '../groups/CreateGroupModal';
 import { JoinGroupModal } from '../groups/JoinGroupModal';
 import { HelpGuideModal } from '../ui/HelpGuideModal';
+import { CoinHistoryModal } from '../ui/CoinHistoryModal';
 import { useUIStore } from '../../stores/uiStore';
 import { useLangStore } from '../../stores/langStore';
 import { useNewPointsAlert } from '../../hooks/useNewPointsAlert';
@@ -148,6 +149,7 @@ export function AppShell() {
       {activeModal === 'joinGroup' && <JoinGroupModal onClose={closeModal} />}
       <AnimatePresence>
         {activeModal === 'helpGuide' && <HelpGuideModal onClose={closeModal} />}
+        {activeModal === 'coinHistory' && <CoinHistoryModal onClose={closeModal} />}
       </AnimatePresence>
       <WelcomeAnimation />
     </div>
