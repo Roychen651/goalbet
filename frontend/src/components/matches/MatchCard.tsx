@@ -889,7 +889,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
       )}
 
       {/* H2H — 3-column scoreboard for clarity */}
-      {info.h2h && h2hTotal > 0 && (
+      {info.h2h && h2hTotal >= 3 && (
         <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
           <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
             {he ? `עימותים ישירים · ${h2hTotal} אחרונים` : `Head to Head · Last ${h2hTotal}`}
