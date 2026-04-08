@@ -222,7 +222,10 @@ function TeamPanel({ roster, he }: { roster: TeamRoster; he: boolean }) {
               {he ? 'מחליפים' : 'Substitutes'}
             </span>
           </div>
-          <div className="py-0.5 max-h-[200px] overflow-y-auto overscroll-contain">
+          <div
+            className="py-0.5 max-h-[200px] overflow-y-auto overscroll-contain"
+            onWheel={(e) => e.stopPropagation()}
+          >
             {roster.subs.map((p, i) => (
               <PlayerRow key={`${p.jersey}-${p.name}`} player={p} idx={i} he={he} />
             ))}

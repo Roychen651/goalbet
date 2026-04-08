@@ -244,7 +244,10 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
           </div>
 
           {/* List */}
-          <div className="max-h-[380px] overflow-y-auto overscroll-contain">
+          <div
+            className="max-h-[380px] overflow-y-auto overscroll-contain"
+            onWheel={(e) => e.stopPropagation()}
+          >
             {loading && notifications.length === 0 ? (
               <div className="flex justify-center items-center py-10">
                 <div className="w-5 h-5 rounded-full border-2 border-[var(--card-border)] border-t-accent-green animate-spin" />

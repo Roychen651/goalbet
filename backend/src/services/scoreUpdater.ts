@@ -239,29 +239,41 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
           logger.info(`[scoreUpdater] Awarded ${coinsToAward} coins (${finalPoints} pts × 2) to user ${prediction.user_id}`);
         }
 
-        // ── Insert persistent notification ────────────────────────────────────
-        // Stores language-independent raw data; the client constructs translated
-        // strings from type + metadata at render time (supports language switching).
-        const { error: notifError } = await supabaseAdmin
+        // ── Insert persistent notification (with dedup guard) ─────────────────
+        // Concurrent score syncs can race: both fetch is_resolved=false, both
+        // resolve and try to insert. Guard by checking if a notification for
+        // this match+user+type already exists before inserting.
+        const { data: existingNotif } = await supabaseAdmin
           .from('notifications')
-          .insert({
-            user_id:   prediction.user_id,
-            group_id:  prediction.group_id,
-            type:      'prediction_result',
-            title_key: 'notif_prediction_result',
-            body_key:  'notif_prediction_result_body',
-            metadata: {
-              match_id:     matchId,
-              home_team:    matchResult.home_team  ?? '',
-              away_team:    matchResult.away_team  ?? '',
-              home_score:   matchResult.regulation_home ?? matchResult.home_score,
-              away_score:   matchResult.regulation_away ?? matchResult.away_score,
-              points_earned: finalPoints,
-              coins_earned:  coinsToAward,
-            },
-          });
-        if (notifError) {
-          logger.warn(`[scoreUpdater] Notification insert failed for prediction ${prediction.id}: ${notifError.message}`);
+          .select('id')
+          .eq('user_id', prediction.user_id)
+          .eq('type', 'prediction_result')
+          .filter('metadata->>match_id', 'eq', matchId)
+          .limit(1)
+          .maybeSingle();
+
+        if (!existingNotif) {
+          const { error: notifError } = await supabaseAdmin
+            .from('notifications')
+            .insert({
+              user_id:   prediction.user_id,
+              group_id:  prediction.group_id,
+              type:      'prediction_result',
+              title_key: 'notif_prediction_result',
+              body_key:  'notif_prediction_result_body',
+              metadata: {
+                match_id:     matchId,
+                home_team:    matchResult.home_team  ?? '',
+                away_team:    matchResult.away_team  ?? '',
+                home_score:   matchResult.regulation_home ?? matchResult.home_score,
+                away_score:   matchResult.regulation_away ?? matchResult.away_score,
+                points_earned: finalPoints,
+                coins_earned:  coinsToAward,
+              },
+            });
+          if (notifError) {
+            logger.warn(`[scoreUpdater] Notification insert failed for prediction ${prediction.id}: ${notifError.message}`);
+          }
         }
       }
 

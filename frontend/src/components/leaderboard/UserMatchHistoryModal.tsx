@@ -122,7 +122,7 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
           </div>
 
           {/* Match list */}
-          <div className="overflow-y-auto px-4 py-3 space-y-1.5">
+          <div className="overflow-y-auto px-4 py-3 space-y-1.5" onWheel={(e) => e.stopPropagation()}>
             {loading ? (
               <div className="py-8 text-center text-text-muted text-sm">Loading...</div>
             ) : history.length === 0 ? (

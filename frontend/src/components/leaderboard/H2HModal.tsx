@@ -486,7 +486,10 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
           )}
 
           {/* ── Match list ───────────────────────────────────────────────────── */}
-          <div className="overflow-y-auto overscroll-contain px-3 py-3 space-y-2 flex-1">
+          <div
+            className="overflow-y-auto overscroll-contain px-3 py-3 space-y-2 flex-1"
+            onWheel={(e) => e.stopPropagation()}
+          >
             {loading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map(i => (

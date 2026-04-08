@@ -30,7 +30,7 @@ export function AppShell() {
   const location = useLocation();
   const { activeModal, closeModal, addToast } = useUIStore();
   const { lang } = useLangStore();
-  const { hasNew, newPoints } = useNewPointsAlert();
+  const { hasNew, newPoints, markAsSeen } = useNewPointsAlert();
   const prevHasNew = useRef(false);
 
   // Keep document direction in sync
@@ -116,9 +116,11 @@ export function AppShell() {
   useEffect(() => {
     if (hasNew && !prevHasNew.current && newPoints > 0) {
       addToast(`🎉 You earned +${newPoints} pts!`, 'success');
+      // Immediately persist as seen so the toast doesn't re-fire on refresh
+      markAsSeen();
     }
     prevHasNew.current = hasNew;
-  }, [hasNew, newPoints, addToast]);
+  }, [hasNew, newPoints, addToast, markAsSeen]);
 
   return (
     <div className="flex min-h-screen">

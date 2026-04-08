@@ -64,7 +64,20 @@ export function useNotifications(): UseNotificationsReturn {
         .limit(MAX_NOTIFICATIONS);
 
       if (!error && data) {
-        setNotifications(data as AppNotification[]);
+        // Deduplicate: keep only the latest notification per match per type.
+        // The backend's concurrent score syncs can insert duplicates before
+        // the first sync marks predictions as resolved.
+        const seen = new Set<string>();
+        const deduped: AppNotification[] = [];
+        for (const n of data as AppNotification[]) {
+          const matchId = n.metadata?.match_id;
+          const key = matchId ? `${n.type}:${matchId}:${n.user_id}` : n.id;
+          if (!seen.has(key)) {
+            seen.add(key);
+            deduped.push(n);
+          }
+        }
+        setNotifications(deduped);
       }
     } finally {
       setLoading(false);
@@ -98,8 +111,11 @@ export function useNotifications(): UseNotificationsReturn {
         (payload) => {
           const newNotif = payload.new as AppNotification;
           setNotifications(prev => {
-            // Avoid duplicates (Realtime can occasionally double-fire)
+            // Avoid duplicates (Realtime can double-fire, and concurrent
+            // score syncs can insert multiple rows for the same match)
             if (prev.some(n => n.id === newNotif.id)) return prev;
+            const matchId = newNotif.metadata?.match_id;
+            if (matchId && prev.some(n => n.type === newNotif.type && n.metadata?.match_id === matchId && n.user_id === newNotif.user_id)) return prev;
             return [newNotif, ...prev].slice(0, MAX_NOTIFICATIONS);
           });
         }
