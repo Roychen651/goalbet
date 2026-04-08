@@ -266,6 +266,7 @@ export function HelpGuideModal({ onClose }: Props) {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15 }}
             className="overflow-y-auto flex-1 px-5 py-4"
+            onWheel={e => e.stopPropagation()}
           >
             {activeTab === 'play' && <PlayTab isHe={isHe} />}
             {activeTab === 'bets' && <BetsTab isHe={isHe} />}

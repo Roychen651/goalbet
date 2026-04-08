@@ -158,7 +158,7 @@ export function CoinGuide({ onClose }: CoinGuideProps) {
             </div>
           </div>
 
-          <div className="px-4 py-3 space-y-4 max-h-[65vh] overflow-y-auto">
+          <div className="px-4 py-3 space-y-4 max-h-[65vh] overflow-y-auto" onWheel={e => e.stopPropagation()}>
 
             {/* ── Section: How You Earn ── */}
             <div>

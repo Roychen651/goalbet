@@ -231,8 +231,8 @@ export function CoinHistoryModal({ onClose }: CoinHistoryModalProps) {
         exit={{ y: 40, opacity: 0, scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 340, damping: 28, mass: 0.75 }}
         className={cn(
-          'relative z-10 w-full sm:max-w-[400px] overflow-hidden',
-          'rounded-t-2xl sm:rounded-2xl',
+          'relative z-10 w-full sm:max-w-[400px]',
+          'rounded-t-2xl sm:rounded-2xl overflow-hidden',
           'shadow-[0_20px_60px_rgba(0,0,0,0.5)]',
           'max-h-[85vh] sm:max-h-[70vh] flex flex-col',
         )}
@@ -274,7 +274,10 @@ export function CoinHistoryModal({ onClose }: CoinHistoryModalProps) {
         </div>
 
         {/* Transaction list */}
-        <div className="flex-1 overflow-y-auto overscroll-contain">
+        <div
+          className="flex-1 overflow-y-auto overscroll-contain"
+          onWheel={e => e.stopPropagation()}
+        >
           {loading ? (
             <div className="flex justify-center items-center py-10">
               <div className="w-5 h-5 rounded-full border-2 border-[var(--card-border)] border-t-amber-400 animate-spin" />

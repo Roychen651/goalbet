@@ -134,7 +134,7 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
           </div>
 
           {/* Tiers list */}
-          <div className="px-4 py-3 space-y-1.5 max-h-[50vh] overflow-y-auto">
+          <div className="px-4 py-3 space-y-1.5 max-h-[50vh] overflow-y-auto" onWheel={e => e.stopPropagation()}>
             {TIERS.map((tier, i) => (
               <motion.div
                 key={i}
