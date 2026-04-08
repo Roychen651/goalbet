@@ -131,7 +131,7 @@ export function LeaderboardPage() {
       </div>
 
       {/* Insights bento — On Fire, Sniper, Grinder */}
-      {!loading && entries.length > 0 && <LeaderboardInsights entries={entries} />}
+      {!loading && entries.length > 0 && <LeaderboardInsights entries={entries} type={type} />}
 
       {/* Your rank summary — fully period-aware */}
       {currentUserEntry && (

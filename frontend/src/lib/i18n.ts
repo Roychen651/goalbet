@@ -290,6 +290,8 @@ export const translations = {
     // Social Arena (Sprint 9)
     insightOnFire: 'On Fire',
     insightOnFireDesc: 'Player of the Week',
+    insightOnFireLastWeek: 'Last Week\'s Best',
+    insightOnFireAllTime: 'Top Scorer',
     insightSniper: 'The Sniper',
     insightSniperDesc: 'Highest Accuracy',
     insightGrinder: 'The Grinder',
@@ -600,6 +602,8 @@ export const translations = {
     // Social Arena (Sprint 9)
     insightOnFire: 'בוער',
     insightOnFireDesc: 'שחקן השבוע',
+    insightOnFireLastWeek: 'המוביל בשבוע שעבר',
+    insightOnFireAllTime: 'מוביל הניקוד',
     insightSniper: 'הצלף',
     insightSniperDesc: 'דיוק הכי גבוה',
     insightGrinder: 'הטוחן',
