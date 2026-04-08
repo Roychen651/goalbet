@@ -6,6 +6,8 @@ import { GlassCard } from '../ui/GlassCard';
 import { MatchStatusBadge } from './MatchStatusBadge';
 import { PredictionForm, PredictionData } from './PredictionForm';
 import { MatchTimeline } from './MatchTimeline';
+import { MatchStats } from './MatchStats';
+import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown } from '../../lib/utils';
 import { CoinIcon } from '../ui/CoinIcon';
@@ -578,7 +580,10 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                   {isFinished && prediction?.is_resolved && (prediction?.coins_bet ?? 0) > 0 && (
                     <MatchCoinSummary coinsBet={prediction.coins_bet ?? 0} pointsEarned={prediction.points_earned ?? 0} />
                   )}
+                  {/* Match Center — Stats, Timeline, Rosters (Live + FT) */}
+                  {(isFinished || isLive) && <MatchStats match={match} />}
                   {isFinished && <MatchTimeline match={match} />}
+                  {(isFinished || isLive) && <MatchRosters match={match} />}
                 </>
               )}
             </div>
@@ -735,8 +740,10 @@ function MatchActualStats({ match }: { match: Match }) {
         </div>
       ))}
 
-      {/* Match timeline — goals, cards, subs */}
+      {/* Match Center — Stats, Timeline, Rosters */}
+      <MatchStats match={match} />
       <MatchTimeline match={match} />
+      <MatchRosters match={match} />
     </div>
   );
 }
@@ -799,25 +806,42 @@ function MatchCoinSummary({ coinsBet, pointsEarned }: { coinsBet: number; points
 
 // ── Tactical Intel components ────────────────────────────────────────────────
 
-function FormDots({ form }: { form: string | null }) {
+function FormDots({ form, he }: { form: string | null; he: boolean }) {
   if (!form) return null;
   const chars = form.slice(-5).split(''); // oldest → newest, left → right
+  const last = chars.length - 1;
   return (
-    <div className="flex items-center gap-0.5">
-      {chars.map((c, i) => (
-        <span
-          key={i}
-          title={c === 'W' ? 'Win' : c === 'L' ? 'Loss' : 'Draw'}
-          className={cn(
-            'w-2 h-2 rounded-full shrink-0',
-            c === 'W'
-              ? 'bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.7)]'
-              : c === 'L'
-              ? 'bg-red-400 shadow-[0_0_4px_rgba(248,113,113,0.7)]'
-              : 'bg-yellow-400 shadow-[0_0_4px_rgba(250,204,21,0.7)]',
-          )}
-        />
-      ))}
+    <div className="flex items-center gap-1">
+      {/* Oldest label */}
+      <span className="text-[7px] text-white/15 uppercase tracking-wider shrink-0">{he ? 'ישן' : 'old'}</span>
+      {chars.map((c, i) => {
+        const isNewest = i === last;
+        const colorClass = c === 'W'
+          ? 'bg-emerald-400'
+          : c === 'L'
+          ? 'bg-red-400'
+          : 'bg-yellow-400';
+        const glowClass = c === 'W'
+          ? 'shadow-[0_0_6px_rgba(52,211,153,0.8)]'
+          : c === 'L'
+          ? 'shadow-[0_0_6px_rgba(248,113,113,0.8)]'
+          : 'shadow-[0_0_6px_rgba(250,204,21,0.8)]';
+        return (
+          <span
+            key={i}
+            title={c === 'W' ? 'Win' : c === 'L' ? 'Loss' : 'Draw'}
+            className={cn(
+              'rounded-full shrink-0 transition-all',
+              colorClass,
+              isNewest ? `w-2.5 h-2.5 ${glowClass} ring-1 ring-white/20` : 'w-2 h-2 opacity-70',
+            )}
+          />
+        );
+      })}
+      {/* Newest label + arrow */}
+      <span className="text-[7px] text-white/25 uppercase tracking-wider shrink-0 font-semibold">
+        {he ? 'חדש ←' : '→ new'}
+      </span>
     </div>
   );
 }
@@ -858,7 +882,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
               <div key={name} className="flex items-center gap-2">
                 <span className="font-barlow text-[11px] text-text-muted w-[68px] shrink-0 truncate">{name}</span>
                 {form ? (
-                  <FormDots form={form} />
+                  <FormDots form={form} he={he} />
                 ) : (
                   <span className="text-[10px] text-white/20 italic">
                     {he ? 'אין נתונים' : 'no data'}

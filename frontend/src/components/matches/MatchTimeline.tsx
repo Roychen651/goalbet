@@ -17,6 +17,7 @@ interface MatchEvent {
   player: string;
   assist?: string;   // player who assisted the goal
   playerOff?: string; // sub: player leaving
+  text?: string;     // ESPN prose commentary for the event
 }
 
 // ─── ESPN Fetch ───────────────────────────────────────────────────────────────
@@ -129,7 +130,10 @@ async function fetchEspnEvents(externalId: string, leagueId: number): Promise<Ma
 
     if (!player) continue; // skip events with no player info
 
-    events.push({ minute, stoppage, period, type, team, player, assist, playerOff });
+    // Capture prose commentary from ESPN (e.g. "Goal! Arsenal 1, Fulham 0. Mikel Merino...")
+    const rawText = typeof ev.text === 'string' ? (ev.text as string).trim() : undefined;
+
+    events.push({ minute, stoppage, period, type, team, player, assist, playerOff, text: rawText || undefined });
   }
 
   // Sort: period ASC, minute ASC, stoppage ASC
@@ -181,6 +185,17 @@ function periodTitle(period: number): string {
   }
 }
 
+function periodTitleHe(period: number): string {
+  switch (period) {
+    case 1: return 'מחצית ראשונה';
+    case 2: return 'מחצית שנייה';
+    case 3: return 'הארכה 1';
+    case 4: return 'הארכה 2';
+    case 5: return 'פנדלים';
+    default: return `תקופה ${period}`;
+  }
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SectionDivider({ label }: { label: string }) {
@@ -207,9 +222,11 @@ function ScorePin({ label, home, away }: { label: string; home: number; away: nu
 function EventRow({
   ev,
   idx,
+  showCommentary,
 }: {
   ev: MatchEvent;
   idx: number;
+  showCommentary: boolean;
 }) {
   const isHome = ev.team === 'home';
   const color = eventTextColor(ev.type);
@@ -228,7 +245,7 @@ function EventRow({
 
   // Icon
   const icon = (
-    <span className="shrink-0 text-[13px] leading-none">{EVENT_ICON[ev.type]}</span>
+    <span className={cn('shrink-0 leading-none', isGoalType ? 'text-[15px]' : 'text-[13px]')}>{EVENT_ICON[ev.type]}</span>
   );
 
   // Player info block
@@ -255,30 +272,46 @@ function EventRow({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: idx * 0.03, duration: 0.18 }}
       className={cn(
-        'flex items-center gap-1.5 py-1 px-1.5 rounded-lg',
-        isGoalType && 'bg-white/3 border border-white/5',
+        'py-1 px-1.5 rounded-lg',
+        isGoalType && 'bg-accent-green/[0.04] border border-accent-green/10 shadow-[0_0_12px_rgba(189,232,245,0.06)]',
       )}
     >
-      {isHome ? (
-        <>
-          {clockPill}
-          <div className="flex-1 flex items-center gap-1.5 min-w-0">
-            {icon}
-            {playerBlock}
-          </div>
-          {/* Away spacer */}
-          <div className="w-[100px] shrink-0" />
-        </>
-      ) : (
-        <>
-          {/* Home spacer */}
-          <div className="w-[100px] shrink-0" />
-          <div className="flex-1 flex items-center justify-end gap-1.5 min-w-0">
-            {playerBlock}
-            {icon}
-          </div>
-          {clockPill}
-        </>
+      <div className="flex items-center gap-1.5">
+        {isHome ? (
+          <>
+            {clockPill}
+            <div className="flex-1 flex items-center gap-1.5 min-w-0">
+              {icon}
+              {playerBlock}
+            </div>
+            {/* Away spacer */}
+            <div className="w-[100px] shrink-0" />
+          </>
+        ) : (
+          <>
+            {/* Home spacer */}
+            <div className="w-[100px] shrink-0" />
+            <div className="flex-1 flex items-center justify-end gap-1.5 min-w-0">
+              {playerBlock}
+              {icon}
+            </div>
+            {clockPill}
+          </>
+        )}
+      </div>
+      {/* Rich prose commentary — shown for goals when available */}
+      {showCommentary && isGoalType && ev.text && (
+        <motion.p
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          transition={{ delay: 0.1, duration: 0.2 }}
+          className={cn(
+            'text-[10px] leading-relaxed text-white/30 mt-1 ps-12',
+            isHome ? '' : 'text-end pe-12 ps-0',
+          )}
+        >
+          {ev.text}
+        </motion.p>
       )}
     </motion.div>
   );
@@ -300,8 +333,10 @@ function Skeleton() {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function MatchTimeline({ match }: { match: Match }) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
+  const he = lang === 'he';
   const [open, setOpen] = useState(false);
+  const [showCommentary, setShowCommentary] = useState(true);
   const [events, setEvents] = useState<MatchEvent[] | null>(null);
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(false); // ref: no re-render on change
@@ -358,8 +393,8 @@ export function MatchTimeline({ match }: { match: Match }) {
         <span className="text-[10px] uppercase tracking-widest font-semibold text-white/30 group-hover:text-white/50 transition-colors">
           {t('matchTimeline')}
           {hasEvents && (
-            <span className="ml-1.5 text-white/18 normal-case tracking-normal">
-              · {events.filter(e => ['goal','own_goal','penalty_goal'].includes(e.type)).length} goals
+            <span className="ms-1.5 text-white/18 normal-case tracking-normal">
+              · {events.filter(e => ['goal','own_goal','penalty_goal'].includes(e.type)).length} {he ? 'שערים' : 'goals'}
             </span>
           )}
         </span>
@@ -389,16 +424,33 @@ export function MatchTimeline({ match }: { match: Match }) {
             className="overflow-hidden"
           >
             <div className="pt-1 pb-2">
-              {/* Column labels */}
+              {/* Column labels + commentary toggle */}
               <div className="flex items-center px-1.5 mb-1">
-                <span className="flex-1 text-[9px] uppercase tracking-wider text-white/18 text-left truncate">
+                <span className="flex-1 text-[9px] uppercase tracking-wider text-white/18 text-start truncate">
                   {match.home_team.split(' ').slice(-1)[0]}
                 </span>
-                <span className="w-11 text-center text-[9px] text-white/15 shrink-0">time</span>
-                <span className="flex-1 text-[9px] uppercase tracking-wider text-white/18 text-right truncate">
+                <span className="w-11 text-center text-[9px] text-white/15 shrink-0">{he ? 'זמן' : 'time'}</span>
+                <span className="flex-1 text-[9px] uppercase tracking-wider text-white/18 text-end truncate">
                   {match.away_team.split(' ').slice(-1)[0]}
                 </span>
               </div>
+              {/* Commentary toggle — only when there are goal texts */}
+              {hasEvents && events.some(e =>
+                ['goal','own_goal','penalty_goal'].includes(e.type) && e.text
+              ) && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowCommentary(p => !p); }}
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] mb-1.5 transition-colors',
+                    showCommentary
+                      ? 'bg-accent-green/10 text-accent-green/70 border border-accent-green/20'
+                      : 'bg-white/4 text-white/25 border border-white/8',
+                  )}
+                >
+                  <span>💬</span>
+                  {he ? 'פרשנות' : 'Commentary'}
+                </button>
+              )}
 
               {loading && <Skeleton />}
 
@@ -414,23 +466,28 @@ export function MatchTimeline({ match }: { match: Match }) {
                     const periodEvents = events.filter(e => e.period === period);
                     const prevScore = pi > 0 ? goalsUpTo(periods[pi - 1]) : null;
                     const isNewSection = pi > 0;
-                    const pinLabel =
-                      period === 2 ? 'Half Time' :
-                      period === 3 ? 'Full Time' :
-                      period === 4 ? 'AET Half Time' :
-                      period === 5 ? 'After Extra Time' : '';
+                    const pinLabel = he
+                      ? (period === 2 ? 'מחצית' :
+                         period === 3 ? 'סיום' :
+                         period === 4 ? 'מחצית הארכה' :
+                         period === 5 ? 'אחרי הארכה' : '')
+                      : (period === 2 ? 'Half Time' :
+                         period === 3 ? 'Full Time' :
+                         period === 4 ? 'AET Half Time' :
+                         period === 5 ? 'After Extra Time' : '');
 
                     return (
                       <div key={period}>
                         {isNewSection && prevScore && (
                           <ScorePin label={pinLabel} home={prevScore.h} away={prevScore.a} />
                         )}
-                        <SectionDivider label={periodTitle(period)} />
+                        <SectionDivider label={he ? periodTitleHe(period) : periodTitle(period)} />
                         {periodEvents.map((ev, i) => (
                           <EventRow
                             key={`${ev.period}-${ev.minute}-${ev.stoppage}-${ev.team}-${i}`}
                             ev={ev}
                             idx={i + pi * 4}
+                            showCommentary={showCommentary}
                           />
                         ))}
                       </div>
@@ -440,8 +497,11 @@ export function MatchTimeline({ match }: { match: Match }) {
                   {/* Final score at bottom */}
                   {(() => {
                     const final = goalsUpTo(Math.max(...periods));
-                    const label = match.went_to_penalties ? 'After Penalties' :
-                                  match.regulation_home !== null ? 'After Extra Time' : 'Full Time';
+                    const label = he
+                      ? (match.went_to_penalties ? 'אחרי פנדלים' :
+                         match.regulation_home !== null ? 'אחרי הארכה' : 'סיום')
+                      : (match.went_to_penalties ? 'After Penalties' :
+                         match.regulation_home !== null ? 'After Extra Time' : 'Full Time');
                     return (
                       <div className="mt-2 pt-2 border-t border-white/5">
                         <ScorePin label={label} home={final.h} away={final.a} />

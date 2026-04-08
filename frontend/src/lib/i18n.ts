@@ -261,6 +261,26 @@ export const translations = {
     // User Guide
     userGuide: 'User Guide',
 
+    // Match Center (Sprint 7)
+    matchCenter: 'Match Center',
+    possession: 'Possession',
+    totalShots: 'Total Shots',
+    shotsOnTarget: 'Shots on Target',
+    cornersStats: 'Corners',
+    fouls: 'Fouls',
+    offsides: 'Offsides',
+    yellowCards: 'Yellow Cards',
+    redCardsStat: 'Red Cards',
+    commentary: 'Commentary',
+    lineups: 'Lineups',
+    formation: 'Formation',
+    startingXI: 'Starting XI',
+    substitutes: 'Substitutes',
+    goalkeeper: 'GK',
+    defender: 'DEF',
+    midfielder: 'MID',
+    forward: 'FWD',
+
     // Notification Center
     notifications: 'Notifications',
     notifMarkAllRead: 'Mark all as read',
@@ -531,6 +551,26 @@ export const translations = {
 
     // User Guide
     userGuide: 'מדריך משתמש',
+
+    // Match Center (Sprint 7)
+    matchCenter: 'מרכז משחק',
+    possession: 'אחזקת כדור',
+    totalShots: 'בעיטות',
+    shotsOnTarget: 'בעיטות למסגרת',
+    cornersStats: 'קרנות',
+    fouls: 'עבירות',
+    offsides: 'נבדלים',
+    yellowCards: 'כרטיסים צהובים',
+    redCardsStat: 'כרטיסים אדומים',
+    commentary: 'פרשנות',
+    lineups: 'הרכבים',
+    formation: 'מערך',
+    startingXI: 'הרכב פתיחה',
+    substitutes: 'מחליפים',
+    goalkeeper: 'שוער',
+    defender: 'הגנה',
+    midfielder: 'קישור',
+    forward: 'התקפה',
 
     // Notification Center
     notifications: 'התראות',
