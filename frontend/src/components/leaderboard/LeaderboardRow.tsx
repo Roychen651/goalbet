@@ -21,6 +21,9 @@ export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: Leaderbo
   const points = type === 'weekly' ? entry.weekly_points
     : type === 'lastWeek' ? (entry.last_week_points ?? 0)
     : entry.total_points;
+  const accuracy = entry.predictions_made > 0
+    ? Math.round((entry.correct_predictions / entry.predictions_made) * 100)
+    : 0;
   const podium = PODIUM_STYLES[entry.rank];
 
   return (
@@ -54,13 +57,23 @@ export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: Leaderbo
       />
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className={cn('font-semibold text-sm truncate', isCurrentUser ? 'text-accent-green' : 'text-white')}>
             {entry.username}{isCurrentUser && ` (${t('you')})`}
           </span>
+          {entry.weekly_points > 15 && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-accent-orange/10 text-accent-orange border border-accent-orange/20 leading-none whitespace-nowrap">
+              {t('badgeHot')} 🔥
+            </span>
+          )}
+          {accuracy >= 65 && entry.predictions_made >= 5 && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-accent-green/10 text-accent-green border border-accent-green/20 leading-none whitespace-nowrap">
+              {t('badgeSniper')} 🎯
+            </span>
+          )}
         </div>
         <div className="text-text-muted text-xs mt-0.5">
-          {entry.predictions_made} {t('picks')} · {entry.predictions_made > 0 ? `${Math.round((entry.correct_predictions / entry.predictions_made) * 100)}%` : '—'} {t('accurate')}
+          {entry.predictions_made} {t('picks')} · {entry.predictions_made > 0 ? `${accuracy}%` : '—'} {t('accurate')}
         </div>
       </div>
 

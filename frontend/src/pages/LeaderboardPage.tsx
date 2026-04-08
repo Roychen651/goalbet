@@ -6,6 +6,7 @@ import { useGroupStore } from '../stores/groupStore';
 import { useLangStore } from '../stores/langStore';
 import { supabase } from '../lib/supabase';
 import { LeaderboardTable } from '../components/leaderboard/LeaderboardTable';
+import { LeaderboardInsights } from '../components/leaderboard/LeaderboardInsights';
 import { UserMatchHistoryModal } from '../components/leaderboard/UserMatchHistoryModal';
 import { H2HModal, H2HUser } from '../components/leaderboard/H2HModal';
 import { GlassCard } from '../components/ui/GlassCard';
@@ -128,6 +129,9 @@ export function LeaderboardPage() {
           </button>
         ))}
       </div>
+
+      {/* Insights bento — On Fire, Sniper, Grinder */}
+      {!loading && entries.length > 0 && <LeaderboardInsights entries={entries} />}
 
       {/* Your rank summary — fully period-aware */}
       {currentUserEntry && (

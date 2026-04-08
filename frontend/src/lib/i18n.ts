@@ -287,6 +287,19 @@ export const translations = {
     startingSoon: 'Starting Soon',
     preferences: 'Preferences',
 
+    // Social Arena (Sprint 9)
+    insightOnFire: 'On Fire',
+    insightOnFireDesc: 'Player of the Week',
+    insightSniper: 'The Sniper',
+    insightSniperDesc: 'Highest Accuracy',
+    insightGrinder: 'The Grinder',
+    insightGrinderDesc: 'Most Predictions',
+    badgeHot: 'Hot',
+    badgeSniper: 'Sniper',
+    h2hAccuracy: 'Accuracy',
+    h2hTotalPoints: 'Total Points',
+    minPredictions: 'min {0} picks',
+
     // Notification Center
     notifications: 'Notifications',
     notifMarkAllRead: 'Mark all as read',
@@ -583,6 +596,19 @@ export const translations = {
     enableLiveAnimationsDesc: 'הצג אנימציית תוצאות ואפקטים חיים',
     startingSoon: 'מתחיל בקרוב',
     preferences: 'העדפות',
+
+    // Social Arena (Sprint 9)
+    insightOnFire: 'בוער',
+    insightOnFireDesc: 'שחקן השבוע',
+    insightSniper: 'הצלף',
+    insightSniperDesc: 'דיוק הכי גבוה',
+    insightGrinder: 'הטוחן',
+    insightGrinderDesc: 'הכי הרבה ניבויים',
+    badgeHot: 'חם',
+    badgeSniper: 'צלף',
+    h2hAccuracy: 'דיוק',
+    h2hTotalPoints: 'סה"כ נקודות',
+    minPredictions: 'מינ׳ {0} ניבויים',
 
     // Notification Center
     notifications: 'התראות',

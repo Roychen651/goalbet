@@ -193,6 +193,102 @@ function PredCell({
   );
 }
 
+// ── Comparative Bars ────────────────────────────────────────────────────────
+
+function ComparativeBars({
+  me,
+  friend,
+  myPreds,
+  friendPreds,
+  myPeriodPts,
+  friendPeriodPts,
+  t,
+}: {
+  me: H2HUser;
+  friend: H2HUser;
+  myPreds: SimplePred[];
+  friendPreds: SimplePred[];
+  myPeriodPts: number;
+  friendPeriodPts: number;
+  t: (k: TranslationKey) => string;
+}) {
+  const myMade = myPreds.filter(p => p.is_resolved && p.predicted_outcome).length;
+  const myCorrect = myPreds.filter(p => p.is_resolved && p.points_earned > 0).length;
+  const friendMade = friendPreds.filter(p => p.is_resolved && p.predicted_outcome).length;
+  const friendCorrect = friendPreds.filter(p => p.is_resolved && p.points_earned > 0).length;
+
+  const myAcc = myMade > 0 ? Math.round((myCorrect / myMade) * 100) : 0;
+  const friendAcc = friendMade > 0 ? Math.round((friendCorrect / friendMade) * 100) : 0;
+
+  const bars: { label: string; myVal: number; friendVal: number; suffix: string }[] = [
+    { label: t('h2hAccuracy'), myVal: myAcc, friendVal: friendAcc, suffix: '%' },
+    { label: t('h2hTotalPoints'), myVal: myPeriodPts, friendVal: friendPeriodPts, suffix: '' },
+  ];
+
+  return (
+    <div className="px-4 py-3 border-b border-white/6 space-y-3 shrink-0">
+      {bars.map(bar => {
+        const max = Math.max(bar.myVal, bar.friendVal, 1);
+        const myPct = Math.round((bar.myVal / max) * 100);
+        const friendPct = Math.round((bar.friendVal / max) * 100);
+        const myLeads = bar.myVal >= bar.friendVal;
+
+        return (
+          <div key={bar.label}>
+            <div className="text-[10px] text-text-muted uppercase tracking-widest font-semibold mb-1.5">
+              {bar.label}
+            </div>
+
+            {/* My bar */}
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] text-white/50 w-12 truncate">{me.username.split(' ')[0]}</span>
+              <div className="flex-1 h-4 bg-white/5 rounded-full overflow-hidden relative">
+                <motion.div
+                  className={cn(
+                    'h-full rounded-full',
+                    myLeads ? 'bg-accent-green/60' : 'bg-white/15',
+                  )}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${myPct}%` }}
+                  transition={{ duration: 0.6, ease: 'easeOut' as const, delay: 0.15 }}
+                />
+              </div>
+              <span className={cn(
+                'text-xs font-bebas w-10 text-end tabular-nums',
+                myLeads ? 'text-accent-green' : 'text-white/50',
+              )}>
+                {bar.myVal}{bar.suffix}
+              </span>
+            </div>
+
+            {/* Friend bar */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-white/50 w-12 truncate">{friend.username.split(' ')[0]}</span>
+              <div className="flex-1 h-4 bg-white/5 rounded-full overflow-hidden relative">
+                <motion.div
+                  className={cn(
+                    'h-full rounded-full',
+                    !myLeads ? 'bg-accent-green/60' : 'bg-white/15',
+                  )}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${friendPct}%` }}
+                  transition={{ duration: 0.6, ease: 'easeOut' as const, delay: 0.25 }}
+                />
+              </div>
+              <span className={cn(
+                'text-xs font-bebas w-10 text-end tabular-nums',
+                !myLeads ? 'text-accent-green' : 'text-white/50',
+              )}>
+                {bar.friendVal}{bar.suffix}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
@@ -383,6 +479,11 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
               ))}
             </div>
           </div>
+
+          {/* ── Comparative Stats Bars ──────────────────────────────────────── */}
+          {!loading && (myPreds.length > 0 || friendPreds.length > 0) && (
+            <ComparativeBars me={me} friend={friend} myPreds={myPreds} friendPreds={friendPreds} myPeriodPts={myPeriodPts} friendPeriodPts={friendPeriodPts} t={t} />
+          )}
 
           {/* ── Match list ───────────────────────────────────────────────────── */}
           <div className="overflow-y-auto overscroll-contain px-3 py-3 space-y-2 flex-1">
