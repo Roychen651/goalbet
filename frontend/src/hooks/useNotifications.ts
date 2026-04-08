@@ -45,8 +45,12 @@ const MAX_NOTIFICATIONS = 50;
 export function useNotifications(): UseNotificationsReturn {
   const { user } = useAuthStore();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  // Unique per hook instance — prevents channel name collisions when both
+  // Sidebar and TopBar mount simultaneously (same channel name → Supabase
+  // deduplicates, and one cleanup removes the channel for the other).
+  const instanceId = useRef(Math.random().toString(36).slice(2, 8));
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -82,7 +86,7 @@ export function useNotifications(): UseNotificationsReturn {
     }
 
     const channel = supabase
-      .channel(`notifications:${user.id}`)
+      .channel(`notifications:${user.id}:${instanceId.current}`)
       .on(
         'postgres_changes',
         {

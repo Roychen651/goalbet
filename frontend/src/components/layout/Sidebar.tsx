@@ -30,7 +30,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="hidden sm:flex flex-col w-60 shrink-0 h-screen sticky top-0 border-e border-white/8 py-6 px-4 glass">
+    <aside className="hidden sm:flex flex-col w-60 shrink-0 h-screen sticky top-0 z-30 border-e border-white/8 py-6 px-4 glass">
       {/* Logo */}
       <div className="mb-8 px-2">
         <motion.div

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
@@ -9,7 +9,7 @@ import { MatchTimeline } from './MatchTimeline';
 import { Avatar } from '../ui/Avatar';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown } from '../../lib/utils';
 import { CoinIcon } from '../ui/CoinIcon';
-import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES } from '../../lib/constants';
+import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import type { TranslationKey } from '../../lib/i18n';
 import { useLiveClock } from '../../hooks/useLiveClock';
@@ -29,6 +29,125 @@ const LEAGUE_ACCENT: Record<number, string> = {
   9003: '#a51f22', // Copa del Rey
 };
 
+// ── ESPN Tactical Intel ───────────────────────────────────────────────────────
+
+interface EspnMatchInfo {
+  homeForm:   string | null;   // e.g. "WLDWW" (oldest→newest)
+  awayForm:   string | null;
+  homeRecord: string | null;   // e.g. "12-4-2"
+  awayRecord: string | null;
+  venue:      string | null;
+  attendance: number | null;
+  h2h:        { homeWins: number; draws: number; awayWins: number } | null;
+  odds:       { homeWin: number; draw: number; awayWin: number } | null;
+}
+
+const ESPN_INFO_EMPTY: EspnMatchInfo = {
+  homeForm: null, awayForm: null,
+  homeRecord: null, awayRecord: null,
+  venue: null, attendance: null,
+  h2h: null, odds: null,
+};
+
+async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise<EspnMatchInfo> {
+  const slug = LEAGUE_ESPN_SLUG[leagueId];
+  if (!slug) return ESPN_INFO_EMPTY;
+
+  const eventId = externalId.replace(/^espn_/, '');
+  if (!eventId || !/^\d+$/.test(eventId)) return ESPN_INFO_EMPTY;
+
+  try {
+    const res = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`
+    );
+    if (!res.ok) return ESPN_INFO_EMPTY;
+    const data = await res.json() as Record<string, unknown>;
+
+    // ── Competitors ──────────────────────────────────────────
+    const comp = ((data.header as Record<string, unknown>)
+      ?.competitions as Record<string, unknown>[])?.[0] ?? {};
+    const competitors = (comp.competitors as Record<string, unknown>[]) ?? [];
+    const homeComp = (competitors.find(c => c.homeAway === 'home') ?? {}) as Record<string, unknown>;
+    const awayComp = (competitors.find(c => c.homeAway === 'away') ?? {}) as Record<string, unknown>;
+
+    // ── Form ─────────────────────────────────────────────────
+    const homeForm = typeof homeComp.form === 'string' && homeComp.form ? homeComp.form : null;
+    const awayForm = typeof awayComp.form === 'string' && awayComp.form ? awayComp.form : null;
+
+    // ── Records ──────────────────────────────────────────────
+    const pickRecord = (recs: Record<string, unknown>[]) => {
+      const r = recs.find(x => String(x.type ?? '').toLowerCase().includes('total')) ?? recs[0];
+      return typeof r?.summary === 'string' ? r.summary : null;
+    };
+    const homeRecord = pickRecord((homeComp.records as Record<string, unknown>[]) ?? []);
+    const awayRecord = pickRecord((awayComp.records as Record<string, unknown>[]) ?? []);
+
+    // ── Venue ─────────────────────────────────────────────────
+    const gameInfo = (data.gameInfo as Record<string, unknown>) ?? {};
+    const venueObj = ((gameInfo.venue ?? comp.venue) as Record<string, unknown>) ?? {};
+    const venue = typeof venueObj.fullName === 'string' && venueObj.fullName ? venueObj.fullName : null;
+    const attendance = typeof gameInfo.attendance === 'number' ? gameInfo.attendance as number : null;
+
+    // ── Odds → normalised implied probability ─────────────────
+    let odds: EspnMatchInfo['odds'] = null;
+    const oddsArr = (comp.odds as Record<string, unknown>[]) ?? [];
+    if (oddsArr.length > 0) {
+      const o = oddsArr[0] as Record<string, unknown>;
+      const hO = (o.homeTeamOdds as Record<string, unknown>) ?? {};
+      const aO = (o.awayTeamOdds as Record<string, unknown>) ?? {};
+      const dO = (o.drawOdds     as Record<string, unknown>) ?? {};
+
+      // Try pre-computed winPercentage (ESPN returns 0–100)
+      const hw = typeof hO.winPercentage === 'number' ? (hO.winPercentage as number) / 100 : null;
+      const aw = typeof aO.winPercentage === 'number' ? (aO.winPercentage as number) / 100 : null;
+      const dw = typeof dO.winPercentage === 'number' ? (dO.winPercentage as number) / 100 : null;
+
+      if (hw !== null && aw !== null && dw !== null) {
+        const s = hw + aw + dw || 1;
+        odds = { homeWin: hw / s, draw: dw / s, awayWin: aw / s };
+      } else {
+        // Fallback: American moneyLine → implied probability
+        const toImpl = (ml: number) =>
+          ml > 0 ? 100 / (ml + 100) : Math.abs(ml) / (Math.abs(ml) + 100);
+        const hml = typeof hO.moneyLine === 'number' ? hO.moneyLine as number : null;
+        const aml = typeof aO.moneyLine === 'number' ? aO.moneyLine as number : null;
+        const dml = typeof dO.moneyLine === 'number' ? dO.moneyLine as number : null;
+        if (hml !== null && aml !== null && dml !== null) {
+          const rH = toImpl(hml), rA = toImpl(aml), rD = toImpl(dml);
+          const s = rH + rA + rD || 1;
+          odds = { homeWin: rH / s, draw: rD / s, awayWin: rA / s };
+        }
+      }
+    }
+
+    // ── Head-to-Head ──────────────────────────────────────────
+    let h2h: EspnMatchInfo['h2h'] = null;
+    const homeId = String(((homeComp.team as Record<string, unknown>)?.id) ?? '');
+    const h2hGames = (data.headToHeadGames as Record<string, unknown>[]) ?? [];
+    if (h2hGames.length > 0 && homeId) {
+      const last5 = h2hGames.slice(0, 5);
+      let homeWins = 0, draws = 0, awayWins = 0;
+      for (const game of last5) {
+        const gc = (game.competitors as Record<string, unknown>[]) ?? [];
+        const winner = gc.find(c => c.winner === true);
+        if (!winner) {
+          draws++;
+        } else {
+          const wId = String(((winner.team as Record<string, unknown>)?.id) ?? '');
+          if (wId === homeId) homeWins++; else awayWins++;
+        }
+      }
+      h2h = { homeWins, draws, awayWins };
+    }
+
+    return { homeForm, awayForm, homeRecord, awayRecord, venue, attendance, h2h, odds };
+  } catch {
+    return ESPN_INFO_EMPTY;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface MatchCardProps {
   match: Match;
   prediction?: Prediction;
@@ -41,6 +160,21 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const [expanded, setExpanded] = useState(false);
   const { t } = useLangStore();
   const { user, profile } = useAuthStore();
+
+  // ── Tactical intel: fetched once on expand for NS upcoming matches ──────────
+  const [espnInfo, setEspnInfo] = useState<EspnMatchInfo | null>(null);
+  const espnFetchedRef = useRef(false);
+  useEffect(() => {
+    if (!expanded || espnFetchedRef.current) return;
+    if (match.status !== 'NS') return;
+    if (!LEAGUE_ESPN_SLUG[match.league_id]) return;
+    espnFetchedRef.current = true;
+    let cancelled = false;
+    fetchEspnMatchInfo(match.external_id, match.league_id)
+      .then(info => { if (!cancelled) setEspnInfo(info); })
+      .catch(() => { /* silent */ });
+    return () => { cancelled = true; };
+  }, [expanded, match.external_id, match.league_id, match.status]);
   // Re-render every 20s so countdown ("6m", "1h 6m", etc.) stays accurate.
   // This does NOT refetch data — PredictionForm and expanded state are preserved.
   useLiveClock(20_000);
@@ -425,11 +559,20 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 <>
                   {/* ET/PEN result block — shown for ALL finished AET/PEN cards */}
                   {isFinished && <ETSummaryBlock match={match} />}
+                  {/* Tactical intel — form, H2H, venue (NS upcoming only) */}
+                  {!isFinished && !isLive && !isAET && espnInfo && (
+                    <TacticalIntelSection
+                      info={espnInfo}
+                      homeName={match.home_team}
+                      awayName={match.away_team}
+                    />
+                  )}
                   <PredictionForm
                     match={match}
                     existingPrediction={prediction}
                     onSave={async (data) => { await onSavePrediction(data); setExpanded(false); }}
                     saving={savingMatchId === match.id}
+                    odds={espnInfo?.odds ?? undefined}
                   />
                   {/* Coin result — shown for finished resolved predictions */}
                   {isFinished && prediction?.is_resolved && (prediction?.coins_bet ?? 0) > 0 && (
@@ -653,6 +796,109 @@ function MatchCoinSummary({ coinsBet, pointsEarned }: { coinsBet: number; points
     </motion.div>
   );
 }
+
+// ── Tactical Intel components ────────────────────────────────────────────────
+
+function FormDots({ form }: { form: string | null }) {
+  if (!form) return null;
+  const chars = form.slice(-5).split(''); // oldest → newest, left → right
+  return (
+    <div className="flex items-center gap-0.5">
+      {chars.map((c, i) => (
+        <span
+          key={i}
+          title={c === 'W' ? 'Win' : c === 'L' ? 'Loss' : 'Draw'}
+          className={cn(
+            'w-2 h-2 rounded-full shrink-0',
+            c === 'W'
+              ? 'bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.7)]'
+              : c === 'L'
+              ? 'bg-red-400 shadow-[0_0_4px_rgba(248,113,113,0.7)]'
+              : 'bg-yellow-400 shadow-[0_0_4px_rgba(250,204,21,0.7)]',
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TacticalIntelSection({ info, homeName, awayName }: {
+  info: EspnMatchInfo;
+  homeName: string;
+  awayName: string;
+}) {
+  const homeShort = homeName.split(' ').pop() || homeName;
+  const awayShort = awayName.split(' ').pop() || awayName;
+  const hasForm = info.homeForm || info.awayForm || info.homeRecord || info.awayRecord;
+  const h2hTotal = info.h2h ? info.h2h.homeWins + info.h2h.draws + info.h2h.awayWins : 0;
+
+  if (!hasForm && !info.h2h && !info.venue) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, ease: 'easeOut' as const }}
+      className="mb-3 space-y-1.5"
+    >
+      {/* Form + Record */}
+      {hasForm && (
+        <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
+          <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
+            Team Form · Last 5
+          </p>
+          <div className="space-y-2">
+            {([
+              { name: homeShort, form: info.homeForm, record: info.homeRecord },
+              { name: awayShort, form: info.awayForm, record: info.awayRecord },
+            ] as const).map(({ name, form, record }) => (
+              <div key={name} className="flex items-center gap-2">
+                <span className="font-barlow text-[11px] text-text-muted w-[68px] shrink-0 truncate">{name}</span>
+                <FormDots form={form} />
+                {record && (
+                  <span className="ms-auto font-mono text-[10px] text-white/25 tabular-nums shrink-0">
+                    {record}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* H2H */}
+      {info.h2h && h2hTotal > 0 && (
+        <div className="rounded-xl border border-border-subtle bg-white/[0.02] px-2.5 py-2">
+          <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-1.5">
+            Head to Head · Last {h2hTotal}
+          </p>
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold">
+            <span className="text-accent-green">{homeShort} {info.h2h.homeWins}W</span>
+            <span className="text-white/20">·</span>
+            <span className="text-yellow-400/70">{info.h2h.draws}D</span>
+            <span className="text-white/20">·</span>
+            <span className="text-red-400/60">{info.h2h.awayWins}W {awayShort}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Venue */}
+      {info.venue && (
+        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
+          <span className="text-[12px] shrink-0">🏟</span>
+          <span className="font-barlow text-[11px] text-text-muted truncate">{info.venue}</span>
+          {info.attendance && (
+            <span className="ms-auto text-[10px] text-white/25 tabular-nums shrink-0 font-mono">
+              {info.attendance.toLocaleString()}
+            </span>
+          )}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 0 }: {
   name: string; badge: string | null; score: number | null;

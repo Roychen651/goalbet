@@ -16,6 +16,8 @@ interface PredictionFormProps {
   existingPrediction: Prediction | undefined;
   onSave: (data: PredictionData) => Promise<void>;
   saving: boolean;
+  /** Normalised implied probabilities from ESPN odds (0–1 each, sum ≈ 1) */
+  odds?: { homeWin: number; draw: number; awayWin: number } | null;
 }
 
 export interface PredictionData {
@@ -47,7 +49,7 @@ function deriveOutcomeFromScore(home: string, away: string): OutcomeOption | nul
   return 'D';
 }
 
-export const PredictionForm = memo(function PredictionForm({ match, existingPrediction, onSave, saving }: PredictionFormProps) {
+export const PredictionForm = memo(function PredictionForm({ match, existingPrediction, onSave, saving, odds }: PredictionFormProps) {
   const { t } = useLangStore();
   const locked = isMatchLocked(match.kickoff_time) || match.status !== 'NS';
   const resolved = existingPrediction?.is_resolved ?? false;
@@ -155,6 +157,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           awayTeam={match.away_team}
           color={TIER_COLORS[0]}
           lockedByScore={hasExactScore}
+          odds={odds}
         />
       ),
     },
@@ -381,7 +384,7 @@ function InlineBoolTier({
 }
 
 function OutcomePicker({
-  value, onChange, homeTeam, awayTeam, color, lockedByScore,
+  value, onChange, homeTeam, awayTeam, color, lockedByScore, odds,
 }: {
   value: OutcomeOption | null;
   onChange: (v: OutcomeOption) => void;
@@ -389,8 +392,13 @@ function OutcomePicker({
   awayTeam: string;
   color: typeof TIER_COLORS[number];
   lockedByScore?: boolean;
+  odds?: { homeWin: number; draw: number; awayWin: number } | null;
 }) {
   const { t } = useLangStore();
+  const prob: Record<OutcomeOption, number | null> = odds
+    ? { H: Math.round(odds.homeWin * 100), D: Math.round(odds.draw * 100), A: Math.round(odds.awayWin * 100) }
+    : { H: null, D: null, A: null };
+
   const options: { val: OutcomeOption; label: string }[] = [
     { val: 'H', label: homeTeam.split(' ').pop() || t('home') },
     { val: 'D', label: t('draw') },
@@ -405,14 +413,19 @@ function OutcomePicker({
           onClick={() => { if (!lockedByScore) onChange(val); }}
           disabled={lockedByScore}
           className={cn(
-            'py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border truncate',
+            'py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
             lockedByScore && value !== val && 'opacity-40 cursor-not-allowed',
           )}
         >
-          {label}
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="truncate w-full text-center">{label}</span>
+            {prob[val] !== null && (
+              <span className="font-barlow text-[9px] opacity-45 leading-none">{prob[val]}%</span>
+            )}
+          </div>
         </button>
       ))}
       {lockedByScore && (
