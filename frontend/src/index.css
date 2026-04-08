@@ -280,6 +280,15 @@ html.light .bento-default-value { color: #0A1733 !important; }
   50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(245,158,11,0); }
 }
 
+@keyframes liveBreathing {
+  0%, 100% { box-shadow: 0 0 12px rgba(73,136,196,0.15), inset 0 1px 0 rgba(73,136,196,0.06); }
+  50% { box-shadow: 0 0 28px rgba(73,136,196,0.30), inset 0 1px 0 rgba(73,136,196,0.12); }
+}
+
+.animate-live-breathing {
+  animation: liveBreathing 2.5s ease-in-out infinite;
+}
+
 /* ============================================================
    Input styling — prevent browser white background
    ============================================================ */

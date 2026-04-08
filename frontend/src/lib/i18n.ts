@@ -281,6 +281,12 @@ export const translations = {
     midfielder: 'MID',
     forward: 'FWD',
 
+    // Pulse Feed (Sprint 8)
+    enableLiveAnimations: 'Live Match Animations',
+    enableLiveAnimationsDesc: 'Show real-time score flips and live breathing effects',
+    startingSoon: 'Starting Soon',
+    preferences: 'Preferences',
+
     // Notification Center
     notifications: 'Notifications',
     notifMarkAllRead: 'Mark all as read',
@@ -571,6 +577,12 @@ export const translations = {
     defender: 'הגנה',
     midfielder: 'קישור',
     forward: 'התקפה',
+
+    // Pulse Feed (Sprint 8)
+    enableLiveAnimations: 'אנימציות משחק חי',
+    enableLiveAnimationsDesc: 'הצג אנימציית תוצאות ואפקטים חיים',
+    startingSoon: 'מתחיל בקרוב',
+    preferences: 'העדפות',
 
     // Notification Center
     notifications: 'התראות',

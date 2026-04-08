@@ -401,7 +401,7 @@ export function ProfilePage() {
               {t('noAnalyticsYet')}
             </motion.p>
           ) : (
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
 
               {/* ── Card 1: Best Tier ───────────────────────────────────────── */}
               <motion.div
@@ -495,7 +495,7 @@ export function ProfilePage() {
               {/* ── Card 3: Recent Form ──────────────────────────────────────── */}
               {/* Last 5 FT result predictions as animated dots + streak      */}
               <motion.div
-                className="h-full"
+                className="h-full col-span-2 sm:col-span-1"
                 variants={{ hidden: { opacity: 0, y: 16, scale: 0.94 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 120, damping: 18 } } }}
                 whileHover={{ scale: 1.03, y: -2 }}
                 transition={{ type: 'spring', stiffness: 300 }}

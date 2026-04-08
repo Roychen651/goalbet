@@ -28,8 +28,8 @@ const ITEM = {
 // ─── Shared label — fixed h-8 so numbers always align at the same vertical offset ──
 function Label({ children, info }: { children: React.ReactNode; info?: string }) {
   return (
-    <div className="h-8 flex items-start gap-1">
-      <span className="text-[10px] uppercase tracking-[0.18em] font-sans font-semibold text-white/35 leading-tight bento-label">
+    <div className="h-8 flex items-start gap-1 min-w-0">
+      <span className="text-[10px] uppercase tracking-[0.18em] font-sans font-semibold text-white/35 leading-tight bento-label truncate min-w-0">
         {children}
       </span>
       {info && <InfoTip text={info} />}
@@ -66,7 +66,7 @@ function MicroCard({
     <motion.div variants={ITEM} className="h-full">
       <TiltCardV2 maxRotate={3} className="h-full">
         <div className={cn(
-          'h-full rounded-2xl border p-4 flex flex-col backdrop-blur-glass',
+          'h-full rounded-2xl border p-4 flex flex-col backdrop-blur-glass overflow-hidden',
           accent  ? 'bento-card-accent'  :
           purple  ? 'bento-card-purple'  :
                     'bento-card-default',
@@ -80,7 +80,7 @@ function MicroCard({
             )}
           />
           {sub && (
-            <p className="text-white/30 text-[10px] font-sans mt-1 leading-tight bento-sub">
+            <p className="text-white/30 text-[10px] font-sans mt-1 leading-tight bento-sub truncate">
               {sub}
             </p>
           )}
@@ -117,11 +117,11 @@ export function ProfileBentoV2({
       variants={STAGGER}
       initial="hidden"
       animate="show"
-      className="grid grid-cols-4 grid-rows-2 gap-3 auto-rows-fr"
+      className="grid grid-cols-2 sm:grid-cols-4 gap-3 auto-rows-fr"
       style={{ minHeight: '220px' }}
     >
       {/* ── Hero card: Total Points — 2×2 ─────────────────────────────────── */}
-      <motion.div variants={ITEM} className="col-span-2 row-span-2">
+      <motion.div variants={ITEM} className="col-span-2 sm:row-span-2">
         <TiltCardV2 maxRotate={3} className="h-full">
           <div className="h-full rounded-2xl border bento-hero-card backdrop-blur-glass p-5 flex flex-col justify-between relative overflow-hidden">
             {/* Ambient bloom */}

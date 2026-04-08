@@ -16,6 +16,7 @@ import { useLangStore } from '../../stores/langStore';
 import type { TranslationKey } from '../../lib/i18n';
 import { useLiveClock } from '../../hooks/useLiveClock';
 import { useAuthStore } from '../../stores/authStore';
+import { useUIStore } from '../../stores/uiStore';
 
 const LEAGUE_ACCENT: Record<number, string> = {
   4346: '#1a4fa8', // Champions League (UEFA Blue)
@@ -162,6 +163,17 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const [expanded, setExpanded] = useState(false);
   const { t } = useLangStore();
   const { user, profile } = useAuthStore();
+  const enableLiveAnimations = useUIStore(s => s.enableLiveAnimations);
+
+  // Track previous scores for safe score-flip animation
+  const prevScoreRef = useRef<{ home: number | null; away: number | null } | null>(null);
+  const scoreChanged =
+    prevScoreRef.current !== null &&
+    (prevScoreRef.current.home !== match.home_score || prevScoreRef.current.away !== match.away_score);
+  // Update ref after reading the diff
+  useEffect(() => {
+    prevScoreRef.current = { home: match.home_score, away: match.away_score };
+  }, [match.home_score, match.away_score]);
 
   // ── Tactical intel: fetched once on expand for NS upcoming matches ──────────
   const [espnInfo, setEspnInfo] = useState<EspnMatchInfo | null>(null);
@@ -198,7 +210,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   // True when kickoff is within the next 5 minutes
   const startingSoon = !isLive && !isAET && !isFinished && !isPastKickoffNS && (() => {
     const diffMs = new Date(match.kickoff_time).getTime() - Date.now();
-    return diffMs > 0 && diffMs < 5 * 60 * 1000;
+    return diffMs > 0 && diffMs < 30 * 60 * 1000;
   })();
   const leagueInfo = FOOTBALL_LEAGUES.find(l => l.id === match.league_id);
   const leagueBadge = leagueInfo?.badge;
@@ -236,6 +248,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
       variant={cardVariant}
       leagueAccent={LEAGUE_ACCENT[match.league_id]}
       className="overflow-hidden"
+      breathing={enableLiveAnimations && isInProgress}
       interactive
     >
       {/* Card header */}
@@ -347,17 +360,26 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
           <div className="flex-1 flex flex-col items-center">
             {isLive || isAET || isFinished || (isPastKickoffNS && match.home_score !== null) ? (
               <div className="flex flex-col items-center gap-0.5">
-                <motion.span
-                  key={`${match.home_score}-${match.away_score}`}
-                  initial={{ scale: 1.15 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                  className="text-2xl font-bebas tracking-widest"
-                >
-                  <span className={homeLeading ? 'text-accent-green' : awayLeading ? 'text-white/50' : 'text-white'}>{match.home_score ?? 0}</span>
-                  <span className="text-white/40"> — </span>
-                  <span className={awayLeading ? 'text-accent-green' : homeLeading ? 'text-white/50' : 'text-white'}>{match.away_score ?? 0}</span>
-                </motion.span>
+                {/* Safe score flipper: animate only on genuine live score changes, not initial render or bulk sync */}
+                {(() => {
+                  const shouldFlip = enableLiveAnimations && scoreChanged && LIVE_STATUSES.includes(match.status);
+                  return (
+                    <AnimatePresence mode="popLayout">
+                      <motion.span
+                        key={`${match.home_score}-${match.away_score}`}
+                        initial={shouldFlip ? { y: -15, opacity: 0 } : false}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={shouldFlip ? { y: 15, opacity: 0 } : undefined}
+                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                        className="text-2xl font-bebas tracking-widest"
+                      >
+                        <span className={homeLeading ? 'text-accent-green' : awayLeading ? 'text-white/50' : 'text-white'}>{match.home_score ?? 0}</span>
+                        <span className="text-white/40"> — </span>
+                        <span className={awayLeading ? 'text-accent-green' : homeLeading ? 'text-white/50' : 'text-white'}>{match.away_score ?? 0}</span>
+                      </motion.span>
+                    </AnimatePresence>
+                  );
+                })()}
                 {isInProgress && liveClock && (
                   <div className="flex items-center gap-1.5">
                     <motion.span
@@ -430,10 +452,10 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 {startingSoon ? (
                   <motion.span
                     animate={{ opacity: [1, 0.4, 1] }}
-                    transition={{ duration: 0.8, repeat: Infinity }}
-                    className="text-accent-green text-xs font-semibold"
+                    transition={{ duration: 1.2, repeat: Infinity }}
+                    className="text-accent-orange text-xs font-semibold"
                   >
-                    {t('startingNow')}
+                    {t('startingSoon')}
                   </motion.span>
                 ) : countdown ? (
                   <span className="text-accent-green text-xs">{countdown}</span>

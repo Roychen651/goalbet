@@ -9,17 +9,22 @@ export interface Toast {
 interface UIState {
   toasts: Toast[];
   activeModal: string | null;
+  enableLiveAnimations: boolean;
   addToast: (message: string, type?: Toast['type']) => void;
   removeToast: (id: string) => void;
   openModal: (name: string) => void;
   closeModal: () => void;
+  toggleLiveAnimations: () => void;
 }
 
 let toastCounter = 0;
 
+const LIVE_ANIM_KEY = 'goalbet:liveAnimations';
+
 export const useUIStore = create<UIState>((set) => ({
   toasts: [],
   activeModal: null,
+  enableLiveAnimations: localStorage.getItem(LIVE_ANIM_KEY) !== 'false',
 
   addToast: (message, type = 'info') => {
     const id = `toast-${++toastCounter}`;
@@ -35,4 +40,11 @@ export const useUIStore = create<UIState>((set) => ({
 
   openModal: (name) => set({ activeModal: name }),
   closeModal: () => set({ activeModal: null }),
+
+  toggleLiveAnimations: () =>
+    set(state => {
+      const next = !state.enableLiveAnimations;
+      localStorage.setItem(LIVE_ANIM_KEY, String(next));
+      return { enableLiveAnimations: next };
+    }),
 }));

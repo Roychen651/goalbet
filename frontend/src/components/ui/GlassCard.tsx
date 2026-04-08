@@ -13,6 +13,8 @@ interface GlassCardProps {
   leagueAccent?: string;
   /** Enables the dynamic cursor-tracking spotlight glare effect */
   interactive?: boolean;
+  /** Enables a subtle CSS breathing glow for live cards (CPU-efficient) */
+  breathing?: boolean;
 }
 
 export function GlassCard({
@@ -24,6 +26,7 @@ export function GlassCard({
   style,
   leagueAccent,
   interactive,
+  breathing,
 }: GlassCardProps) {
   // Always initialize motion values — hooks must be unconditional
   const mouseX = useMotionValue(0);
@@ -50,6 +53,7 @@ export function GlassCard({
       'shadow-[0_0_32px_rgba(96,165,250,0.12),inset_0_1px_0_rgba(96,165,250,0.10)]',
     ],
     onClick && 'cursor-pointer card-clickable',
+    breathing && 'animate-live-breathing',
     // Needed for the absolute-positioned glare overlay to be contained
     (interactive || onClick) && 'relative overflow-hidden group',
     className,

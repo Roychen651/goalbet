@@ -19,7 +19,7 @@ import { supabase } from '../lib/supabase';
 export function SettingsPage() {
   const { groups, activeGroupId, setActiveGroup, updateGroupLeagues, updateGroupName, leaveGroup, deleteGroup, removeMember } = useGroupStore();
   const { user, signOut } = useAuthStore();
-  const { addToast, openModal } = useUIStore();
+  const { addToast, openModal, enableLiveAnimations } = useUIStore();
   const { t, lang } = useLangStore();
   const [savingLeagues, setSavingLeagues] = useState(false);
   const [showPolicy, setShowPolicy] = useState(false);
@@ -436,6 +436,40 @@ export function SettingsPage() {
           {lang === 'he' ? 'פתח' : 'Open'}
         </button>
       </GlassCard>
+
+      {/* Preferences */}
+      <section>
+        <h2 className="text-text-muted text-xs uppercase tracking-wider mb-2">{t('preferences')}</h2>
+        <GlassCard className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-accent-green/10 border border-accent-green/20 flex items-center justify-center shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent-green"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-white text-sm font-medium">{t('enableLiveAnimations')}</p>
+                <p className="text-text-muted text-xs mt-0.5">{t('enableLiveAnimationsDesc')}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => useUIStore.getState().toggleLiveAnimations()}
+              className={cn(
+                'relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ms-3',
+                enableLiveAnimations ? 'bg-accent-green/30' : 'bg-white/10',
+              )}
+            >
+              <motion.div
+                className={cn(
+                  'absolute top-0.5 w-5 h-5 rounded-full shadow-md transition-colors duration-200',
+                  enableLiveAnimations ? 'bg-accent-green' : 'bg-white/40',
+                )}
+                animate={{ x: enableLiveAnimations ? 22 : 2 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              />
+            </button>
+          </div>
+        </GlassCard>
+      </section>
 
       {/* Account */}
       <section>
