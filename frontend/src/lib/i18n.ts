@@ -302,6 +302,25 @@ export const translations = {
     h2hTotalPoints: 'Total Points',
     minPredictions: 'min {0} picks',
 
+    // The Vault (Sprint 10)
+    vaultPreferences: 'Preferences',
+    vaultAccount: 'Account',
+    vaultGroupHub: 'Group Hub',
+    vaultAdminTools: 'Admin Tools',
+    language: 'Language',
+    theme: 'Theme',
+    signedInAs: 'Signed in as',
+    changePassword: 'Change Password',
+    changePasswordDesc: 'Set a new sign-in password',
+    savePassword: 'Save Password',
+    deleteGroupTitle: 'Delete Group',
+    deleteGroupDesc: 'Permanently remove this group and all its data.',
+    deleteGroupWarning: 'This will permanently delete "{0}" for all members. This cannot be undone.',
+    yesDeleteGroup: 'Yes, Delete Group',
+    copyInviteCode: 'Copy Code',
+    copiedCode: 'Copied!',
+    groupActions: 'Group Actions',
+
     // Notification Center
     notifications: 'Notifications',
     notifMarkAllRead: 'Mark all as read',
@@ -613,6 +632,25 @@ export const translations = {
     h2hAccuracy: 'דיוק',
     h2hTotalPoints: 'סה"כ נקודות',
     minPredictions: 'מינ׳ {0} ניבויים',
+
+    // The Vault (Sprint 10)
+    vaultPreferences: 'העדפות',
+    vaultAccount: 'חשבון',
+    vaultGroupHub: 'מרכז קבוצה',
+    vaultAdminTools: 'כלי ניהול',
+    language: 'שפה',
+    theme: 'ערכת נושא',
+    signedInAs: 'מחובר בתור',
+    changePassword: 'שנה סיסמה',
+    changePasswordDesc: 'הגדר סיסמה חדשה לכניסה',
+    savePassword: 'שמור סיסמה',
+    deleteGroupTitle: 'מחק קבוצה',
+    deleteGroupDesc: 'הסר קבוצה זו לצמיתות כולל כל הנתונים.',
+    deleteGroupWarning: 'פעולה זו תמחק לצמיתות את "{0}" עבור כל החברים. לא ניתן לבטל.',
+    yesDeleteGroup: 'כן, מחק קבוצה',
+    copyInviteCode: 'העתק קוד',
+    copiedCode: 'הועתק!',
+    groupActions: 'פעולות קבוצה',
 
     // Notification Center
     notifications: 'התראות',
