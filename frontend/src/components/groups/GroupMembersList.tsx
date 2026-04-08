@@ -109,7 +109,7 @@ export function GroupMembersList({ groupId, createdBy, isAdmin, onRemoveMember }
                   disabled={removingId === member.id}
                   className="text-xs text-text-muted hover:text-red-400 px-2 py-1 rounded-lg hover:bg-red-400/10 transition-all disabled:opacity-40"
                 >
-                  {removingId === member.id ? '…' : 'Remove'}
+                  {removingId === member.id ? '…' : t('remove')}
                 </button>
               )}
             </motion.div>

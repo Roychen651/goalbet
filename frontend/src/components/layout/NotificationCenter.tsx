@@ -14,31 +14,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, CheckCheck } from 'lucide-react';
 import { AppNotification } from '../../hooks/useNotifications';
 import { useLangStore } from '../../stores/langStore';
+import type { TranslationKey } from '../../lib/i18n';
 import { cn } from '../../lib/utils';
 
 // ─── Time formatting ──────────────────────────────────────────────────────────
 
-function relativeTime(createdAt: string, lang: 'en' | 'he'): string {
+function relativeTime(createdAt: string, t: (key: TranslationKey) => string): string {
   const diffMs  = Date.now() - new Date(createdAt).getTime();
   const diffMin = Math.floor(diffMs / 60_000);
   const diffHr  = Math.floor(diffMs / 3_600_000);
   const diffDay = Math.floor(diffMs / 86_400_000);
 
-  if (lang === 'he') {
-    if (diffMin < 1)  return 'עכשיו';
-    if (diffMin < 60) return `${diffMin} ד׳`;
-    if (diffHr  < 24) return `${diffHr} ש׳`;
-    return `${diffDay} י׳`;
-  }
-  if (diffMin < 1)  return 'Just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr  < 24) return `${diffHr}h ago`;
-  return `${diffDay}d ago`;
+  if (diffMin < 1)  return t('notifJustNow');
+  if (diffMin < 60) return `${diffMin} ${t('notifMinAgo')}`;
+  if (diffHr  < 24) return `${diffHr} ${t('notifHrAgo')}`;
+  return `${diffDay} ${t('notifDayAgo')}`;
 }
 
 // ─── Content builder — language-aware, metadata-driven ───────────────────────
 
-function buildContent(notif: AppNotification, lang: 'en' | 'he') {
+function buildContent(notif: AppNotification, t: (key: TranslationKey) => string) {
   if (notif.type === 'prediction_result') {
     const {
       home_team = '', away_team = '',
@@ -50,11 +45,9 @@ function buildContent(notif: AppNotification, lang: 'en' | 'he') {
       ? ` ${home_score}–${away_score} ` : ' ';
 
     return {
-      title:    lang === 'he' ? 'ניבוי נפתר' : 'Prediction Resolved',
+      title:    t('notifPredictionResult'),
       body:     `${home_team}${scoreStr}${away_team}`,
-      badge:    lang === 'he'
-        ? `+${points_earned} נק׳  ·  +${coins_earned} 🪙`
-        : `+${points_earned} pts  ·  +${coins_earned} coins`,
+      badge:    `+${points_earned} ${t('notifPts')}  ·  +${coins_earned} ${t('notifCoins')}`,
       positive: points_earned > 0,
     };
   }
@@ -63,13 +56,13 @@ function buildContent(notif: AppNotification, lang: 'en' | 'he') {
 
 // ─── Single notification row ──────────────────────────────────────────────────
 
-function NotifRow({ notif, lang, onRead }: {
+function NotifRow({ notif, t, onRead }: {
   notif: AppNotification;
-  lang: 'en' | 'he';
+  t: (key: TranslationKey) => string;
   onRead: (id: string) => void;
 }) {
-  const { title, body, badge, positive } = buildContent(notif, lang);
-  const timeLabel = relativeTime(notif.created_at, lang);
+  const { title, body, badge, positive } = buildContent(notif, t);
+  const timeLabel = relativeTime(notif.created_at, t);
 
   return (
     <motion.button
@@ -125,7 +118,7 @@ function NotifRow({ notif, lang, onRead }: {
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
-function EmptyState({ lang }: { lang: 'en' | 'he' }) {
+function EmptyState({ t }: { t: (key: TranslationKey) => string }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -141,10 +134,10 @@ function EmptyState({ lang }: { lang: 'en' | 'he' }) {
         ⚽
       </motion.div>
       <p className="text-text-primary text-sm font-medium text-center opacity-70">
-        {lang === 'he' ? 'אתה מעודכן!' : "You're all caught up!"}
+        {t('notifEmpty')}
       </p>
       <p className="text-text-muted text-xs text-center opacity-70">
-        {lang === 'he' ? 'נקודות שתרוויח יופיעו כאן' : 'Earned points will appear here'}
+        {t('notifEmptyDesc')}
       </p>
     </motion.div>
   );
@@ -166,7 +159,7 @@ interface NotificationCenterProps {
 }
 
 export function NotificationCenter({ open, onClose, placement = 'bottom', notifications, unreadCount, loading, markAllRead, markRead }: NotificationCenterProps) {
-  const { lang } = useLangStore();
+  const { t } = useLangStore();
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
@@ -224,7 +217,7 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
             <div className="flex items-center gap-2">
               <Bell size={14} className="text-text-muted" />
               <span className="text-sm font-semibold text-text-primary">
-                {lang === 'he' ? 'התראות' : 'Notifications'}
+                {t('notifications')}
               </span>
               {unreadCount > 0 && (
                 <span className="text-[10px] font-bold bg-accent-green text-bg-base rounded-full px-1.5 py-0.5 leading-none">
@@ -238,7 +231,7 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
                 className="flex items-center gap-1.5 text-[11px] text-text-muted hover:text-accent-green transition-colors"
               >
                 <CheckCheck size={12} />
-                {lang === 'he' ? 'סמן הכל כנקרא' : 'Mark all as read'}
+                {t('notifMarkAllRead')}
               </button>
             )}
           </div>
@@ -253,11 +246,11 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
                 <div className="w-5 h-5 rounded-full border-2 border-[var(--card-border)] border-t-accent-green animate-spin" />
               </div>
             ) : notifications.length === 0 ? (
-              <EmptyState lang={lang} />
+              <EmptyState t={t} />
             ) : (
               <motion.div layout>
                 {notifications.map(n => (
-                  <NotifRow key={n.id} notif={n} lang={lang} onRead={markRead} />
+                  <NotifRow key={n.id} notif={n} t={t} onRead={markRead} />
                 ))}
               </motion.div>
             )}

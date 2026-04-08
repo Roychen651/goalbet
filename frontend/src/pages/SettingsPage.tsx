@@ -145,7 +145,7 @@ export function SettingsPage() {
       await updateGroupLeagues(activeGroupId, selectedLeagues);
       addToast(t('leaguesSaved'), 'success');
     } catch {
-      addToast('Failed to save preferences', 'error');
+      addToast(t('toastLeaguesFailed'), 'error');
     } finally {
       setSavingLeagues(false);
     }
@@ -156,10 +156,10 @@ export function SettingsPage() {
     setSavingName(true);
     try {
       await updateGroupName(activeGroupId, groupNameInput.trim());
-      addToast('Group name updated', 'success');
+      addToast(t('toastGroupNameUpdated'), 'success');
       setEditingName(false);
     } catch {
-      addToast('Failed to update name', 'error');
+      addToast(t('toastGroupNameFailed'), 'error');
     } finally {
       setSavingName(false);
     }
@@ -171,10 +171,10 @@ export function SettingsPage() {
     try {
       const { error } = await supabase.rpc('reset_group_scores', { p_group_id: activeGroupId });
       if (error) throw error;
-      addToast('All scores have been reset', 'success');
+      addToast(t('toastScoresReset'), 'success');
       setConfirmReset(false);
     } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to reset scores', 'error');
+      addToast(err instanceof Error ? err.message : t('toastScoresResetFailed'), 'error');
     } finally {
       setResetting(false);
     }
@@ -185,10 +185,10 @@ export function SettingsPage() {
     setDeletingGroup(true);
     try {
       await deleteGroup(activeGroupId);
-      addToast('Group deleted', 'success');
+      addToast(t('toastGroupDeleted'), 'success');
       setConfirmDeleteGroup(false);
     } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to delete group', 'error');
+      addToast(err instanceof Error ? err.message : t('toastGroupDeleteFailed'), 'error');
     } finally {
       setDeletingGroup(false);
     }
@@ -197,13 +197,13 @@ export function SettingsPage() {
   const handleRemoveMember = async (targetUserId: string) => {
     if (!activeGroupId || !isAdmin) return;
     await removeMember(activeGroupId, targetUserId);
-    addToast('Member removed', 'success');
+    addToast(t('toastMemberRemoved'), 'success');
   };
 
   const handleChangePassword = async () => {
     if (!isPasswordValid(newPassword)) return;
     if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match');
+      setPasswordError(t('toastPasswordMismatch'));
       return;
     }
     setChangingPassword(true);
@@ -211,12 +211,12 @@ export function SettingsPage() {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      addToast('Password updated successfully', 'success');
+      addToast(t('toastPasswordUpdated'), 'success');
       setShowChangePassword(false);
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : 'Failed to update password');
+      setPasswordError(err instanceof Error ? err.message : t('toastPasswordFailed'));
     } finally {
       setChangingPassword(false);
     }
@@ -235,7 +235,7 @@ export function SettingsPage() {
       addToast(t('leftGroup'), 'success');
       setConfirmLeaveId(null);
     } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to leave group', 'error');
+      addToast(err instanceof Error ? err.message : t('toastLeaveFailed'), 'error');
     } finally {
       setLeavingGroupId(null);
     }
@@ -347,7 +347,7 @@ export function SettingsPage() {
                     value={groupNameInput}
                     onChange={e => setGroupNameInput(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-xl bg-white/8 border border-white/15 text-text-primary text-sm focus:outline-none focus:border-accent-green/50"
-                    placeholder="Group name"
+                    placeholder={t('groupNamePlaceholderShort')}
                     maxLength={40}
                   />
                   <NeonButton variant="green" size="sm" loading={savingName} onClick={handleSaveName}>{t('save')}</NeonButton>
@@ -447,10 +447,10 @@ export function SettingsPage() {
             </div>
             <div>
               <p className="text-text-primary text-sm font-medium">{t('syncMatchesTitle')}</p>
-              <p className="text-text-muted text-xs mt-0.5">{lastSynced ? `Last synced: ${lastSynced.toLocaleTimeString()}` : 'Pull latest fixtures from ESPN'}</p>
+              <p className="text-text-muted text-xs mt-0.5">{lastSynced ? t('lastSynced').replace('{0}', lastSynced.toLocaleTimeString()) : t('syncDesc')}</p>
             </div>
           </div>
-          <NeonButton variant="ghost" size="sm" loading={syncing} onClick={triggerSync}>{syncing ? 'Syncing…' : '⟳ Sync Now'}</NeonButton>
+          <NeonButton variant="ghost" size="sm" loading={syncing} onClick={triggerSync}>{syncing ? t('syncing') : t('syncNow')}</NeonButton>
         </GlassCard>
 
         {/* League Selection */}
@@ -617,7 +617,7 @@ export function SettingsPage() {
             </div>
             <div className="text-start">
               <p className="text-text-primary text-sm font-medium">{t('userGuide')}</p>
-              <p className="text-text-muted text-xs mt-0.5">{lang === 'he' ? 'ניקוד, מטבעות ואיך לשחק' : 'Scoring, coins, and how to play'}</p>
+              <p className="text-text-muted text-xs mt-0.5">{t('userGuideDesc')}</p>
             </div>
           </div>
           <ChevronRight size={16} className="text-text-muted group-hover:text-accent-green transition-colors" />
@@ -768,7 +768,7 @@ function AccountCard({
                 onClick={() => { setShowChangePassword(true); setPasswordError(''); setNewPassword(''); setConfirmPassword(''); }}
                 className="shrink-0 px-3 py-1.5 rounded-xl bg-white/6 border border-white/12 text-text-muted hover:text-text-primary hover:bg-white/10 text-xs font-medium transition-all"
               >
-                Change
+                {t('change')}
               </button>
             )}
           </div>
@@ -787,7 +787,7 @@ function AccountCard({
                       type="password"
                       value={newPassword}
                       onChange={e => { setNewPassword(e.target.value); setPasswordError(''); }}
-                      placeholder="New password"
+                      placeholder={t('newPasswordPlaceholder')}
                       className="w-full px-4 py-2.5 rounded-xl bg-white/8 border border-white/15 text-text-primary text-sm placeholder-white/25 focus:outline-none focus:border-accent-green/50 transition-colors"
                       autoComplete="new-password"
                     />
@@ -806,7 +806,7 @@ function AccountCard({
                         type="password"
                         value={confirmPassword}
                         onChange={e => { setConfirmPassword(e.target.value); setPasswordError(''); }}
-                        placeholder="Confirm new password"
+                        placeholder={t('confirmPasswordPlaceholder')}
                         className="w-full px-4 py-2.5 rounded-xl bg-white/8 border border-white/15 text-text-primary text-sm placeholder-white/25 focus:outline-none focus:border-accent-green/50 transition-colors"
                         autoComplete="new-password"
                       />

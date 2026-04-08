@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { cn } from '../../lib/utils';
+import { useLangStore } from '../../stores/langStore';
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
@@ -21,11 +22,12 @@ export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) 
 }
 
 export function PageLoader() {
+  const { t } = useLangStore();
   const [slow, setSlow] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setSlow(true), 7000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSlow(true), 7000);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -33,7 +35,7 @@ export function PageLoader() {
       <div className="flex flex-col items-center gap-3">
         <span className="text-4xl animate-bounce select-none">⚽</span>
         <p className="text-text-muted text-sm">
-          {slow ? 'Waking up the server… almost there' : 'Loading matches…'}
+          {slow ? t('loadingSlow') : t('loadingMatches')}
         </p>
         {slow && (
           <p className="text-text-muted/50 text-xs max-w-[220px] text-center">

@@ -184,6 +184,7 @@ function PlayerRow({ player, idx, he }: { player: Player; idx: number; he: boole
 // ── Team Roster Panel ────────────────────────────────────────────────────────
 
 function TeamPanel({ roster, he }: { roster: TeamRoster; he: boolean }) {
+  const { t } = useLangStore();
   const shortName = roster.teamName.split(' ').pop() || roster.teamName;
 
   return (
@@ -204,7 +205,7 @@ function TeamPanel({ roster, he }: { roster: TeamRoster; he: boolean }) {
       <div className="rounded-xl border border-border-subtle bg-white/[0.015] overflow-hidden">
         <div className="px-2.5 py-1.5 border-b border-white/5">
           <span className="text-[9px] uppercase tracking-widest text-text-muted/50 font-semibold">
-            {he ? 'הרכב פתיחה' : 'Starting XI'}
+            {t('startingXI')}
           </span>
         </div>
         <div className="py-0.5">
@@ -219,7 +220,7 @@ function TeamPanel({ roster, he }: { roster: TeamRoster; he: boolean }) {
         <div className="rounded-xl border border-border-subtle bg-white/[0.015] overflow-hidden">
           <div className="px-2.5 py-1.5 border-b border-white/5">
             <span className="text-[9px] uppercase tracking-widest text-text-muted/50 font-semibold">
-              {he ? 'מחליפים' : 'Substitutes'}
+              {t('substitutes')}
             </span>
           </div>
           <div

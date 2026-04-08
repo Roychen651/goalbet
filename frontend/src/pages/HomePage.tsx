@@ -196,7 +196,7 @@ export function HomePage() {
             ) : (
               <span>⬇</span>
             )}
-            <span>{loadingMore ? 'Loading...' : 'Load more fixtures'}</span>
+            <span>{loadingMore ? t('loadingMore') : t('loadMore')}</span>
             {!loadingMore && <span className="text-white/30 text-xs">+14 days</span>}
           </motion.button>
           <p className="text-white/20 text-xs">Showing up to {upcomingDays} days ahead</p>

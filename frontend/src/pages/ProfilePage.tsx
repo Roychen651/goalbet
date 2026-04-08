@@ -714,7 +714,7 @@ function PredictionSection({ title, predictions, expandedIds, toggleExpanded, co
                       <CoinStakedPill coins={pred.coins_bet ?? 0} />
                     )}
                     {editable && (
-                      <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(pred.id); }} className="text-text-muted hover:text-red-400 text-xs px-1.5 py-1 rounded-lg hover:bg-red-400/10 transition-all" title="Remove prediction">🗑</button>
+                      <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(pred.id); }} className="text-text-muted hover:text-red-400 text-xs px-1.5 py-1 rounded-lg hover:bg-red-400/10 transition-all" title={t('removePrediction')}>🗑</button>
                     )}
                     <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="text-white/20 text-xs">▾</motion.div>
                   </div>

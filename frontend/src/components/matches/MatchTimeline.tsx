@@ -174,25 +174,14 @@ function eventTextColor(type: MatchEvent['type']): string {
   }
 }
 
-function periodTitle(period: number): string {
+function periodTitle(period: number, he: boolean): string {
   switch (period) {
-    case 1: return '1st Half';
-    case 2: return '2nd Half';
-    case 3: return '1st Extra Time';
-    case 4: return '2nd Extra Time';
-    case 5: return 'Penalty Shootout';
-    default: return `Period ${period}`;
-  }
-}
-
-function periodTitleHe(period: number): string {
-  switch (period) {
-    case 1: return 'מחצית ראשונה';
-    case 2: return 'מחצית שנייה';
-    case 3: return 'הארכה 1';
-    case 4: return 'הארכה 2';
-    case 5: return 'פנדלים';
-    default: return `תקופה ${period}`;
+    case 1: return he ? 'מחצית ראשונה' : '1st Half';
+    case 2: return he ? 'מחצית שנייה' : '2nd Half';
+    case 3: return he ? 'הארכה 1' : '1st Extra Time';
+    case 4: return he ? 'הארכה 2' : '2nd Extra Time';
+    case 5: return he ? 'פנדלים' : 'Penalty Shootout';
+    default: return he ? `תקופה ${period}` : `Period ${period}`;
   }
 }
 
@@ -466,22 +455,18 @@ export function MatchTimeline({ match }: { match: Match }) {
                     const periodEvents = events.filter(e => e.period === period);
                     const prevScore = pi > 0 ? goalsUpTo(periods[pi - 1]) : null;
                     const isNewSection = pi > 0;
-                    const pinLabel = he
-                      ? (period === 2 ? 'מחצית' :
-                         period === 3 ? 'סיום' :
-                         period === 4 ? 'מחצית הארכה' :
-                         period === 5 ? 'אחרי הארכה' : '')
-                      : (period === 2 ? 'Half Time' :
-                         period === 3 ? 'Full Time' :
-                         period === 4 ? 'AET Half Time' :
-                         period === 5 ? 'After Extra Time' : '');
+                    const pinLabel =
+                      period === 2 ? t('timelineHalfTime') :
+                      period === 3 ? t('timelineFullTime') :
+                      period === 4 ? t('timelineHalfTime') :
+                      period === 5 ? t('timelineAfterET') : '';
 
                     return (
                       <div key={period}>
                         {isNewSection && prevScore && (
                           <ScorePin label={pinLabel} home={prevScore.h} away={prevScore.a} />
                         )}
-                        <SectionDivider label={he ? periodTitleHe(period) : periodTitle(period)} />
+                        <SectionDivider label={periodTitle(period, he)} />
                         {periodEvents.map((ev, i) => (
                           <EventRow
                             key={`${ev.period}-${ev.minute}-${ev.stoppage}-${ev.team}-${i}`}
@@ -497,11 +482,8 @@ export function MatchTimeline({ match }: { match: Match }) {
                   {/* Final score at bottom */}
                   {(() => {
                     const final = goalsUpTo(Math.max(...periods));
-                    const label = he
-                      ? (match.went_to_penalties ? 'אחרי פנדלים' :
-                         match.regulation_home !== null ? 'אחרי הארכה' : 'סיום')
-                      : (match.went_to_penalties ? 'After Penalties' :
-                         match.regulation_home !== null ? 'After Extra Time' : 'Full Time');
+                    const label = match.went_to_penalties ? t('timelineAfterPens') :
+                         match.regulation_home !== null ? t('timelineAfterET') : t('timelineFullTime');
                     return (
                       <div className="mt-2 pt-2 border-t border-white/5">
                         <ScorePin label={label} home={final.h} away={final.a} />

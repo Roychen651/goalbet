@@ -393,10 +393,10 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                       {liveClock}
                     </motion.span>
                     {match.status === 'ET1' && (
-                      <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">1st ET</span>
+                      <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">{t('firstET')}</span>
                     )}
                     {match.status === 'ET2' && (
-                      <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">2nd ET</span>
+                      <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">{t('secondET')}</span>
                     )}
                   </div>
                 )}
@@ -482,11 +482,11 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                       animate={{ opacity: 1, scale: 1 }}
                       className="text-amber-300 text-[11px] font-bold tracking-wider mt-0.5"
                     >
-                      Pens: {match.penalty_home}–{match.penalty_away}
+                      {t('pens')}: {match.penalty_home}–{match.penalty_away}
                     </motion.span>
                   ) : (
                     <span className="text-amber-400/70 text-[10px] font-semibold uppercase tracking-wider">
-                      Penalty Shootout
+                      {t('penaltyShootout')}
                     </span>
                   )
                 )}
@@ -691,6 +691,7 @@ function ResolvedETPanel({ prediction, match }: { prediction: Prediction; match:
 
 // ── Shared ET/PEN result block — shown on all finished AET/PEN cards ──────────
 function ETSummaryBlock({ match }: { match: Match }) {
+  const { t } = useLangStore();
   const wentToET = match.regulation_home != null || match.went_to_penalties;
   if (!wentToET || match.home_score === null) return null;
 
@@ -701,17 +702,17 @@ function ETSummaryBlock({ match }: { match: Match }) {
 
   return (
     <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20">
-      <p className="text-amber-400/60 text-[9px] uppercase tracking-widest mb-2">Extra Time</p>
+      <p className="text-amber-400/60 text-[9px] uppercase tracking-widest mb-2">{t('extraTime')}</p>
       <div className="space-y-1">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-white/50">90′ Result</span>
+          <span className="text-white/50">{t('ninetyMinResult')}</span>
           <span className="text-white/80 font-semibold tabular-nums">
             {match.regulation_home ?? match.home_score} – {match.regulation_away ?? match.away_score}
           </span>
         </div>
         {etGoals && (
           <div className="flex items-center justify-between text-xs">
-            <span className="text-white/50">120′ (a.e.t.)</span>
+            <span className="text-white/50">{t('aetResult')}</span>
             <span className="text-amber-300 font-semibold tabular-nums">
               {match.home_score} – {match.away_score}
             </span>
@@ -719,7 +720,7 @@ function ETSummaryBlock({ match }: { match: Match }) {
         )}
         {wentToPens && (
           <div className="flex items-center justify-between text-xs border-t border-amber-500/15 pt-1 mt-1">
-            <span className="text-amber-300/80">Penalty Shootout</span>
+            <span className="text-amber-300/80">{t('penaltyShootout')}</span>
             <span className="text-amber-300 font-bold tabular-nums text-sm">
               {match.penalty_home !== null ? `${match.penalty_home} – ${match.penalty_away}` : '—'}
             </span>
@@ -828,14 +829,14 @@ function MatchCoinSummary({ coinsBet, pointsEarned }: { coinsBet: number; points
 
 // ── Tactical Intel components ────────────────────────────────────────────────
 
-function FormDots({ form, he }: { form: string | null; he: boolean }) {
+function FormDots({ form, t }: { form: string | null; t: (k: TranslationKey) => string }) {
   if (!form) return null;
   const chars = form.slice(-5).split(''); // oldest → newest, left → right
   const last = chars.length - 1;
   return (
     <div className="flex items-center gap-1">
       {/* Oldest label */}
-      <span className="text-[7px] text-white/15 uppercase tracking-wider shrink-0">{he ? 'ישן' : 'old'}</span>
+      <span className="text-[7px] text-white/15 uppercase tracking-wider shrink-0">{t('formOld')}</span>
       {chars.map((c, i) => {
         const isNewest = i === last;
         const colorClass = c === 'W'
@@ -862,7 +863,7 @@ function FormDots({ form, he }: { form: string | null; he: boolean }) {
       })}
       {/* Newest label + arrow */}
       <span className="text-[7px] text-white/25 uppercase tracking-wider shrink-0 font-semibold">
-        {he ? 'חדש ←' : '→ new'}
+        {t('formNew')}
       </span>
     </div>
   );
@@ -873,8 +874,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
   homeName: string;
   awayName: string;
 }) {
-  const { lang } = useLangStore();
-  const he = lang === 'he';
+  const { t } = useLangStore();
 
   const homeShort = homeName.split(' ').pop() || homeName;
   const awayShort = awayName.split(' ').pop() || awayName;
@@ -894,7 +894,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
       {hasForm && (
         <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
           <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
-            {he ? 'פורמה · 5 משחקים אחרונים' : 'Team Form · Last 5'}
+            {t('teamFormLast5')}
           </p>
           <div className="space-y-2">
             {([
@@ -904,10 +904,10 @@ function TacticalIntelSection({ info, homeName, awayName }: {
               <div key={name} className="flex items-center gap-2">
                 <span className="font-barlow text-[11px] text-text-muted w-[68px] shrink-0 truncate">{name}</span>
                 {form ? (
-                  <FormDots form={form} he={he} />
+                  <FormDots form={form} t={t} />
                 ) : (
                   <span className="text-[10px] text-white/20 italic">
-                    {he ? 'אין נתונים' : 'no data'}
+                    {t('noData')}
                   </span>
                 )}
                 {record && (
@@ -921,9 +921,9 @@ function TacticalIntelSection({ info, homeName, awayName }: {
           {/* Legend */}
           <div className="flex items-center gap-3 mt-2 pt-1.5 border-t border-white/5">
             {[
-              { color: 'bg-emerald-400', label: he ? 'נצח' : 'Win' },
-              { color: 'bg-yellow-400',  label: he ? 'תיקו' : 'Draw' },
-              { color: 'bg-red-400',     label: he ? 'הפסד' : 'Loss' },
+              { color: 'bg-emerald-400', label: t('formWin') },
+              { color: 'bg-yellow-400',  label: t('formDraw') },
+              { color: 'bg-red-400',     label: t('formLoss') },
             ].map(({ color, label }) => (
               <div key={label} className="flex items-center gap-1">
                 <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color)} />
@@ -938,18 +938,18 @@ function TacticalIntelSection({ info, homeName, awayName }: {
       {info.h2h && h2hTotal >= 3 && (
         <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
           <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
-            {he ? `עימותים ישירים · ${h2hTotal} אחרונים` : `Head to Head · Last ${h2hTotal}`}
+            {t('h2hLastN').replace('{0}', String(h2hTotal))}
           </p>
           <div className="grid grid-cols-3 gap-1 text-center">
             {/* Home wins */}
             <div className="flex flex-col items-center gap-0.5">
               <span className="font-barlow text-[10px] text-text-muted truncate w-full text-center px-1">{homeShort}</span>
               <span className="font-bebas text-2xl leading-none text-accent-green">{info.h2h.homeWins}</span>
-              <span className="font-barlow text-[8px] uppercase tracking-widest text-white/25">{he ? 'נצחונות' : 'Wins'}</span>
+              <span className="font-barlow text-[8px] uppercase tracking-widest text-white/25">{t('wins')}</span>
             </div>
             {/* Draws */}
             <div className="flex flex-col items-center gap-0.5">
-              <span className="font-barlow text-[10px] text-text-muted">{he ? 'תיקו' : 'Draws'}</span>
+              <span className="font-barlow text-[10px] text-text-muted">{t('draws')}</span>
               <span className="font-bebas text-2xl leading-none text-yellow-400/80">{info.h2h.draws}</span>
               <span className="font-barlow text-[8px] uppercase tracking-widest text-white/25">—</span>
             </div>
@@ -957,7 +957,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
             <div className="flex flex-col items-center gap-0.5">
               <span className="font-barlow text-[10px] text-text-muted truncate w-full text-center px-1">{awayShort}</span>
               <span className="font-bebas text-2xl leading-none text-red-400/80">{info.h2h.awayWins}</span>
-              <span className="font-barlow text-[8px] uppercase tracking-widest text-white/25">{he ? 'נצחונות' : 'Wins'}</span>
+              <span className="font-barlow text-[8px] uppercase tracking-widest text-white/25">{t('wins')}</span>
             </div>
           </div>
         </div>
@@ -970,7 +970,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
           <span className="font-barlow text-[11px] text-text-muted truncate">{info.venue}</span>
           {info.attendance && (
             <span className="ms-auto text-[10px] text-white/25 tabular-nums shrink-0 font-mono">
-              {info.attendance.toLocaleString()} {he ? 'אוהדים' : 'fans'}
+              {info.attendance.toLocaleString()} {t('fans')}
             </span>
           )}
         </div>
