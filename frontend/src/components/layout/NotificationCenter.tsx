@@ -192,7 +192,7 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
   //   bottom / sm+    : absolute dropdown, end-aligned, standard width
   //   right           : absolute to the right of the sidebar bell button
   const positionClasses = placement === 'right'
-    ? 'absolute start-full ms-3 top-0 w-[340px]'
+    ? 'absolute start-full ms-3 bottom-0 w-[340px]'
     // Mobile: fixed full-width; sm+: sm:absolute overrides fixed via higher specificity media query
     : 'fixed inset-x-2 top-[58px] sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:w-[340px]';
 

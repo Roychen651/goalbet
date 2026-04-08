@@ -827,6 +827,9 @@ function TacticalIntelSection({ info, homeName, awayName }: {
   homeName: string;
   awayName: string;
 }) {
+  const { lang } = useLangStore();
+  const he = lang === 'he';
+
   const homeShort = homeName.split(' ').pop() || homeName;
   const awayShort = awayName.split(' ').pop() || awayName;
   const hasForm = info.homeForm || info.awayForm || info.homeRecord || info.awayRecord;
@@ -845,7 +848,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
       {hasForm && (
         <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
           <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
-            Team Form · Last 5
+            {he ? 'פורמה · 5 משחקים אחרונים' : 'Team Form · Last 5'}
           </p>
           <div className="space-y-2">
             {([
@@ -854,7 +857,13 @@ function TacticalIntelSection({ info, homeName, awayName }: {
             ] as const).map(({ name, form, record }) => (
               <div key={name} className="flex items-center gap-2">
                 <span className="font-barlow text-[11px] text-text-muted w-[68px] shrink-0 truncate">{name}</span>
-                <FormDots form={form} />
+                {form ? (
+                  <FormDots form={form} />
+                ) : (
+                  <span className="text-[10px] text-white/20 italic">
+                    {he ? 'אין נתונים' : 'no data'}
+                  </span>
+                )}
                 {record && (
                   <span className="ms-auto font-mono text-[10px] text-white/25 tabular-nums shrink-0">
                     {record}
@@ -863,21 +872,47 @@ function TacticalIntelSection({ info, homeName, awayName }: {
               </div>
             ))}
           </div>
+          {/* Legend */}
+          <div className="flex items-center gap-3 mt-2 pt-1.5 border-t border-white/5">
+            {[
+              { color: 'bg-emerald-400', label: he ? 'נצח' : 'Win' },
+              { color: 'bg-yellow-400',  label: he ? 'תיקו' : 'Draw' },
+              { color: 'bg-red-400',     label: he ? 'הפסד' : 'Loss' },
+            ].map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-1">
+                <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color)} />
+                <span className="font-barlow text-[9px] text-white/25">{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* H2H */}
+      {/* H2H — 3-column scoreboard for clarity */}
       {info.h2h && h2hTotal > 0 && (
-        <div className="rounded-xl border border-border-subtle bg-white/[0.02] px-2.5 py-2">
-          <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-1.5">
-            Head to Head · Last {h2hTotal}
+        <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
+          <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
+            {he ? `עימותים ישירים · ${h2hTotal} אחרונים` : `Head to Head · Last ${h2hTotal}`}
           </p>
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-            <span className="text-accent-green">{homeShort} {info.h2h.homeWins}W</span>
-            <span className="text-white/20">·</span>
-            <span className="text-yellow-400/70">{info.h2h.draws}D</span>
-            <span className="text-white/20">·</span>
-            <span className="text-red-400/60">{info.h2h.awayWins}W {awayShort}</span>
+          <div className="grid grid-cols-3 gap-1 text-center">
+            {/* Home wins */}
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="font-barlow text-[10px] text-text-muted truncate w-full text-center px-1">{homeShort}</span>
+              <span className="font-bebas text-2xl leading-none text-accent-green">{info.h2h.homeWins}</span>
+              <span className="font-barlow text-[8px] uppercase tracking-widest text-white/25">{he ? 'נצחונות' : 'Wins'}</span>
+            </div>
+            {/* Draws */}
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="font-barlow text-[10px] text-text-muted">{he ? 'תיקו' : 'Draws'}</span>
+              <span className="font-bebas text-2xl leading-none text-yellow-400/80">{info.h2h.draws}</span>
+              <span className="font-barlow text-[8px] uppercase tracking-widest text-white/25">—</span>
+            </div>
+            {/* Away wins */}
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="font-barlow text-[10px] text-text-muted truncate w-full text-center px-1">{awayShort}</span>
+              <span className="font-bebas text-2xl leading-none text-red-400/80">{info.h2h.awayWins}</span>
+              <span className="font-barlow text-[8px] uppercase tracking-widest text-white/25">{he ? 'נצחונות' : 'Wins'}</span>
+            </div>
           </div>
         </div>
       )}
@@ -889,7 +924,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
           <span className="font-barlow text-[11px] text-text-muted truncate">{info.venue}</span>
           {info.attendance && (
             <span className="ms-auto text-[10px] text-white/25 tabular-nums shrink-0 font-mono">
-              {info.attendance.toLocaleString()}
+              {info.attendance.toLocaleString()} {he ? 'אוהדים' : 'fans'}
             </span>
           )}
         </div>
