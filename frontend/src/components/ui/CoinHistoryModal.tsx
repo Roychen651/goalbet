@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, Sun, Trophy, Target, Gift, Wrench } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
@@ -57,23 +57,40 @@ const TYPE_CONFIG: Record<CoinTransaction['type'], {
   },
 };
 
-// ─── Relative time ───────────────────────────────────────────────────────────
+// ─── Precise time formatting ─────────────────────────────────────────────────
 
-function relativeTime(createdAt: string, t: (key: TranslationKey) => string): string {
-  const diffMs  = Date.now() - new Date(createdAt).getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
-  const diffHr  = Math.floor(diffMs / 3_600_000);
-  const diffDay = Math.floor(diffMs / 86_400_000);
+function formatTxTime(createdAt: string, lang: 'en' | 'he'): string {
+  const date = new Date(createdAt);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
 
-  if (diffMin < 1)  return t('notifJustNow');
-  if (diffMin < 60) return `${diffMin} ${t('notifMinAgo')}`;
-  if (diffHr  < 24) return `${diffHr} ${t('notifHrAgo')}`;
-  return `${diffDay} ${t('notifDayAgo')}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  const time = date.toLocaleTimeString(lang === 'he' ? 'he-IL' : 'en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  if (isToday) {
+    return lang === 'he' ? `היום, ${time}` : `Today, ${time}`;
+  }
+  if (isYesterday) {
+    return lang === 'he' ? `אתמול, ${time}` : `Yesterday, ${time}`;
+  }
+
+  const dateStr = date.toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-GB', {
+    day: 'numeric',
+    month: 'short',
+  });
+  return `${dateStr}, ${time}`;
 }
 
 // ─── Transaction row ─────────────────────────────────────────────────────────
 
-function TxRow({ tx, t }: { tx: CoinTransaction; t: (key: TranslationKey) => string }) {
+function TxRow({ tx, t, lang }: { tx: CoinTransaction; t: (key: TranslationKey) => string; lang: 'en' | 'he' }) {
   const config = TYPE_CONFIG[tx.type] ?? {
     Icon: Wrench,
     labelKey: 'adminAdjustRow' as TranslationKey,
@@ -105,7 +122,7 @@ function TxRow({ tx, t }: { tx: CoinTransaction; t: (key: TranslationKey) => str
           {matchLabel ?? t(labelKey)}
         </p>
         <p className="text-[11px] text-text-muted opacity-60 mt-0.5">
-          {relativeTime(tx.created_at, t)}
+          {formatTxTime(tx.created_at, lang)}
         </p>
       </div>
 
@@ -153,7 +170,7 @@ interface CoinHistoryModalProps {
 }
 
 export function CoinHistoryModal({ onClose }: CoinHistoryModalProps) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
   const { user } = useAuthStore();
   const { activeGroupId } = useGroupStore();
   const coins = useCoinsStore(s => s.coins);
@@ -273,7 +290,7 @@ export function CoinHistoryModal({ onClose }: CoinHistoryModalProps) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
                 >
-                  <TxRow tx={tx} t={t} />
+                  <TxRow tx={tx} t={t} lang={lang} />
                 </motion.div>
               ))}
             </motion.div>

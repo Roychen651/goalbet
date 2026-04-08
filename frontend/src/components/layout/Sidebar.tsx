@@ -111,18 +111,20 @@ export function Sidebar() {
       </div>
 
       {/* Coin balance */}
-      <button
-        onClick={() => openModal('coinHistory')}
-        className="mx-2 mb-3 px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20 hover:bg-amber-500/15 hover:border-amber-500/35 active:scale-[0.98] transition-all text-start w-[calc(100%-1rem)]"
-      >
-        <div className="flex items-center gap-2.5">
-          <CoinIcon size={22} />
-          <div>
-            <div className="text-amber-400 font-bold text-base tabular-nums leading-none">{coins}</div>
-            <div className="text-amber-500/50 text-[10px] mt-0.5 uppercase tracking-widest">Coins</div>
+      <div className="mx-2 mb-3">
+        <button
+          onClick={() => openModal('coinHistory')}
+          className="w-full px-3 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20 hover:bg-amber-500/15 hover:border-amber-500/35 active:scale-[0.98] transition-all text-start cursor-pointer"
+        >
+          <div className="flex items-center gap-2.5">
+            <CoinIcon size={22} />
+            <div>
+              <div className="text-amber-400 font-bold text-base tabular-nums leading-none">{coins}</div>
+              <div className="text-amber-500/50 text-[10px] mt-0.5 uppercase tracking-widest">Coins</div>
+            </div>
           </div>
-        </div>
-      </button>
+        </button>
+      </div>
 
       {/* Language toggle + version */}
       <div className="flex flex-col gap-3 px-2">
