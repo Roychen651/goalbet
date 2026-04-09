@@ -8,10 +8,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, ChevronDown, AlertCircle } from 'lucide-react';
+import { Users, ChevronDown, AlertCircle, LayoutGrid, MapPin } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
+import { TacticalPitch } from './TacticalPitch';
 import type { Match } from '../../lib/supabase';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -236,24 +237,6 @@ function TeamPanel({ roster, he }: { roster: TeamRoster; he: boolean }) {
         </div>
       </div>
 
-      {/* Substitutes */}
-      {roster.subs.length > 0 && (
-        <div className="rounded-xl border border-border-subtle bg-white/[0.015] overflow-hidden">
-          <div className="px-2.5 py-1.5 border-b border-white/5">
-            <span className="text-[9px] uppercase tracking-widest text-text-muted/50 font-semibold">
-              {t('substitutes')}
-            </span>
-          </div>
-          <div
-            className="py-0.5 max-h-[200px] overflow-y-auto overscroll-contain"
-            onWheel={(e) => e.stopPropagation()}
-          >
-            {roster.subs.map((p, i) => (
-              <PlayerRow key={`${p.jersey}-${p.name}`} player={p} idx={i} he={he} />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -289,6 +272,7 @@ export function MatchRosters({ match }: { match: Match }) {
   const [open, setOpen] = useState(false);
   const [rosters, setRosters] = useState<TeamRoster[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<'pitch' | 'list'>('pitch');
   const fetchedRef = useRef(false);
 
   useEffect(() => {
@@ -306,6 +290,14 @@ export function MatchRosters({ match }: { match: Match }) {
 
     return () => { cancelled = true; };
   }, [open, match.external_id, match.league_id]);
+
+  // Can we show the tactical pitch? Need 2 rosters with formations
+  const canShowPitch = rosters != null && rosters.length >= 2 &&
+    rosters[0].starters.length >= 5 && rosters[1].starters.length >= 5;
+  const hasFormations = canShowPitch && (rosters[0].formation || rosters[1].formation);
+
+  // If formations are missing, fall back to list automatically
+  const effectiveView = hasFormations ? viewMode : 'list';
 
   // Hide for leagues without ESPN coverage
   if (!LEAGUE_ESPN_SLUG[match.league_id]) return null;
@@ -354,12 +346,86 @@ export function MatchRosters({ match }: { match: Match }) {
           >
             <div className="pt-3 pb-2 px-1">
               {loading && <RosterSkeleton />}
+
               {rosters && rosters.length >= 2 && !loading && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {rosters.map((r, i) => (
-                    <TeamPanel key={i} roster={r} he={he} />
-                  ))}
-                </div>
+                <>
+                  {/* View toggle — only when formations exist */}
+                  {hasFormations && (
+                    <div className="flex items-center justify-center gap-1 mb-3">
+                      <button
+                        onClick={() => setViewMode('pitch')}
+                        className={cn(
+                          'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] uppercase tracking-wider font-semibold transition-colors',
+                          effectiveView === 'pitch'
+                            ? 'bg-accent-green/15 text-accent-green border border-accent-green/25'
+                            : 'text-text-muted/40 hover:text-text-muted/60 border border-transparent',
+                        )}
+                      >
+                        <MapPin size={10} />
+                        {t('pitchView')}
+                      </button>
+                      <button
+                        onClick={() => setViewMode('list')}
+                        className={cn(
+                          'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] uppercase tracking-wider font-semibold transition-colors',
+                          effectiveView === 'list'
+                            ? 'bg-accent-green/15 text-accent-green border border-accent-green/25'
+                            : 'text-text-muted/40 hover:text-text-muted/60 border border-transparent',
+                        )}
+                      >
+                        <LayoutGrid size={10} />
+                        {t('listView')}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Tactical Pitch View */}
+                  {effectiveView === 'pitch' && canShowPitch && (
+                    <TacticalPitch
+                      homeFormation={rosters[0].formation}
+                      awayFormation={rosters[1].formation}
+                      homeStarters={rosters[0].starters}
+                      awayStarters={rosters[1].starters}
+                      homeTeam={rosters[0].teamName}
+                      awayTeam={rosters[1].teamName}
+                      rtl={he}
+                    />
+                  )}
+
+                  {/* List View */}
+                  {effectiveView === 'list' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {rosters.map((r, i) => (
+                        <TeamPanel key={i} roster={r} he={he} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Subs (shown below both views) */}
+                  {rosters.some(r => r.subs.length > 0) && (
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {rosters.map((r, i) => (
+                        r.subs.length > 0 ? (
+                          <div key={i} className="rounded-xl border border-border-subtle bg-white/[0.015] overflow-hidden">
+                            <div className="px-2.5 py-1.5 border-b border-white/5">
+                              <span className="text-[9px] uppercase tracking-widest text-text-muted/50 font-semibold">
+                                {(r.teamName.split(' ').pop() ?? r.teamName)} · {t('substitutes')}
+                              </span>
+                            </div>
+                            <div
+                              className="py-0.5 max-h-[200px] overflow-y-auto overscroll-contain"
+                              onWheel={(e) => e.stopPropagation()}
+                            >
+                              {r.subs.map((p, j) => (
+                                <PlayerRow key={`${p.jersey}-${p.name}`} player={p} idx={j} he={he} />
+                              ))}
+                            </div>
+                          </div>
+                        ) : <div key={i} />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </motion.div>

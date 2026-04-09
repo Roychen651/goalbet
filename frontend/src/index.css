@@ -636,3 +636,41 @@ html.light .border-yellow-500\/40  { border-color: rgba(133, 77, 14, 0.40) !impo
 html.light .text-yellow-400        { color: #92400e !important; }
 html.light .text-yellow-200\/85    { color: rgba(92, 40, 0, 0.90) !important; }
 html.light .hover\:bg-yellow-500\/35:hover { background-color: rgba(133, 77, 14, 0.14) !important; }
+
+/* ── Tactical Pitch ───────────────────────────────────────── */
+.pitch-grass {
+  background:
+    radial-gradient(ellipse at 50% 50%, var(--color-accent-green, #BDE8F5) 0%, transparent 70%),
+    var(--card-bg);
+  background-blend-mode: soft-light;
+}
+.pitch-grass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 8px,
+    rgba(255,255,255,0.015) 8px,
+    rgba(255,255,255,0.015) 16px
+  );
+  pointer-events: none;
+  z-index: 0;
+  border-radius: inherit;
+}
+html.light .pitch-grass {
+  background:
+    radial-gradient(ellipse at 50% 50%, var(--color-accent-green) 0%, transparent 70%),
+    var(--card-bg);
+  background-blend-mode: overlay;
+}
+html.light .pitch-grass::before {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 8px,
+    rgba(0,0,0,0.02) 8px,
+    rgba(0,0,0,0.02) 16px
+  );
+}
