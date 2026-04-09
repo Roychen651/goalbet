@@ -105,34 +105,25 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
     const attendance = typeof gameInfo.attendance === 'number' ? gameInfo.attendance as number : null;
 
     // ── Odds → normalised implied probability ─────────────────
+    // ESPN soccer: comp.odds is always empty. Odds live in pickcenter[0].
     let odds: EspnMatchInfo['odds'] = null;
-    const oddsArr = (comp.odds as Record<string, unknown>[]) ?? [];
-    if (oddsArr.length > 0) {
-      const o = oddsArr[0] as Record<string, unknown>;
-      const hO = (o.homeTeamOdds as Record<string, unknown>) ?? {};
-      const aO = (o.awayTeamOdds as Record<string, unknown>) ?? {};
-      const dO = (o.drawOdds     as Record<string, unknown>) ?? {};
-
-      // Try pre-computed winPercentage (ESPN returns 0–100)
-      const hw = typeof hO.winPercentage === 'number' ? (hO.winPercentage as number) / 100 : null;
-      const aw = typeof aO.winPercentage === 'number' ? (aO.winPercentage as number) / 100 : null;
-      const dw = typeof dO.winPercentage === 'number' ? (dO.winPercentage as number) / 100 : null;
-
-      if (hw !== null && aw !== null && dw !== null) {
-        const s = hw + aw + dw || 1;
-        odds = { homeWin: hw / s, draw: dw / s, awayWin: aw / s };
-      } else {
-        // Fallback: American moneyLine → implied probability
-        const toImpl = (ml: number) =>
-          ml > 0 ? 100 / (ml + 100) : Math.abs(ml) / (Math.abs(ml) + 100);
-        const hml = typeof hO.moneyLine === 'number' ? hO.moneyLine as number : null;
-        const aml = typeof aO.moneyLine === 'number' ? aO.moneyLine as number : null;
-        const dml = typeof dO.moneyLine === 'number' ? dO.moneyLine as number : null;
-        if (hml !== null && aml !== null && dml !== null) {
-          const rH = toImpl(hml), rA = toImpl(aml), rD = toImpl(dml);
-          const s = rH + rA + rD || 1;
-          odds = { homeWin: rH / s, draw: rD / s, awayWin: rA / s };
-        }
+    const toImpl = (ml: number) =>
+      ml > 0 ? 100 / (ml + 100) : Math.abs(ml) / (Math.abs(ml) + 100);
+    const pickCenter = (data.pickcenter as Record<string, unknown>[]) ?? [];
+    if (pickCenter.length > 0) {
+      const pc = pickCenter[0] as Record<string, unknown>;
+      const hO = (pc.homeTeamOdds as Record<string, unknown>) ?? {};
+      const aO = (pc.awayTeamOdds as Record<string, unknown>) ?? {};
+      const dO = (pc.drawOdds as Record<string, unknown>) ?? {};
+      const hml = typeof hO.moneyLine === 'number' ? hO.moneyLine as number : null;
+      const aml = typeof aO.moneyLine === 'number' ? aO.moneyLine as number : null;
+      // drawOdds can be { moneyLine: 230 } or just the moneyLine value
+      const rawDml = dO.moneyLine;
+      const dml = typeof rawDml === 'number' ? rawDml : null;
+      if (hml !== null && aml !== null && dml !== null) {
+        const rH = toImpl(hml), rA = toImpl(aml), rD = toImpl(dml);
+        const s = rH + rA + rD || 1;
+        odds = { homeWin: rH / s, draw: rD / s, awayWin: rA / s };
       }
     }
 
@@ -198,19 +189,18 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
       if (typeof seriesObj.summary === 'string' && seriesObj.summary) {
         aggregate = seriesObj.summary;
       } else {
-        // Build aggregate from competitors[].aggregateScore for ongoing knockout ties
+        // Build aggregate from competitors[].aggregateScore for knockout ties
         const seriesComps = (seriesObj.competitors as Record<string, unknown>[]) ?? [];
         const leg = typeof seriesObj.leg === 'number' ? seriesObj.leg : null;
         const title = typeof seriesObj.title === 'string' ? seriesObj.title : '';
         if (seriesComps.length === 2 && leg !== null) {
           const s0 = typeof seriesComps[0].aggregateScore === 'number' ? seriesComps[0].aggregateScore as number : 0;
           const s1 = typeof seriesComps[1].aggregateScore === 'number' ? seriesComps[1].aggregateScore as number : 0;
-          // Only show if at least one score > 0 (i.e. 1st leg has been played) or it's leg 2
-          if (s0 + s1 > 0 || leg >= 2) {
+          // Only show aggregate when there's an actual score (2nd leg, or 1st leg already played)
+          if (s0 + s1 > 0) {
             aggregate = `${title} · Leg ${leg} (Agg: ${s0}–${s1})`;
-          } else if (leg === 1 && title) {
-            aggregate = `${title} · Leg ${leg}`;
           }
+          // 1st leg with 0-0 agg = no useful info to show — skip
         }
       }
     }
@@ -1038,7 +1028,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
   const h2hTotal = info.h2h ? info.h2h.homeWins + info.h2h.draws + info.h2h.awayWins : 0;
 
   const hasAny = hasForm || info.h2h || info.venue || info.referee || info.weather ||
-    info.competitionPhase || info.predictor || info.aggregate;
+    info.competitionPhase;
   if (!hasAny) return null;
 
   return (
@@ -1048,19 +1038,9 @@ function TacticalIntelSection({ info, homeName, awayName }: {
       transition={{ duration: 0.28, ease: 'easeOut' as const }}
       className="mb-3 space-y-1.5"
     >
-      {/* ── Aggregate banner — knockout 2nd leg context ── */}
-      {info.aggregate && (
-        <div className="flex items-center justify-center gap-2.5 px-3 py-2 rounded-xl border border-accent-orange/20 bg-accent-orange/[0.05]">
-          <span className="font-barlow text-[9px] uppercase tracking-[0.18em] text-accent-orange/50 shrink-0">
-            {t('aggregateScore')}
-          </span>
-          <span className="font-barlow text-[13px] font-bold text-accent-orange tracking-wide truncate">
-            {info.aggregate}
-          </span>
-        </div>
-      )}
+      {/* Aggregate + predictor bar are on the closed card — not duplicated here */}
 
-      {/* ── Win Probability Bar ── */}
+      {/* ── Detailed Win Probability (expanded only) ── */}
       {info.predictor && (
         <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
           <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
@@ -1115,16 +1095,11 @@ function TacticalIntelSection({ info, homeName, awayName }: {
           </p>
           <div className="space-y-2">
             {([
-              { name: homeShort, form: info.homeForm, record: info.homeRecord, rank: info.homeRank },
-              { name: awayShort, form: info.awayForm, record: info.awayRecord, rank: info.awayRank },
-            ] as const).map(({ name, form, record, rank }) => (
+              { name: homeShort, form: info.homeForm, record: info.homeRecord },
+              { name: awayShort, form: info.awayForm, record: info.awayRecord },
+            ] as const).map(({ name, form, record }) => (
               <div key={name} className="flex items-center gap-2 min-w-0">
                 <span className="font-barlow text-[11px] text-text-muted shrink-0 truncate w-[62px]">{name}</span>
-                {rank != null && (
-                  <span className="text-[9px] text-text-muted/60 font-mono bg-white/5 border border-border-subtle px-1 py-0.5 rounded-sm shrink-0 leading-none">
-                    #{rank}
-                  </span>
-                )}
                 {form ? (
                   <FormDots form={form} t={t} />
                 ) : (
