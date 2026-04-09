@@ -309,6 +309,15 @@ html.light .bento-default-value { color: #0A1733 !important; }
   animation: goalFlash 1.5s ease-out;
 }
 
+/* Subtle pulse for locker room WON_COINS cards */
+@keyframes pulseSubtle {
+  0%, 100% { box-shadow: 0 0 20px rgba(var(--color-accent-green-rgb, 189, 232, 245), 0.15); }
+  50% { box-shadow: 0 0 28px rgba(var(--color-accent-green-rgb, 189, 232, 245), 0.30); }
+}
+.animate-pulse-subtle {
+  animation: pulseSubtle 3s ease-in-out infinite;
+}
+
 /* ============================================================
    Input styling — prevent browser white background
    ============================================================ */

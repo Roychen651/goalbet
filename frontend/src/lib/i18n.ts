@@ -449,6 +449,17 @@ export const translations = {
     halfTimeResult: 'Half Time',
     legLabel: 'Leg {0}',
     aggLabel: 'Agg: {0}–{1}',
+
+    // Sprint 21 — The Locker Room (Social Activity Feed)
+    lockerRoom: 'Locker Room',
+    lockerRoomEmpty: 'No activity yet — be the first to lock in a prediction!',
+    lockerRoomTitle: 'The Locker Room',
+    eventPredictionLocked: '{user} locked a prediction for {match}',
+    eventWonCoins: '{user} won {coins} coins!',
+    eventLeaderboardClimb: '{user} climbed to #{rank}',
+    justNow: 'Just now',
+    hoursAgo: '{0}h ago',
+    daysAgo: '{0}d ago',
   },
 
   he: {
@@ -896,6 +907,17 @@ export const translations = {
     halfTimeResult: 'מחצית',
     legLabel: 'מחזור {0}',
     aggLabel: 'מצטבר: {0}–{1}',
+
+    // Sprint 21 — The Locker Room (Social Activity Feed)
+    lockerRoom: 'חדר ההלבשה',
+    lockerRoomEmpty: 'עדיין אין פעילות — תהיו הראשונים לנעול ניחוש!',
+    lockerRoomTitle: 'חדר ההלבשה',
+    eventPredictionLocked: '{user} נעל/ה ניחוש למשחק {match}',
+    eventWonCoins: 'בום! {user} לקח/ה קופה של {coins} מטבעות!',
+    eventLeaderboardClimb: '{user} טיפס/ה למקום #{rank}',
+    justNow: 'עכשיו',
+    hoursAgo: 'לפני {0} שעות',
+    daysAgo: 'לפני {0} ימים',
   },
 } as const;
 

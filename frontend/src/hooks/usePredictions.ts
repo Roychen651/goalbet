@@ -127,6 +127,21 @@ export function usePredictions(matchIds?: string[]) {
 
       if (data) {
         setPredictions(prev => new Map(prev).set(data.match_id, data));
+
+        // Fire-and-forget: insert activity event for the locker room feed
+        supabase
+          .from('group_events')
+          .insert({
+            group_id: activeGroupId,
+            user_id: user.id,
+            event_type: 'PREDICTION_LOCKED',
+            match_id: input.match_id,
+            metadata: {
+              predicted_outcome: input.predicted_outcome ?? null,
+              coins_bet: newCost,
+            },
+          })
+          .then(); // swallow — activity feed is non-critical
       }
     } finally {
       setSaving(null);

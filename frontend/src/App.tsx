@@ -12,6 +12,7 @@ import { HomePage } from './pages/HomePage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { LockerRoomPage } from './pages/LockerRoomPage';
 import { PageLoader } from './components/ui/LoadingSpinner';
 import { ROUTES } from './lib/constants';
 import { ReAuthModal } from './components/auth-v2/ReAuthModal';
@@ -173,6 +174,7 @@ export default function App() {
           >
             <Route index element={<AnimatedOutlet><HomePage /></AnimatedOutlet>} />
             <Route path="leaderboard" element={<AnimatedOutlet><LeaderboardPage /></AnimatedOutlet>} />
+            <Route path="locker-room" element={<AnimatedOutlet><LockerRoomPage /></AnimatedOutlet>} />
             <Route path="profile" element={<AnimatedOutlet><ProfilePage /></AnimatedOutlet>} />
             <Route path="settings" element={<AnimatedOutlet><SettingsPage /></AnimatedOutlet>} />
           </Route>

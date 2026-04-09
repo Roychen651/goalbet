@@ -108,6 +108,7 @@ export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
   LEADERBOARD: '/leaderboard',
+  LOCKER_ROOM: '/locker-room',
   PROFILE: '/profile',
   SETTINGS: '/settings',
   AUTH_CALLBACK: '/auth/callback',

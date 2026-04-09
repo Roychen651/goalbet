@@ -275,6 +275,25 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
             logger.warn(`[scoreUpdater] Notification insert failed for prediction ${prediction.id}: ${notifError.message}`);
           }
         }
+
+        // ── Insert locker room activity event (fire-and-forget) ──────────────
+        await supabaseAdmin
+          .from('group_events')
+          .insert({
+            group_id:   prediction.group_id,
+            user_id:    prediction.user_id,
+            event_type: 'WON_COINS',
+            match_id:   matchId,
+            metadata: {
+              coins:        coinsToAward,
+              points:       finalPoints,
+              home_team:    matchResult.home_team  ?? '',
+              away_team:    matchResult.away_team  ?? '',
+            },
+          })
+          .then(({ error: evtErr }) => {
+            if (evtErr) logger.warn(`[scoreUpdater] group_events insert failed: ${evtErr.message}`);
+          });
       }
 
       const existingLB = {
