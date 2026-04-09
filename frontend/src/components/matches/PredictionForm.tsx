@@ -249,18 +249,18 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
             className="pt-1 space-y-2"
           >
             {/* Coin summary row */}
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-amber-500/6 border border-amber-500/15">
-              <div className="flex items-center gap-1.5">
-                <span className="text-white/50 text-[11px] sm:text-xs font-display font-medium">Cost</span>
-                <span className="flex items-center gap-1 text-amber-400 font-display font-bold tabular-nums text-[13px] sm:text-sm">
-                  <CoinIcon size={14} /> {netCost > 0 ? netCost : currentCost}
-                  {netCost < 0 && <span className="text-emerald-400 ms-1 text-[11px] sm:text-xs">(+{Math.abs(netCost)} refund)</span>}
+            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-amber-500/6 border border-amber-500/15">
+              <div className="flex items-center gap-2">
+                <span className="text-white/40 text-[11px] font-headline uppercase tracking-wider">Cost</span>
+                <span className="flex items-center gap-1 text-amber-400 font-display font-bold tabular-nums text-sm">
+                  <CoinIcon size={15} /> {netCost > 0 ? netCost : currentCost}
+                  {netCost < 0 && <span className="text-emerald-400 ms-1 text-[11px]">(+{Math.abs(netCost)} refund)</span>}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-white/50 text-[11px] sm:text-xs font-display font-medium">Balance</span>
-                <span className={cn('flex items-center gap-1 font-display font-bold tabular-nums text-[13px] sm:text-sm', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
-                  <CoinIcon size={14} /> {coins}
+              <div className="flex items-center gap-2">
+                <span className="text-white/40 text-[11px] font-headline uppercase tracking-wider">Balance</span>
+                <span className={cn('flex items-center gap-1 font-display font-bold tabular-nums text-sm', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
+                  <CoinIcon size={15} /> {coins}
                 </span>
               </div>
             </div>
@@ -302,21 +302,21 @@ function TierRow({
   const { t } = useLangStore();
   return (
     <div className={cn(
-      'rounded-xl border p-3 transition-all duration-200',
+      'rounded-xl border p-3 sm:p-3.5 transition-all duration-200',
       active
         ? 'bg-white/5 border-white/12 tier-row-active'
         : 'bg-white/2 border-white/6 tier-row-inactive',
     )}>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2">
           <span className={cn('w-2 h-2 rounded-full shrink-0', color.dot)} />
-          <span className="text-text-primary text-[13px] sm:text-sm font-display font-bold tracking-wide">{label}</span>
+          <span className="text-text-primary text-sm sm:text-[15px] font-headline uppercase tracking-wider leading-none">{label}</span>
         </div>
         <div className="flex items-center gap-1.5">
           {ptsNote && (
-            <span className="text-text-muted text-[11px] sm:text-xs font-display opacity-50">{ptsNote}</span>
+            <span className="text-text-muted text-[10px] sm:text-[11px] font-display italic opacity-45">{ptsNote}</span>
           )}
-          <span className={cn('text-[11px] sm:text-xs font-display font-bold tabular-nums', active ? color.pts : 'text-text-muted opacity-40')}>
+          <span className={cn('text-[11px] sm:text-xs font-display font-semibold tabular-nums px-1.5 py-0.5 rounded-md', active ? cn(color.pts, 'bg-current/8') : 'text-text-muted opacity-35')}>
             +{pts} {t('pts')}
           </span>
         </div>
@@ -347,13 +347,13 @@ function InlineBoolTier({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay ?? 0, type: 'spring', stiffness: 200, damping: 24 }}
       className={cn(
-        'flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all duration-200',
+        'flex items-center gap-2 px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-xl border transition-all duration-200',
         active ? 'bg-white/5 border-white/12 tier-row-active' : 'bg-white/2 border-white/6 tier-row-inactive',
       )}
     >
       <span className={cn('w-2 h-2 rounded-full shrink-0', color.dot)} />
-      <span className="text-text-primary text-[12px] sm:text-[13px] font-display font-bold flex-1 leading-tight">{label}</span>
-      <span className={cn('text-[11px] sm:text-xs font-display font-bold tabular-nums me-1 shrink-0', active ? color.pts : 'text-text-muted opacity-40')}>
+      <span className="text-text-primary text-sm sm:text-[15px] font-headline uppercase tracking-wider flex-1 leading-none">{label}</span>
+      <span className={cn('text-[11px] sm:text-xs font-display font-semibold tabular-nums px-1.5 py-0.5 rounded-md shrink-0', active ? cn(color.pts, 'bg-current/8') : 'text-text-muted opacity-35')}>
         +{pts} {t('pts')}
       </span>
       <div className="flex gap-1.5 shrink-0">
@@ -366,7 +366,7 @@ function InlineBoolTier({
               onClick={() => { if (!isImpossible) onChange(isSelected ? null : v); }}
               disabled={isImpossible}
               className={cn(
-                'px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-display font-bold transition-all duration-150 border whitespace-nowrap',
+                'px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-150 border whitespace-nowrap',
                 isSelected && !isImpossible
                   ? cn('border-current text-current bg-current/10', color.pts)
                   : isImpossible
@@ -413,7 +413,7 @@ function OutcomePicker({
           onClick={() => { if (!lockedByScore) onChange(val); }}
           disabled={lockedByScore}
           className={cn(
-            'py-2 rounded-lg transition-all duration-150 border',
+            'py-2.5 rounded-lg transition-all duration-150 border',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
@@ -421,15 +421,15 @@ function OutcomePicker({
           )}
         >
           <div className="flex flex-col items-center gap-0.5">
-            <span className="truncate w-full text-center text-[13px] sm:text-sm font-display font-bold">{label}</span>
+            <span className="truncate w-full text-center text-sm sm:text-[15px] font-display font-semibold">{label}</span>
             {prob[val] !== null && (
-              <span className="font-display text-[10px] sm:text-[11px] opacity-40 leading-none tabular-nums">{prob[val]}%</span>
+              <span className="font-display text-[10px] sm:text-[11px] opacity-35 leading-none tabular-nums">{prob[val]}%</span>
             )}
           </div>
         </button>
       ))}
       {lockedByScore && (
-        <div className="col-span-3 text-center text-xs font-display text-text-muted opacity-50 mt-0.5">
+        <div className="col-span-3 text-center text-[11px] font-display text-text-muted opacity-45 mt-0.5 italic">
           ↑ auto from score
         </div>
       )}
@@ -729,7 +729,7 @@ function CornersPicker({
           key={val}
           onClick={() => onChange(value === val ? null : val)}
           className={cn(
-            'py-2 rounded-lg text-[13px] sm:text-sm font-display font-bold transition-all duration-150 border',
+            'py-2.5 rounded-lg text-sm sm:text-[15px] font-display font-semibold transition-all duration-150 border',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
