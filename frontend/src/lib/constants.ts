@@ -11,15 +11,15 @@ export const FOOTBALL_LEAGUES = [
   { id: 4399, name: 'Europa League',     country: 'Europe',  badge: '🌍', espnLogoId: 600  },
   { id: 4877, name: 'Conference League', country: 'Europe',  badge: '🔵', espnLogoId: 2310 },
   // Domestic cups
-  { id: 9001, name: 'FA Cup',            country: 'England', badge: '🏆', espnLogoId: null },
-  { id: 9002, name: 'League Cup',        country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: null },
-  { id: 9003, name: 'Copa del Rey',      country: 'Spain',   badge: '👑', espnLogoId: null },
+  { id: 9001, name: 'FA Cup',            country: 'England', badge: '🏆', espnLogoId: 40 },
+  { id: 9002, name: 'League Cup',        country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: 41 },
+  { id: 9003, name: 'Copa del Rey',      country: 'Spain',   badge: '👑', espnLogoId: 80 },
   // International
   { id: 4480, name: 'World Cup',              country: 'World',  badge: '🌎', espnLogoId: 4    },
   { id: 5000, name: 'World Cup Qualifiers',   country: 'Europe', badge: '🏆', espnLogoId: null },
   { id: 4467, name: 'Euro Championship',      country: 'Europe', badge: '🇪🇺', espnLogoId: null },
-  { id: 4635, name: 'Nations League',         country: 'Europe', badge: '🏅', espnLogoId: null },
-  { id: 4396, name: 'International Friendlies', country: 'World', badge: '🌐', espnLogoId: null },
+  { id: 4635, name: 'Nations League',         country: 'Europe', badge: '🏅', espnLogoId: 2395 },
+  { id: 4396, name: 'International Friendlies', country: 'World', badge: '🌐', espnLogoId: 53 },
 ] as const;
 
 export type LeagueId = typeof FOOTBALL_LEAGUES[number]['id'];

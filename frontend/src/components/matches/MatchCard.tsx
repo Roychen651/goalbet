@@ -547,11 +547,12 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                 <span className="text-[9px] text-white/25">↻ {updatedAgoLabel}</span>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-0.5">
+              <div className="flex flex-col items-center">
+                {/* League logo */}
                 {leagueEspnId !== null ? (
                   <img
                     src={`https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500/${leagueEspnId}.png&h=80&w=80`}
-                    className="w-6 h-6 object-contain mb-0.5"
+                    className="w-6 h-6 object-contain mb-1 league-logo-bright"
                     alt={match.league_name}
                     title={match.league_name}
                     width={24}
@@ -562,23 +563,42 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                       if (img.nextSibling === null && leagueBadge) {
                         const span = document.createElement('span');
                         span.textContent = leagueBadge;
-                        span.className = 'text-base leading-none mb-0.5';
+                        span.className = 'text-base leading-none mb-1';
                         img.parentNode?.appendChild(span);
                       }
                     }}
                   />
                 ) : leagueBadge ? (
-                  <span className="text-base leading-none mb-0.5" title={match.league_name}>{leagueBadge}</span>
+                  <span className="text-base leading-none mb-1" title={match.league_name}>{leagueBadge}</span>
                 ) : null}
-                <span className="text-text-muted text-xs">{date}</span>
-                <span className="text-white font-semibold text-sm">{time}</span>
-                {startingSoon ? (
-                  <span className="text-accent-orange text-xs font-semibold animate-pulse">
-                    {t('startingSoon')}
+
+                {/* Date + Time + Countdown — bordered pill */}
+                <div className="flex flex-col items-center px-4 py-1.5 rounded-lg border border-border-subtle/50 bg-white/[0.02]">
+                  <span className="text-text-muted text-xs font-display">{date}</span>
+                  <span className="text-white font-bold text-lg font-display leading-tight">{time}</span>
+                  {startingSoon ? (
+                    <span className="text-accent-orange text-xs font-display font-semibold animate-pulse">
+                      {t('startingSoon')}
+                    </span>
+                  ) : countdown ? (
+                    <span className="text-accent-green/80 text-xs font-display font-medium">{countdown}</span>
+                  ) : null}
+                </div>
+
+                {/* Lock countdown */}
+                {!isLive && !isAET && !isFinished && !isPastKickoffNS && lockCountdown && (
+                  <span className="text-orange-400/90 text-[11px] font-display font-medium mt-1 flex items-center gap-0.5">
+                    <span>🔒</span>
+                    <span>{lockCountdown}</span>
                   </span>
-                ) : countdown ? (
-                  <span className="text-accent-green text-xs">{countdown}</span>
-                ) : null}
+                )}
+
+                {/* Aggregate / knockout stage — bold label */}
+                {espnInfo?.aggregate && (
+                  <span className="text-accent-orange text-[13px] sm:text-sm font-display font-bold mt-1.5 truncate max-w-[280px]">
+                    {`${espnInfo.aggregate.phase ? translatePhase(espnInfo.aggregate.phase, lang) + ' · ' : ''}${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))}${espnInfo.aggregate.hasAgg ? ` (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})` : ''}`}
+                  </span>
+                )}
               </div>
             )}
             {/* ET / Penalty match info for finished matches */}
@@ -586,12 +606,10 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
               <div className="flex flex-col items-center gap-0.5 mt-1">
                 {match.regulation_home != null &&
                   (match.regulation_home !== match.home_score || match.regulation_away !== match.away_score) ? (
-                  /* ET goals changed the score — show the 90-min result */
                   <span className="text-amber-400/80 text-[10px] font-semibold">
                     90′: {match.regulation_home}–{match.regulation_away}
                   </span>
                 ) : (
-                  /* No ET goals — clarify the score above is after 120 min */
                   <span className="text-amber-400/50 text-[9px] uppercase tracking-widest">a.e.t.</span>
                 )}
                 {wentToPens && (
@@ -615,19 +633,6 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
             {match.corners_total != null && (isInProgress || isFinished) && (
               <span className="text-blue-400/70 text-[10px] mt-0.5">
                 🚩 {match.corners_total} {t('corners')}
-              </span>
-            )}
-            {/* Lock countdown — shown only for upcoming matches not yet locked */}
-            {!isLive && !isAET && !isFinished && !isPastKickoffNS && lockCountdown && (
-              <span className="text-orange-400/80 text-[10px] mt-0.5 flex items-center gap-0.5">
-                <span>🔒</span>
-                <span>{lockCountdown}</span>
-              </span>
-            )}
-            {/* Aggregate score — knockout 2nd legs */}
-            {espnInfo?.aggregate && (
-              <span className="text-accent-orange text-[13px] sm:text-sm font-display font-bold mt-1.5 truncate max-w-[280px]">
-                {`${espnInfo.aggregate.phase ? translatePhase(espnInfo.aggregate.phase, lang) + ' · ' : ''}${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))}${espnInfo.aggregate.hasAgg ? ` (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})` : ''}`}
               </span>
             )}
           </div>

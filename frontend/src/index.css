@@ -637,6 +637,14 @@ html.light .text-yellow-400        { color: #92400e !important; }
 html.light .text-yellow-200\/85    { color: rgba(92, 40, 0, 0.90) !important; }
 html.light .hover\:bg-yellow-500\/35:hover { background-color: rgba(133, 77, 14, 0.14) !important; }
 
+/* ── League logos — boost dark logos in dark mode ─────────── */
+.league-logo-bright {
+  filter: brightness(1.6) contrast(1.1);
+}
+html.light .league-logo-bright {
+  filter: none;
+}
+
 /* ── Tactical Pitch ───────────────────────────────────────── */
 .pitch-grass {
   background: linear-gradient(160deg, rgba(15,60,30,0.35) 0%, rgba(10,40,20,0.25) 100%), var(--card-bg);
