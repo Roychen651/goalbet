@@ -1,15 +1,15 @@
 /**
  * TacticalPitch — Glass tactical formation view for Starting XI.
  *
- * Always horizontal (goal-to-goal left↔right). Compact on mobile.
- * Players positioned via percentage-based absolute placement — no
- * flex height propagation issues.
+ * Horizontal pitch with percentage-based absolute positioning.
+ * Formation badges sit ABOVE the pitch. Player nodes are compact
+ * with jersey numbers only — name appears on tap/hover.
  *
  * Starters arrive pre-sorted (GK → DEF → MID → FWD) from MatchRosters.
- * We slice them by formation numbers — no positionShort filtering.
+ * Sliced by formation numbers — no positionShort filtering.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
 
@@ -32,13 +32,11 @@ interface TacticalPitchProps {
   rtl?: boolean;
 }
 
-// ── Positioned player (after layout math) ────────────────────────────────────
-
 interface PositionedPlayer {
   player: PitchPlayer;
-  /** 0–100 from left edge of the half */
+  /** 0–100 % from left edge of the team's half */
   x: number;
-  /** 0–100 from top edge */
+  /** 0–100 % from top edge */
   y: number;
 }
 
@@ -52,14 +50,9 @@ function parseFormation(f: string | null): number[] | null {
 }
 
 /**
- * Build positioned players for one team's half.
- *
- * Starters are pre-sorted: GK first, then outfield by position.
- * We slice them into rows using formation numbers (no positionShort filtering).
- *
- * Returns players with x/y percentages within the team's half.
- * x: 0 = near own goal, 100 = near center line.
- * y: 0 = top edge, 100 = bottom edge.
+ * Position players on one team's half.
+ * x: 0 = own goal line, 100 = center line.
+ * y: 0 = top touchline, 100 = bottom touchline.
  */
 function layoutTeam(
   starters: PitchPlayer[],
@@ -69,13 +62,11 @@ function layoutTeam(
 
   const result: PositionedPlayer[] = [];
 
-  // Row 0: GK (always 1 player, at x=8%)
-  const gk = starters[0];
-  if (gk) {
-    result.push({ player: gk, x: 8, y: 50 });
+  // GK — pushed close to own goal
+  if (starters[0]) {
+    result.push({ player: starters[0], x: 6, y: 50 });
   }
 
-  // Build rows from formation, slicing the starters array sequentially
   const outfield = starters.slice(1);
   const rows = formation ?? defaultFormation(outfield.length);
   const totalRows = rows.length;
@@ -83,16 +74,18 @@ function layoutTeam(
   let idx = 0;
   for (let rowIdx = 0; rowIdx < totalRows; rowIdx++) {
     const count = rows[rowIdx];
-    // x position: evenly space rows from 22% to 92% of the half
+    // Rows span from 20% to 94% of the half — plenty of room
     const x = totalRows === 1
       ? 55
-      : 22 + (rowIdx / (totalRows - 1)) * 70;
+      : 20 + (rowIdx / (totalRows - 1)) * 74;
 
     for (let i = 0; i < count && idx < outfield.length; i++, idx++) {
-      // y position: evenly space players in the row
+      // Players spread vertically with generous padding from edges
+      const padTop = 8;
+      const padBot = 8;
       const y = count === 1
         ? 50
-        : 12 + (i / (count - 1)) * 76;
+        : padTop + (i / (count - 1)) * (100 - padTop - padBot);
 
       result.push({ player: outfield[idx], x, y });
     }
@@ -101,7 +94,6 @@ function layoutTeam(
   return result;
 }
 
-/** Fallback formation when none provided: split N outfield players roughly */
 function defaultFormation(n: number): number[] {
   if (n <= 3) return [n];
   if (n <= 6) return [Math.ceil(n / 2), Math.floor(n / 2)];
@@ -120,40 +112,52 @@ function PlayerNode({
   index: number;
   isHome: boolean;
 }) {
+  const [showName, setShowName] = useState(false);
+
   const shortName = player.name.includes('.')
-    ? player.name
+    ? player.name.split('.').pop()?.trim() ?? player.name
     : player.name.split(' ').pop() ?? player.name;
 
   return (
     <motion.div
-      className="flex flex-col items-center gap-px pointer-events-auto"
-      initial={{ opacity: 0, scale: 0.3 }}
+      className="flex flex-col items-center pointer-events-auto cursor-default select-none"
+      initial={{ opacity: 0, scale: 0.2 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{
         type: 'spring',
-        stiffness: 260,
-        damping: 20,
-        delay: index * 0.035,
+        stiffness: 300,
+        damping: 22,
+        delay: index * 0.03,
       }}
+      onHoverStart={() => setShowName(true)}
+      onHoverEnd={() => setShowName(false)}
+      onTap={() => setShowName(s => !s)}
     >
+      {/* Jersey circle — compact sizes */}
       <div
         className={cn(
-          'w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center',
-          'text-[9px] sm:text-[10px] md:text-[11px] font-display font-bold tabular-nums leading-none',
-          'border transition-colors',
-          player.subbedOut && 'opacity-30',
+          'w-[22px] h-[22px] sm:w-[26px] sm:h-[26px] md:w-[30px] md:h-[30px]',
+          'rounded-full flex items-center justify-center',
+          'text-[8px] sm:text-[9px] md:text-[10px] font-display font-bold tabular-nums leading-none',
+          'border backdrop-blur-sm',
+          player.subbedOut && 'opacity-25',
           isHome
-            ? 'bg-accent-green/25 border-accent-green/50 text-accent-green shadow-[0_0_6px_var(--color-accent-green,rgba(189,232,245,0.2))]'
-            : 'bg-accent-orange/25 border-accent-orange/50 text-accent-orange shadow-[0_0_6px_var(--color-accent-orange,rgba(255,51,102,0.2))]',
+            ? 'bg-accent-green/20 border-accent-green/45 text-accent-green shadow-[0_0_8px_var(--color-accent-green,rgba(189,232,245,0.18))]'
+            : 'bg-accent-orange/20 border-accent-orange/45 text-accent-orange shadow-[0_0_8px_var(--color-accent-orange,rgba(255,51,102,0.18))]',
         )}
       >
         {player.jersey || '–'}
       </div>
+
+      {/* Name — always visible on desktop, tap-toggle on mobile */}
       <span
         className={cn(
-          'text-[6px] sm:text-[7px] md:text-[8px] font-mono leading-tight text-center',
-          'truncate max-w-[40px] sm:max-w-[48px] md:max-w-[56px]',
-          player.subbedOut ? 'text-white/15' : 'text-white/55',
+          'text-[5.5px] sm:text-[6.5px] md:text-[7px] font-mono leading-none mt-px',
+          'text-center whitespace-nowrap',
+          'transition-opacity duration-150',
+          player.subbedOut ? 'text-white/10' : 'text-white/50',
+          // On mobile: only show on tap. On md+: always show.
+          showName ? 'opacity-100' : 'opacity-0 sm:opacity-100',
         )}
       >
         {shortName}
@@ -162,7 +166,7 @@ function PlayerNode({
   );
 }
 
-// ── Pitch Markings (horizontal, always) ──────────────────────────────────────
+// ── Pitch Markings ───────────────────────────────────────────────────────────
 
 function PitchMarkings() {
   return (
@@ -175,27 +179,24 @@ function PitchMarkings() {
       <g
         fill="none"
         stroke="var(--color-border-bright)"
-        strokeWidth="0.4"
-        opacity="0.3"
+        strokeWidth="0.35"
+        opacity="0.25"
       >
-        {/* Outer boundary */}
         <rect x="2" y="2" width="196" height="96" rx="1" />
-        {/* Center line */}
         <line x1="100" y1="2" x2="100" y2="98" />
-        {/* Center circle */}
         <circle cx="100" cy="50" r="12" />
-        <circle cx="100" cy="50" r="0.8" fill="var(--color-border-bright)" />
-        {/* Left penalty box */}
-        <rect x="2" y="22" width="26" height="56" />
-        <rect x="2" y="32" width="12" height="36" />
-        <path d="M 28 38 A 8 8 0 0 0 28 62" />
-        <circle cx="20" cy="50" r="0.6" fill="var(--color-border-bright)" />
-        {/* Right penalty box */}
-        <rect x="172" y="22" width="26" height="56" />
-        <rect x="186" y="32" width="12" height="36" />
-        <path d="M 172 38 A 8 8 0 0 1 172 62" />
-        <circle cx="180" cy="50" r="0.6" fill="var(--color-border-bright)" />
-        {/* Corner arcs */}
+        <circle cx="100" cy="50" r="0.6" fill="var(--color-border-bright)" />
+        {/* Left penalty area */}
+        <rect x="2" y="22" width="24" height="56" />
+        <rect x="2" y="33" width="10" height="34" />
+        <path d="M 26 40 A 7 7 0 0 0 26 60" />
+        <circle cx="18" cy="50" r="0.5" fill="var(--color-border-bright)" />
+        {/* Right penalty area */}
+        <rect x="174" y="22" width="24" height="56" />
+        <rect x="188" y="33" width="10" height="34" />
+        <path d="M 174 40 A 7 7 0 0 1 174 60" />
+        <circle cx="182" cy="50" r="0.5" fill="var(--color-border-bright)" />
+        {/* Corners */}
         <path d="M 2 5 A 3 3 0 0 0 5 2" />
         <path d="M 195 2 A 3 3 0 0 0 198 5" />
         <path d="M 2 95 A 3 3 0 0 1 5 98" />
@@ -205,49 +206,27 @@ function PitchMarkings() {
   );
 }
 
-// ── Team Half Renderer ───────────────────────────────────────────────────────
+// ── Player Layer ─────────────────────────────────────────────────────────────
 
-function TeamHalfView({
+function PlayerLayer({
   positioned,
   isHome,
   flipX,
-  teamName,
-  formationStr,
 }: {
   positioned: PositionedPlayer[];
   isHome: boolean;
-  /** If true, mirror x so GK is on the right side */
   flipX: boolean;
-  teamName: string;
-  formationStr: string | null;
 }) {
-  const shortName = teamName.split(' ').pop() ?? teamName;
-
   return (
-    <div className="absolute inset-0 pointer-events-none">
-      {/* Formation badge */}
-      {formationStr && (
-        <div className={cn(
-          'absolute z-10 top-1',
-          flipX ? 'right-1' : 'left-1',
-        )}>
-          <span className="text-[7px] sm:text-[8px] md:text-[9px] font-mono text-accent-green/40 bg-accent-green/[0.06] border border-accent-green/10 rounded px-1 py-0.5 pointer-events-auto">
-            {shortName} {formationStr}
-          </span>
-        </div>
-      )}
-
-      {/* Players */}
+    <>
       {positioned.map((pp, i) => {
-        // Each team half is 50% of the pitch width.
-        // x is 0–100 within the half. Convert to % of full pitch.
         const halfOffset = isHome ? 0 : 50;
         const xInHalf = flipX ? (100 - pp.x) : pp.x;
         const left = halfOffset + (xInHalf / 100) * 50;
 
         return (
           <div
-            key={`${pp.player.jersey}-${pp.player.name}`}
+            key={`${isHome ? 'h' : 'a'}-${pp.player.jersey}-${i}`}
             className="absolute -translate-x-1/2 -translate-y-1/2"
             style={{ left: `${left}%`, top: `${pp.y}%` }}
           >
@@ -255,7 +234,7 @@ function TeamHalfView({
           </div>
         );
       })}
-    </div>
+    </>
   );
 }
 
@@ -282,43 +261,57 @@ export function TacticalPitch({
     [awayStarters, awayParsed],
   );
 
-  // Need players to render
   if (homePositioned.length === 0 && awayPositioned.length === 0) return null;
 
-  // In LTR: home on left (attacking right), away on right (attacking left → flipX).
-  // In RTL: reversed.
   const isRtl = rtl ?? false;
   const homeFlipX = isRtl;
   const awayFlipX = !isRtl;
 
-  return (
-    <div
-      className={cn(
-        'relative w-full rounded-xl overflow-hidden',
-        'bg-[var(--color-bg-card)] backdrop-blur-glass',
-        'border border-border-subtle',
-        'pitch-grass',
-      )}
-      style={{ aspectRatio: '2 / 1', minHeight: 180, maxHeight: 400 }}
-    >
-      <PitchMarkings />
+  const homeShort = homeTeam.split(' ').pop() ?? homeTeam;
+  const awayShort = awayTeam.split(' ').pop() ?? awayTeam;
 
-      {/* Player overlay — absolute so it definitely fills the pitch */}
-      <div className="absolute inset-0 z-[1]">
-        <TeamHalfView
-          positioned={homePositioned}
-          isHome={true}
-          flipX={homeFlipX}
-          teamName={homeTeam}
-          formationStr={homeFormation}
-        />
-        <TeamHalfView
-          positioned={awayPositioned}
-          isHome={false}
-          flipX={awayFlipX}
-          teamName={awayTeam}
-          formationStr={awayFormation}
-        />
+  return (
+    <div className="space-y-2">
+      {/* Formation header — OUTSIDE the pitch so it never overlaps players */}
+      <div className="flex items-center justify-between px-1">
+        <span className={cn(
+          'text-[9px] md:text-[10px] font-mono tabular-nums',
+          'text-accent-green/50 bg-accent-green/[0.06] border border-accent-green/12 rounded px-1.5 py-0.5',
+        )}>
+          {isRtl ? awayShort : homeShort} {isRtl ? awayFormation : homeFormation}
+        </span>
+        <span className={cn(
+          'text-[9px] md:text-[10px] font-mono tabular-nums',
+          'text-accent-orange/50 bg-accent-orange/[0.06] border border-accent-orange/12 rounded px-1.5 py-0.5',
+        )}>
+          {isRtl ? homeShort : awayShort} {isRtl ? homeFormation : awayFormation}
+        </span>
+      </div>
+
+      {/* Pitch */}
+      <div
+        className={cn(
+          'relative w-full rounded-xl overflow-hidden',
+          'bg-[var(--color-bg-card)] backdrop-blur-glass',
+          'border border-border-subtle',
+          'pitch-grass',
+        )}
+        style={{ paddingBottom: '52%' /* ~1.92:1 ratio, taller than pure 2:1 */ }}
+      >
+        <PitchMarkings />
+
+        <div className="absolute inset-0 z-[1]">
+          <PlayerLayer
+            positioned={homePositioned}
+            isHome={true}
+            flipX={homeFlipX}
+          />
+          <PlayerLayer
+            positioned={awayPositioned}
+            isHome={false}
+            flipX={awayFlipX}
+          />
+        </div>
       </div>
     </div>
   );
