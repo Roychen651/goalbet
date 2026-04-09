@@ -62,9 +62,9 @@ function layoutTeam(
 
   const result: PositionedPlayer[] = [];
 
-  // GK — pushed close to own goal
+  // GK — pushed close to own goal but with enough margin to not clip
   if (starters[0]) {
-    result.push({ player: starters[0], x: 6, y: 50 });
+    result.push({ player: starters[0], x: 10, y: 50 });
   }
 
   const outfield = starters.slice(1);
@@ -74,18 +74,17 @@ function layoutTeam(
   let idx = 0;
   for (let rowIdx = 0; rowIdx < totalRows; rowIdx++) {
     const count = rows[rowIdx];
-    // Rows span from 20% to 94% of the half — plenty of room
+    // Rows span from 24% to 92% — keep away from edges
     const x = totalRows === 1
       ? 55
-      : 20 + (rowIdx / (totalRows - 1)) * 74;
+      : 24 + (rowIdx / (totalRows - 1)) * 68;
 
     for (let i = 0; i < count && idx < outfield.length; i++, idx++) {
-      // Players spread vertically with generous padding from edges
-      const padTop = 8;
-      const padBot = 8;
+      // Generous vertical padding — 14% from each edge prevents clipping
+      const pad = 14;
       const y = count === 1
         ? 50
-        : padTop + (i / (count - 1)) * (100 - padTop - padBot);
+        : pad + (i / (count - 1)) * (100 - pad * 2);
 
       result.push({ player: outfield[idx], x, y });
     }
@@ -120,7 +119,7 @@ function PlayerNode({
 
   return (
     <motion.div
-      className="flex flex-col items-center pointer-events-auto cursor-default select-none"
+      className="flex flex-col items-center pointer-events-auto cursor-default select-none gap-[1px]"
       initial={{ opacity: 0, scale: 0.2 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{
@@ -133,30 +132,29 @@ function PlayerNode({
       onHoverEnd={() => setShowName(false)}
       onTap={() => setShowName(s => !s)}
     >
-      {/* Jersey circle — compact sizes */}
+      {/* Jersey circle — tiny on mobile, slightly bigger on desktop */}
       <div
         className={cn(
-          'w-[22px] h-[22px] sm:w-[26px] sm:h-[26px] md:w-[30px] md:h-[30px]',
+          'w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7',
           'rounded-full flex items-center justify-center',
-          'text-[8px] sm:text-[9px] md:text-[10px] font-display font-bold tabular-nums leading-none',
+          'text-[7px] sm:text-[8px] md:text-[9px] font-display font-bold tabular-nums leading-none',
           'border backdrop-blur-sm',
           player.subbedOut && 'opacity-25',
           isHome
-            ? 'bg-accent-green/20 border-accent-green/45 text-accent-green shadow-[0_0_8px_var(--color-accent-green,rgba(189,232,245,0.18))]'
-            : 'bg-accent-orange/20 border-accent-orange/45 text-accent-orange shadow-[0_0_8px_var(--color-accent-orange,rgba(255,51,102,0.18))]',
+            ? 'bg-accent-green/20 border-accent-green/50 text-accent-green shadow-[0_0_6px_var(--color-accent-green,rgba(189,232,245,0.15))]'
+            : 'bg-accent-orange/20 border-accent-orange/50 text-accent-orange shadow-[0_0_6px_var(--color-accent-orange,rgba(255,51,102,0.15))]',
         )}
       >
         {player.jersey || '–'}
       </div>
 
-      {/* Name — always visible on desktop, tap-toggle on mobile */}
+      {/* Name — hidden on mobile, visible on sm+ or on tap */}
       <span
         className={cn(
-          'text-[5.5px] sm:text-[6.5px] md:text-[7px] font-mono leading-none mt-px',
-          'text-center whitespace-nowrap',
+          'text-[5px] sm:text-[6px] md:text-[6.5px] font-mono leading-none',
+          'text-center whitespace-nowrap max-w-[40px] sm:max-w-[50px] truncate',
           'transition-opacity duration-150',
-          player.subbedOut ? 'text-white/10' : 'text-white/50',
-          // On mobile: only show on tap. On md+: always show.
+          player.subbedOut ? 'text-white/10' : 'text-white/45',
           showName ? 'opacity-100' : 'opacity-0 sm:opacity-100',
         )}
       >
@@ -179,8 +177,8 @@ function PitchMarkings() {
       <g
         fill="none"
         stroke="var(--color-border-bright)"
-        strokeWidth="0.35"
-        opacity="0.25"
+        strokeWidth="0.3"
+        opacity="0.18"
       >
         <rect x="2" y="2" width="196" height="96" rx="1" />
         <line x1="100" y1="2" x2="100" y2="98" />
@@ -271,24 +269,24 @@ export function TacticalPitch({
   const awayShort = awayTeam.split(' ').pop() ?? awayTeam;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {/* Formation header — OUTSIDE the pitch so it never overlaps players */}
       <div className="flex items-center justify-between px-1">
         <span className={cn(
-          'text-[9px] md:text-[10px] font-mono tabular-nums',
-          'text-accent-green/50 bg-accent-green/[0.06] border border-accent-green/12 rounded px-1.5 py-0.5',
+          'text-[8px] sm:text-[9px] md:text-[10px] font-mono tabular-nums',
+          'text-accent-green/60 bg-accent-green/[0.06] border border-accent-green/15 rounded px-1.5 py-0.5',
         )}>
           {isRtl ? awayShort : homeShort} {isRtl ? awayFormation : homeFormation}
         </span>
         <span className={cn(
-          'text-[9px] md:text-[10px] font-mono tabular-nums',
-          'text-accent-orange/50 bg-accent-orange/[0.06] border border-accent-orange/12 rounded px-1.5 py-0.5',
+          'text-[8px] sm:text-[9px] md:text-[10px] font-mono tabular-nums',
+          'text-accent-orange/60 bg-accent-orange/[0.06] border border-accent-orange/15 rounded px-1.5 py-0.5',
         )}>
           {isRtl ? homeShort : awayShort} {isRtl ? homeFormation : awayFormation}
         </span>
       </div>
 
-      {/* Pitch */}
+      {/* Pitch — responsive ratio: taller on mobile, wider on desktop */}
       <div
         className={cn(
           'relative w-full rounded-xl overflow-hidden',
@@ -296,7 +294,7 @@ export function TacticalPitch({
           'border border-border-subtle',
           'pitch-grass',
         )}
-        style={{ paddingBottom: '52%' /* ~1.92:1 ratio, taller than pure 2:1 */ }}
+        style={{ paddingBottom: 'clamp(48%, 52vw, 56%)' }}
       >
         <PitchMarkings />
 
