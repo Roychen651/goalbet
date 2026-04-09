@@ -10,7 +10,6 @@ import { MatchStats } from './MatchStats';
 import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown, isMatchLocked } from '../../lib/utils';
-import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
 import { CoinIcon } from '../ui/CoinIcon';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
@@ -768,14 +767,17 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
                   {isMatchLocked(match.kickoff_time) || match.status !== 'NS' ? (
                     <LockedPrediction match={match} prediction={prediction} resolved={prediction?.is_resolved ?? false} />
                   ) : (
-                    <MagneticButtonV2
-                      variant={hasPrediction ? 'ghost' : 'volt'}
-                      size="lg"
+                    <button
                       onClick={() => openPredictionModal(match.id)}
-                      className="w-full"
+                      className={cn(
+                        'w-full py-2 rounded-xl text-sm font-display font-semibold transition-all duration-200 border',
+                        hasPrediction
+                          ? 'bg-white/4 border-white/10 text-text-muted hover:bg-white/8 hover:text-text-primary'
+                          : 'bg-accent-green/10 border-accent-green/25 text-accent-green hover:bg-accent-green/18',
+                      )}
                     >
                       {hasPrediction ? `✏️ ${t('updatePrediction')}` : t('lockInPrediction')}
-                    </MagneticButtonV2>
+                    </button>
                   )}
                   {/* Coin result — shown for finished resolved predictions */}
                   {isFinished && prediction?.is_resolved && (prediction?.coins_bet ?? 0) > 0 && (
