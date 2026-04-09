@@ -331,25 +331,34 @@ goalbet/
 │       │   │   ├── LeaderboardTable.tsx
 │       │   │   └── UserMatchHistoryModal.tsx  # Bottom sheet — swipe-to-close enabled
 │       │   ├── matches/
-│       │   │   ├── MatchCard.tsx          # ACTIVE card: MatchCardCore (private) + MatchCard (public, shimmer wrapper). isPastKickoffNS, DELAYED, live clock, weather/referee/competition phase, TacticalIntelSection
+│       │   │   ├── MatchCard.tsx          # ACTIVE card: MatchCardCore (private) + MatchCard (public, shimmer wrapper). isPastKickoffNS, DELAYED, live clock, weather/referee/competition phase, TacticalIntelSection, dual dark/light league logos, live breathing glow, goal flash, score flip
 │       │   │   ├── MatchFeed.tsx          # Date-grouped feed; imports MatchCard directly
+│       │   │   ├── MatchRosters.tsx       # Starting XI + substitutes fetched from ESPN; feeds TacticalPitch
+│       │   │   ├── MatchStats.tsx         # Post-match statistics (possession, shots, corners, etc.)
 │       │   │   ├── MatchStatusBadge.tsx   # Status pill; intercepts DELAYED→SYNCING during cold-start
 │       │   │   ├── MatchTimeline.tsx      # ESPN summary events (returns null when no data)
+│       │   │   ├── TacticalPitch.tsx      # Glass tactical formation view for Starting XI; horizontal pitch with percentage-based positioning
 │       │   │   └── PredictionForm.tsx     # 5-tier prediction input; corners hidden for league 4396
 │       │   └── ui/
 │       │       ├── Avatar.tsx             # Expects emoji:🏆 prefix
 │       │       ├── CoinGuide.tsx          # Bottom sheet — swipe-to-close enabled
 │       │       ├── CoinHistoryModal.tsx   # Bottom sheet — swipe-to-close enabled
+│       │       ├── CoinIcon.tsx           # Animated coin SVG icon with configurable size
+│       │       ├── EmptyState.tsx         # Reusable empty-state placeholder
+│       │       ├── FadeInView.tsx         # Wrapper: fade-in on mount via Framer Motion
 │       │       ├── GlassCard.tsx
 │       │       ├── HelpGuideModal.tsx     # Bottom sheet — swipe-to-close enabled
 │       │       ├── InfoTip.tsx            # Tooltip using CSS vars (works in both themes)
 │       │       ├── LangToggle.tsx
 │       │       ├── LoadingSpinner.tsx
+│       │       ├── MagneticButtonV2.tsx   # Magnetic pull button; variants: volt / ghost / purple
 │       │       ├── NeonButton.tsx         # Variants: green / ghost / danger
 │       │       ├── PolicyModal.tsx
 │       │       ├── ScoringGuide.tsx       # Bottom sheet — swipe-to-close enabled
+│       │       ├── StaggerList.tsx        # Wrapper: staggered child animations
 │       │       ├── SyncProgressBar.tsx    # Fixed top bar; visible while isSyncing; z-[100]
 │       │       ├── ThemeToggle.tsx
+│       │       ├── TiltCardV2.tsx         # 3° tilt with spring physics for profile bento cards
 │       │       ├── Toast.tsx
 │       │       └── WelcomeAnimation.tsx   # First-login welcome sequence
 │       ├── hooks/
@@ -978,7 +987,7 @@ Use semantic CSS classes — never hardcode rgba in bento components:
 
 ### Hover effects
 
-- **Match cards** (`MatchCardV2`): diagonal shimmer sweep on hover entry. No tilt — preserves prediction form UX.
+- **Match cards** (`MatchCard`): diagonal shimmer sweep on hover entry. No tilt — preserves prediction form UX.
 - **Profile bento** (`TiltCardV2`): 3° tilt with spring physics. No glare overlay.
 - **Buttons** (`MagneticButtonV2`): magnetic pull within 80px radius. Variants: `volt`, `ghost`, `purple`.
 
@@ -995,9 +1004,42 @@ Use semantic CSS classes — never hardcode rgba in bento components:
 
 If a new `text-white/XX` or `border-white/XX` class appears invisible in light mode, add an override to the `html.light` block in `index.css`.
 
+### League logos — ESPN dark/light variants
+
+ESPN CDN provides two logo sets:
+- Light logos: `https://a.espncdn.com/i/leaguelogos/soccer/500/{id}.png`
+- Dark logos: `https://a.espncdn.com/i/leaguelogos/soccer/500-dark/{id}.png`
+
+`MatchCard.tsx` renders **both** `<img>` tags and toggles visibility via CSS:
+
+```css
+/* index.css — dark mode (default): show dark variant */
+.league-logo-light { display: none; }
+.league-logo-dark  { display: inline-block; }
+
+/* Light mode: swap */
+html.light .league-logo-light { display: inline-block; }
+html.light .league-logo-dark  { display: none; }
+```
+
+ESPN logo IDs are in `constants.ts → FOOTBALL_LEAGUES[].espnLogoId`. Set to `null` for leagues with no ESPN logo (World Cup Qualifiers, Euro Championship). Verified working IDs: Premier League=23, La Liga=15, Bundesliga=10, Serie A=12, Ligue 1=9, Champions League=2, Europa League=2310, Conference League=20296, FA Cup=40, League Cup=41, Copa del Rey=80, Nations League=2395, Friendlies=53.
+
+**Do not use Tailwind `dark:` prefix** — this project uses `html.light` class, not Tailwind's dark mode. Use the CSS class toggle pattern above.
+
+### Live match animations (index.css)
+
+| CSS class | Effect | Where used |
+|-----------|--------|------------|
+| `.animate-live-breathing` | Green glow pulse on card border (opacity 0.20→0.40) + border-color pulse (0.25→0.45) | `MatchCard` — applied to `GlassCard` when match is live |
+| `.goal-flash` | Green overlay flash on goal scored | `MatchCard` — applied via `cardRef` when score changes |
+| `.pitch-grass` | Subtle dark green gradient background | `TacticalPitch` — pitch surface |
+
+Score flip animation uses Framer Motion `AnimatePresence mode="popLayout"` with spring scale (1.3→1→0.8).
+
 ### Rules
 
 - **Never hardcode dark hex colors** in modals, tooltips, or cards — they break in light mode
+- **Never use Tailwind `dark:` prefix** — this project uses `html.light` class toggle, not Tailwind dark mode
 - Use `card-elevated` CSS class instead of raw hex backgrounds
 - Use CSS vars (`var(--color-tooltip-bg)`) for dynamic surfaces
 - For new bento/stat cards: add a `bento-*` CSS class pair, not inline rgba
@@ -1228,6 +1270,8 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **PST / CANC must never appear in Results or Live tabs.** Only `FT` is shown in completed tabs.
 - **Stalled NS matches show "Delayed" (orange), not "Live" (green).** Sentinel is `'DELAYED'`, never `'1H'`.
 - **MatchTimeline returns null when ESPN has no events.** Do not add an empty state — the section is hidden.
+- **League logos use dual `<img>` tags** (dark + light variant), toggled via `.league-logo-dark` / `.league-logo-light` CSS classes. Never use a single `<img>` with a CSS `filter` hack — it doesn't match ESPN's official dark variants.
+- **ESPN logo IDs must be verified.** Wrong IDs return 404 silently (broken image). Check `constants.ts → FOOTBALL_LEAGUES[].espnLogoId`. Set `espnLogoId: null` for leagues without ESPN logos.
 
 ### Predictions & scoring
 
@@ -1255,6 +1299,8 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **`ErrorBoundary` wraps `<Outlet />` in `AppShell`.** Do not remove it. It catches render errors in any page and shows a premium bilingual fallback instead of a white screen.
 - **`MatchCard.tsx` is the single active card implementation.** It exports two symbols: `MatchCardCore` (private internal component) and `MatchCard` (public shimmer wrapper). `MatchCardV2.tsx` was deleted in Sprint 17; `USE_V2_CARDS` no longer exists. All card work goes into `MatchCard.tsx`.
 - **The share invite string in `SettingsPage.tsx` must be localized.** It is the primary viral surface — a Hebrew user must send a Hebrew message.
+- **TacticalPitch player nodes must all be full opacity.** Never use `opacity-30` or similar on subbed-out players — it makes them invisible on the glass pitch. Use the `▼` marker instead.
+- **Never use Tailwind `dark:` prefix in this project.** Theme toggle uses `html.light` class, not Tailwind's dark-mode. Use CSS class pairs (e.g., `.league-logo-dark` / `.league-logo-light`) toggled via `html.light` selectors in `index.css`.
 
 ### Coins
 
