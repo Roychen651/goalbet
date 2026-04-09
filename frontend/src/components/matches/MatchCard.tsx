@@ -77,7 +77,7 @@ interface EspnMatchInfo {
   homeRank:    number | null;
   awayRank:    number | null;
   broadcast:   string | null;
-  aggregate:   { summary: string } | { phase: string | null; title: string; leg: number; homeAgg: number; awayAgg: number } | null;
+  aggregate:   { phase: string | null; title: string; leg: number; homeAgg: number; awayAgg: number } | null;
 }
 
 const ESPN_INFO_EMPTY: EspnMatchInfo = {
@@ -211,23 +211,21 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
     const seriesObj = compSeriesArr[0] as Record<string, unknown> | undefined;
     let aggregate: EspnMatchInfo['aggregate'] = null;
     if (seriesObj) {
-      // Try .summary first (populated for 2nd legs after play)
-      if (typeof seriesObj.summary === 'string' && seriesObj.summary) {
-        aggregate = { summary: seriesObj.summary };
-      } else {
-        // Build aggregate from competitors[].aggregateScore for knockout ties
-        const seriesComps = (seriesObj.competitors as Record<string, unknown>[]) ?? [];
-        const leg = typeof seriesObj.leg === 'number' ? seriesObj.leg : null;
-        const title = typeof seriesObj.title === 'string' ? seriesObj.title : '';
-        if (seriesComps.length === 2 && leg !== null) {
-          const s0 = typeof seriesComps[0].aggregateScore === 'number' ? seriesComps[0].aggregateScore as number : 0;
-          const s1 = typeof seriesComps[1].aggregateScore === 'number' ? seriesComps[1].aggregateScore as number : 0;
-          // Only show aggregate when there's an actual score (2nd leg, or 1st leg already played)
-          if (s0 + s1 > 0) {
-            aggregate = { phase: competitionPhase, title, leg, homeAgg: s0, awayAgg: s1 };
-          }
-          // 1st leg with 0-0 agg = no useful info to show — skip
+      // Always build structured data so we can translate at render time.
+      // ESPN's .summary is English-only — never use it directly.
+      const seriesComps = (seriesObj.competitors as Record<string, unknown>[]) ?? [];
+      const leg = typeof seriesObj.leg === 'number' ? seriesObj.leg : null;
+      const title = typeof seriesObj.title === 'string' ? seriesObj.title : '';
+      if (seriesComps.length === 2 && leg !== null) {
+        const s0 = typeof seriesComps[0].aggregateScore === 'number' ? seriesComps[0].aggregateScore as number : 0;
+        const s1 = typeof seriesComps[1].aggregateScore === 'number' ? seriesComps[1].aggregateScore as number : 0;
+        // Show aggregate when there's a score, or for leg 2+ (even 0-0 agg is meaningful)
+        if (s0 + s1 > 0 || leg >= 2) {
+          aggregate = { phase: competitionPhase, title, leg, homeAgg: s0, awayAgg: s1 };
         }
+      } else if (leg !== null) {
+        // No competitor scores but we know the leg — show phase + leg without agg
+        aggregate = { phase: competitionPhase, title, leg, homeAgg: 0, awayAgg: 0 };
       }
     }
 
@@ -632,10 +630,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
             {/* Aggregate score — knockout 2nd legs */}
             {espnInfo?.aggregate && (
               <span className="text-accent-orange/70 text-[9px] font-barlow font-medium mt-1.5 truncate max-w-[220px] tracking-wide">
-                {'summary' in espnInfo.aggregate
-                  ? espnInfo.aggregate.summary
-                  : `${espnInfo.aggregate.phase ? translatePhase(espnInfo.aggregate.phase, lang) + ' · ' : ''}${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))} (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})`
-                }
+                {`${espnInfo.aggregate.phase ? translatePhase(espnInfo.aggregate.phase, lang) + ' · ' : ''}${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))}${espnInfo.aggregate.homeAgg + espnInfo.aggregate.awayAgg > 0 ? ` (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})` : ''}`}
               </span>
             )}
           </div>
