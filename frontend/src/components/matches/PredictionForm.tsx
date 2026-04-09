@@ -571,7 +571,7 @@ function TierBreakdownRow({ tier, prediction, match, delay }: {
   );
 }
 
-function LockedPrediction({
+export function LockedPrediction({
   match, prediction, resolved,
 }: {
   match: Match;

@@ -4,12 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
 import { MatchStatusBadge } from './MatchStatusBadge';
-import { PredictionForm, PredictionData } from './PredictionForm';
+import { LockedPrediction } from './PredictionForm';
 import { MatchTimeline } from './MatchTimeline';
 import { MatchStats } from './MatchStats';
 import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
-import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown } from '../../lib/utils';
+import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown, isMatchLocked } from '../../lib/utils';
+import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
 import { CoinIcon } from '../ui/CoinIcon';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
@@ -283,17 +284,16 @@ interface MatchCardProps {
   match: Match;
   prediction?: Prediction;
   predictors?: { user_id: string; avatar_url: string | null; username: string }[];
-  onSavePrediction: (data: PredictionData) => Promise<void>;
-  savingMatchId: string | null;
 }
 
-function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, savingMatchId }: MatchCardProps) {
+function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { t, lang } = useLangStore();
   const rtl = lang === 'he';
   const { user, profile } = useAuthStore();
   const enableLiveAnimations = useUIStore(s => s.enableLiveAnimations);
   const isSyncing = useUIStore(s => s.isSyncing);
+  const openPredictionModal = useUIStore(s => s.openPredictionModal);
 
   // Track previous scores for safe score-flip animation + goal flash
   const prevScoreRef = useRef<{ home: number | null; away: number | null } | null>(null);
@@ -327,7 +327,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
     return () => { cancelled = true; };
   }, [match.external_id, match.league_id, match.status]);
   // Re-render every 20s so countdown ("6m", "1h 6m", etc.) stays accurate.
-  // This does NOT refetch data — PredictionForm and expanded state are preserved.
+  // This does NOT refetch data — expanded state is preserved.
   useLiveClock(20_000);
   const isLive = LIVE_STATUSES.includes(match.status);
   const isFinished = FINISHED_STATUSES.includes(match.status);
@@ -764,13 +764,19 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                       awayName={match.away_team}
                     />
                   )}
-                  <PredictionForm
-                    match={match}
-                    existingPrediction={prediction}
-                    onSave={async (data) => { await onSavePrediction(data); setExpanded(false); }}
-                    saving={savingMatchId === match.id}
-                    odds={espnInfo?.odds ?? undefined}
-                  />
+                  {/* Prediction: locked view inline, or button to open modal */}
+                  {isMatchLocked(match.kickoff_time) || match.status !== 'NS' ? (
+                    <LockedPrediction match={match} prediction={prediction} resolved={prediction?.is_resolved ?? false} />
+                  ) : (
+                    <MagneticButtonV2
+                      variant={hasPrediction ? 'ghost' : 'volt'}
+                      size="lg"
+                      onClick={() => openPredictionModal(match.id)}
+                      className="w-full"
+                    >
+                      {hasPrediction ? `✏️ ${t('updatePrediction')}` : t('lockInPrediction')}
+                    </MagneticButtonV2>
+                  )}
                   {/* Coin result — shown for finished resolved predictions */}
                   {isFinished && prediction?.is_resolved && (prediction?.coins_bet ?? 0) > 0 && (
                     <MatchCoinSummary coinsBet={prediction.coins_bet ?? 0} pointsEarned={prediction.points_earned ?? 0} />

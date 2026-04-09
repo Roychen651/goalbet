@@ -4,7 +4,6 @@ import { Match, Prediction } from '../../lib/supabase';
 import { MatchCard } from './MatchCard';
 import { EmptyState } from '../ui/EmptyState';
 import { PageLoader, MatchCardSkeleton } from '../ui/LoadingSpinner';
-import { PredictionData } from './PredictionForm';
 import { LIVE_STATUSES, FINISHED_STATUSES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 
@@ -13,8 +12,6 @@ interface MatchFeedProps {
   predictions: Map<string, Prediction>;
   predictorsByMatch?: Map<string, { user_id: string; username: string; avatar_url: string | null }[]>;
   loading: boolean;
-  savingMatchId: string | null;
-  onSavePrediction: (data: PredictionData) => Promise<void>;
   activeTab: 'all' | 'upcoming' | 'live' | 'completed';
 }
 
@@ -36,7 +33,7 @@ function dateLabel(kickoffTime: string, lang: 'en' | 'he'): string {
 }
 
 export function MatchFeed({
-  matches, predictions, predictorsByMatch, loading, savingMatchId, onSavePrediction, activeTab,
+  matches, predictions, predictorsByMatch, loading, activeTab,
 }: MatchFeedProps) {
   const { t, lang } = useLangStore();
 
@@ -149,8 +146,6 @@ export function MatchFeed({
                       index={i}
                       predictions={predictions}
                       predictorsByMatch={predictorsByMatch}
-                      onSavePrediction={onSavePrediction}
-                      savingMatchId={savingMatchId}
                     />
                   ))}
                 </div>
@@ -170,8 +165,6 @@ export function MatchFeed({
                       index={i}
                       predictions={predictions}
                       predictorsByMatch={predictorsByMatch}
-                      onSavePrediction={onSavePrediction}
-                      savingMatchId={savingMatchId}
                     />
                   ))}
                 </div>
@@ -188,8 +181,6 @@ export function MatchFeed({
                     index={i}
                     predictions={predictions}
                     predictorsByMatch={predictorsByMatch}
-                    onSavePrediction={onSavePrediction}
-                    savingMatchId={savingMatchId}
                   />
                 ))}
               </div>
@@ -206,21 +197,17 @@ export function MatchFeed({
 
 // Single match card wrapped in animation
 function MatchCardItem({
-  match, index, predictions, predictorsByMatch, onSavePrediction, savingMatchId,
+  match, index, predictions, predictorsByMatch,
 }: {
   match: Match;
   index: number;
   predictions: Map<string, Prediction>;
   predictorsByMatch?: Map<string, { user_id: string; username: string; avatar_url: string | null }[]>;
-  onSavePrediction: (data: PredictionData) => Promise<void>;
-  savingMatchId: string | null;
 }) {
   const cardProps = {
     match,
     prediction: predictions.get(match.id),
     predictors: predictorsByMatch?.get(match.id),
-    onSavePrediction,
-    savingMatchId,
   };
 
   return (

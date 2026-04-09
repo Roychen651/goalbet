@@ -7,13 +7,14 @@ import { useGroupStore } from '../stores/groupStore';
 import { useUIStore } from '../stores/uiStore';
 import { useLangStore } from '../stores/langStore';
 import { MatchFeed } from '../components/matches/MatchFeed';
+import { PredictionModal } from '../components/matches/PredictionModal';
 import { PageLoader } from '../components/ui/LoadingSpinner';
 import { NeonButton } from '../components/ui/NeonButton';
 import { ScoringGuide } from '../components/ui/ScoringGuide';
 import { CoinGuide } from '../components/ui/CoinGuide';
 import { CoinIcon } from '../components/ui/CoinIcon';
 import { cn } from '../lib/utils';
-import { PredictionData } from '../components/matches/PredictionForm';
+import type { PredictionData } from '../components/matches/PredictionForm';
 
 type Tab = 'all' | 'upcoming' | 'live' | 'completed';
 
@@ -172,8 +173,6 @@ export function HomePage() {
         predictions={predictions}
         predictorsByMatch={predictorsByMatch}
         loading={loading}
-        savingMatchId={saving}
-        onSavePrediction={handleSavePrediction}
         activeTab={activeTab}
       />
 
@@ -207,6 +206,13 @@ export function HomePage() {
         {showScoringGuide && <ScoringGuide onClose={() => setShowScoringGuide(false)} />}
         {showCoinGuide && <CoinGuide onClose={() => setShowCoinGuide(false)} />}
       </AnimatePresence>
+
+      <PredictionModal
+        matches={matches}
+        predictions={predictions}
+        onSave={handleSavePrediction}
+        savingMatchId={saving}
+      />
     </div>
   );
 }

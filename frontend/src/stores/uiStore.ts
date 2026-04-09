@@ -9,12 +9,15 @@ export interface Toast {
 interface UIState {
   toasts: Toast[];
   activeModal: string | null;
+  activePredictionMatchId: string | null;
   enableLiveAnimations: boolean;
   isSyncing: boolean;
   addToast: (message: string, type?: Toast['type']) => void;
   removeToast: (id: string) => void;
   openModal: (name: string) => void;
   closeModal: () => void;
+  openPredictionModal: (matchId: string) => void;
+  closePredictionModal: () => void;
   toggleLiveAnimations: () => void;
   setSyncing: (v: boolean) => void;
 }
@@ -26,6 +29,7 @@ const LIVE_ANIM_KEY = 'goalbet:liveAnimations';
 export const useUIStore = create<UIState>((set) => ({
   toasts: [],
   activeModal: null,
+  activePredictionMatchId: null,
   enableLiveAnimations: localStorage.getItem(LIVE_ANIM_KEY) !== 'false',
   isSyncing: false,
   setSyncing: (v) => set({ isSyncing: v }),
@@ -44,6 +48,9 @@ export const useUIStore = create<UIState>((set) => ({
 
   openModal: (name) => set({ activeModal: name }),
   closeModal: () => set({ activeModal: null }),
+
+  openPredictionModal: (matchId) => set({ activePredictionMatchId: matchId }),
+  closePredictionModal: () => set({ activePredictionMatchId: null }),
 
   toggleLiveAnimations: () =>
     set(state => {
