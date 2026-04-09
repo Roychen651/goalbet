@@ -558,61 +558,49 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                 <span className="text-[9px] text-white/25">↻ {updatedAgoLabel}</span>
               </div>
             ) : (
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center gap-0.5">
                 {/* League logo — dark variant by default, light variant in html.light */}
                 {leagueEspnId !== null ? (<>
                   <img
                     src={`https://a.espncdn.com/i/leaguelogos/soccer/500-dark/${leagueEspnId}.png`}
-                    className="w-7 h-7 sm:w-8 sm:h-8 object-contain mb-1.5 league-logo-dark"
+                    className="w-5 h-5 object-contain league-logo-dark"
                     alt={match.league_name}
                     title={match.league_name}
-                    width={32}
-                    height={32}
-                    onError={(e) => {
-                      const img = e.target as HTMLImageElement;
-                      img.style.display = 'none';
-                    }}
+                    width={20}
+                    height={20}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                   <img
                     src={`https://a.espncdn.com/i/leaguelogos/soccer/500/${leagueEspnId}.png`}
-                    className="w-7 h-7 sm:w-8 sm:h-8 object-contain mb-1.5 league-logo-light"
+                    className="w-5 h-5 object-contain league-logo-light"
                     alt={match.league_name}
                     title={match.league_name}
-                    width={32}
-                    height={32}
-                    onError={(e) => {
-                      const img = e.target as HTMLImageElement;
-                      img.style.display = 'none';
-                    }}
+                    width={20}
+                    height={20}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 </>) : leagueBadge ? (
-                  <span className="text-lg leading-none mb-1.5" title={match.league_name}>{leagueBadge}</span>
+                  <span className="text-sm leading-none" title={match.league_name}>{leagueBadge}</span>
                 ) : null}
-
-                {/* Date + Time + Countdown — bordered pill */}
-                <div className="flex flex-col items-center px-4 py-1.5 rounded-lg border border-border-subtle/50 bg-white/[0.02]">
-                  <span className="text-text-muted text-xs font-display">{date}</span>
-                  <span className="text-white font-bold text-xl sm:text-2xl font-bebas tracking-widest leading-tight">{time}</span>
-                  {startingSoon ? (
-                    <span className="text-accent-orange text-xs font-display font-semibold animate-pulse">
-                      {t('startingSoon')}
-                    </span>
-                  ) : countdown ? (
-                    <span className="text-accent-green/70 text-[11px] font-display font-medium">{countdown}</span>
-                  ) : null}
-                </div>
-
+                <span className="text-text-muted text-[10px]">{date}</span>
+                <span className="text-white font-bold text-base font-display leading-none">{time}</span>
+                {startingSoon ? (
+                  <span className="text-accent-orange text-[10px] font-display font-semibold animate-pulse">
+                    {t('startingSoon')}
+                  </span>
+                ) : countdown ? (
+                  <span className="text-accent-green/60 text-[10px] font-display">{countdown}</span>
+                ) : null}
                 {/* Lock countdown */}
                 {!isLive && !isAET && !isFinished && !isPastKickoffNS && lockCountdown && (
-                  <span className="text-orange-400/80 text-[11px] font-display font-medium mt-1 flex items-center gap-0.5">
+                  <span className="text-orange-400/70 text-[9px] font-display flex items-center gap-0.5">
                     <span>🔒</span>
                     <span>{lockCountdown}</span>
                   </span>
                 )}
-
-                {/* Aggregate / knockout stage — bold headline label */}
+                {/* Aggregate / knockout stage */}
                 {espnInfo?.aggregate && (
-                  <span className="text-accent-orange text-[13px] sm:text-sm font-headline font-bold mt-1.5 truncate max-w-[280px] tracking-wide">
+                  <span className="text-accent-orange text-[11px] sm:text-xs font-display font-semibold mt-0.5 truncate max-w-[240px]">
                     {`${espnInfo.aggregate.phase ? translatePhase(espnInfo.aggregate.phase, lang) + ' · ' : ''}${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))}${espnInfo.aggregate.hasAgg ? ` (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})` : ''}`}
                   </span>
                 )}
@@ -668,41 +656,38 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
 
         {/* Win Probability — compact single-row bar */}
         {espnInfo?.predictor && (
-          <div className="mt-3 px-0.5 relative">
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col items-start shrink-0 gap-0.5">
-                <span className="font-display text-[13px] sm:text-sm font-bold text-accent-green tabular-nums leading-none">
+          <div className="mt-2.5 px-0.5 relative">
+            <div className="flex items-center gap-1.5">
+              <div className="flex flex-col items-start shrink-0">
+                <span className="font-display text-[11px] font-bold text-accent-green tabular-nums leading-none">
                   {espnInfo.predictor.homeWinPct}%
                 </span>
-                <span className="text-[11px] sm:text-xs text-text-muted/70 font-display font-semibold leading-none truncate max-w-[70px]">
+                <span className="text-[9px] text-text-muted/50 font-display leading-none truncate max-w-[55px]">
                   {match.home_team.split(' ').slice(-1)[0]}
                 </span>
               </div>
               <div className="flex-1">
-                {/* No flex-row-reverse — document dir="rtl" already reverses flex children in Hebrew */}
-                <div className="flex h-[6px] rounded-full overflow-hidden">
+                <div className="flex h-[5px] rounded-full overflow-hidden">
                   <div className="h-full bg-accent-green rounded-s-full" style={{ width: `${espnInfo.predictor.homeWinPct}%` }} />
                   <div className="h-full bg-white/10" style={{ width: `${espnInfo.predictor.drawPct}%` }} />
                   <div className="h-full bg-accent-orange rounded-e-full" style={{ width: `${espnInfo.predictor.awayWinPct}%` }} />
                 </div>
               </div>
-              <div className="flex flex-col items-end shrink-0 gap-0.5">
-                <span className="font-display text-[13px] sm:text-sm font-bold text-accent-orange tabular-nums leading-none">
+              <div className="flex flex-col items-end shrink-0">
+                <span className="font-display text-[11px] font-bold text-accent-orange tabular-nums leading-none">
                   {espnInfo.predictor.awayWinPct}%
                 </span>
-                <span className="text-[11px] sm:text-xs text-text-muted/70 font-display font-semibold leading-none truncate max-w-[70px]">
+                <span className="text-[9px] text-text-muted/50 font-display leading-none truncate max-w-[55px]">
                   {match.away_team.split(' ').slice(-1)[0]}
                 </span>
               </div>
             </div>
-            {/* DRAW — absolutely centered across full width so it aligns across all cards */}
             {espnInfo.predictor.drawPct > 0 && (
-              <p className="absolute left-0 right-0 text-center text-[11px] sm:text-xs text-text-muted/60 font-display font-semibold uppercase tracking-wide leading-none mt-1">
+              <p className="absolute left-0 right-0 text-center text-[9px] text-text-muted/45 font-display uppercase tracking-wide leading-none mt-0.5">
                 {t('draw')} {espnInfo.predictor.drawPct}%
               </p>
             )}
-            {/* Spacer for the absolutely-positioned DRAW text */}
-            {espnInfo.predictor.drawPct > 0 && <div className="h-4" />}
+            {espnInfo.predictor.drawPct > 0 && <div className="h-3" />}
           </div>
         )}
 
@@ -1200,8 +1185,8 @@ function TacticalIntelSection({ info, homeName, awayName }: {
 
       {/* ── Competition Phase — only when aggregate doesn't already cover it ── */}
       {info.competitionPhase && !info.aggregate && (
-        <div className="flex items-center justify-center px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
-          <span className="font-display text-[12px] sm:text-[13px] uppercase tracking-wide text-text-muted/70 font-semibold">
+        <div className="flex items-center justify-center px-2 py-1 rounded-lg border border-border-subtle bg-white/[0.02]">
+          <span className="font-display text-[10px] sm:text-[11px] uppercase tracking-wide text-text-muted/50 font-medium">
             {translatePhase(info.competitionPhase, lang)}
           </span>
         </div>

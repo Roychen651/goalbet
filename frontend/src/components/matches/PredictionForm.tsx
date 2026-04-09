@@ -192,7 +192,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   ];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {tiers.map((tier, i) => (
         <motion.div
           key={tier.key}
@@ -249,18 +249,18 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
             className="pt-1 space-y-2"
           >
             {/* Coin summary row */}
-            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-amber-500/6 border border-amber-500/15">
-              <div className="flex items-center gap-2">
-                <span className="text-white/40 text-[11px] font-headline uppercase tracking-wider">Cost</span>
-                <span className="flex items-center gap-1 text-amber-400 font-display font-bold tabular-nums text-sm">
-                  <CoinIcon size={15} /> {netCost > 0 ? netCost : currentCost}
-                  {netCost < 0 && <span className="text-emerald-400 ms-1 text-[11px]">(+{Math.abs(netCost)} refund)</span>}
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/6 border border-amber-500/15">
+              <div className="flex items-center gap-1.5">
+                <span className="text-white/40 text-[10px] font-headline uppercase tracking-wider">Cost</span>
+                <span className="flex items-center gap-1 text-amber-400 font-display font-bold tabular-nums text-xs">
+                  <CoinIcon size={13} /> {netCost > 0 ? netCost : currentCost}
+                  {netCost < 0 && <span className="text-emerald-400 ms-1 text-[10px]">(+{Math.abs(netCost)} refund)</span>}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-white/40 text-[11px] font-headline uppercase tracking-wider">Balance</span>
-                <span className={cn('flex items-center gap-1 font-display font-bold tabular-nums text-sm', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
-                  <CoinIcon size={15} /> {coins}
+              <div className="flex items-center gap-1.5">
+                <span className="text-white/40 text-[10px] font-headline uppercase tracking-wider">Balance</span>
+                <span className={cn('flex items-center gap-1 font-display font-bold tabular-nums text-xs', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
+                  <CoinIcon size={13} /> {coins}
                 </span>
               </div>
             </div>
@@ -302,21 +302,21 @@ function TierRow({
   const { t } = useLangStore();
   return (
     <div className={cn(
-      'rounded-xl border p-3 sm:p-3.5 transition-all duration-200',
+      'rounded-xl border p-2.5 transition-all duration-200',
       active
         ? 'bg-white/5 border-white/12 tier-row-active'
         : 'bg-white/2 border-white/6 tier-row-inactive',
     )}>
-      <div className="flex items-center justify-between mb-2.5">
-        <div className="flex items-center gap-2">
-          <span className={cn('w-2 h-2 rounded-full shrink-0', color.dot)} />
-          <span className="text-text-primary text-sm sm:text-[15px] font-headline uppercase tracking-wider leading-none">{label}</span>
-        </div>
+      <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
+          <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color.dot)} />
+          <span className="text-text-primary text-xs sm:text-[13px] font-headline uppercase tracking-wider leading-none">{label}</span>
+        </div>
+        <div className="flex items-center gap-1">
           {ptsNote && (
-            <span className="text-text-muted text-[10px] sm:text-[11px] font-display italic opacity-45">{ptsNote}</span>
+            <span className="text-text-muted text-[9px] font-display italic opacity-40">{ptsNote}</span>
           )}
-          <span className={cn('text-[11px] sm:text-xs font-display font-semibold tabular-nums px-1.5 py-0.5 rounded-md', active ? cn(color.pts, 'bg-current/8') : 'text-text-muted opacity-35')}>
+          <span className={cn('text-[10px] font-display font-semibold tabular-nums', active ? color.pts : 'text-text-muted opacity-35')}>
             +{pts} {t('pts')}
           </span>
         </div>
@@ -347,16 +347,16 @@ function InlineBoolTier({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay ?? 0, type: 'spring', stiffness: 200, damping: 24 }}
       className={cn(
-        'flex items-center gap-2 px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-xl border transition-all duration-200',
+        'flex items-center gap-2 px-2.5 py-2 rounded-xl border transition-all duration-200',
         active ? 'bg-white/5 border-white/12 tier-row-active' : 'bg-white/2 border-white/6 tier-row-inactive',
       )}
     >
-      <span className={cn('w-2 h-2 rounded-full shrink-0', color.dot)} />
-      <span className="text-text-primary text-sm sm:text-[15px] font-headline uppercase tracking-wider flex-1 leading-none">{label}</span>
-      <span className={cn('text-[11px] sm:text-xs font-display font-semibold tabular-nums px-1.5 py-0.5 rounded-md shrink-0', active ? cn(color.pts, 'bg-current/8') : 'text-text-muted opacity-35')}>
+      <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color.dot)} />
+      <span className="text-text-primary text-xs sm:text-[13px] font-headline uppercase tracking-wider flex-1 leading-none">{label}</span>
+      <span className={cn('text-[10px] font-display font-semibold tabular-nums shrink-0', active ? color.pts : 'text-text-muted opacity-35')}>
         +{pts} {t('pts')}
       </span>
-      <div className="flex gap-1.5 shrink-0">
+      <div className="flex gap-1 shrink-0">
         {([true, false] as const).map((v) => {
           const isImpossible = impossibleValue !== undefined && impossibleValue === v;
           const isSelected = value === v;
@@ -366,7 +366,7 @@ function InlineBoolTier({
               onClick={() => { if (!isImpossible) onChange(isSelected ? null : v); }}
               disabled={isImpossible}
               className={cn(
-                'px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-150 border whitespace-nowrap',
+                'px-2.5 py-1 rounded-lg text-[11px] font-display font-semibold transition-all duration-150 border whitespace-nowrap',
                 isSelected && !isImpossible
                   ? cn('border-current text-current bg-current/10', color.pts)
                   : isImpossible
@@ -406,14 +406,14 @@ function OutcomePicker({
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 gap-1.5">
       {options.map(({ val, label }) => (
         <button
           key={val}
           onClick={() => { if (!lockedByScore) onChange(val); }}
           disabled={lockedByScore}
           className={cn(
-            'py-2.5 rounded-lg transition-all duration-150 border',
+            'py-1.5 rounded-lg transition-all duration-150 border',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
@@ -446,7 +446,7 @@ function ScorePicker({
   return (
     <div className="flex items-center gap-2">
       <ScoreInput value={homeValue} onChange={onHomeChange} />
-      <span className="text-text-muted text-lg font-display font-bold shrink-0">—</span>
+      <span className="text-text-muted text-base font-display font-bold shrink-0">—</span>
       <ScoreInput value={awayValue} onChange={onAwayChange} />
     </div>
   );
@@ -461,7 +461,7 @@ function ScoreInput({ value, onChange }: { value: string; onChange: (v: string) 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder="0"
-      className="flex-1 py-2 text-center text-xl font-display font-bold tracking-wide rounded-lg border bg-transparent border-border-subtle text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
+      className="flex-1 py-1.5 text-center text-lg font-display font-bold tracking-wide rounded-lg border bg-transparent border-border-subtle text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
       style={{ WebkitAppearance: 'none', opacity: 1 }}
     />
   );
@@ -723,13 +723,13 @@ function CornersPicker({
     { val: 'over11', label: t('cornersOver11') },
   ];
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 gap-1.5">
       {options.map(({ val, label }) => (
         <button
           key={val}
           onClick={() => onChange(value === val ? null : val)}
           className={cn(
-            'py-2.5 rounded-lg text-sm sm:text-[15px] font-display font-semibold transition-all duration-150 border',
+            'py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-150 border',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
