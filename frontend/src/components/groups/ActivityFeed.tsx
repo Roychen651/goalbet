@@ -4,6 +4,7 @@ import { useGroupEvents, type GroupEvent } from '../../hooks/useGroupEvents';
 import { Avatar } from '../ui/Avatar';
 import { EmptyState } from '../ui/EmptyState';
 import { cn } from '../../lib/utils';
+import { CoinIcon } from '../ui/CoinIcon';
 import type { TranslationKey } from '../../lib/i18n';
 
 // ── Time formatting ──────────────────────────────────────────────────────────
@@ -186,7 +187,7 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
             ) : null}
             {meta.coins_bet ? (
               <span className="text-amber-400 text-xs ms-1">
-                · 🪙 {String(meta.coins_bet)}
+                · <CoinIcon size={13} className="inline-block align-[-1px] mx-0.5" />{String(meta.coins_bet)}
               </span>
             ) : null}
           </p>
