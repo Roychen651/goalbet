@@ -132,17 +132,17 @@ function PlayerNode({
       onHoverEnd={() => setShowName(false)}
       onTap={() => setShowName(s => !s)}
     >
-      {/* Jersey circle — tiny on mobile, slightly bigger on desktop */}
+      {/* Jersey circle */}
       <div
         className={cn(
-          'w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7',
+          'w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8',
           'rounded-full flex items-center justify-center',
-          'text-[7px] sm:text-[8px] md:text-[9px] font-display font-bold tabular-nums leading-none',
-          'border backdrop-blur-sm',
-          player.subbedOut && 'opacity-25',
+          'text-[8px] sm:text-[9px] md:text-[10px] font-display font-bold tabular-nums leading-none',
+          'border-2',
+          player.subbedOut && 'opacity-30',
           isHome
-            ? 'bg-accent-green/20 border-accent-green/50 text-accent-green shadow-[0_0_6px_var(--color-accent-green,rgba(189,232,245,0.15))]'
-            : 'bg-accent-orange/20 border-accent-orange/50 text-accent-orange shadow-[0_0_6px_var(--color-accent-orange,rgba(255,51,102,0.15))]',
+            ? 'bg-accent-green/30 border-accent-green/70 text-accent-green'
+            : 'bg-accent-orange/30 border-accent-orange/70 text-accent-orange',
         )}
       >
         {player.jersey || '–'}
@@ -151,10 +151,10 @@ function PlayerNode({
       {/* Name — hidden on mobile, visible on sm+ or on tap */}
       <span
         className={cn(
-          'text-[5px] sm:text-[6px] md:text-[6.5px] font-mono leading-none',
-          'text-center whitespace-nowrap max-w-[40px] sm:max-w-[50px] truncate',
+          'text-[5.5px] sm:text-[6.5px] md:text-[7px] font-mono leading-none',
+          'text-center whitespace-nowrap max-w-[42px] sm:max-w-[52px] truncate',
           'transition-opacity duration-150',
-          player.subbedOut ? 'text-white/10' : 'text-white/45',
+          player.subbedOut ? 'text-white/15' : 'text-white/60',
           showName ? 'opacity-100' : 'opacity-0 sm:opacity-100',
         )}
       >
@@ -177,8 +177,8 @@ function PitchMarkings() {
       <g
         fill="none"
         stroke="var(--color-border-bright)"
-        strokeWidth="0.3"
-        opacity="0.18"
+        strokeWidth="0.4"
+        opacity="0.22"
       >
         <rect x="2" y="2" width="196" height="96" rx="1" />
         <line x1="100" y1="2" x2="100" y2="98" />
