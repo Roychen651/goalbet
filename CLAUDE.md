@@ -331,9 +331,8 @@ goalbet/
 │       │   │   ├── LeaderboardTable.tsx
 │       │   │   └── UserMatchHistoryModal.tsx  # Bottom sheet — swipe-to-close enabled
 │       │   ├── matches/
-│       │   │   ├── MatchCard.tsx          # Legacy card — kept as dead code (USE_V2_CARDS=true skips it)
-│       │   │   ├── MatchCardV2.tsx        # ACTIVE card: isPastKickoffNS, DELAYED, live clock, shimmer hover
-│       │   │   ├── MatchFeed.tsx          # Date-grouped feed; USE_V2_CARDS=true (const, not a real flag)
+│       │   │   ├── MatchCard.tsx          # ACTIVE card: MatchCardCore (private) + MatchCard (public, shimmer wrapper). isPastKickoffNS, DELAYED, live clock, weather/referee/competition phase, TacticalIntelSection
+│       │   │   ├── MatchFeed.tsx          # Date-grouped feed; imports MatchCard directly
 │       │   │   ├── MatchStatusBadge.tsx   # Status pill; intercepts DELAYED→SYNCING during cold-start
 │       │   │   ├── MatchTimeline.tsx      # ESPN summary events (returns null when no data)
 │       │   │   └── PredictionForm.tsx     # 5-tier prediction input; corners hidden for league 4396
@@ -770,7 +769,7 @@ claim_daily_bonus(user_id UUID) → BOOLEAN  -- true = claimed, false = already 
 | `SYNCING` | `isSyncing=true` AND underlying status is `DELAYED` | "Syncing…" (blue) |
 | `ET_HT` | Live break between ET halves | "AET HT" (amber) |
 
-Computed in `MatchCard.tsx` / `MatchCardV2.tsx`, passed to `MatchStatusBadge` as props. Never write them to the database.
+Computed in `MatchCard.tsx`, passed to `MatchStatusBadge` as props. Never write them to the database.
 
 **`SYNCING` intercept logic** (in `MatchStatusBadge`):
 ```typescript
@@ -1254,7 +1253,7 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **Bottom-sheet modals must include `onPointerDown={e => e.stopPropagation()}` on scroll containers.** Without this, Framer Motion drag fires instead of scroll on touch devices.
 - **All `<img>` tags must have numeric `width` and `height` attributes.** Omitting them causes CLS on slow connections — even when Tailwind `w-` / `h-` classes are present.
 - **`ErrorBoundary` wraps `<Outlet />` in `AppShell`.** Do not remove it. It catches render errors in any page and shows a premium bilingual fallback instead of a white screen.
-- **`MatchCard.tsx` is dead code — `MatchCardV2.tsx` is the active implementation.** `USE_V2_CARDS = true` in `MatchFeed.tsx` is a permanent constant, not a real feature flag. Do not add features to `MatchCard.tsx`; all card work goes into `MatchCardV2.tsx`.
+- **`MatchCard.tsx` is the single active card implementation.** It exports two symbols: `MatchCardCore` (private internal component) and `MatchCard` (public shimmer wrapper). `MatchCardV2.tsx` was deleted in Sprint 17; `USE_V2_CARDS` no longer exists. All card work goes into `MatchCard.tsx`.
 - **The share invite string in `SettingsPage.tsx` must be localized.** It is the primary viral surface — a Hebrew user must send a Hebrew message.
 
 ### Coins
