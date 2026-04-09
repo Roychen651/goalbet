@@ -141,7 +141,9 @@ export function usePredictions(matchIds?: string[]) {
               coins_bet: newCost,
             },
           })
-          .then(); // swallow — activity feed is non-critical
+          .then(({ error: evtErr }) => {
+            if (evtErr) console.warn('[usePredictions] group_event insert failed:', evtErr.message);
+          });
       }
     } finally {
       setSaving(null);

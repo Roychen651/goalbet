@@ -276,8 +276,8 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
           }
         }
 
-        // ── Insert locker room activity event (fire-and-forget) ──────────────
-        await supabaseAdmin
+        // ── Insert locker room activity event ─────────────────────────────────
+        const { error: evtErr } = await supabaseAdmin
           .from('group_events')
           .insert({
             group_id:   prediction.group_id,
@@ -290,10 +290,8 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
               home_team:    matchResult.home_team  ?? '',
               away_team:    matchResult.away_team  ?? '',
             },
-          })
-          .then(({ error: evtErr }) => {
-            if (evtErr) logger.warn(`[scoreUpdater] group_events insert failed: ${evtErr.message}`);
           });
+        if (evtErr) logger.warn(`[scoreUpdater] group_events insert failed: ${evtErr.message}`);
       }
 
       const existingLB = {

@@ -31,14 +31,19 @@ export function useGroupEvents() {
 
     setLoading(true);
     try {
+      // After migration 029, the FK on user_id points to profiles(id),
+      // so PostgREST can resolve the join via the FK name.
       const { data, error } = await supabase
         .from('group_events')
-        .select('*, profiles!group_events_user_id_fkey(username, avatar_url)')
+        .select('*, profiles(username, avatar_url)')
         .eq('group_id', activeGroupId)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useGroupEvents] fetch failed:', error.message);
+        throw error;
+      }
 
       const mapped: GroupEvent[] = (data ?? []).map((row: Record<string, unknown>) => {
         const profile = row.profiles as { username?: string; avatar_url?: string | null } | null;
@@ -55,6 +60,8 @@ export function useGroupEvents() {
         };
       });
       setEvents(mapped);
+    } catch (err) {
+      console.error('[useGroupEvents]', err);
     } finally {
       setLoading(false);
     }
