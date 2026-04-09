@@ -295,14 +295,21 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
   const enableLiveAnimations = useUIStore(s => s.enableLiveAnimations);
   const isSyncing = useUIStore(s => s.isSyncing);
 
-  // Track previous scores for safe score-flip animation
+  // Track previous scores for safe score-flip animation + goal flash
   const prevScoreRef = useRef<{ home: number | null; away: number | null } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const scoreChanged =
     prevScoreRef.current !== null &&
     (prevScoreRef.current.home !== match.home_score || prevScoreRef.current.away !== match.away_score);
   // Update ref after reading the diff
   useEffect(() => {
+    // Trigger goal flash on the card when score changes during live match
+    if (scoreChanged && enableLiveAnimations && LIVE_STATUSES.includes(match.status) && cardRef.current) {
+      cardRef.current.classList.add('goal-flash');
+      setTimeout(() => cardRef.current?.classList.remove('goal-flash'), 1500);
+    }
     prevScoreRef.current = { home: match.home_score, away: match.away_score };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.home_score, match.away_score]);
 
   // ── Tactical intel: fetched eagerly on mount for NS upcoming matches ────────
@@ -373,6 +380,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
     : 'default';
 
   return (
+    <div ref={cardRef}>
     <GlassCard
       as="article"
       variant={cardVariant}
@@ -498,10 +506,13 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                     <AnimatePresence mode="popLayout">
                       <motion.span
                         key={`${match.home_score}-${match.away_score}`}
-                        initial={shouldFlip ? { y: -15, opacity: 0 } : false}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={shouldFlip ? { y: 15, opacity: 0 } : undefined}
-                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                        initial={shouldFlip ? { y: -20, opacity: 0, scale: 1.3 } : false}
+                        animate={{ y: 0, opacity: 1, scale: 1 }}
+                        exit={shouldFlip ? { y: 20, opacity: 0, scale: 0.8 } : undefined}
+                        transition={shouldFlip
+                          ? { type: 'spring', stiffness: 200, damping: 18, mass: 0.8 }
+                          : { duration: 0 }
+                        }
                         className="text-2xl font-bebas tracking-widest"
                       >
                         <span className={homeLeading ? 'text-accent-green' : awayLeading ? 'text-white/50' : 'text-white'}>{match.home_score ?? 0}</span>
@@ -790,6 +801,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
         )}
       </AnimatePresence>
     </GlassCard>
+    </div>
   );
 }
 
