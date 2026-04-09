@@ -626,7 +626,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
             )}
             {/* Aggregate score — knockout 2nd legs */}
             {espnInfo?.aggregate && (
-              <span className="text-accent-orange text-[12px] sm:text-[13px] font-barlow font-semibold mt-1.5 truncate max-w-[260px] tracking-wide">
+              <span className="text-accent-orange text-[13px] sm:text-sm font-display font-bold mt-1.5 truncate max-w-[280px]">
                 {`${espnInfo.aggregate.phase ? translatePhase(espnInfo.aggregate.phase, lang) + ' · ' : ''}${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))}${espnInfo.aggregate.hasAgg ? ` (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})` : ''}`}
               </span>
             )}
@@ -652,7 +652,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                 <span className="font-display text-[13px] sm:text-sm font-bold text-accent-green tabular-nums leading-none">
                   {espnInfo.predictor.homeWinPct}%
                 </span>
-                <span className="text-[10px] sm:text-[11px] text-text-muted/55 font-barlow font-medium leading-none truncate max-w-[70px]">
+                <span className="text-[11px] sm:text-xs text-text-muted/70 font-display font-semibold leading-none truncate max-w-[70px]">
                   {match.home_team.split(' ').slice(-1)[0]}
                 </span>
               </div>
@@ -664,7 +664,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                   <div className="h-full bg-accent-orange rounded-e-full" style={{ width: `${espnInfo.predictor.awayWinPct}%` }} />
                 </div>
                 {espnInfo.predictor.drawPct > 0 && (
-                  <p className="text-center text-[10px] sm:text-[11px] text-text-muted/50 font-barlow font-medium uppercase tracking-wider leading-none mt-1">
+                  <p className="text-center text-[11px] sm:text-xs text-text-muted/60 font-display font-semibold uppercase tracking-wide leading-none mt-1">
                     {t('draw')} {espnInfo.predictor.drawPct}%
                   </p>
                 )}
@@ -673,7 +673,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                 <span className="font-display text-[13px] sm:text-sm font-bold text-accent-orange tabular-nums leading-none">
                   {espnInfo.predictor.awayWinPct}%
                 </span>
-                <span className="text-[10px] sm:text-[11px] text-text-muted/55 font-barlow font-medium leading-none truncate max-w-[70px]">
+                <span className="text-[11px] sm:text-xs text-text-muted/70 font-display font-semibold leading-none truncate max-w-[70px]">
                   {match.away_team.split(' ').slice(-1)[0]}
                 </span>
               </div>
@@ -1175,7 +1175,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
       {/* ── Competition Phase — only when aggregate doesn't already cover it ── */}
       {info.competitionPhase && !info.aggregate && (
         <div className="flex items-center justify-center px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
-          <span className="font-barlow text-[12px] sm:text-[13px] uppercase tracking-[0.12em] text-text-muted/60 font-medium">
+          <span className="font-display text-[12px] sm:text-[13px] uppercase tracking-wide text-text-muted/70 font-semibold">
             {translatePhase(info.competitionPhase, lang)}
           </span>
         </div>
