@@ -192,7 +192,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   ];
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {tiers.map((tier, i) => (
         <motion.div
           key={tier.key}
@@ -249,18 +249,18 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
             className="pt-1 space-y-2"
           >
             {/* Coin summary row */}
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-amber-500/6 border border-amber-500/15 text-xs">
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-amber-500/6 border border-amber-500/15">
               <div className="flex items-center gap-1.5">
-                <span className="text-white/40">Cost</span>
-                <span className="flex items-center gap-1 text-amber-400 font-bold tabular-nums">
-                  <CoinIcon size={13} /> {netCost > 0 ? netCost : currentCost}
-                  {netCost < 0 && <span className="text-emerald-400 ms-1">(+{Math.abs(netCost)} refund)</span>}
+                <span className="text-white/50 text-[11px] sm:text-xs font-display font-medium">Cost</span>
+                <span className="flex items-center gap-1 text-amber-400 font-display font-bold tabular-nums text-[13px] sm:text-sm">
+                  <CoinIcon size={14} /> {netCost > 0 ? netCost : currentCost}
+                  {netCost < 0 && <span className="text-emerald-400 ms-1 text-[11px] sm:text-xs">(+{Math.abs(netCost)} refund)</span>}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-white/40">Balance</span>
-                <span className={cn('flex items-center gap-1 font-bold tabular-nums', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
-                  <CoinIcon size={13} /> {coins}
+                <span className="text-white/50 text-[11px] sm:text-xs font-display font-medium">Balance</span>
+                <span className={cn('flex items-center gap-1 font-display font-bold tabular-nums text-[13px] sm:text-sm', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
+                  <CoinIcon size={14} /> {coins}
                 </span>
               </div>
             </div>
@@ -302,21 +302,21 @@ function TierRow({
   const { t } = useLangStore();
   return (
     <div className={cn(
-      'rounded-xl border p-2 transition-all duration-200',
+      'rounded-xl border p-3 transition-all duration-200',
       active
         ? 'bg-white/5 border-white/12 tier-row-active'
         : 'bg-white/2 border-white/6 tier-row-inactive',
     )}>
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-1.5">
-          <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color.dot)} />
-          <span className="text-text-muted text-xs font-medium tracking-wide">{label}</span>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className={cn('w-2 h-2 rounded-full shrink-0', color.dot)} />
+          <span className="text-text-primary text-[13px] sm:text-sm font-display font-bold tracking-wide">{label}</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {ptsNote && (
-            <span className="text-text-muted text-xs opacity-60">{ptsNote}</span>
+            <span className="text-text-muted text-[11px] sm:text-xs font-display opacity-50">{ptsNote}</span>
           )}
-          <span className={cn('text-xs font-bold tabular-nums', active ? color.pts : 'text-text-muted opacity-50')}>
+          <span className={cn('text-[11px] sm:text-xs font-display font-bold tabular-nums', active ? color.pts : 'text-text-muted opacity-40')}>
             +{pts} {t('pts')}
           </span>
         </div>
@@ -347,16 +347,16 @@ function InlineBoolTier({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay ?? 0, type: 'spring', stiffness: 200, damping: 24 }}
       className={cn(
-        'flex items-center gap-2 px-2.5 py-2 rounded-xl border transition-all duration-200',
+        'flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all duration-200',
         active ? 'bg-white/5 border-white/12 tier-row-active' : 'bg-white/2 border-white/6 tier-row-inactive',
       )}
     >
-      <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color.dot)} />
-      <span className="text-text-muted text-[10px] font-medium flex-1 leading-tight">{label}</span>
-      <span className={cn('text-[10px] font-bold tabular-nums me-1 shrink-0', active ? color.pts : 'text-text-muted opacity-40')}>
+      <span className={cn('w-2 h-2 rounded-full shrink-0', color.dot)} />
+      <span className="text-text-primary text-[12px] sm:text-[13px] font-display font-bold flex-1 leading-tight">{label}</span>
+      <span className={cn('text-[11px] sm:text-xs font-display font-bold tabular-nums me-1 shrink-0', active ? color.pts : 'text-text-muted opacity-40')}>
         +{pts} {t('pts')}
       </span>
-      <div className="flex gap-1 shrink-0">
+      <div className="flex gap-1.5 shrink-0">
         {([true, false] as const).map((v) => {
           const isImpossible = impossibleValue !== undefined && impossibleValue === v;
           const isSelected = value === v;
@@ -366,7 +366,7 @@ function InlineBoolTier({
               onClick={() => { if (!isImpossible) onChange(isSelected ? null : v); }}
               disabled={isImpossible}
               className={cn(
-                'px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all duration-150 border whitespace-nowrap',
+                'px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-display font-bold transition-all duration-150 border whitespace-nowrap',
                 isSelected && !isImpossible
                   ? cn('border-current text-current bg-current/10', color.pts)
                   : isImpossible
@@ -406,14 +406,14 @@ function OutcomePicker({
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-1.5">
+    <div className="grid grid-cols-3 gap-2">
       {options.map(({ val, label }) => (
         <button
           key={val}
           onClick={() => { if (!lockedByScore) onChange(val); }}
           disabled={lockedByScore}
           className={cn(
-            'py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border',
+            'py-2 rounded-lg transition-all duration-150 border',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
@@ -421,15 +421,15 @@ function OutcomePicker({
           )}
         >
           <div className="flex flex-col items-center gap-0.5">
-            <span className="truncate w-full text-center">{label}</span>
+            <span className="truncate w-full text-center text-[13px] sm:text-sm font-display font-bold">{label}</span>
             {prob[val] !== null && (
-              <span className="font-barlow text-[9px] opacity-45 leading-none">{prob[val]}%</span>
+              <span className="font-display text-[10px] sm:text-[11px] opacity-40 leading-none tabular-nums">{prob[val]}%</span>
             )}
           </div>
         </button>
       ))}
       {lockedByScore && (
-        <div className="col-span-3 text-center text-xs text-text-muted opacity-60 mt-0.5">
+        <div className="col-span-3 text-center text-xs font-display text-text-muted opacity-50 mt-0.5">
           ↑ auto from score
         </div>
       )}
@@ -446,7 +446,7 @@ function ScorePicker({
   return (
     <div className="flex items-center gap-2">
       <ScoreInput value={homeValue} onChange={onHomeChange} />
-      <span className="text-text-muted text-base font-bold shrink-0">—</span>
+      <span className="text-text-muted text-lg font-display font-bold shrink-0">—</span>
       <ScoreInput value={awayValue} onChange={onAwayChange} />
     </div>
   );
@@ -461,7 +461,7 @@ function ScoreInput({ value, onChange }: { value: string; onChange: (v: string) 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder="0"
-      className="flex-1 py-1.5 text-center text-lg font-bebas tracking-wider rounded-lg border bg-transparent border-border-subtle text-text-primary placeholder:text-text-muted focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
+      className="flex-1 py-2 text-center text-xl font-display font-bold tracking-wide rounded-lg border bg-transparent border-border-subtle text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
       style={{ WebkitAppearance: 'none', opacity: 1 }}
     />
   );
@@ -723,14 +723,13 @@ function CornersPicker({
     { val: 'over11', label: t('cornersOver11') },
   ];
   return (
-    <div className="grid grid-cols-3 gap-1.5">
+    <div className="grid grid-cols-3 gap-2">
       {options.map(({ val, label }) => (
         <button
           key={val}
-          // Clicking the already-selected option deselects it (returns null = removes this tier)
           onClick={() => onChange(value === val ? null : val)}
           className={cn(
-            'py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border',
+            'py-2 rounded-lg text-[13px] sm:text-sm font-display font-bold transition-all duration-150 border',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',

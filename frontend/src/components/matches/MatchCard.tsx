@@ -651,7 +651,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
 
         {/* Win Probability — compact single-row bar */}
         {espnInfo?.predictor && (
-          <div className="mt-3 px-0.5">
+          <div className="mt-3 px-0.5 relative">
             <div className="flex items-center gap-2">
               <div className="flex flex-col items-start shrink-0 gap-0.5">
                 <span className="font-display text-[13px] sm:text-sm font-bold text-accent-green tabular-nums leading-none">
@@ -668,11 +668,6 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                   <div className="h-full bg-white/10" style={{ width: `${espnInfo.predictor.drawPct}%` }} />
                   <div className="h-full bg-accent-orange rounded-e-full" style={{ width: `${espnInfo.predictor.awayWinPct}%` }} />
                 </div>
-                {espnInfo.predictor.drawPct > 0 && (
-                  <p className="text-center text-[11px] sm:text-xs text-text-muted/60 font-display font-semibold uppercase tracking-wide leading-none mt-1">
-                    {t('draw')} {espnInfo.predictor.drawPct}%
-                  </p>
-                )}
               </div>
               <div className="flex flex-col items-end shrink-0 gap-0.5">
                 <span className="font-display text-[13px] sm:text-sm font-bold text-accent-orange tabular-nums leading-none">
@@ -683,6 +678,14 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                 </span>
               </div>
             </div>
+            {/* DRAW — absolutely centered across full width so it aligns across all cards */}
+            {espnInfo.predictor.drawPct > 0 && (
+              <p className="absolute left-0 right-0 text-center text-[11px] sm:text-xs text-text-muted/60 font-display font-semibold uppercase tracking-wide leading-none mt-1">
+                {t('draw')} {espnInfo.predictor.drawPct}%
+              </p>
+            )}
+            {/* Spacer for the absolutely-positioned DRAW text */}
+            {espnInfo.predictor.drawPct > 0 && <div className="h-4" />}
           </div>
         )}
 
