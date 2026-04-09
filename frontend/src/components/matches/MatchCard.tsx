@@ -287,7 +287,6 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
       leagueAccent={LEAGUE_ACCENT[match.league_id]}
       className="overflow-hidden"
       breathing={enableLiveAnimations && isInProgress}
-      interactive
     >
       {/* Card header */}
       <button
