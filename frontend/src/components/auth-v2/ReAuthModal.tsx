@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { isEmailValid, isPasswordValid, mapAuthError } from '../../lib/authSchema';
 import { PasswordStrength } from './PasswordStrength';
+import { useLangStore } from '../../stores/langStore';
 
 type ReAuthView = 'main' | 'password' | 'set-password';
 
@@ -98,6 +99,7 @@ export function ReAuthModal({
   const emailOk = isEmailValid(email);
   const newPwOk = isPasswordValid(newPw);
   const confirmOk = newPw === confirmPw && confirmPw.length > 0;
+  const { t } = useLangStore();
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-end sm:justify-center p-4">
@@ -240,7 +242,7 @@ export function ReAuthModal({
               <div className="space-y-2.5">
                 <input
                   type="email"
-                  placeholder="Email"
+                  placeholder={t('emailPlaceholder')}
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   autoFocus
@@ -250,7 +252,7 @@ export function ReAuthModal({
                 <div className="relative">
                   <input
                     type={showPw ? 'text' : 'password'}
-                    placeholder="Password"
+                    placeholder={t('passwordPlaceholder')}
                     value={pw}
                     onChange={e => setPw(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handlePasswordSignIn()}
@@ -261,7 +263,7 @@ export function ReAuthModal({
                     type="button"
                     onClick={() => setShowPw(s => !s)}
                     className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-white/60 transition-colors"
-                    aria-label="Toggle password visibility"
+                    aria-label={t('togglePasswordVisibility')}
                   >
                     {showPw ? (
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -321,7 +323,7 @@ export function ReAuthModal({
               <div className="space-y-2.5">
                 <input
                   type={showPw ? 'text' : 'password'}
-                  placeholder="New password"
+                  placeholder={t('choosePasswordPlaceholder')}
                   value={newPw}
                   onChange={e => setNewPw(e.target.value)}
                   autoFocus
@@ -338,7 +340,7 @@ export function ReAuthModal({
                 {newPwOk && (
                   <input
                     type={showPw ? 'text' : 'password'}
-                    placeholder="Confirm password"
+                    placeholder={t('confirmPasswordPlaceholder2')}
                     value={confirmPw}
                     onChange={e => setConfirmPw(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleSetNewPassword()}

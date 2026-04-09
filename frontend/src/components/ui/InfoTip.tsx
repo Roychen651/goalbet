@@ -34,7 +34,7 @@ export function InfoTip({ text }: InfoTipProps) {
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
         onTouchStart={(e) => { e.stopPropagation(); setShow(v => !v); }}
-        aria-label="More info"
+        aria-label={text}
       >
         i
       </button>

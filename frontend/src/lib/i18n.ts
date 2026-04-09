@@ -403,6 +403,35 @@ export const translations = {
     emptyLedgerDesc: 'Start predicting to earn coins!',
     coinHistoryStaked: 'Staked',
     coinHistoryEarned: 'Earned',
+
+    // Status badges (Pillar 2 — previously hardcoded)
+    delayed_status: 'Delayed',
+    etLive_status: 'ET Live',
+    aet_status: 'AET',
+    aetHT_status: 'AET HT',
+    pens_status: 'Pens',
+    syncingLive_status: 'Syncing…',
+
+    // Live clock labels (Pillar 2 — previously hardcoded)
+    secsAgo: '{0}s ago',
+    minsAgo: '{0}m ago',
+    coinsLabel2: 'Coins',
+
+    // Auth placeholders & aria (Pillar 2)
+    emailPlaceholder: 'you@example.com',
+    passwordPlaceholder: 'Password',
+    usernamePlaceholder: 'Display name (e.g. Roy)',
+    choosePasswordPlaceholder: 'Choose a password',
+    confirmPasswordPlaceholder2: 'Confirm password',
+    togglePasswordVisibility: 'Toggle password visibility',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    moreInfo: 'More info',
+    googleSignInFailed: 'Google sign-in failed. Try again.',
+    inviteCodePlaceholder: 'AB12CD34',
+
+    // Cold-start UX (Pillar 1)
+    syncingFeeds: 'Waking up live feeds…',
   },
 
   he: {
@@ -804,6 +833,35 @@ export const translations = {
     emptyLedgerDesc: 'זה הזמן להתחיל לנחש!',
     coinHistoryStaked: 'הושקע',
     coinHistoryEarned: 'הרווח',
+
+    // Status badges (Pillar 2)
+    delayed_status: 'עיכוב',
+    etLive_status: 'הארכה — חי',
+    aet_status: 'לאחר הארכה',
+    aetHT_status: 'הפסקת הארכה',
+    pens_status: 'פנדלים',
+    syncingLive_status: 'מסנכרן…',
+
+    // Live clock labels (Pillar 2)
+    secsAgo: 'לפני {0} שניות',
+    minsAgo: 'לפני {0} דקות',
+    coinsLabel2: 'מטבעות',
+
+    // Auth placeholders & aria (Pillar 2)
+    emailPlaceholder: 'you@example.com',
+    passwordPlaceholder: 'סיסמה',
+    usernamePlaceholder: 'שם תצוגה (למשל רועי)',
+    choosePasswordPlaceholder: 'בחר סיסמה',
+    confirmPasswordPlaceholder2: 'אימות סיסמה',
+    togglePasswordVisibility: 'הצג/הסתר סיסמה',
+    showPassword: 'הצג סיסמה',
+    hidePassword: 'הסתר סיסמה',
+    moreInfo: 'מידע נוסף',
+    googleSignInFailed: 'כניסה עם Google נכשלה. נסה שוב.',
+    inviteCodePlaceholder: 'AB12CD34',
+
+    // Cold-start UX (Pillar 1)
+    syncingFeeds: 'מעיר את הנתונים…',
   },
 } as const;
 

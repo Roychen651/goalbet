@@ -21,6 +21,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { mapAuthError } from '../lib/authSchema';
+import { useLangStore } from '../stores/langStore';
 
 export type AuthView =
   | 'email'
@@ -64,6 +65,7 @@ export function useAuthV2(): UseAuthV2Return {
   const [error, setError] = useState<string | null>(null);
   const [checkEmailContext, setCheckEmailContext] = useState<CheckEmailContext>('signup');
   const { signInWithGoogle } = useAuthStore();
+  const { t } = useLangStore();
 
   // ── Password recovery URL detection ───────────────────────────────────────
   // When user clicks the reset link in email, they land on /login?type=recovery
@@ -193,7 +195,7 @@ export function useAuthV2(): UseAuthV2Return {
     try {
       await signInWithGoogle(); // redirects — setLoading(false) never runs
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign-in failed. Try again.');
+      setError(err instanceof Error ? err.message : t('googleSignInFailed'));
       setLoading(false);
     }
   }, [signInWithGoogle]);

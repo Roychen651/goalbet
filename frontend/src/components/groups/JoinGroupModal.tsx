@@ -48,7 +48,7 @@ export function JoinGroupModal({ onClose }: JoinGroupModalProps) {
           type="text"
           value={code}
           onChange={e => setCode(e.target.value.toUpperCase())}
-          placeholder="AB12CD34"
+          placeholder={t('inviteCodePlaceholder')}
           maxLength={8}
           autoFocus
           className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-center text-xl tracking-widest font-bebas placeholder:text-white/20 placeholder:text-base placeholder:font-dm placeholder:tracking-normal focus:outline-none focus:border-accent-green transition-colors"

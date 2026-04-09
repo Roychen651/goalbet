@@ -19,6 +19,7 @@ import { useAuthV2 } from '../../hooks/useAuthV2';
 import { PasswordStrength } from './PasswordStrength';
 import { isEmailValid, isPasswordValid, isUsernameValid } from '../../lib/authSchema';
 import { cn } from '../../lib/utils';
+import { useLangStore } from '../../stores/langStore';
 
 // ─── Shared animation config ──────────────────────────────────────────────────
 
@@ -255,6 +256,7 @@ function EmailView({
   error: string | null;
 }) {
   const valid = isEmailValid(email);
+  const { t } = useLangStore();
 
   return (
     <div className="space-y-4">
@@ -266,7 +268,7 @@ function EmailView({
       <div className="space-y-3">
         <AuthInput
           type="email"
-          placeholder="you@example.com"
+          placeholder={t('emailPlaceholder')}
           value={email}
           onChange={setEmail}
           onEnter={valid ? onContinue : undefined}
@@ -313,6 +315,7 @@ function SignInView({
 }) {
   const [pw, setPw] = useState('');
   const [show, setShow] = useState(false);
+  const { t } = useLangStore();
   // If error mentions Google, highlight the Google button
   const isGoogleHint = error?.toLowerCase().includes('google') ?? false;
 
@@ -329,7 +332,7 @@ function SignInView({
       <div className="space-y-3">
         <AuthInput
           type={show ? 'text' : 'password'}
-          placeholder="Password"
+          placeholder={t('passwordPlaceholder')}
           value={pw}
           onChange={setPw}
           onEnter={() => pw && onSignIn(pw)}
@@ -340,7 +343,7 @@ function SignInView({
               type="button"
               onClick={() => setShow(s => !s)}
               className="text-white/30 hover:text-white/60 transition-colors pointer-events-auto"
-              aria-label={show ? 'Hide password' : 'Show password'}
+              aria-label={show ? t('hidePassword') : t('showPassword')}
             >
               {show ? (
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -431,6 +434,7 @@ function SignUpView({
   const pwOk = isPasswordValid(pw);
   const confirmOk = confirm === pw && confirm.length > 0;
   const canSubmit = usernameOk && pwOk && confirmOk;
+  const { t } = useLangStore();
 
   return (
     <div className="space-y-4">
@@ -442,7 +446,7 @@ function SignUpView({
 
       <div className="space-y-2.5">
         <AuthInput
-          placeholder="Display name (e.g. Roy)"
+          placeholder={t('usernamePlaceholder')}
           value={username}
           onChange={setUsername}
           autoFocus
@@ -452,7 +456,7 @@ function SignUpView({
         <div className="relative">
           <AuthInput
             type={show ? 'text' : 'password'}
-            placeholder="Choose a password"
+            placeholder={t('choosePasswordPlaceholder')}
             value={pw}
             onChange={setPw}
             hasError={!!error}
@@ -461,7 +465,7 @@ function SignUpView({
                 type="button"
                 onClick={() => setShow(s => !s)}
                 className="text-white/30 hover:text-white/60 transition-colors pointer-events-auto"
-                aria-label="Toggle password visibility"
+                aria-label={t('togglePasswordVisibility')}
               >
                 {show ? (
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -507,7 +511,7 @@ function SignUpView({
             >
               <AuthInput
                 type={show ? 'text' : 'password'}
-                placeholder="Confirm password"
+                placeholder={t('confirmPasswordPlaceholder2')}
                 value={confirm}
                 onChange={setConfirm}
                 onEnter={() => canSubmit && onSignUp(username, pw)}

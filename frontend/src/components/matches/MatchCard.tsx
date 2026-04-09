@@ -164,6 +164,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   const { t } = useLangStore();
   const { user, profile } = useAuthStore();
   const enableLiveAnimations = useUIStore(s => s.enableLiveAnimations);
+  const isSyncing = useUIStore(s => s.isSyncing);
 
   // Track previous scores for safe score-flip animation
   const prevScoreRef = useRef<{ home: number | null; away: number | null } | null>(null);
@@ -203,8 +204,8 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   // "refreshed X ago" — how stale is the DB data
   const updatedAgoSecs = Math.floor((Date.now() - new Date(match.updated_at).getTime()) / 1000);
   const updatedAgoLabel = updatedAgoSecs < 60
-    ? `${updatedAgoSecs}s ago`
-    : `${Math.floor(updatedAgoSecs / 60)}m ago`;
+    ? t('secsAgo').replace('{0}', String(updatedAgoSecs))
+    : t('minsAgo').replace('{0}', String(Math.floor(updatedAgoSecs / 60)));
   const hasPrediction = !!prediction;
   const { date, time, countdown, lockCountdown } = formatKickoffTime(match.kickoff_time);
   // True when kickoff is within the next 5 minutes
@@ -342,6 +343,7 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                 : isAET ? 'ET_HT'            // live break between ET halves → "AET HT"
                 : match.status
               }
+              isSyncing={isSyncing}
             />
           </div>
         </div>

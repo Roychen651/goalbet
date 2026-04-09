@@ -10,6 +10,7 @@ import { CreateGroupModal } from '../groups/CreateGroupModal';
 import { JoinGroupModal } from '../groups/JoinGroupModal';
 import { HelpGuideModal } from '../ui/HelpGuideModal';
 import { CoinHistoryModal } from '../ui/CoinHistoryModal';
+import { SyncProgressBar } from '../ui/SyncProgressBar';
 import { useUIStore } from '../../stores/uiStore';
 import { useLangStore } from '../../stores/langStore';
 import { useNewPointsAlert } from '../../hooks/useNewPointsAlert';
@@ -29,7 +30,7 @@ const dispatch = () => window.dispatchEvent(new Event('goalbet:synced'));
 
 export function AppShell() {
   const location = useLocation();
-  const { activeModal, closeModal, addToast } = useUIStore();
+  const { activeModal, closeModal, addToast, setSyncing } = useUIStore();
   const { lang } = useLangStore();
   const { hasNew, newPoints, markAsSeen } = useNewPointsAlert();
   const prevHasNew = useRef(false);
@@ -56,7 +57,17 @@ export function AppShell() {
 
   const lastSyncRef = useRef(0);
   const lastHiddenRef = useRef(0);
+  const hasSyncedRef = useRef(false);
   const POLL_THROTTLE_MS = 30_000;
+
+  // Wraps dispatch: on first successful sync, clear the cold-start syncing flag
+  const dispatchAndClearSyncing = useCallback(() => {
+    if (!hasSyncedRef.current) {
+      hasSyncedRef.current = true;
+      setSyncing(false);
+    }
+    dispatch();
+  }, [setSyncing]);
 
   // Score sync with a 75s timeout so it survives Render's cold start (45-60s).
   // The initial call on mount will likely time out while Render wakes, but the
@@ -67,19 +78,22 @@ export function AppShell() {
     const now = Date.now();
     if (!force && now - lastSyncRef.current < POLL_THROTTLE_MS) return;
     lastSyncRef.current = now;
-    postWithTimeout(`${url}/api/sync/scores`, 75_000).then(dispatch).catch(() => {});
-  }, []);
+    postWithTimeout(`${url}/api/sync/scores`, 75_000).then(dispatchAndClearSyncing).catch(() => {});
+  }, [dispatchAndClearSyncing]);
 
   useEffect(() => {
     const url = import.meta.env.VITE_BACKEND_URL;
     if (!url) return;
+
+    // Signal cold-start: show progress bar + swap DELAYED→Syncing… in badges
+    setSyncing(true);
 
     // 1. Full fixture sync on every mount (wakes Render + pulls fresh fixtures)
     //    90s timeout: cold start (~45s) + ESPN calls for N leagues (~30s)
     const matchCtrl = new AbortController();
     const matchTimeout = setTimeout(() => matchCtrl.abort(), 90_000);
     postWithTimeout(`${url}/api/sync/matches`, 90_000)
-      .then(dispatch)
+      .then(dispatchAndClearSyncing)
       .catch(() => {})
       .finally(() => clearTimeout(matchTimeout));
 
@@ -111,7 +125,7 @@ export function AppShell() {
       clearInterval(pollInterval);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [pingScores]);
+  }, [pingScores, dispatchAndClearSyncing, setSyncing]);
 
   // ─── Points toast ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -125,6 +139,7 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen">
+      <SyncProgressBar />
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar />

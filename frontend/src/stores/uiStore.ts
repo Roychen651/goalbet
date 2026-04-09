@@ -10,11 +10,13 @@ interface UIState {
   toasts: Toast[];
   activeModal: string | null;
   enableLiveAnimations: boolean;
+  isSyncing: boolean;
   addToast: (message: string, type?: Toast['type']) => void;
   removeToast: (id: string) => void;
   openModal: (name: string) => void;
   closeModal: () => void;
   toggleLiveAnimations: () => void;
+  setSyncing: (v: boolean) => void;
 }
 
 let toastCounter = 0;
@@ -25,6 +27,8 @@ export const useUIStore = create<UIState>((set) => ({
   toasts: [],
   activeModal: null,
   enableLiveAnimations: localStorage.getItem(LIVE_ANIM_KEY) !== 'false',
+  isSyncing: false,
+  setSyncing: (v) => set({ isSyncing: v }),
 
   addToast: (message, type = 'info') => {
     const id = `toast-${++toastCounter}`;

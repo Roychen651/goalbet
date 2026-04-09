@@ -120,7 +120,7 @@ export function Sidebar() {
             <CoinIcon size={22} />
             <div>
               <div className="text-amber-400 font-bold text-base tabular-nums leading-none">{coins}</div>
-              <div className="text-amber-500/50 text-[10px] mt-0.5 uppercase tracking-widest">Coins</div>
+              <div className="text-amber-500/50 text-[10px] mt-0.5 uppercase tracking-widest">{t('coinsLabel2')}</div>
             </div>
           </div>
         </button>
