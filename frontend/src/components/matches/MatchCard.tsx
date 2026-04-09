@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Tv } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
@@ -43,10 +43,16 @@ interface EspnMatchInfo {
   attendance: number | null;
   h2h:        { homeWins: number; draws: number; awayWins: number } | null;
   odds:       { homeWin: number; draw: number; awayWin: number } | null;
-  // Sprint 17 additions
+  // Sprint 17
   weather:          { temp: number | null; condition: string | null } | null;
   referee:          string | null;
   competitionPhase: string | null;
+  // Sprint 18
+  predictor:   { homeWinPct: number; drawPct: number; awayWinPct: number } | null;
+  homeRank:    number | null;
+  awayRank:    number | null;
+  broadcast:   string | null;
+  aggregate:   string | null;
 }
 
 const ESPN_INFO_EMPTY: EspnMatchInfo = {
@@ -55,6 +61,8 @@ const ESPN_INFO_EMPTY: EspnMatchInfo = {
   venue: null, attendance: null,
   h2h: null, odds: null,
   weather: null, referee: null, competitionPhase: null,
+  predictor: null, homeRank: null, awayRank: null,
+  broadcast: null, aggregate: null,
 };
 
 async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise<EspnMatchInfo> {
@@ -170,17 +178,57 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
       : null;
 
     // ── Competition Phase ─────────────────────────────────────
-    // ESPN may surface this in comp.type.text ("Group Stage"), comp.note.headline, or series.summary
+    // comp.note.headline = "Group A" | comp.type.text = "Group Stage" etc.
+    // series.summary is extracted separately as aggregate (see below).
     const compNote = (comp.note as Record<string, unknown>) ?? {};
     const compType = (comp.type as Record<string, unknown>) ?? {};
     const compSeries = (comp.series as Record<string, unknown>) ?? {};
     const competitionPhase =
       (typeof compNote.headline === 'string' && compNote.headline) ||
       (typeof compType.text === 'string' && compType.text) ||
-      (typeof compSeries.summary === 'string' && compSeries.summary) ||
       null;
 
-    return { homeForm, awayForm, homeRecord, awayRecord, venue, attendance, h2h, odds, weather, referee, competitionPhase };
+    // ── Aggregate (series score — knockout 2nd legs) ──────────
+    // ESPN's series.summary returns e.g. "Porto leads, 2-1 on agg." for second-leg matches.
+    const aggregate = typeof compSeries.summary === 'string' && compSeries.summary
+      ? compSeries.summary : null;
+
+    // ── Win Predictor ─────────────────────────────────────────
+    const predictorObj = (data.predictor as Record<string, unknown>) ?? {};
+    const homeTeamPred = (predictorObj.homeTeam as Record<string, unknown>) ?? {};
+    const awayTeamPred = (predictorObj.awayTeam as Record<string, unknown>) ?? {};
+    let predictor: EspnMatchInfo['predictor'] = null;
+    const rawHome = typeof homeTeamPred.gameProjection === 'number'
+      ? homeTeamPred.gameProjection as number
+      : typeof homeTeamPred.winPercentage === 'number' ? homeTeamPred.winPercentage as number : null;
+    const rawAway = typeof awayTeamPred.gameProjection === 'number'
+      ? awayTeamPred.gameProjection as number
+      : typeof awayTeamPred.winPercentage === 'number' ? awayTeamPred.winPercentage as number : null;
+    if (rawHome !== null && rawAway !== null && rawHome + rawAway > 0) {
+      const drawPct = Math.max(0, Math.round(100 - rawHome - rawAway));
+      predictor = { homeWinPct: Math.round(rawHome), drawPct, awayWinPct: Math.round(rawAway) };
+    }
+
+    // ── Standings Rank ────────────────────────────────────────
+    const homeRank = typeof homeTeamPred.rank === 'number' ? homeTeamPred.rank as number : null;
+    const awayRank = typeof awayTeamPred.rank === 'number' ? awayTeamPred.rank as number : null;
+
+    // ── Broadcast ─────────────────────────────────────────────
+    const broadcastsArr = (data.broadcasts as Record<string, unknown>[]) ?? [];
+    let broadcast: string | null = null;
+    if (broadcastsArr.length > 0) {
+      const b = broadcastsArr[0] as Record<string, unknown>;
+      const mediaShort = String((b.media as Record<string, unknown>)?.shortName ?? '').trim();
+      const namesArr = (b.names as string[]) ?? [];
+      broadcast = mediaShort || namesArr[0] || null;
+      if (broadcast === '') broadcast = null;
+    }
+
+    return {
+      homeForm, awayForm, homeRecord, awayRecord, venue, attendance,
+      h2h, odds, weather, referee, competitionPhase,
+      predictor, homeRank, awayRank, broadcast, aggregate,
+    };
   } catch {
     return ESPN_INFO_EMPTY;
   }
@@ -926,14 +974,17 @@ function TacticalIntelSection({ info, homeName, awayName }: {
   homeName: string;
   awayName: string;
 }) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
+  const rtl = lang === 'he';
 
   const homeShort = homeName.split(' ').pop() || homeName;
   const awayShort = awayName.split(' ').pop() || awayName;
   const hasForm = info.homeForm || info.awayForm || info.homeRecord || info.awayRecord;
   const h2hTotal = info.h2h ? info.h2h.homeWins + info.h2h.draws + info.h2h.awayWins : 0;
 
-  if (!hasForm && !info.h2h && !info.venue && !info.referee && !info.weather && !info.competitionPhase) return null;
+  const hasAny = hasForm || info.h2h || info.venue || info.referee || info.weather ||
+    info.competitionPhase || info.predictor || info.broadcast || info.aggregate;
+  if (!hasAny) return null;
 
   return (
     <motion.div
@@ -942,7 +993,66 @@ function TacticalIntelSection({ info, homeName, awayName }: {
       transition={{ duration: 0.28, ease: 'easeOut' as const }}
       className="mb-3 space-y-1.5"
     >
-      {/* Form + Record */}
+      {/* ── Aggregate banner — knockout 2nd leg context ── */}
+      {info.aggregate && (
+        <div className="flex items-center justify-center gap-2.5 px-3 py-2 rounded-xl border border-accent-orange/20 bg-accent-orange/[0.05]">
+          <span className="font-barlow text-[9px] uppercase tracking-[0.18em] text-accent-orange/50 shrink-0">
+            {t('aggregateScore')}
+          </span>
+          <span className="font-barlow text-[13px] font-bold text-accent-orange tracking-wide truncate">
+            {info.aggregate}
+          </span>
+        </div>
+      )}
+
+      {/* ── Win Probability Bar ── */}
+      {info.predictor && (
+        <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
+          <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
+            {t('winProbability')}
+          </p>
+
+          {/* Percentage labels — naturally RTL-aware via flex justify-between */}
+          <div className="flex items-baseline justify-between mb-1.5">
+            <span className="font-display text-[14px] font-bold text-accent-green tabular-nums leading-none">
+              {info.predictor.homeWinPct}%
+            </span>
+            {info.predictor.drawPct > 0 && (
+              <span className="font-barlow text-[10px] text-text-muted/45 uppercase tracking-wider">
+                {t('draw')} {info.predictor.drawPct}%
+              </span>
+            )}
+            <span className="font-display text-[14px] font-bold text-accent-orange tabular-nums leading-none">
+              {info.predictor.awayWinPct}%
+            </span>
+          </div>
+
+          {/* Animated tri-color bar — staggered fill, RTL-flipped */}
+          <div className={cn('flex h-[6px] rounded-full overflow-hidden gap-[2px]', rtl && 'flex-row-reverse')}>
+            {[
+              { pct: info.predictor.homeWinPct, cls: 'bg-accent-green', delay: 0.05 },
+              { pct: info.predictor.drawPct,    cls: 'bg-text-muted/25', delay: 0.13 },
+              { pct: info.predictor.awayWinPct, cls: 'bg-accent-orange', delay: 0.21 },
+            ].map(({ pct, cls, delay }, i) => pct > 0 ? (
+              <motion.div
+                key={i}
+                className={cn('h-full shrink-0', cls)}
+                initial={{ width: 0 }}
+                animate={{ width: `${pct}%` }}
+                transition={{ duration: 0.65, ease: 'easeOut' as const, delay }}
+              />
+            ) : null)}
+          </div>
+
+          {/* Team name labels */}
+          <div className="flex justify-between mt-1.5">
+            <span className="font-barlow text-[9px] text-text-muted/40 truncate max-w-[90px]">{homeShort}</span>
+            <span className="font-barlow text-[9px] text-text-muted/40 truncate max-w-[90px] text-end">{awayShort}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Form + Record (with rank badge) ── */}
       {hasForm && (
         <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
           <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
@@ -950,27 +1060,27 @@ function TacticalIntelSection({ info, homeName, awayName }: {
           </p>
           <div className="space-y-2">
             {([
-              { name: homeShort, form: info.homeForm, record: info.homeRecord },
-              { name: awayShort, form: info.awayForm, record: info.awayRecord },
-            ] as const).map(({ name, form, record }) => (
-              <div key={name} className="flex items-center gap-2">
-                <span className="font-barlow text-[11px] text-text-muted w-[68px] shrink-0 truncate">{name}</span>
+              { name: homeShort, form: info.homeForm, record: info.homeRecord, rank: info.homeRank },
+              { name: awayShort, form: info.awayForm, record: info.awayRecord, rank: info.awayRank },
+            ] as const).map(({ name, form, record, rank }) => (
+              <div key={name} className="flex items-center gap-2 min-w-0">
+                <span className="font-barlow text-[11px] text-text-muted shrink-0 truncate w-[62px]">{name}</span>
+                {rank != null && (
+                  <span className="text-[9px] text-text-muted/60 font-mono bg-white/5 border border-border-subtle px-1 py-0.5 rounded-sm shrink-0 leading-none">
+                    #{rank}
+                  </span>
+                )}
                 {form ? (
                   <FormDots form={form} t={t} />
                 ) : (
-                  <span className="text-[10px] text-white/20 italic">
-                    {t('noData')}
-                  </span>
+                  <span className="text-[10px] text-white/20 italic">{t('noData')}</span>
                 )}
                 {record && (
-                  <span className="ms-auto font-mono text-[10px] text-white/25 tabular-nums shrink-0">
-                    {record}
-                  </span>
+                  <span className="ms-auto font-mono text-[10px] text-white/25 tabular-nums shrink-0">{record}</span>
                 )}
               </div>
             ))}
           </div>
-          {/* Legend */}
           <div className="flex items-center gap-3 mt-2 pt-1.5 border-t border-white/5">
             {[
               { color: 'bg-emerald-400', label: t('formWin') },
@@ -986,26 +1096,23 @@ function TacticalIntelSection({ info, homeName, awayName }: {
         </div>
       )}
 
-      {/* H2H — 3-column scoreboard for clarity */}
+      {/* ── H2H ── */}
       {info.h2h && h2hTotal >= 3 && (
         <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
           <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
             {t('h2hLastN').replace('{0}', String(h2hTotal))}
           </p>
           <div className="grid grid-cols-3 gap-1 text-center">
-            {/* Home wins */}
             <div className="flex flex-col items-center gap-0.5">
               <span className="font-barlow text-[10px] text-text-muted truncate w-full text-center px-1">{homeShort}</span>
               <span className="font-bebas text-2xl leading-none text-accent-green">{info.h2h.homeWins}</span>
               <span className="font-barlow text-[8px] uppercase tracking-widest text-white/25">{t('wins')}</span>
             </div>
-            {/* Draws */}
             <div className="flex flex-col items-center gap-0.5">
               <span className="font-barlow text-[10px] text-text-muted">{t('draws')}</span>
               <span className="font-bebas text-2xl leading-none text-yellow-400/80">{info.h2h.draws}</span>
               <span className="font-barlow text-[8px] uppercase tracking-widest text-white/25">—</span>
             </div>
-            {/* Away wins */}
             <div className="flex flex-col items-center gap-0.5">
               <span className="font-barlow text-[10px] text-text-muted truncate w-full text-center px-1">{awayShort}</span>
               <span className="font-bebas text-2xl leading-none text-red-400/80">{info.h2h.awayWins}</span>
@@ -1015,7 +1122,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
         </div>
       )}
 
-      {/* Venue */}
+      {/* ── Venue ── */}
       {info.venue && (
         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
           <span className="text-[12px] shrink-0">🏟</span>
@@ -1028,7 +1135,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
         </div>
       )}
 
-      {/* Referee */}
+      {/* ── Referee ── */}
       {info.referee && (
         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
           <span className="text-[12px] shrink-0">🟨</span>
@@ -1039,24 +1146,31 @@ function TacticalIntelSection({ info, homeName, awayName }: {
         </div>
       )}
 
-      {/* Weather */}
+      {/* ── Weather ── */}
       {info.weather && (info.weather.temp !== null || info.weather.condition) && (
         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
           <span className="text-[12px] shrink-0">🌤</span>
           {info.weather.temp !== null && (
-            <span className="font-barlow text-[11px] text-text-muted shrink-0">
-              {info.weather.temp}°C
-            </span>
+            <span className="font-barlow text-[11px] text-text-muted shrink-0">{info.weather.temp}°C</span>
           )}
           {info.weather.condition && (
-            <span className="font-barlow text-[11px] text-text-muted/55 truncate">
-              {info.weather.condition}
-            </span>
+            <span className="font-barlow text-[11px] text-text-muted/55 truncate">{info.weather.condition}</span>
           )}
         </div>
       )}
 
-      {/* Competition Phase */}
+      {/* ── Broadcast ── */}
+      {info.broadcast && (
+        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
+          <Tv size={12} className="text-text-muted/50 shrink-0" />
+          <span className="font-barlow text-[10px] uppercase tracking-wider text-text-muted/50 shrink-0">
+            {t('onTv')}
+          </span>
+          <span className="font-barlow text-[11px] text-text-primary/70 truncate">{info.broadcast}</span>
+        </div>
+      )}
+
+      {/* ── Competition Phase ── */}
       {info.competitionPhase && (
         <div className="flex items-center justify-center px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
           <span className="font-barlow text-[10px] uppercase tracking-[0.15em] text-text-muted/50">

@@ -435,6 +435,11 @@ export const translations = {
 
     // Sprint 17 — Broadcast Reality (Weather, Referee, Competition Phase)
     referee: 'Referee',
+
+    // Sprint 18 — Omniscient Broadcast (Predictor, Standings, Broadcasts, Aggregate)
+    winProbability: 'Win Probability',
+    onTv: 'On TV',
+    aggregateScore: 'Aggregate',
   },
 
   he: {
@@ -868,6 +873,11 @@ export const translations = {
 
     // Sprint 17 — Broadcast Reality
     referee: 'שופט',
+
+    // Sprint 18 — Omniscient Broadcast
+    winProbability: 'הסתברות ניצחון',
+    onTv: 'שידור',
+    aggregateScore: 'מצטבר',
   },
 } as const;
 
