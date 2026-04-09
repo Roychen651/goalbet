@@ -243,6 +243,44 @@ BEGIN
 
 ### 4.12 Coins live in `group_members.coins` — not a separate column
 
+### 4.13 All bottom-sheet modals must implement swipe-to-close
+
+Every modal that slides up from the bottom on mobile uses the Framer Motion drag pattern. Apply these props to the outer panel `motion.div`:
+
+```tsx
+drag="y"
+dragConstraints={{ top: 0 }}
+dragElastic={0.15}
+dragMomentum={false}
+onDragEnd={(_, info) => {
+  if (info.offset.y > 100 && info.velocity.y > 20) onClose();
+}}
+```
+
+And on every **scroll container inside** that modal:
+
+```tsx
+onPointerDown={e => e.stopPropagation()}
+```
+
+Without `onPointerDown` on scroll containers, Framer Motion intercepts touch events and the user can't scroll — the drag fires instead.
+
+Modals with swipe-to-close: `HelpGuideModal`, `ScoringGuide`, `CoinGuide`, `CoinHistoryModal`, `UserMatchHistoryModal`.
+
+### 4.14 Always set explicit `width` and `height` on `<img>` tags
+
+All `<img>` elements must have numeric `width` and `height` HTML attributes so the browser reserves layout space before the image loads. Omitting them causes Cumulative Layout Shift (CLS) on slow connections.
+
+```tsx
+// ❌ CLS — browser doesn't know the size until the image loads
+<img src={badge} alt={team} className="w-9 h-9" />
+
+// ✅ Browser reserves 36×36px immediately
+<img src={badge} alt={team} width={36} height={36} className="w-9 h-9" />
+```
+
+This applies to team badges, league logos, and avatars loaded from remote URLs.
+
 The authoritative coin balance for a user in a group is `group_members.coins`.
 `user_coins` is a legacy/supplementary table (created in migration 020) but the
 primary balance used by `increment_coins`, `claim_daily_bonus`, and all admin RPCs
@@ -282,32 +320,36 @@ goalbet/
 │       │   │   ├── InviteCodeDisplay.tsx
 │       │   │   └── JoinGroupModal.tsx
 │       │   ├── layout/
-│       │   │   ├── AppShell.tsx           # Root layout + ONLY place for auto-sync
+│       │   │   ├── AppShell.tsx           # Root layout + ONLY place for auto-sync + cold-start isSyncing flag
 │       │   │   ├── BottomNav.tsx          # Mobile bottom navigation
+│       │   │   ├── ErrorBoundary.tsx      # Class component — catches render errors, shows bilingual fallback
 │       │   │   ├── Sidebar.tsx            # Desktop sidebar
 │       │   │   └── TopBar.tsx             # Mobile header: logo, group selector, coins, avatar
 │       │   ├── leaderboard/
 │       │   │   ├── H2HModal.tsx           # Head-to-head comparison (tap another user's row)
 │       │   │   ├── LeaderboardRow.tsx     # Own row → history modal; other row → H2H modal
 │       │   │   ├── LeaderboardTable.tsx
-│       │   │   └── UserMatchHistoryModal.tsx
+│       │   │   └── UserMatchHistoryModal.tsx  # Bottom sheet — swipe-to-close enabled
 │       │   ├── matches/
-│       │   │   ├── MatchCard.tsx          # Computes isPastKickoffNS, DELAYED sentinel, live clock
-│       │   │   ├── MatchFeed.tsx          # Date-grouped list of MatchCards
-│       │   │   ├── MatchStatusBadge.tsx   # Status pill: Live/HT/Delayed/FT/PST/CANC
+│       │   │   ├── MatchCard.tsx          # Legacy card — kept as dead code (USE_V2_CARDS=true skips it)
+│       │   │   ├── MatchCardV2.tsx        # ACTIVE card: isPastKickoffNS, DELAYED, live clock, shimmer hover
+│       │   │   ├── MatchFeed.tsx          # Date-grouped feed; USE_V2_CARDS=true (const, not a real flag)
+│       │   │   ├── MatchStatusBadge.tsx   # Status pill; intercepts DELAYED→SYNCING during cold-start
 │       │   │   ├── MatchTimeline.tsx      # ESPN summary events (returns null when no data)
 │       │   │   └── PredictionForm.tsx     # 5-tier prediction input; corners hidden for league 4396
 │       │   └── ui/
 │       │       ├── Avatar.tsx             # Expects emoji:🏆 prefix
-│       │       ├── CoinGuide.tsx
+│       │       ├── CoinGuide.tsx          # Bottom sheet — swipe-to-close enabled
+│       │       ├── CoinHistoryModal.tsx   # Bottom sheet — swipe-to-close enabled
 │       │       ├── GlassCard.tsx
-│       │       ├── HelpGuideModal.tsx
+│       │       ├── HelpGuideModal.tsx     # Bottom sheet — swipe-to-close enabled
 │       │       ├── InfoTip.tsx            # Tooltip using CSS vars (works in both themes)
 │       │       ├── LangToggle.tsx
 │       │       ├── LoadingSpinner.tsx
 │       │       ├── NeonButton.tsx         # Variants: green / ghost / danger
 │       │       ├── PolicyModal.tsx
-│       │       ├── ScoringGuide.tsx
+│       │       ├── ScoringGuide.tsx       # Bottom sheet — swipe-to-close enabled
+│       │       ├── SyncProgressBar.tsx    # Fixed top bar; visible while isSyncing; z-[100]
 │       │       ├── ThemeToggle.tsx
 │       │       ├── Toast.tsx
 │       │       └── WelcomeAnimation.tsx   # First-login welcome sequence
@@ -344,7 +386,7 @@ goalbet/
 │           ├── groupStore.ts              # groups[], activeGroupId; persisted to localStorage
 │           ├── langStore.ts               # lang ('en'|'he'); persisted to localStorage
 │           ├── themeStore.ts              # theme ('dark'|'light'); persisted to localStorage
-│           └── uiStore.ts                 # activeModal, toasts[]; memory only
+│           └── uiStore.ts                 # activeModal, toasts[], isSyncing; memory only
 │
 ├── backend/
 │   └── src/
@@ -421,7 +463,9 @@ goalbet/
 Browser
   │
   ├─ Vercel (React SPA — auto-deploy from main)
-  │    ├─ AppShell         → owns ALL automatic sync (single source of truth)
+  │    ├─ AppShell         → owns ALL automatic sync; manages isSyncing cold-start flag
+  │    ├─ SyncProgressBar  → fixed top shimmer; visible while isSyncing=true
+  │    ├─ ErrorBoundary    → wraps <Outlet />; catches render errors; bilingual fallback
   │    ├─ useMatches       → queries Supabase + listens for 'goalbet:synced' event + Realtime
   │    └─ useMatchSync     → Settings "Sync Now" button ONLY (manual, never auto-triggered)
   │
@@ -437,11 +481,12 @@ Browser
 ```
 
 **Data flow on page load:**
-1. `AppShell` fires `POST /api/sync/matches` (90s timeout) — wakes Render + pulls fresh fixtures
-2. `AppShell` fires `POST /api/sync/scores` immediately (75s timeout) + retries at 20s
-3. Each successful response: `window.dispatchEvent(new Event('goalbet:synced'))`
-4. `useMatches` hears `goalbet:synced` → calls `fetchMatches()` → UI updates
-5. Supabase Realtime also pushes row-level changes for live score diffs
+1. `AppShell` sets `isSyncing = true` → `SyncProgressBar` appears + DELAYED badges show "Syncing…"
+2. `AppShell` fires `POST /api/sync/matches` (90s timeout) — wakes Render + pulls fresh fixtures
+3. `AppShell` fires `POST /api/sync/scores` immediately (75s timeout) + retries at 25s
+4. First successful response: `dispatchAndClearSyncing()` → `isSyncing = false` + `goalbet:synced`
+5. `useMatches` hears `goalbet:synced` → calls `fetchMatches()` → UI updates
+6. Supabase Realtime also pushes row-level changes for live score diffs
 
 **GitHub Actions as heartbeat:**
 `sync-cron.yml` runs every **5 minutes**. Wakes backend → resolves scores (coins) → syncs fixtures. Keeps Render alive 24/7 and data current even with zero active users.
@@ -542,16 +587,37 @@ mapAuthError(message: string): string                    // maps Supabase error 
 
 ```
 Mount
+  ├─ setSyncing(true)        — SyncProgressBar appears; DELAYED badges swap to "Syncing…" blue
   ├─ POST /api/sync/matches  (90s AbortController timeout) — wakes Render + pulls fixtures
   ├─ POST /api/sync/scores   (75s timeout) — resolves any finished predictions immediately
-  ├─ setTimeout 20s → POST /api/sync/scores — backend is warm by now, fast retry
+  ├─ setTimeout 25s → POST /api/sync/scores — backend is warm by now, fast retry
   └─ setInterval 30s → POST /api/sync/scores — live-score polling
 
 Tab restore (hidden > 90s) → force POST /api/sync/scores
 POLL_THROTTLE_MS = 30,000  → debounces rapid successive calls
 ```
 
-All fetches use `AbortController` with explicit timeouts. If the backend times out (cold start), the fetch aborts cleanly — `setSyncing` is never stuck, the next interval retries.
+All fetches use `AbortController` with explicit timeouts. If the backend times out on cold start, the fetch aborts cleanly — `isSyncing` is never permanently stuck because the 25s retry will succeed once Render is warm.
+
+### Cold-start UX: `isSyncing` flag
+
+`AppShell` sets `isSyncing = true` on mount and clears it exactly once — on the first successful sync response — via `dispatchAndClearSyncing()`:
+
+```typescript
+const dispatchAndClearSyncing = useCallback(() => {
+  if (!hasSyncedRef.current) {
+    hasSyncedRef.current = true;
+    setSyncing(false);          // clears SyncProgressBar
+  }
+  dispatch();                   // fires goalbet:synced
+}, [setSyncing]);
+```
+
+`hasSyncedRef` prevents `setSyncing(false)` from firing more than once per mount, so polling calls don't flicker the progress bar.
+
+**What `isSyncing` controls:**
+- `SyncProgressBar` — fixed top shimmer bar visible during cold start
+- `MatchStatusBadge` — DELAYED status shows blue "Syncing…" instead of alarming orange "Delayed"
 
 **Why 75s for score sync?** Render free tier takes 45–60s to cold start. The previous 30s timeout meant score sync was always failing on cold start, causing coin payouts to be delayed until the next GitHub Actions run.
 
@@ -701,9 +767,16 @@ claim_daily_bonus(user_id UUID) → BOOLEAN  -- true = claimed, false = already 
 | Sentinel | When used | Display |
 |----------|-----------|---------|
 | `DELAYED` | NS match past kickoff, ESPN still shows as pre/scheduled | "Delayed" (orange) |
+| `SYNCING` | `isSyncing=true` AND underlying status is `DELAYED` | "Syncing…" (blue) |
 | `ET_HT` | Live break between ET halves | "AET HT" (amber) |
 
-Computed in `MatchCard.tsx`, passed to `MatchStatusBadge`. Never write them to the database.
+Computed in `MatchCard.tsx` / `MatchCardV2.tsx`, passed to `MatchStatusBadge` as props. Never write them to the database.
+
+**`SYNCING` intercept logic** (in `MatchStatusBadge`):
+```typescript
+const effectiveStatus = isSyncing && status === 'DELAYED' ? 'SYNCING' : status
+```
+This prevents the alarming orange "Delayed" badge from flashing during cold start before ESPN data arrives.
 
 ### Stalled NS matches (`isPastKickoffNS`)
 
@@ -910,6 +983,19 @@ Use semantic CSS classes — never hardcode rgba in bento components:
 - **Profile bento** (`TiltCardV2`): 3° tilt with spring physics. No glare overlay.
 - **Buttons** (`MagneticButtonV2`): magnetic pull within 80px radius. Variants: `volt`, `ghost`, `purple`.
 
+### Light mode contrast overrides
+
+`html.light` in `index.css` remaps `text-white/*` and `border-white/*` opacity variants to navy equivalents. The opacity floors were raised in Sprint 14/15 to improve contrast — do not revert them:
+
+| Tailwind class | Light mode minimum opacity |
+|---|---|
+| `border-white/8` → `border-white/20` | 0.15 |
+| `border-white/15` → `border-white/25` | 0.20 |
+| `text-white/25` | 0.45 (was 0.30) |
+| `text-white/30` | 0.50 (was 0.38) |
+
+If a new `text-white/XX` or `border-white/XX` class appears invisible in light mode, add an override to the `html.light` block in `index.css`.
+
 ### Rules
 
 - **Never hardcode dark hex colors** in modals, tooltips, or cards — they break in light mode
@@ -941,6 +1027,22 @@ t('matchDay')  // → "Match Day" or "יום משחק"
 - `t()` accepts **only** `TranslationKey` — passing a plain `string` is a TS error
 - Import `TranslationKey` from `../../lib/i18n` when calling `t` in helper functions
 - **Do not use `t('halfTimeResult')`** — that key was removed. Use the hardcoded string `"Half Time"` for backward-compat HT label
+- **Every visible UI string must go through `t()`** — including `aria-label`, `title`, `placeholder`, and share text. Hardcoded English strings silently break Hebrew mode.
+
+### Parameterized translations
+
+Some keys contain a `{0}` placeholder. These are not template literals — use `.replace()`:
+
+```typescript
+// ✅ Correct
+t('secsAgo').replace('{0}', String(elapsed))   // → "לפני 12 שניות"
+t('minsAgo').replace('{0}', String(minutes))   // → "לפני 3 דקות"
+
+// ❌ Wrong — t() does not interpolate automatically
+t(`secsAgo`, { count: elapsed })
+```
+
+Always add the key to **both** `en` and `he` blocks in `i18n.ts`. `TranslationKey` is derived from `en` — a missing `en` key causes a TypeScript error; a missing `he` key silently falls back to the `en` value.
 
 ### Hebrew football terminology
 
@@ -963,7 +1065,7 @@ All stores use Zustand. Persistence uses `localStorage` where noted.
 | `coinsStore.ts` | `coins`, `lastDailyBonus` | Synced from DB | `initCoins(userId, groupId)` re-checks on tab focus for midnight reset |
 | `langStore.ts` | `lang` (`'en'` \| `'he'`) | localStorage | Also controls `document.dir` via `useRTLDirection` |
 | `themeStore.ts` | `theme` (`'dark'` \| `'light'`) | localStorage | Manages `html.light` class |
-| `uiStore.ts` | `activeModal`, `toasts[]` | Memory only | `openModal(id)`, `addToast(msg, type)` |
+| `uiStore.ts` | `activeModal`, `toasts[]`, `isSyncing` | Memory only | `openModal(id)`, `addToast(msg, type)`, `setSyncing(bool)` |
 
 ---
 
@@ -1149,6 +1251,11 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **Hardcoded hex colors in modals break light mode.** Use `card-elevated` class or `var(--color-tooltip-bg)`.
 - **`t()` only accepts `TranslationKey`.** Passing a plain `string` is a TypeScript error.
 - **Use `ms-` / `me-` for margins, never `ml-` / `mr-`.** RTL layout requires logical CSS properties.
+- **Bottom-sheet modals must include `onPointerDown={e => e.stopPropagation()}` on scroll containers.** Without this, Framer Motion drag fires instead of scroll on touch devices.
+- **All `<img>` tags must have numeric `width` and `height` attributes.** Omitting them causes CLS on slow connections — even when Tailwind `w-` / `h-` classes are present.
+- **`ErrorBoundary` wraps `<Outlet />` in `AppShell`.** Do not remove it. It catches render errors in any page and shows a premium bilingual fallback instead of a white screen.
+- **`MatchCard.tsx` is dead code — `MatchCardV2.tsx` is the active implementation.** `USE_V2_CARDS = true` in `MatchFeed.tsx` is a permanent constant, not a real feature flag. Do not add features to `MatchCard.tsx`; all card work goes into `MatchCardV2.tsx`.
+- **The share invite string in `SettingsPage.tsx` must be localized.** It is the primary viral surface — a Hebrew user must send a Hebrew message.
 
 ### Coins
 
