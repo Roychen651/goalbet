@@ -219,9 +219,21 @@ export function HelpGuideModal({ onClose }: Props) {
         className="relative w-full sm:max-w-md card-elevated sm:rounded-2xl rounded-t-2xl overflow-hidden z-10 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
         variants={SHEET}
         transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+        drag="y"
+        dragConstraints={{ top: 0 }}
+        dragElastic={0.15}
+        dragMomentum={false}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 100 && info.velocity.y > 20) onClose();
+        }}
       >
+        {/* Mobile drag handle */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-12 h-1.5 rounded-full bg-text-muted/20" />
+        </div>
+
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/8 shrink-0">
+        <div className="flex items-center justify-between px-5 pt-3 pb-4 border-b border-white/8 shrink-0">
           <div>
             <h2 className="font-bebas text-xl tracking-wider text-white">
               {isHe ? 'מדריך משתמש' : 'User Guide'}
@@ -267,6 +279,7 @@ export function HelpGuideModal({ onClose }: Props) {
             transition={{ duration: 0.15 }}
             className="overflow-y-auto flex-1 px-5 py-4"
             onWheel={e => e.stopPropagation()}
+            onPointerDown={e => e.stopPropagation()}
           >
             {activeTab === 'play' && <PlayTab isHe={isHe} />}
             {activeTab === 'bets' && <BetsTab isHe={isHe} />}

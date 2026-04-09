@@ -90,6 +90,13 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
         transition={{ type: 'spring', stiffness: 340, damping: 34 }}
         className="relative w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
+        drag="y"
+        dragConstraints={{ top: 0 }}
+        dragElastic={0.15}
+        dragMomentum={false}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 100 && info.velocity.y > 20) onClose();
+        }}
       >
         <div className="card-elevated border border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden">
 
@@ -99,9 +106,9 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
               style={{ background: 'radial-gradient(ellipse, rgba(0,255,135,0.08) 0%, transparent 70%)', filter: 'blur(20px)' }} />
           </div>
 
-          {/* Drag handle (mobile) */}
+          {/* Mobile drag handle */}
           <div className="flex justify-center pt-3 pb-1 sm:hidden">
-            <div className="w-10 h-1 rounded-full bg-white/20" />
+            <div className="w-12 h-1.5 rounded-full bg-text-muted/20" />
           </div>
 
           {/* Header */}
@@ -134,7 +141,7 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
           </div>
 
           {/* Tiers list */}
-          <div className="px-4 py-3 space-y-1.5 max-h-[50vh] overflow-y-auto" onWheel={e => e.stopPropagation()}>
+          <div className="px-4 py-3 space-y-1.5 max-h-[50vh] overflow-y-auto" onWheel={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
             {TIERS.map((tier, i) => (
               <motion.div
                 key={i}

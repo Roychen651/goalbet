@@ -240,9 +240,21 @@ export function CoinHistoryModal({ onClose }: CoinHistoryModalProps) {
           background: 'var(--color-tooltip-bg)',
           border: '1px solid var(--card-border)',
         }}
+        drag="y"
+        dragConstraints={{ top: 0 }}
+        dragElastic={0.15}
+        dragMomentum={false}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 100 && info.velocity.y > 20) onClose();
+        }}
       >
+        {/* Mobile drag handle */}
+        <div className="flex justify-center pt-3 pb-0 sm:hidden">
+          <div className="w-12 h-1.5 rounded-full bg-text-muted/20" />
+        </div>
+
         {/* Header */}
-        <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid var(--card-border)' }}>
+        <div className="px-4 pt-3 pb-3" style={{ borderBottom: '1px solid var(--card-border)' }}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
               <CoinIcon size={20} />
@@ -277,6 +289,7 @@ export function CoinHistoryModal({ onClose }: CoinHistoryModalProps) {
         <div
           className="flex-1 overflow-y-auto overscroll-contain"
           onWheel={e => e.stopPropagation()}
+          onPointerDown={e => e.stopPropagation()}
         >
           {loading ? (
             <div className="flex justify-center items-center py-10">

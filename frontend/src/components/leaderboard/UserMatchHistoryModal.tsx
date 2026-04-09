@@ -100,10 +100,22 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
         exit={{ opacity: 0, y: 20, scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 300, damping: 28 }}
         onClick={e => e.stopPropagation()}
+        drag="y"
+        dragConstraints={{ top: 0 }}
+        dragElastic={0.15}
+        dragMomentum={false}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 100 && info.velocity.y > 20) onClose();
+        }}
       >
         <div className="relative rounded-2xl card-elevated border border-white/10 overflow-hidden max-h-[80vh] flex flex-col">
+          {/* Mobile drag handle */}
+          <div className="flex justify-center pt-3 pb-0 sm:hidden">
+            <div className="w-12 h-1.5 rounded-full bg-text-muted/20" />
+          </div>
+
           {/* Header */}
-          <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/8 shrink-0">
+          <div className="flex items-center justify-between px-5 pt-3 pb-4 border-b border-white/8 shrink-0">
             <div className="flex items-center gap-3">
               <Avatar src={user.avatar_url} name={user.username} size="md" />
               <div>
@@ -122,7 +134,7 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
           </div>
 
           {/* Match list */}
-          <div className="overflow-y-auto px-4 py-3 space-y-1.5" onWheel={(e) => e.stopPropagation()}>
+          <div className="overflow-y-auto px-4 py-3 space-y-1.5" onWheel={(e) => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
             {loading ? (
               <div className="py-8 text-center text-text-muted text-sm">Loading...</div>
             ) : history.length === 0 ? (

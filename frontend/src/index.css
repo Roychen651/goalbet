@@ -373,7 +373,7 @@ html.light .card-clickable:hover {
 /* Glass panels (TopBar, BottomNav, Sidebar) */
 html.light .glass {
   background: rgba(255, 255, 255, 0.90) !important;
-  border: 1px solid rgba(15, 40, 84, 0.10) !important;
+  border: 1px solid rgba(15, 40, 84, 0.16) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   box-shadow: 0 2px 16px rgba(15, 40, 84, 0.06);
@@ -429,13 +429,13 @@ html.light .text-white\/80   { color: rgba(10, 23, 51, 0.8) !important; }
 html.light .text-white\/70   { color: rgba(10, 23, 51, 0.7) !important; }
 html.light .text-white\/60   { color: rgba(10, 23, 51, 0.6) !important; }
 html.light .text-white\/50   { color: rgba(10, 23, 51, 0.5) !important; }
-html.light .text-white\/40   { color: rgba(10, 23, 51, 0.45) !important; }
-html.light .text-white\/35   { color: rgba(10, 23, 51, 0.40) !important; }
-html.light .text-white\/30   { color: rgba(10, 23, 51, 0.35) !important; }
-html.light .text-white\/25   { color: rgba(10, 23, 51, 0.30) !important; }
-html.light .text-white\/20   { color: rgba(10, 23, 51, 0.25) !important; }
-html.light .text-white\/15   { color: rgba(10, 23, 51, 0.20) !important; }
-html.light .text-white\/10   { color: rgba(10, 23, 51, 0.15) !important; }
+html.light .text-white\/40   { color: rgba(10, 23, 51, 0.50) !important; }
+html.light .text-white\/35   { color: rgba(10, 23, 51, 0.46) !important; }
+html.light .text-white\/30   { color: rgba(10, 23, 51, 0.42) !important; }
+html.light .text-white\/25   { color: rgba(10, 23, 51, 0.45) !important; }
+html.light .text-white\/20   { color: rgba(10, 23, 51, 0.38) !important; }
+html.light .text-white\/15   { color: rgba(10, 23, 51, 0.30) !important; }
+html.light .text-white\/10   { color: rgba(10, 23, 51, 0.22) !important; }
 
 /* Backgrounds: white/alpha → near-white/alpha */
 html.light .bg-white\/2  { background-color: rgba(15, 40, 84, 0.02) !important; }
@@ -450,15 +450,15 @@ html.light .bg-white\/12 { background-color: rgba(15, 40, 84, 0.09) !important; 
 html.light .bg-white\/15 { background-color: rgba(15, 40, 84, 0.10) !important; }
 html.light .bg-white\/20 { background-color: rgba(15, 40, 84, 0.12) !important; }
 
-/* Borders: white/alpha → green/alpha */
-html.light .border-white\/5  { border-color: rgba(15, 40, 84, 0.08) !important; }
-html.light .border-white\/6  { border-color: rgba(15, 40, 84, 0.09) !important; }
-html.light .border-white\/7  { border-color: rgba(15, 40, 84, 0.10) !important; }
-html.light .border-white\/8  { border-color: rgba(15, 40, 84, 0.10) !important; }
-html.light .border-white\/10 { border-color: rgba(15, 40, 84, 0.12) !important; }
-html.light .border-white\/12 { border-color: rgba(15, 40, 84, 0.13) !important; }
-html.light .border-white\/15 { border-color: rgba(15, 40, 84, 0.15) !important; }
-html.light .border-white\/20 { border-color: rgba(15, 40, 84, 0.18) !important; }
+/* Borders: white/alpha → navy/alpha — bumped for Frost contrast */
+html.light .border-white\/5  { border-color: rgba(15, 40, 84, 0.12) !important; }
+html.light .border-white\/6  { border-color: rgba(15, 40, 84, 0.13) !important; }
+html.light .border-white\/7  { border-color: rgba(15, 40, 84, 0.14) !important; }
+html.light .border-white\/8  { border-color: rgba(15, 40, 84, 0.15) !important; }
+html.light .border-white\/10 { border-color: rgba(15, 40, 84, 0.18) !important; }
+html.light .border-white\/12 { border-color: rgba(15, 40, 84, 0.20) !important; }
+html.light .border-white\/15 { border-color: rgba(15, 40, 84, 0.22) !important; }
+html.light .border-white\/20 { border-color: rgba(15, 40, 84, 0.26) !important; }
 
 /* Ghost button text */
 html.light .btn-ghost-text {

@@ -435,6 +435,8 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
                     className="w-6 h-6 object-contain mb-0.5"
                     alt={match.league_name}
                     title={match.league_name}
+                    width={24}
+                    height={24}
                     onError={(e) => {
                       const img = e.target as HTMLImageElement;
                       img.style.display = 'none';
@@ -997,6 +999,8 @@ function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 
           <img
             src={badge}
             alt={name}
+            width={36}
+            height={36}
             className={cn(
               'w-9 h-9 object-contain transition-all duration-200',
               highlight && 'drop-shadow-[0_0_8px_rgba(0,255,135,0.5)] scale-105',

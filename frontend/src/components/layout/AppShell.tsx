@@ -11,6 +11,7 @@ import { JoinGroupModal } from '../groups/JoinGroupModal';
 import { HelpGuideModal } from '../ui/HelpGuideModal';
 import { CoinHistoryModal } from '../ui/CoinHistoryModal';
 import { SyncProgressBar } from '../ui/SyncProgressBar';
+import { ErrorBoundary } from './ErrorBoundary';
 import { useUIStore } from '../../stores/uiStore';
 import { useLangStore } from '../../stores/langStore';
 import { useNewPointsAlert } from '../../hooks/useNewPointsAlert';
@@ -144,17 +145,19 @@ export function AppShell() {
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar />
         <main className="flex-1 px-4 py-4 pb-24 sm:pb-6 sm:px-6 sm:py-6 max-w-2xl w-full mx-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
+          <ErrorBoundary>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
+          </ErrorBoundary>
         </main>
       </div>
       <BottomNav />

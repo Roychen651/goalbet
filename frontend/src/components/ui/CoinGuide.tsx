@@ -114,6 +114,13 @@ export function CoinGuide({ onClose }: CoinGuideProps) {
         transition={{ type: 'spring', stiffness: 340, damping: 34 }}
         className="relative w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
+        drag="y"
+        dragConstraints={{ top: 0 }}
+        dragElastic={0.15}
+        dragMomentum={false}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 100 && info.velocity.y > 20) onClose();
+        }}
       >
         <div className="card-elevated border border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden">
 
@@ -127,7 +134,7 @@ export function CoinGuide({ onClose }: CoinGuideProps) {
 
           {/* Mobile drag handle */}
           <div className="flex justify-center pt-3 pb-1 sm:hidden">
-            <div className="w-10 h-1 rounded-full bg-white/20" />
+            <div className="w-12 h-1.5 rounded-full bg-text-muted/20" />
           </div>
 
           {/* ── Header ── */}
@@ -158,7 +165,7 @@ export function CoinGuide({ onClose }: CoinGuideProps) {
             </div>
           </div>
 
-          <div className="px-4 py-3 space-y-4 max-h-[65vh] overflow-y-auto" onWheel={e => e.stopPropagation()}>
+          <div className="px-4 py-3 space-y-4 max-h-[65vh] overflow-y-auto" onWheel={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
 
             {/* ── Section: How You Earn ── */}
             <div>
