@@ -77,7 +77,7 @@ interface EspnMatchInfo {
   homeRank:    number | null;
   awayRank:    number | null;
   broadcast:   string | null;
-  aggregate:   { summary: string } | { title: string; leg: number; homeAgg: number; awayAgg: number } | null;
+  aggregate:   { summary: string } | { phase: string | null; title: string; leg: number; homeAgg: number; awayAgg: number } | null;
 }
 
 const ESPN_INFO_EMPTY: EspnMatchInfo = {
@@ -224,7 +224,7 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
           const s1 = typeof seriesComps[1].aggregateScore === 'number' ? seriesComps[1].aggregateScore as number : 0;
           // Only show aggregate when there's an actual score (2nd leg, or 1st leg already played)
           if (s0 + s1 > 0) {
-            aggregate = { title, leg, homeAgg: s0, awayAgg: s1 };
+            aggregate = { phase: competitionPhase, title, leg, homeAgg: s0, awayAgg: s1 };
           }
           // 1st leg with 0-0 agg = no useful info to show — skip
         }
@@ -634,7 +634,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
               <span className="text-accent-orange/70 text-[9px] font-barlow font-medium mt-1.5 truncate max-w-[220px] tracking-wide">
                 {'summary' in espnInfo.aggregate
                   ? espnInfo.aggregate.summary
-                  : `${translatePhase(espnInfo.aggregate.title, lang)} · ${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))} (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})`
+                  : `${espnInfo.aggregate.phase ? translatePhase(espnInfo.aggregate.phase, lang) + ' · ' : ''}${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))} (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})`
                 }
               </span>
             )}
@@ -656,25 +656,36 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
         {espnInfo?.predictor && (
           <div className="mt-3 px-0.5">
             <div className="flex items-center gap-2">
-              <span className="font-display text-[11px] font-bold text-accent-green tabular-nums leading-none shrink-0">
-                {espnInfo.predictor.homeWinPct}%
-              </span>
+              <div className="flex flex-col items-start shrink-0 gap-0.5">
+                <span className="font-display text-[11px] font-bold text-accent-green tabular-nums leading-none">
+                  {espnInfo.predictor.homeWinPct}%
+                </span>
+                <span className="text-[8px] text-text-muted/40 font-barlow leading-none truncate max-w-[60px]">
+                  {match.home_team.split(' ').slice(-1)[0]}
+                </span>
+              </div>
               <div className="flex-1">
-                <div className={cn('flex h-[6px] rounded-full overflow-hidden', rtl && 'flex-row-reverse')}>
+                {/* No flex-row-reverse — document dir="rtl" already reverses flex children in Hebrew */}
+                <div className="flex h-[6px] rounded-full overflow-hidden">
                   <div className="h-full bg-accent-green rounded-s-full" style={{ width: `${espnInfo.predictor.homeWinPct}%` }} />
                   <div className="h-full bg-white/10" style={{ width: `${espnInfo.predictor.drawPct}%` }} />
                   <div className="h-full bg-accent-orange rounded-e-full" style={{ width: `${espnInfo.predictor.awayWinPct}%` }} />
                 </div>
+                {espnInfo.predictor.drawPct > 0 && (
+                  <p className="text-center text-[8px] text-text-muted/35 font-barlow uppercase tracking-wider leading-none mt-1">
+                    {t('draw')} {espnInfo.predictor.drawPct}%
+                  </p>
+                )}
               </div>
-              <span className="font-display text-[11px] font-bold text-accent-orange tabular-nums leading-none shrink-0">
-                {espnInfo.predictor.awayWinPct}%
-              </span>
+              <div className="flex flex-col items-end shrink-0 gap-0.5">
+                <span className="font-display text-[11px] font-bold text-accent-orange tabular-nums leading-none">
+                  {espnInfo.predictor.awayWinPct}%
+                </span>
+                <span className="text-[8px] text-text-muted/40 font-barlow leading-none truncate max-w-[60px]">
+                  {match.away_team.split(' ').slice(-1)[0]}
+                </span>
+              </div>
             </div>
-            {espnInfo.predictor.drawPct > 0 && (
-              <p className="text-center text-[8px] text-text-muted/35 font-barlow uppercase tracking-wider leading-none mt-1.5">
-                {t('draw')} {espnInfo.predictor.drawPct}%
-              </p>
-            )}
           </div>
         )}
 
