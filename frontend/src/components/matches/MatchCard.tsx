@@ -658,59 +658,14 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
 }
 
 // ─── MatchCard (public export) ────────────────────────────────────────────────
-// Premium hover: radial spotlight (mouse-tracked, zero re-renders) +
-// top-edge highlight bar + subtle lift + border glow.
-// Desktop only — touch devices see no effect. Dark/light via CSS vars.
+// Border glow on hover — CSS transition only, no motion overhead.
+// Dark/light colours via CSS vars. No effect on touch devices.
 // ─────────────────────────────────────────────────────────────────────────────
 export function MatchCard(props: MatchCardProps) {
-  const [hovered, setHovered] = useState(false);
-  const cardRef    = useRef<HTMLDivElement>(null);
-  const spotlightRef = useRef<HTMLDivElement>(null);
-
-  // Mutate spotlight background directly — no React state → zero re-renders on move
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!spotlightRef.current || !cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    spotlightRef.current.style.background =
-      `radial-gradient(220px at ${x}px ${y}px, var(--card-spotlight), transparent 70%)`;
-  };
-
   return (
-    <motion.div
-      ref={cardRef}
-      className="relative overflow-hidden rounded-2xl"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onMouseMove={handleMouseMove}
-      animate={{ y: hovered ? -2 : 0, scale: hovered ? 1.008 : 1 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-      style={{
-        boxShadow: hovered ? 'var(--card-hover-shadow)' : 'none',
-        transition: 'box-shadow 0.30s ease',
-      }}
-    >
+    <div className="relative overflow-hidden rounded-2xl match-card-hover">
       <MatchCardCore {...props} />
-
-      {/* Radial spotlight — position updated via DOM, opacity via CSS transition */}
-      <div
-        ref={spotlightRef}
-        className="absolute inset-0 pointer-events-none rounded-2xl"
-        style={{ opacity: hovered ? 1 : 0, transition: 'opacity 0.20s ease' }}
-      />
-
-      {/* Top-edge highlight bar — grows left→right on hover */}
-      <motion.div
-        className="absolute top-0 inset-x-0 h-[1px] pointer-events-none"
-        style={{
-          background: 'linear-gradient(90deg, transparent 0%, var(--card-edge-glow-color) 50%, transparent 100%)',
-          transformOrigin: 'left',
-        }}
-        animate={{ scaleX: hovered ? 1 : 0, opacity: hovered ? 1 : 0 }}
-        transition={{ duration: 0.28, ease: 'easeOut' as const }}
-      />
-    </motion.div>
+    </div>
   );
 }
 

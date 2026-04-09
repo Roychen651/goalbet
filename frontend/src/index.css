@@ -36,10 +36,8 @@
   --card-elevated-border: rgba(73, 136, 196, 0.30);
   --card-hover-bg: rgba(28, 77, 141, 0.35);
   --card-hover-border: rgba(189, 232, 245, 0.35);
-  /* match card premium hover */
-  --card-spotlight: rgba(73, 136, 196, 0.08);
-  --card-edge-glow-color: rgba(189, 232, 245, 0.55);
-  --card-hover-shadow: 0 0 0 1px rgba(189, 232, 245, 0.18), 0 8px 32px rgba(73, 136, 196, 0.22), 0 2px 8px rgba(0, 0, 0, 0.30);
+  /* match card border glow hover */
+  --card-hover-glow: 0 0 0 1px rgba(189, 232, 245, 0.30), 0 0 18px rgba(73, 136, 196, 0.28);
 }
 
 /* ─── Light mode — "Frost" ─── */
@@ -69,10 +67,8 @@ html.light {
   --card-elevated-border: rgba(15, 40, 84, 0.12);
   --card-hover-bg: #f7fafd;
   --card-hover-border: rgba(73, 136, 196, 0.30);
-  /* match card premium hover */
-  --card-spotlight: rgba(28, 77, 141, 0.05);
-  --card-edge-glow-color: rgba(28, 77, 141, 0.40);
-  --card-hover-shadow: 0 0 0 1px rgba(73, 136, 196, 0.22), 0 8px 24px rgba(15, 40, 84, 0.12), 0 2px 6px rgba(15, 40, 84, 0.06);
+  /* match card border glow hover */
+  --card-hover-glow: 0 0 0 1px rgba(73, 136, 196, 0.35), 0 0 14px rgba(15, 40, 84, 0.18);
 }
 
 /* ============================================================
@@ -391,6 +387,16 @@ html.light .glass-hover:hover {
   background: rgba(255, 255, 255, 0.97) !important;
   border-color: rgba(15, 40, 84, 0.18) !important;
   box-shadow: 0 4px 24px rgba(15, 40, 84, 0.10);
+}
+
+/* Match card border glow on hover — desktop only (@media hover:hover) */
+@media (hover: hover) and (pointer: fine) {
+  .match-card-hover {
+    transition: box-shadow 0.25s ease;
+  }
+  .match-card-hover:hover {
+    box-shadow: var(--card-hover-glow);
+  }
 }
 
 /* Sticky tab bar and date header in light mode */
