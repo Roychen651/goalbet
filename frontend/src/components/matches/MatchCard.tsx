@@ -139,6 +139,7 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
     // ── Head-to-Head ──────────────────────────────────────────
     let h2h: EspnMatchInfo['h2h'] = null;
     const homeId = String(((homeComp.team as Record<string, unknown>)?.id) ?? '');
+    const awayId = String(((awayComp.team as Record<string, unknown>)?.id) ?? '');
     const h2hGames = (data.headToHeadGames as Record<string, unknown>[]) ?? [];
     if (h2hGames.length > 0 && homeId) {
       const last5 = h2hGames.slice(0, 5);
@@ -178,45 +179,71 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
       : null;
 
     // ── Competition Phase ─────────────────────────────────────
-    // comp.note.headline = "Group A" | comp.type.text = "Group Stage" etc.
-    // series.summary is extracted separately as aggregate (see below).
-    const compNote = (comp.note as Record<string, unknown>) ?? {};
+    const compNotes = (comp.notes as Record<string, unknown>[]) ?? [];
+    const compNote = compNotes[0] ?? {};
     const compType = (comp.type as Record<string, unknown>) ?? {};
-    const compSeries = (comp.series as Record<string, unknown>) ?? {};
     const competitionPhase =
       (typeof compNote.headline === 'string' && compNote.headline) ||
       (typeof compType.text === 'string' && compType.text) ||
       null;
 
-    // ── Aggregate (series score — knockout 2nd legs) ──────────
-    // ESPN's series.summary returns e.g. "Porto leads, 2-1 on agg." for second-leg matches.
-    const aggregate = typeof compSeries.summary === 'string' && compSeries.summary
-      ? compSeries.summary : null;
+    // ── Aggregate (series score — knockout legs) ──────────────
+    // ESPN returns series as an array. Each entry has competitors[].aggregateScore.
+    // For 2nd legs: "summary" string is present. For 1st legs: build from aggregateScore.
+    const compSeriesArr = (comp.series as Record<string, unknown>[]) ?? [];
+    const seriesObj = compSeriesArr[0] as Record<string, unknown> | undefined;
+    let aggregate: string | null = null;
+    if (seriesObj) {
+      // Try .summary first (populated for 2nd legs after play)
+      if (typeof seriesObj.summary === 'string' && seriesObj.summary) {
+        aggregate = seriesObj.summary;
+      } else {
+        // Build aggregate from competitors[].aggregateScore for ongoing knockout ties
+        const seriesComps = (seriesObj.competitors as Record<string, unknown>[]) ?? [];
+        const leg = typeof seriesObj.leg === 'number' ? seriesObj.leg : null;
+        const title = typeof seriesObj.title === 'string' ? seriesObj.title : '';
+        if (seriesComps.length === 2 && leg !== null) {
+          const s0 = typeof seriesComps[0].aggregateScore === 'number' ? seriesComps[0].aggregateScore as number : 0;
+          const s1 = typeof seriesComps[1].aggregateScore === 'number' ? seriesComps[1].aggregateScore as number : 0;
+          // Only show if at least one score > 0 (i.e. 1st leg has been played) or it's leg 2
+          if (s0 + s1 > 0 || leg >= 2) {
+            aggregate = `${title} · Leg ${leg} (Agg: ${s0}–${s1})`;
+          } else if (leg === 1 && title) {
+            aggregate = `${title} · Leg ${leg}`;
+          }
+        }
+      }
+    }
 
-    // ── Win Predictor ─────────────────────────────────────────
-    const predictorObj = (data.predictor as Record<string, unknown>) ?? {};
-    const homeTeamPred = (predictorObj.homeTeam as Record<string, unknown>) ?? {};
-    const awayTeamPred = (predictorObj.awayTeam as Record<string, unknown>) ?? {};
+    // ── Win Predictor (from odds-derived implied probabilities) ─
+    // ESPN's data.predictor is not available for soccer. Instead, derive
+    // win probabilities from odds (already computed above).
     let predictor: EspnMatchInfo['predictor'] = null;
-    const rawHome = typeof homeTeamPred.gameProjection === 'number'
-      ? homeTeamPred.gameProjection as number
-      : typeof homeTeamPred.winPercentage === 'number' ? homeTeamPred.winPercentage as number : null;
-    const rawAway = typeof awayTeamPred.gameProjection === 'number'
-      ? awayTeamPred.gameProjection as number
-      : typeof awayTeamPred.winPercentage === 'number' ? awayTeamPred.winPercentage as number : null;
-    if (rawHome !== null && rawAway !== null && rawHome + rawAway > 0) {
-      const drawPct = Math.max(0, Math.round(100 - rawHome - rawAway));
-      predictor = { homeWinPct: Math.round(rawHome), drawPct, awayWinPct: Math.round(rawAway) };
+    if (odds) {
+      const homeWinPct = Math.round(odds.homeWin * 100);
+      const drawPct = Math.round(odds.draw * 100);
+      const awayWinPct = Math.round(odds.awayWin * 100);
+      if (homeWinPct + drawPct + awayWinPct > 0) {
+        predictor = { homeWinPct, drawPct, awayWinPct };
+      }
     }
 
     // ── Standings Rank ────────────────────────────────────────
-    // Try predictor.homeTeam.rank first; fall back to competitors[].rank (available without predictor)
-    const homeRank =
-      (typeof homeTeamPred.rank === 'number' ? homeTeamPred.rank as number : null) ??
-      (typeof homeComp.rank === 'number' ? homeComp.rank as number : null);
-    const awayRank =
-      (typeof awayTeamPred.rank === 'number' ? awayTeamPred.rank as number : null) ??
-      (typeof awayComp.rank === 'number' ? awayComp.rank as number : null);
+    // Rank is derived from standings.groups[0].standings.entries[] position.
+    // The entry index+1 IS the league position.
+    let homeRank: number | null = null;
+    let awayRank: number | null = null;
+    const standingsObj = (data.standings as Record<string, unknown>) ?? {};
+    const standingsGroups = (standingsObj.groups as Record<string, unknown>[]) ?? [];
+    if (standingsGroups.length > 0) {
+      const entries = ((standingsGroups[0].standings as Record<string, unknown>)?.entries as Record<string, unknown>[]) ?? [];
+      for (let i = 0; i < entries.length; i++) {
+        const entryId = String(entries[i].id ?? '');
+        if (entryId === homeId) homeRank = i + 1;
+        if (entryId === awayId) awayRank = i + 1;
+        if (homeRank !== null && awayRank !== null) break;
+      }
+    }
 
     // ── Broadcast ─────────────────────────────────────────────
     const broadcastsArr = (data.broadcasts as Record<string, unknown>[]) ?? [];
