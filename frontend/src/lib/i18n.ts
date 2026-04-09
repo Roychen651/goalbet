@@ -440,6 +440,9 @@ export const translations = {
     winProbability: 'Win Probability',
     onTv: 'On TV',
     aggregateScore: 'Aggregate',
+    scoreStacksNote: 'stacks w/ result',
+    legLabel: 'Leg {0}',
+    aggLabel: 'Agg: {0}–{1}',
   },
 
   he: {
@@ -878,6 +881,9 @@ export const translations = {
     winProbability: 'הסתברות ניצחון',
     onTv: 'שידור',
     aggregateScore: 'מצטבר',
+    scoreStacksNote: 'נצבר עם תוצאה',
+    legLabel: 'מחזור {0}',
+    aggLabel: 'מצטבר: {0}–{1}',
   },
 } as const;
 

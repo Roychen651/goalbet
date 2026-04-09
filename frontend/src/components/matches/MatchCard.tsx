@@ -32,6 +32,31 @@ const LEAGUE_ACCENT: Record<number, string> = {
   9003: '#a51f22', // Copa del Rey
 };
 
+// ── ESPN phase translation for Hebrew ─────────────────────────────────────────
+const PHASE_HE: Record<string, string> = {
+  'Quarterfinals': 'רבע גמר',
+  'Quarterfinal': 'רבע גמר',
+  'Quarter-Finals': 'רבע גמר',
+  'Semifinals': 'חצי גמר',
+  'Semifinal': 'חצי גמר',
+  'Semi-Finals': 'חצי גמר',
+  'Final': 'גמר',
+  'Round of 16': 'שמינית גמר',
+  'Round of 32': 'סיבוב 32',
+  'Group Stage': 'שלב הבתים',
+  'Knockout Round Playoffs': 'פלייאוף נוקאאוט',
+  'Playoff Round': 'סיבוב פלייאוף',
+  'League Phase': 'שלב הליגה',
+  '1st Leg': 'מחזור 1',
+  '2nd Leg': 'מחזור 2',
+  '1ST LEG': 'מחזור 1',
+  '2ND LEG': 'מחזור 2',
+};
+function translatePhase(phase: string, lang: string): string {
+  if (lang !== 'he') return phase;
+  return PHASE_HE[phase] ?? phase;
+}
+
 // ── ESPN Tactical Intel ───────────────────────────────────────────────────────
 
 interface EspnMatchInfo {
@@ -52,7 +77,7 @@ interface EspnMatchInfo {
   homeRank:    number | null;
   awayRank:    number | null;
   broadcast:   string | null;
-  aggregate:   string | null;
+  aggregate:   { summary: string } | { title: string; leg: number; homeAgg: number; awayAgg: number } | null;
 }
 
 const ESPN_INFO_EMPTY: EspnMatchInfo = {
@@ -181,13 +206,14 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
     // ── Aggregate (series score — knockout legs) ──────────────
     // ESPN returns series as an array. Each entry has competitors[].aggregateScore.
     // For 2nd legs: "summary" string is present. For 1st legs: build from aggregateScore.
+    // Stored as structured data so it can be translated at render time.
     const compSeriesArr = (comp.series as Record<string, unknown>[]) ?? [];
     const seriesObj = compSeriesArr[0] as Record<string, unknown> | undefined;
-    let aggregate: string | null = null;
+    let aggregate: EspnMatchInfo['aggregate'] = null;
     if (seriesObj) {
       // Try .summary first (populated for 2nd legs after play)
       if (typeof seriesObj.summary === 'string' && seriesObj.summary) {
-        aggregate = seriesObj.summary;
+        aggregate = { summary: seriesObj.summary };
       } else {
         // Build aggregate from competitors[].aggregateScore for knockout ties
         const seriesComps = (seriesObj.competitors as Record<string, unknown>[]) ?? [];
@@ -198,7 +224,7 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
           const s1 = typeof seriesComps[1].aggregateScore === 'number' ? seriesComps[1].aggregateScore as number : 0;
           // Only show aggregate when there's an actual score (2nd leg, or 1st leg already played)
           if (s0 + s1 > 0) {
-            aggregate = `${title} · Leg ${leg} (Agg: ${s0}–${s1})`;
+            aggregate = { title, leg, homeAgg: s0, awayAgg: s1 };
           }
           // 1st leg with 0-0 agg = no useful info to show — skip
         }
@@ -605,8 +631,11 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
             )}
             {/* Aggregate score — knockout 2nd legs */}
             {espnInfo?.aggregate && (
-              <span className="text-accent-orange/70 text-[9px] font-barlow font-medium mt-1.5 truncate max-w-[200px] tracking-wide">
-                {espnInfo.aggregate}
+              <span className="text-accent-orange/70 text-[9px] font-barlow font-medium mt-1.5 truncate max-w-[220px] tracking-wide">
+                {'summary' in espnInfo.aggregate
+                  ? espnInfo.aggregate.summary
+                  : `${translatePhase(espnInfo.aggregate.title, lang)} · ${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))} (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})`
+                }
               </span>
             )}
           </div>
@@ -630,22 +659,22 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
               <span className="font-display text-[11px] font-bold text-accent-green tabular-nums leading-none shrink-0">
                 {espnInfo.predictor.homeWinPct}%
               </span>
-              <div className="flex-1 relative">
+              <div className="flex-1">
                 <div className={cn('flex h-[6px] rounded-full overflow-hidden', rtl && 'flex-row-reverse')}>
                   <div className="h-full bg-accent-green rounded-s-full" style={{ width: `${espnInfo.predictor.homeWinPct}%` }} />
                   <div className="h-full bg-white/10" style={{ width: `${espnInfo.predictor.drawPct}%` }} />
                   <div className="h-full bg-accent-orange rounded-e-full" style={{ width: `${espnInfo.predictor.awayWinPct}%` }} />
                 </div>
-                {espnInfo.predictor.drawPct > 0 && (
-                  <span className="absolute inset-x-0 -bottom-3.5 text-center text-[8px] text-text-muted/35 font-barlow uppercase tracking-wider leading-none">
-                    {t('draw')} {espnInfo.predictor.drawPct}%
-                  </span>
-                )}
               </div>
               <span className="font-display text-[11px] font-bold text-accent-orange tabular-nums leading-none shrink-0">
                 {espnInfo.predictor.awayWinPct}%
               </span>
             </div>
+            {espnInfo.predictor.drawPct > 0 && (
+              <p className="text-center text-[8px] text-text-muted/35 font-barlow uppercase tracking-wider leading-none mt-1.5">
+                {t('draw')} {espnInfo.predictor.drawPct}%
+              </p>
+            )}
           </div>
         )}
 
@@ -1144,7 +1173,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
       {info.competitionPhase && !info.aggregate && (
         <div className="flex items-center justify-center px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
           <span className="font-barlow text-[10px] uppercase tracking-[0.15em] text-text-muted/50">
-            {info.competitionPhase}
+            {translatePhase(info.competitionPhase, lang)}
           </span>
         </div>
       )}
@@ -1203,7 +1232,7 @@ function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 
           {shortName}
         </span>
         {rank != null && (
-          <span className="text-[8px] text-text-muted/40 font-mono tabular-nums leading-none mt-0.5">
+          <span className="text-[9px] text-text-muted/50 font-mono tabular-nums leading-none mt-0.5 bg-white/[0.04] border border-white/[0.06] rounded px-1 py-[1px]">
             #{rank}
           </span>
         )}

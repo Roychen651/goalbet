@@ -165,7 +165,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       key: 'tier2',
       label: t('exactScore'),
       pts: POINTS.TIER2_EXACT_SCORE,  // +7 — stacks with Result's +3 = +10 when correct
-      ptsNote: 'stacks w/ result',
+      ptsNote: t('scoreStacksNote'),
       active: hasExactScore,
       content: (
         <ScorePicker
