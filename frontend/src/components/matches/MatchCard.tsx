@@ -658,37 +658,59 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
 }
 
 // ─── MatchCard (public export) ────────────────────────────────────────────────
-// Wraps MatchCardCore with a diagonal shimmer sweep on hover entry.
-// Desktop-only: on touch devices hover has no effect.
+// Premium hover: radial spotlight (mouse-tracked, zero re-renders) +
+// top-edge highlight bar + subtle lift + border glow.
+// Desktop only — touch devices see no effect. Dark/light via CSS vars.
 // ─────────────────────────────────────────────────────────────────────────────
 export function MatchCard(props: MatchCardProps) {
   const [hovered, setHovered] = useState(false);
+  const cardRef    = useRef<HTMLDivElement>(null);
+  const spotlightRef = useRef<HTMLDivElement>(null);
+
+  // Mutate spotlight background directly — no React state → zero re-renders on move
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!spotlightRef.current || !cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    spotlightRef.current.style.background =
+      `radial-gradient(220px at ${x}px ${y}px, var(--card-spotlight), transparent 70%)`;
+  };
+
   return (
-    <div
+    <motion.div
+      ref={cardRef}
       className="relative overflow-hidden rounded-2xl"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onMouseMove={handleMouseMove}
+      animate={{ y: hovered ? -2 : 0, scale: hovered ? 1.008 : 1 }}
+      transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+      style={{
+        boxShadow: hovered ? 'var(--card-hover-shadow)' : 'none',
+        transition: 'box-shadow 0.30s ease',
+      }}
     >
       <MatchCardCore {...props} />
 
-      {/* Shimmer streak — sweeps diagonally once on hover entry */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none"
-        initial={false}
-        animate={hovered ? { x: '220%' } : { x: '-80%' }}
-        transition={
-          hovered
-            ? { duration: 0.55, ease: 'easeOut' as const }
-            : { duration: 0 }
-        }
-        style={{
-          width: '45%',
-          background:
-            'linear-gradient(105deg, transparent 20%, rgba(189,232,245,0.09) 50%, transparent 80%)',
-          skewX: '-15deg',
-        }}
+      {/* Radial spotlight — position updated via DOM, opacity via CSS transition */}
+      <div
+        ref={spotlightRef}
+        className="absolute inset-0 pointer-events-none rounded-2xl"
+        style={{ opacity: hovered ? 1 : 0, transition: 'opacity 0.20s ease' }}
       />
-    </div>
+
+      {/* Top-edge highlight bar — grows left→right on hover */}
+      <motion.div
+        className="absolute top-0 inset-x-0 h-[1px] pointer-events-none"
+        style={{
+          background: 'linear-gradient(90deg, transparent 0%, var(--card-edge-glow-color) 50%, transparent 100%)',
+          transformOrigin: 'left',
+        }}
+        animate={{ scaleX: hovered ? 1 : 0, opacity: hovered ? 1 : 0 }}
+        transition={{ duration: 0.28, ease: 'easeOut' as const }}
+      />
+    </motion.div>
   );
 }
 
