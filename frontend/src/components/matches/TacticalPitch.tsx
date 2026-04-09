@@ -190,7 +190,7 @@ function TeamHalf({
   const shortName = teamName.split(' ').pop() ?? teamName;
 
   return (
-    <div className="flex-1 flex flex-col justify-evenly py-2 md:py-3 relative min-h-0">
+    <div className="flex-1 flex flex-col justify-evenly py-1 md:py-3 relative min-h-0">
       {/* Formation badge */}
       {formationStr && (
         <div className={cn(
@@ -352,11 +352,12 @@ export function TacticalPitch({
             'border border-border-subtle',
             'pitch-grass',
           )}
-          style={{ aspectRatio: '1 / 1.7' }}
+          style={{ aspectRatio: '3 / 4' }}
         >
           <PitchMarkings />
 
-          <div className="relative z-[1] flex flex-col h-full">
+          {/* absolute inset-0 — h-full doesn't propagate from aspect-ratio containers */}
+          <div className="absolute inset-0 z-[1] flex flex-col">
             {/* Away half (top — attacking downward) */}
             <TeamHalf
               starters={awayStarters}
@@ -366,7 +367,7 @@ export function TacticalPitch({
               formationStr={awayFormation}
             />
 
-            {/* Center divider — already in SVG, add visual emphasis */}
+            {/* Center divider */}
             <div className="h-px w-full bg-border-bright/20 shrink-0" />
 
             {/* Home half (bottom — attacking upward) */}
@@ -394,36 +395,33 @@ export function TacticalPitch({
         >
           <PitchMarkingsHorizontal />
 
+          {/* absolute inset-0 — h-full doesn't propagate from aspect-ratio containers */}
           <div className={cn(
-            'relative z-[1] flex h-full',
+            'absolute inset-0 z-[1] flex',
             rtl ? 'flex-row-reverse' : 'flex-row',
           )}>
             {/* Home half (left in LTR, right in RTL) */}
-            <div className="flex-1 flex h-full">
-              <HorizontalTeamHalf
-                starters={homeStarters}
-                formation={homeParsed}
-                teamName={homeTeam}
-                isHome={true}
-                formationStr={homeFormation}
-                attackRight={!(rtl ?? false)}
-              />
-            </div>
+            <HorizontalTeamHalf
+              starters={homeStarters}
+              formation={homeParsed}
+              teamName={homeTeam}
+              isHome={true}
+              formationStr={homeFormation}
+              attackRight={!(rtl ?? false)}
+            />
 
             {/* Center divider */}
-            <div className="w-px h-full bg-border-bright/20 shrink-0" />
+            <div className="w-px self-stretch bg-border-bright/20 shrink-0" />
 
             {/* Away half (right in LTR, left in RTL) */}
-            <div className="flex-1 flex h-full">
-              <HorizontalTeamHalf
-                starters={awayStarters}
-                formation={awayParsed}
-                teamName={awayTeam}
-                isHome={false}
-                formationStr={awayFormation}
-                attackRight={rtl ?? false}
-              />
-            </div>
+            <HorizontalTeamHalf
+              starters={awayStarters}
+              formation={awayParsed}
+              teamName={awayTeam}
+              isHome={false}
+              formationStr={awayFormation}
+              attackRight={rtl ?? false}
+            />
           </div>
         </div>
       </div>
@@ -470,11 +468,11 @@ function HorizontalTeamHalf({
         </div>
       )}
 
-      <div className="flex-1 flex justify-evenly py-3 px-1">
+      <div className="flex-1 flex items-stretch justify-evenly py-3 px-1">
         {orderedRows.map((row, colIdx) => (
           <div
             key={colIdx}
-            className="flex flex-col items-center justify-evenly h-full"
+            className="flex flex-col items-center justify-evenly"
           >
             {row.map((p, i) => (
               <PlayerNode
