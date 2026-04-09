@@ -2,14 +2,14 @@
 export const FOOTBALL_LEAGUES = [
   // Top 5 European leagues
   { id: 4328, name: 'Premier League',    country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: 23 },
-  { id: 4335, name: 'La Liga',           country: 'Spain',   badge: '🇪🇸', espnLogoId: 87 },
+  { id: 4335, name: 'La Liga',           country: 'Spain',   badge: '🇪🇸', espnLogoId: 15 },
   { id: 4331, name: 'Bundesliga',        country: 'Germany', badge: '🇩🇪', espnLogoId: 10 },
   { id: 4332, name: 'Serie A',           country: 'Italy',   badge: '🇮🇹', espnLogoId: 12 },
   { id: 4334, name: 'Ligue 1',           country: 'France',  badge: '🇫🇷', espnLogoId: 9  },
   // European club competitions
   { id: 4346, name: 'Champions League',  country: 'Europe',  badge: '⭐', espnLogoId: 2    },
-  { id: 4399, name: 'Europa League',     country: 'Europe',  badge: '🌍', espnLogoId: 600  },
-  { id: 4877, name: 'Conference League', country: 'Europe',  badge: '🔵', espnLogoId: 2310 },
+  { id: 4399, name: 'Europa League',     country: 'Europe',  badge: '🌍', espnLogoId: 2310  },
+  { id: 4877, name: 'Conference League', country: 'Europe',  badge: '🔵', espnLogoId: 20296 },
   // Domestic cups
   { id: 9001, name: 'FA Cup',            country: 'England', badge: '🏆', espnLogoId: 40 },
   { id: 9002, name: 'League Cup',        country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: 41 },

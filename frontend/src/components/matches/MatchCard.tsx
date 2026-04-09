@@ -548,54 +548,60 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
               </div>
             ) : (
               <div className="flex flex-col items-center">
-                {/* League logo */}
-                {leagueEspnId !== null ? (
+                {/* League logo — dark variant by default, light variant in html.light */}
+                {leagueEspnId !== null ? (<>
                   <img
-                    src={`https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500/${leagueEspnId}.png&h=80&w=80`}
-                    className="w-6 h-6 object-contain mb-1 league-logo-bright"
+                    src={`https://a.espncdn.com/i/leaguelogos/soccer/500-dark/${leagueEspnId}.png`}
+                    className="w-7 h-7 sm:w-8 sm:h-8 object-contain mb-1.5 league-logo-dark"
                     alt={match.league_name}
                     title={match.league_name}
-                    width={24}
-                    height={24}
+                    width={32}
+                    height={32}
                     onError={(e) => {
                       const img = e.target as HTMLImageElement;
                       img.style.display = 'none';
-                      if (img.nextSibling === null && leagueBadge) {
-                        const span = document.createElement('span');
-                        span.textContent = leagueBadge;
-                        span.className = 'text-base leading-none mb-1';
-                        img.parentNode?.appendChild(span);
-                      }
                     }}
                   />
-                ) : leagueBadge ? (
-                  <span className="text-base leading-none mb-1" title={match.league_name}>{leagueBadge}</span>
+                  <img
+                    src={`https://a.espncdn.com/i/leaguelogos/soccer/500/${leagueEspnId}.png`}
+                    className="w-7 h-7 sm:w-8 sm:h-8 object-contain mb-1.5 league-logo-light"
+                    alt={match.league_name}
+                    title={match.league_name}
+                    width={32}
+                    height={32}
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.style.display = 'none';
+                    }}
+                  />
+                </>) : leagueBadge ? (
+                  <span className="text-lg leading-none mb-1.5" title={match.league_name}>{leagueBadge}</span>
                 ) : null}
 
                 {/* Date + Time + Countdown — bordered pill */}
                 <div className="flex flex-col items-center px-4 py-1.5 rounded-lg border border-border-subtle/50 bg-white/[0.02]">
                   <span className="text-text-muted text-xs font-display">{date}</span>
-                  <span className="text-white font-bold text-lg font-display leading-tight">{time}</span>
+                  <span className="text-white font-bold text-xl sm:text-2xl font-bebas tracking-widest leading-tight">{time}</span>
                   {startingSoon ? (
                     <span className="text-accent-orange text-xs font-display font-semibold animate-pulse">
                       {t('startingSoon')}
                     </span>
                   ) : countdown ? (
-                    <span className="text-accent-green/80 text-xs font-display font-medium">{countdown}</span>
+                    <span className="text-accent-green/70 text-[11px] font-display font-medium">{countdown}</span>
                   ) : null}
                 </div>
 
                 {/* Lock countdown */}
                 {!isLive && !isAET && !isFinished && !isPastKickoffNS && lockCountdown && (
-                  <span className="text-orange-400/90 text-[11px] font-display font-medium mt-1 flex items-center gap-0.5">
+                  <span className="text-orange-400/80 text-[11px] font-display font-medium mt-1 flex items-center gap-0.5">
                     <span>🔒</span>
                     <span>{lockCountdown}</span>
                   </span>
                 )}
 
-                {/* Aggregate / knockout stage — bold label */}
+                {/* Aggregate / knockout stage — bold headline label */}
                 {espnInfo?.aggregate && (
-                  <span className="text-accent-orange text-[13px] sm:text-sm font-display font-bold mt-1.5 truncate max-w-[280px]">
+                  <span className="text-accent-orange text-[13px] sm:text-sm font-headline font-bold mt-1.5 truncate max-w-[280px] tracking-wide">
                     {`${espnInfo.aggregate.phase ? translatePhase(espnInfo.aggregate.phase, lang) + ' · ' : ''}${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))}${espnInfo.aggregate.hasAgg ? ` (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})` : ''}`}
                   </span>
                 )}
