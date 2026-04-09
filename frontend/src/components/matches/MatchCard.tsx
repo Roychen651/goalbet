@@ -43,6 +43,10 @@ interface EspnMatchInfo {
   attendance: number | null;
   h2h:        { homeWins: number; draws: number; awayWins: number } | null;
   odds:       { homeWin: number; draw: number; awayWin: number } | null;
+  // Sprint 17 additions
+  weather:          { temp: number | null; condition: string | null } | null;
+  referee:          string | null;
+  competitionPhase: string | null;
 }
 
 const ESPN_INFO_EMPTY: EspnMatchInfo = {
@@ -50,6 +54,7 @@ const ESPN_INFO_EMPTY: EspnMatchInfo = {
   homeRecord: null, awayRecord: null,
   venue: null, attendance: null,
   h2h: null, odds: null,
+  weather: null, referee: null, competitionPhase: null,
 };
 
 async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise<EspnMatchInfo> {
@@ -143,7 +148,39 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
       h2h = { homeWins, draws, awayWins };
     }
 
-    return { homeForm, awayForm, homeRecord, awayRecord, venue, attendance, h2h, odds };
+    // ── Weather ───────────────────────────────────────────────
+    const weatherObj = (gameInfo.weather as Record<string, unknown>) ?? {};
+    let weather: EspnMatchInfo['weather'] = null;
+    if (weatherObj && Object.keys(weatherObj).length > 0) {
+      const temp = typeof weatherObj.temperature === 'number'
+        ? Math.round((weatherObj.temperature as number - 32) * 5 / 9) // °F → °C
+        : null;
+      const condition = typeof weatherObj.displayValue === 'string' && weatherObj.displayValue
+        ? weatherObj.displayValue as string
+        : null;
+      if (temp !== null || condition) weather = { temp, condition };
+    }
+
+    // ── Referee ───────────────────────────────────────────────
+    const officials = ((data.boxscore as Record<string, unknown>)?.officials as Record<string, unknown>[]) ?? [];
+    const refObj = officials[0] as Record<string, unknown> | undefined;
+    const referee = refObj
+      ? (typeof refObj.displayName === 'string' && refObj.displayName) ||
+        (typeof refObj.fullName === 'string' && refObj.fullName) || null
+      : null;
+
+    // ── Competition Phase ─────────────────────────────────────
+    // ESPN may surface this in comp.type.text ("Group Stage"), comp.note.headline, or series.summary
+    const compNote = (comp.note as Record<string, unknown>) ?? {};
+    const compType = (comp.type as Record<string, unknown>) ?? {};
+    const compSeries = (comp.series as Record<string, unknown>) ?? {};
+    const competitionPhase =
+      (typeof compNote.headline === 'string' && compNote.headline) ||
+      (typeof compType.text === 'string' && compType.text) ||
+      (typeof compSeries.summary === 'string' && compSeries.summary) ||
+      null;
+
+    return { homeForm, awayForm, homeRecord, awayRecord, venue, attendance, h2h, odds, weather, referee, competitionPhase };
   } catch {
     return ESPN_INFO_EMPTY;
   }
@@ -159,7 +196,7 @@ interface MatchCardProps {
   savingMatchId: string | null;
 }
 
-export function MatchCard({ match, prediction, predictors = [], onSavePrediction, savingMatchId }: MatchCardProps) {
+function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, savingMatchId }: MatchCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLangStore();
   const { user, profile } = useAuthStore();
@@ -620,6 +657,41 @@ export function MatchCard({ match, prediction, predictors = [], onSavePrediction
   );
 }
 
+// ─── MatchCard (public export) ────────────────────────────────────────────────
+// Wraps MatchCardCore with a diagonal shimmer sweep on hover entry.
+// Desktop-only: on touch devices hover has no effect.
+// ─────────────────────────────────────────────────────────────────────────────
+export function MatchCard(props: MatchCardProps) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      className="relative overflow-hidden rounded-2xl"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <MatchCardCore {...props} />
+
+      {/* Shimmer streak — sweeps diagonally once on hover entry */}
+      <motion.div
+        className="absolute inset-0 pointer-events-none"
+        initial={false}
+        animate={hovered ? { x: '220%' } : { x: '-80%' }}
+        transition={
+          hovered
+            ? { duration: 0.55, ease: 'easeOut' as const }
+            : { duration: 0 }
+        }
+        style={{
+          width: '45%',
+          background:
+            'linear-gradient(105deg, transparent 20%, rgba(189,232,245,0.09) 50%, transparent 80%)',
+          skewX: '-15deg',
+        }}
+      />
+    </div>
+  );
+}
+
 function tierLabel(key: string, t: (k: TranslationKey) => string): string {
   switch (key) {
     case 'result': return t('result');
@@ -885,7 +957,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
   const hasForm = info.homeForm || info.awayForm || info.homeRecord || info.awayRecord;
   const h2hTotal = info.h2h ? info.h2h.homeWins + info.h2h.draws + info.h2h.awayWins : 0;
 
-  if (!hasForm && !info.h2h && !info.venue) return null;
+  if (!hasForm && !info.h2h && !info.venue && !info.referee && !info.weather && !info.competitionPhase) return null;
 
   return (
     <motion.div
@@ -977,6 +1049,43 @@ function TacticalIntelSection({ info, homeName, awayName }: {
               {info.attendance.toLocaleString()} {t('fans')}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Referee */}
+      {info.referee && (
+        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
+          <span className="text-[12px] shrink-0">🟨</span>
+          <span className="font-barlow text-[10px] uppercase tracking-wider text-text-muted/50 shrink-0">
+            {t('referee')}
+          </span>
+          <span className="font-barlow text-[11px] text-text-primary/70 truncate">{info.referee}</span>
+        </div>
+      )}
+
+      {/* Weather */}
+      {info.weather && (info.weather.temp !== null || info.weather.condition) && (
+        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
+          <span className="text-[12px] shrink-0">🌤</span>
+          {info.weather.temp !== null && (
+            <span className="font-barlow text-[11px] text-text-muted shrink-0">
+              {info.weather.temp}°C
+            </span>
+          )}
+          {info.weather.condition && (
+            <span className="font-barlow text-[11px] text-text-muted/55 truncate">
+              {info.weather.condition}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Competition Phase */}
+      {info.competitionPhase && (
+        <div className="flex items-center justify-center px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
+          <span className="font-barlow text-[10px] uppercase tracking-[0.15em] text-text-muted/50">
+            {info.competitionPhase}
+          </span>
         </div>
       )}
     </motion.div>

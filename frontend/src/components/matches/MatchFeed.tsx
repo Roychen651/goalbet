@@ -2,12 +2,6 @@ import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { MatchCard } from './MatchCard';
-import { MatchCardV2 } from './MatchCardV2';
-
-// ─── Feature toggle ───────────────────────────────────────────────────────────
-// Set to true to enable the premium 3D tilt + glare effect on match cards.
-// Desktop-only: on touch devices the tilt has no effect (no hover).
-const USE_V2_CARDS = true;
 import { EmptyState } from '../ui/EmptyState';
 import { PageLoader, MatchCardSkeleton } from '../ui/LoadingSpinner';
 import { PredictionData } from './PredictionForm';
@@ -236,9 +230,7 @@ function MatchCardItem({
       viewport={{ once: true, margin: '-24px' }}
       transition={{ type: 'spring', stiffness: 90, damping: 18, delay: index * 0.04 }}
     >
-      {USE_V2_CARDS
-        ? <MatchCardV2 {...cardProps} />
-        : <MatchCard {...cardProps} />}
+      <MatchCard {...cardProps} />
     </motion.div>
   );
 }

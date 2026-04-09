@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, ChevronDown } from 'lucide-react';
+import { Users, ChevronDown, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
@@ -24,6 +24,7 @@ interface Player {
   starter: boolean;
   subbedIn?: boolean;
   subbedOut?: boolean;
+  injured?: boolean;      // flagged by ESPN injuries array or status type
 }
 
 interface TeamRoster {
@@ -90,6 +91,20 @@ async function fetchRosters(externalId: string, leagueId: number): Promise<TeamR
         const subbedIn = entry.subbedIn === true || (entry.didNotPlay === false && !isStarter);
         const subbedOut = entry.subbedOut === true;
 
+        // Injury detection — ESPN may surface via athlete.injuries[] or athlete.status.type
+        const injuries = (athlete.injuries as Record<string, unknown>[]) ?? [];
+        const statusType = String(
+          ((athlete.status as Record<string, unknown>)?.type as Record<string, unknown>)?.name
+          ?? (athlete.status as Record<string, unknown>)?.type
+          ?? ''
+        ).toLowerCase();
+        const injured =
+          injuries.length > 0 ||
+          statusType.includes('injur') ||
+          statusType.includes('suspend') ||
+          statusType === 'out' ||
+          undefined;
+
         const player: Player = {
           name,
           jersey,
@@ -98,6 +113,7 @@ async function fetchRosters(externalId: string, leagueId: number): Promise<TeamR
           starter: isStarter,
           subbedIn: subbedIn || undefined,
           subbedOut: subbedOut || undefined,
+          injured,
         };
 
         if (isStarter) starters.push(player);
@@ -161,6 +177,11 @@ function PlayerRow({ player, idx, he }: { player: Player; idx: number; he: boole
       )}>
         {player.name}
       </span>
+
+      {/* Injury indicator */}
+      {player.injured && (
+        <AlertCircle size={10} className="text-accent-orange shrink-0" aria-label="Injured / Suspended" />
+      )}
 
       {/* Sub indicators */}
       {player.subbedIn && (

@@ -432,6 +432,9 @@ export const translations = {
 
     // Cold-start UX (Pillar 1)
     syncingFeeds: 'Waking up live feeds…',
+
+    // Sprint 17 — Broadcast Reality (Weather, Referee, Competition Phase)
+    referee: 'Referee',
   },
 
   he: {
@@ -862,6 +865,9 @@ export const translations = {
 
     // Cold-start UX (Pillar 1)
     syncingFeeds: 'מעיר את הנתונים…',
+
+    // Sprint 17 — Broadcast Reality
+    referee: 'שופט',
   },
 } as const;
 
