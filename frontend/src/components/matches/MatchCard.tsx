@@ -77,7 +77,7 @@ interface EspnMatchInfo {
   homeRank:    number | null;
   awayRank:    number | null;
   broadcast:   string | null;
-  aggregate:   { phase: string | null; title: string; leg: number; homeAgg: number; awayAgg: number } | null;
+  aggregate:   { phase: string | null; title: string; leg: number; homeAgg: number; awayAgg: number; hasAgg: boolean } | null;
 }
 
 const ESPN_INFO_EMPTY: EspnMatchInfo = {
@@ -213,19 +213,16 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
     if (seriesObj) {
       // Always build structured data so we can translate at render time.
       // ESPN's .summary is English-only — never use it directly.
+      // seriesObj.title = round name ("Quarterfinals"), NOT the leg description.
+      // competitionPhase (from notes/headline) = leg description ("1ST LEG") — don't use for phase.
       const seriesComps = (seriesObj.competitors as Record<string, unknown>[]) ?? [];
       const leg = typeof seriesObj.leg === 'number' ? seriesObj.leg : null;
-      const title = typeof seriesObj.title === 'string' ? seriesObj.title : '';
-      if (seriesComps.length === 2 && leg !== null) {
-        const s0 = typeof seriesComps[0].aggregateScore === 'number' ? seriesComps[0].aggregateScore as number : 0;
-        const s1 = typeof seriesComps[1].aggregateScore === 'number' ? seriesComps[1].aggregateScore as number : 0;
-        // Show aggregate when there's a score, or for leg 2+ (even 0-0 agg is meaningful)
-        if (s0 + s1 > 0 || leg >= 2) {
-          aggregate = { phase: competitionPhase, title, leg, homeAgg: s0, awayAgg: s1 };
-        }
-      } else if (leg !== null) {
-        // No competitor scores but we know the leg — show phase + leg without agg
-        aggregate = { phase: competitionPhase, title, leg, homeAgg: 0, awayAgg: 0 };
+      const roundName = typeof seriesObj.title === 'string' ? seriesObj.title : '';
+      if (leg !== null) {
+        const s0 = seriesComps.length === 2 && typeof seriesComps[0].aggregateScore === 'number' ? seriesComps[0].aggregateScore as number : 0;
+        const s1 = seriesComps.length === 2 && typeof seriesComps[1].aggregateScore === 'number' ? seriesComps[1].aggregateScore as number : 0;
+        const hasAgg = s0 + s1 > 0 || leg >= 2;
+        aggregate = { phase: roundName || null, title: roundName, leg, homeAgg: s0, awayAgg: s1, hasAgg };
       }
     }
 
@@ -630,7 +627,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
             {/* Aggregate score — knockout 2nd legs */}
             {espnInfo?.aggregate && (
               <span className="text-accent-orange/70 text-[9px] font-barlow font-medium mt-1.5 truncate max-w-[220px] tracking-wide">
-                {`${espnInfo.aggregate.phase ? translatePhase(espnInfo.aggregate.phase, lang) + ' · ' : ''}${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))}${espnInfo.aggregate.homeAgg + espnInfo.aggregate.awayAgg > 0 ? ` (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})` : ''}`}
+                {`${espnInfo.aggregate.phase ? translatePhase(espnInfo.aggregate.phase, lang) + ' · ' : ''}${t('legLabel').replace('{0}', String(espnInfo.aggregate.leg))}${espnInfo.aggregate.hasAgg ? ` (${t('aggLabel').replace('{0}', String(espnInfo.aggregate.homeAgg)).replace('{1}', String(espnInfo.aggregate.awayAgg))})` : ''}`}
               </span>
             )}
           </div>
