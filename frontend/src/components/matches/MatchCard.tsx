@@ -605,7 +605,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
             )}
             {/* Aggregate score — knockout 2nd legs */}
             {espnInfo?.aggregate && (
-              <span className="text-accent-orange text-[10px] font-semibold mt-1 truncate max-w-[180px]">
+              <span className="text-accent-orange/70 text-[9px] font-barlow font-medium mt-1.5 truncate max-w-[200px] tracking-wide">
                 {espnInfo.aggregate}
               </span>
             )}
@@ -623,30 +623,28 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
           />
         </div>
 
-        {/* Win Probability Bar — always visible on closed card */}
+        {/* Win Probability — compact single-row bar */}
         {espnInfo?.predictor && (
-          <div className="mt-2.5 px-1">
-            <div className="flex items-baseline justify-between mb-1">
-              <span className="font-display text-[11px] font-bold text-accent-green tabular-nums leading-none">
+          <div className="mt-3 px-0.5">
+            <div className="flex items-center gap-2">
+              <span className="font-display text-[11px] font-bold text-accent-green tabular-nums leading-none shrink-0">
                 {espnInfo.predictor.homeWinPct}%
               </span>
-              {espnInfo.predictor.drawPct > 0 && (
-                <span className="font-barlow text-[9px] text-text-muted/40 uppercase tracking-wider">
-                  {t('draw')} {espnInfo.predictor.drawPct}%
-                </span>
-              )}
-              <span className="font-display text-[11px] font-bold text-accent-orange tabular-nums leading-none">
+              <div className="flex-1 relative">
+                <div className={cn('flex h-[6px] rounded-full overflow-hidden', rtl && 'flex-row-reverse')}>
+                  <div className="h-full bg-accent-green rounded-s-full" style={{ width: `${espnInfo.predictor.homeWinPct}%` }} />
+                  <div className="h-full bg-white/10" style={{ width: `${espnInfo.predictor.drawPct}%` }} />
+                  <div className="h-full bg-accent-orange rounded-e-full" style={{ width: `${espnInfo.predictor.awayWinPct}%` }} />
+                </div>
+                {espnInfo.predictor.drawPct > 0 && (
+                  <span className="absolute inset-x-0 -bottom-3.5 text-center text-[8px] text-text-muted/35 font-barlow uppercase tracking-wider leading-none">
+                    {t('draw')} {espnInfo.predictor.drawPct}%
+                  </span>
+                )}
+              </div>
+              <span className="font-display text-[11px] font-bold text-accent-orange tabular-nums leading-none shrink-0">
                 {espnInfo.predictor.awayWinPct}%
               </span>
-            </div>
-            <div className={cn('flex h-[5px] rounded-full overflow-hidden gap-[2px]', rtl && 'flex-row-reverse')}>
-              {[
-                { pct: espnInfo.predictor.homeWinPct, cls: 'bg-accent-green' },
-                { pct: espnInfo.predictor.drawPct,    cls: 'bg-text-muted/25' },
-                { pct: espnInfo.predictor.awayWinPct, cls: 'bg-accent-orange' },
-              ].map(({ pct, cls }, i) => pct > 0 ? (
-                <div key={i} className={cn('h-full shrink-0 rounded-full', cls)} style={{ width: `${pct}%` }} />
-              ) : null)}
             </div>
           </div>
         )}
@@ -1038,54 +1036,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
       transition={{ duration: 0.28, ease: 'easeOut' as const }}
       className="mb-3 space-y-1.5"
     >
-      {/* Aggregate + predictor bar are on the closed card — not duplicated here */}
-
-      {/* ── Detailed Win Probability (expanded only) ── */}
-      {info.predictor && (
-        <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-2.5">
-          <p className="font-barlow text-[9px] uppercase tracking-widest text-text-muted/60 mb-2">
-            {t('winProbability')}
-          </p>
-
-          {/* Percentage labels — naturally RTL-aware via flex justify-between */}
-          <div className="flex items-baseline justify-between mb-1.5">
-            <span className="font-display text-[14px] font-bold text-accent-green tabular-nums leading-none">
-              {info.predictor.homeWinPct}%
-            </span>
-            {info.predictor.drawPct > 0 && (
-              <span className="font-barlow text-[10px] text-text-muted/45 uppercase tracking-wider">
-                {t('draw')} {info.predictor.drawPct}%
-              </span>
-            )}
-            <span className="font-display text-[14px] font-bold text-accent-orange tabular-nums leading-none">
-              {info.predictor.awayWinPct}%
-            </span>
-          </div>
-
-          {/* Animated tri-color bar — staggered fill, RTL-flipped */}
-          <div className={cn('flex h-[6px] rounded-full overflow-hidden gap-[2px]', rtl && 'flex-row-reverse')}>
-            {[
-              { pct: info.predictor.homeWinPct, cls: 'bg-accent-green', delay: 0.05 },
-              { pct: info.predictor.drawPct,    cls: 'bg-text-muted/25', delay: 0.13 },
-              { pct: info.predictor.awayWinPct, cls: 'bg-accent-orange', delay: 0.21 },
-            ].map(({ pct, cls, delay }, i) => pct > 0 ? (
-              <motion.div
-                key={i}
-                className={cn('h-full shrink-0', cls)}
-                initial={{ width: 0 }}
-                animate={{ width: `${pct}%` }}
-                transition={{ duration: 0.65, ease: 'easeOut' as const, delay }}
-              />
-            ) : null)}
-          </div>
-
-          {/* Team name labels */}
-          <div className="flex justify-between mt-1.5">
-            <span className="font-barlow text-[9px] text-text-muted/40 truncate max-w-[90px]">{homeShort}</span>
-            <span className="font-barlow text-[9px] text-text-muted/40 truncate max-w-[90px] text-end">{awayShort}</span>
-          </div>
-        </div>
-      )}
+      {/* Predictor bar + aggregate are on the closed card — not duplicated here */}
 
       {/* ── Form + Record (with rank badge) ── */}
       {hasForm && (
@@ -1189,8 +1140,8 @@ function TacticalIntelSection({ info, homeName, awayName }: {
         </div>
       )}
 
-      {/* ── Competition Phase ── */}
-      {info.competitionPhase && (
+      {/* ── Competition Phase — only when aggregate doesn't already cover it ── */}
+      {info.competitionPhase && !info.aggregate && (
         <div className="flex items-center justify-center px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
           <span className="font-barlow text-[10px] uppercase tracking-[0.15em] text-text-muted/50">
             {info.competitionPhase}
@@ -1244,17 +1195,19 @@ function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 
           </div>
         )}
       </div>
-      <span className={cn(
-        'text-center text-xs font-barlow font-bold leading-tight transition-colors duration-300',
-        highlight ? 'text-accent-green' : 'text-text-muted',
-      )}>
-        {shortName}
-      </span>
-      {rank != null && (
-        <span className="text-[9px] text-text-muted/60 font-mono bg-white/5 border border-border-subtle px-1.5 py-0.5 rounded leading-none">
-          #{rank}
+      <div className="flex flex-col items-center gap-0">
+        <span className={cn(
+          'text-center text-xs font-barlow font-bold leading-tight transition-colors duration-300',
+          highlight ? 'text-accent-green' : 'text-text-muted',
+        )}>
+          {shortName}
         </span>
-      )}
+        {rank != null && (
+          <span className="text-[8px] text-text-muted/40 font-mono tabular-nums leading-none mt-0.5">
+            #{rank}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
