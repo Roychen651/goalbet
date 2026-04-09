@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Tv } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
@@ -210,8 +210,13 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
     }
 
     // ── Standings Rank ────────────────────────────────────────
-    const homeRank = typeof homeTeamPred.rank === 'number' ? homeTeamPred.rank as number : null;
-    const awayRank = typeof awayTeamPred.rank === 'number' ? awayTeamPred.rank as number : null;
+    // Try predictor.homeTeam.rank first; fall back to competitors[].rank (available without predictor)
+    const homeRank =
+      (typeof homeTeamPred.rank === 'number' ? homeTeamPred.rank as number : null) ??
+      (typeof homeComp.rank === 'number' ? homeComp.rank as number : null);
+    const awayRank =
+      (typeof awayTeamPred.rank === 'number' ? awayTeamPred.rank as number : null) ??
+      (typeof awayComp.rank === 'number' ? awayComp.rank as number : null);
 
     // ── Broadcast ─────────────────────────────────────────────
     const broadcastsArr = (data.broadcasts as Record<string, unknown>[]) ?? [];
@@ -468,16 +473,14 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                 })()}
                 {isInProgress && liveClock && (
                   <div className="flex items-center gap-1.5">
-                    <motion.span
-                      animate={{ opacity: [1, 0.5, 1] }}
-                      transition={{ duration: 1.6, repeat: Infinity }}
+                    <span
                       className={cn(
-                        'text-xs font-bold tracking-wider',
+                        'text-xs font-bold tracking-wider animate-pulse',
                         ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status) ? 'text-amber-400' : 'text-accent-green'
                       )}
                     >
                       {liveClock}
-                    </motion.span>
+                    </span>
                     {match.status === 'ET1' && (
                       <span className="text-[9px] text-amber-400/60 font-semibold uppercase tracking-widest">{t('firstET')}</span>
                     )}
@@ -495,20 +498,12 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
             ) : isPastKickoffNS ? (
               // Kicked off but backend hasn't polled ESPN yet
               <div className="flex flex-col items-center gap-1">
-                <motion.span
-                  animate={{ opacity: [1, 0.3, 1] }}
-                  transition={{ duration: 1.2, repeat: Infinity }}
-                  className="text-xl font-bebas tracking-widest text-accent-green"
-                >
+                <span className="text-xl font-bebas tracking-widest text-accent-green animate-pulse">
                   — —
-                </motion.span>
-                <motion.span
-                  animate={{ opacity: [1, 0.4, 1] }}
-                  transition={{ duration: 1.4, repeat: Infinity }}
-                  className="text-[10px] text-accent-green/70"
-                >
+                </span>
+                <span className="text-[10px] text-accent-green/70 animate-pulse">
                   {liveClock ?? t('live_status')}
-                </motion.span>
+                </span>
                 <span className="text-[9px] text-white/25">↻ {updatedAgoLabel}</span>
               </div>
             ) : (
@@ -983,7 +978,7 @@ function TacticalIntelSection({ info, homeName, awayName }: {
   const h2hTotal = info.h2h ? info.h2h.homeWins + info.h2h.draws + info.h2h.awayWins : 0;
 
   const hasAny = hasForm || info.h2h || info.venue || info.referee || info.weather ||
-    info.competitionPhase || info.predictor || info.broadcast || info.aggregate;
+    info.competitionPhase || info.predictor || info.aggregate;
   if (!hasAny) return null;
 
   return (
@@ -1156,17 +1151,6 @@ function TacticalIntelSection({ info, homeName, awayName }: {
           {info.weather.condition && (
             <span className="font-barlow text-[11px] text-text-muted/55 truncate">{info.weather.condition}</span>
           )}
-        </div>
-      )}
-
-      {/* ── Broadcast ── */}
-      {info.broadcast && (
-        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border-subtle bg-white/[0.02]">
-          <Tv size={12} className="text-text-muted/50 shrink-0" />
-          <span className="font-barlow text-[10px] uppercase tracking-wider text-text-muted/50 shrink-0">
-            {t('onTv')}
-          </span>
-          <span className="font-barlow text-[11px] text-text-primary/70 truncate">{info.broadcast}</span>
         </div>
       )}
 

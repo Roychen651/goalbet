@@ -225,10 +225,10 @@ function MatchCardItem({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.97 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-24px' }}
-      transition={{ type: 'spring', stiffness: 90, damping: 18, delay: index * 0.04 }}
+      transition={{ duration: 0.22, ease: 'easeOut' as const, delay: Math.min(index * 0.04, 0.2) }}
     >
       <MatchCard {...cardProps} />
     </motion.div>
