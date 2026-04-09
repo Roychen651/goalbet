@@ -135,17 +135,20 @@ function PlayerNode({
       {/* Jersey circle */}
       <div
         className={cn(
-          'w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8',
+          'relative w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8',
           'rounded-full flex items-center justify-center',
           'text-[8px] sm:text-[9px] md:text-[10px] font-display font-bold tabular-nums leading-none',
           'border-2',
-          player.subbedOut && 'opacity-30',
           isHome
             ? 'bg-accent-green/30 border-accent-green/70 text-accent-green'
             : 'bg-accent-orange/30 border-accent-orange/70 text-accent-orange',
         )}
       >
         {player.jersey || '–'}
+        {/* Small red arrow if subbed out */}
+        {player.subbedOut && (
+          <span className="absolute -bottom-0.5 -right-0.5 text-[6px] text-red-400 leading-none">▼</span>
+        )}
       </div>
 
       {/* Name — hidden on mobile, visible on sm+ or on tap */}
@@ -154,7 +157,7 @@ function PlayerNode({
           'text-[5.5px] sm:text-[6.5px] md:text-[7px] font-mono leading-none',
           'text-center whitespace-nowrap max-w-[42px] sm:max-w-[52px] truncate',
           'transition-opacity duration-150',
-          player.subbedOut ? 'text-white/15' : 'text-white/60',
+          'text-white/60',
           showName ? 'opacity-100' : 'opacity-0 sm:opacity-100',
         )}
       >

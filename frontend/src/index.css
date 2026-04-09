@@ -639,8 +639,8 @@ html.light .hover\:bg-yellow-500\/35:hover { background-color: rgba(133, 77, 14,
 
 /* ── Tactical Pitch ───────────────────────────────────────── */
 .pitch-grass {
-  background: var(--card-bg);
+  background: linear-gradient(160deg, rgba(15,60,30,0.35) 0%, rgba(10,40,20,0.25) 100%), var(--card-bg);
 }
 html.light .pitch-grass {
-  background: var(--card-bg);
+  background: linear-gradient(160deg, rgba(30,100,50,0.08) 0%, rgba(20,70,35,0.05) 100%), var(--card-bg);
 }
