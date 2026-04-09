@@ -251,7 +251,8 @@ interface MatchCardProps {
 
 function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, savingMatchId }: MatchCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
+  const rtl = lang === 'he';
   const { user, profile } = useAuthStore();
   const enableLiveAnimations = useUIStore(s => s.enableLiveAnimations);
   const isSyncing = useUIStore(s => s.isSyncing);
@@ -266,11 +267,11 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
     prevScoreRef.current = { home: match.home_score, away: match.away_score };
   }, [match.home_score, match.away_score]);
 
-  // ── Tactical intel: fetched once on expand for NS upcoming matches ──────────
+  // ── Tactical intel: fetched eagerly on mount for NS upcoming matches ────────
   const [espnInfo, setEspnInfo] = useState<EspnMatchInfo | null>(null);
   const espnFetchedRef = useRef(false);
   useEffect(() => {
-    if (!expanded || espnFetchedRef.current) return;
+    if (espnFetchedRef.current) return;
     if (match.status !== 'NS') return;
     if (!LEAGUE_ESPN_SLUG[match.league_id]) return;
     espnFetchedRef.current = true;
@@ -279,7 +280,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
       .then(info => { if (!cancelled) setEspnInfo(info); })
       .catch(() => { /* silent */ });
     return () => { cancelled = true; };
-  }, [expanded, match.external_id, match.league_id, match.status]);
+  }, [match.external_id, match.league_id, match.status]);
   // Re-render every 20s so countdown ("6m", "1h 6m", etc.) stays accurate.
   // This does NOT refetch data — PredictionForm and expanded state are preserved.
   useLiveClock(20_000);
@@ -446,6 +447,7 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
             isWinner={homeWon}
             isLeading={homeLeading}
             redCards={(isLive || isFinished) ? (match.red_cards_home ?? 0) : 0}
+            rank={espnInfo?.homeRank}
           />
 
           <div className="flex-1 flex flex-col items-center">
@@ -533,13 +535,9 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                 <span className="text-text-muted text-xs">{date}</span>
                 <span className="text-white font-semibold text-sm">{time}</span>
                 {startingSoon ? (
-                  <motion.span
-                    animate={{ opacity: [1, 0.4, 1] }}
-                    transition={{ duration: 1.2, repeat: Infinity }}
-                    className="text-accent-orange text-xs font-semibold"
-                  >
+                  <span className="text-accent-orange text-xs font-semibold animate-pulse">
                     {t('startingSoon')}
-                  </motion.span>
+                  </span>
                 ) : countdown ? (
                   <span className="text-accent-green text-xs">{countdown}</span>
                 ) : null}
@@ -588,6 +586,12 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
                 <span>{lockCountdown}</span>
               </span>
             )}
+            {/* Aggregate score — knockout 2nd legs */}
+            {espnInfo?.aggregate && (
+              <span className="text-accent-orange text-[10px] font-semibold mt-1 truncate max-w-[180px]">
+                {espnInfo.aggregate}
+              </span>
+            )}
           </div>
 
           <TeamBlock
@@ -597,9 +601,38 @@ function MatchCardCore({ match, prediction, predictors = [], onSavePrediction, s
             isWinner={awayWon}
             isLeading={awayLeading}
             redCards={(isLive || isFinished) ? (match.red_cards_away ?? 0) : 0}
+            rank={espnInfo?.awayRank}
             right
           />
         </div>
+
+        {/* Win Probability Bar — always visible on closed card */}
+        {espnInfo?.predictor && (
+          <div className="mt-2.5 px-1">
+            <div className="flex items-baseline justify-between mb-1">
+              <span className="font-display text-[11px] font-bold text-accent-green tabular-nums leading-none">
+                {espnInfo.predictor.homeWinPct}%
+              </span>
+              {espnInfo.predictor.drawPct > 0 && (
+                <span className="font-barlow text-[9px] text-text-muted/40 uppercase tracking-wider">
+                  {t('draw')} {espnInfo.predictor.drawPct}%
+                </span>
+              )}
+              <span className="font-display text-[11px] font-bold text-accent-orange tabular-nums leading-none">
+                {espnInfo.predictor.awayWinPct}%
+              </span>
+            </div>
+            <div className={cn('flex h-[5px] rounded-full overflow-hidden gap-[2px]', rtl && 'flex-row-reverse')}>
+              {[
+                { pct: espnInfo.predictor.homeWinPct, cls: 'bg-accent-green' },
+                { pct: espnInfo.predictor.drawPct,    cls: 'bg-text-muted/25' },
+                { pct: espnInfo.predictor.awayWinPct, cls: 'bg-accent-orange' },
+              ].map(({ pct, cls }, i) => pct > 0 ? (
+                <div key={i} className={cn('h-full shrink-0 rounded-full', cls)} style={{ width: `${pct}%` }} />
+              ) : null)}
+            </div>
+          </div>
+        )}
 
         {/* Predictors row — who has predicted */}
         {predictors.length > 0 && !isFinished && (
@@ -1168,9 +1201,9 @@ function TacticalIntelSection({ info, homeName, awayName }: {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 0 }: {
+function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 0, rank }: {
   name: string; badge: string | null; score: number | null;
-  isWinner: boolean; isLeading?: boolean; right?: boolean; redCards?: number;
+  isWinner: boolean; isLeading?: boolean; right?: boolean; redCards?: number; rank?: number | null;
 }) {
   const shortName = name.length > 12 ? name.split(' ').pop() || name : name;
   const highlight = isWinner || isLeading;
@@ -1215,6 +1248,11 @@ function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 
       )}>
         {shortName}
       </span>
+      {rank != null && (
+        <span className="text-[9px] text-text-muted/60 font-mono bg-white/5 border border-border-subtle px-1.5 py-0.5 rounded leading-none">
+          #{rank}
+        </span>
+      )}
     </div>
   );
 }
