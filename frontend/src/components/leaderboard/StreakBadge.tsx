@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils';
+import { useLangStore } from '../../stores/langStore';
 
 interface StreakBadgeProps {
   streak: number;
@@ -6,6 +7,8 @@ interface StreakBadgeProps {
 }
 
 export function StreakBadge({ streak, className }: StreakBadgeProps) {
+  const { lang } = useLangStore();
+  const isHe = lang === 'he';
   if (streak < 1) return null;
 
   // Streak cycles: 0→1→2→bonus+reset. Max normal value is 2.
@@ -13,11 +16,17 @@ export function StreakBadge({ streak, className }: StreakBadgeProps) {
   const isClose = streak === 2;
   const isHigh = streak >= 3; // edge case / old data
 
-  const tip = isHigh
-    ? `${streak} correct in a row · bonus active!`
-    : isClose
-      ? `${streak}/3 correct in a row · next correct = +2 pts bonus!`
-      : `${streak}/3 correct in a row · keep going for a bonus`;
+  const tip = isHe
+    ? (isHigh
+        ? `${streak} נכונים ברצף · בונוס פעיל!`
+        : isClose
+          ? `${streak}/3 נכונים ברצף · עוד אחד לבונוס +2 נק׳!`
+          : `${streak}/3 נכונים ברצף · המשך לבונוס`)
+    : (isHigh
+        ? `${streak} correct in a row · bonus active!`
+        : isClose
+          ? `${streak}/3 correct in a row · next correct = +2 pts bonus!`
+          : `${streak}/3 correct in a row · keep going for a bonus`);
 
   return (
     <span

@@ -57,7 +57,7 @@ const TIERS = [
   {
     emoji: '📊',
     label: 'Over / Under 2.5',
-    labelHe: 'מעל / מתחת 2.5',
+    labelHe: 'O/U 2.5',
     pts: 3,
     detail: 'Total goals in the match — over or under 2.5?',
     detailHe: 'האם יהיו יותר או פחות מ-2.5 שערים?',
@@ -184,7 +184,7 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
               <span className="text-white/70 text-xs">{isHe ? 'סקור' : 'Score'} ✓</span>
               <span className="text-white/30 text-xs">+7</span>
               <span className="text-white/30 text-xs">=</span>
-              <span className="text-accent-green font-bebas text-base">10 pts</span>
+              <span className="text-accent-green font-bebas text-base">{isHe ? '10 נק׳' : '10 pts'}</span>
             </div>
           </motion.div>
 
@@ -206,7 +206,7 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
             </div>
             <div className="flex items-center gap-1 text-xs">
               <span className="text-white/30">{isHe ? 'מקס' : 'Max'}</span>
-              <span className="font-bebas text-lg text-accent-green leading-none">19 pts</span>
+              <span className="font-bebas text-lg text-accent-green leading-none">{isHe ? '19 נק׳' : '19 pts'}</span>
             </div>
           </div>
         </div>

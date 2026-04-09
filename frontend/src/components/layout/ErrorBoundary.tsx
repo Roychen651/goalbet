@@ -53,7 +53,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
               </h2>
               <p className="text-text-muted text-sm leading-relaxed">
                 We're experiencing technical difficulties.
-                <br />Reload the feed.
+                <br />
+                <span className="text-white/40">תקלה טכנית. טען מחדש.</span>
               </p>
             </div>
 
@@ -62,7 +63,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
               onClick={this.handleReload}
               className="w-full py-2.5 rounded-xl bg-accent-green text-bg-base text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all"
             >
-              Reload
+              Reload · טען מחדש
             </button>
           </div>
         </div>

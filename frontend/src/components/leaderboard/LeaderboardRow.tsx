@@ -1,6 +1,6 @@
 import { LeaderboardEntryWithProfile } from '../../lib/supabase';
 import { Avatar } from '../ui/Avatar';
-import { cn, formatPoints } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
 
 interface LeaderboardRowProps {
@@ -98,7 +98,7 @@ export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: Leaderbo
               <div className={cn('font-bebas tracking-wider text-xl', entry.rank === 1 ? 'text-accent-green text-glow-green' : 'text-white')}>
                 {points}
               </div>
-              <div className="text-text-muted text-xs">{formatPoints(points)}</div>
+              <div className="text-text-muted text-xs">{points} {t('pts')}</div>
             </>
           )}
         </div>

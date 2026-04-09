@@ -72,7 +72,7 @@ const TIERS = [
   {
     emoji: '🚩',
     label: 'Corners',
-    labelHe: 'קורנרים',
+    labelHe: 'קרנות',
     cost: 4,
     maxReturn: 8,
   },
@@ -86,7 +86,7 @@ const TIERS = [
   {
     emoji: '📊',
     label: 'Over / Under 2.5',
-    labelHe: 'מעל / מתחת 2.5',
+    labelHe: 'O/U 2.5',
     cost: 3,
     maxReturn: 6,
   },

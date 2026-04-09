@@ -444,6 +444,9 @@ export const translations = {
     onTv: 'On TV',
     aggregateScore: 'Aggregate',
     scoreStacksNote: 'stacks w/ result',
+    playerLabel: 'Player',
+    pendingLabel: 'pending',
+    halfTimeResult: 'Half Time',
     legLabel: 'Leg {0}',
     aggLabel: 'Agg: {0}–{1}',
   },
@@ -451,15 +454,15 @@ export const translations = {
   he: {
     // App
     appName: 'GoalBet',
-    appTagline: 'נבא. התחרה. נצח.',
-    appDescription: 'משחק ניבוי כדורגל לך ולחברים שלך. בחינם. כיפי. ללא כסף אמיתי.',
+    appTagline: 'נחש. התחרה. נצח.',
+    appDescription: 'משחק ניחושי כדורגל לך ולחברים שלך. בחינם. כיפי. ללא כסף אמיתי.',
 
     // Login
     continueWithGoogle: 'כניסה עם Google',
     signingIn: 'מתחבר...',
-    multiTierPredictions: 'ניבויים\nמרובי שלבים',
+    multiTierPredictions: 'ניחושים\nמרובי שלבים',
     liveLeaderboard: 'טבלה\nבזמן אמת',
-    cornersFeature: 'ניבוי\nקרנות',
+    cornersFeature: 'ניחוש\nקרנות',
 
     // Setup modal
     setupRequired: 'נדרשת הגדרה',
@@ -483,7 +486,7 @@ export const translations = {
     // Home
     matchDay: 'יום משחק',
     noGroupTitle: 'ברוך הבא ל-GoalBet',
-    noGroupDesc: 'הצטרף או צור קבוצה עם חברים כדי להתחיל לנבא משחקים ולהתחרות בטבלת הדירוג.',
+    noGroupDesc: 'הצטרף או צור קבוצה עם חברים כדי להתחיל לנחש משחקים ולהתחרות בטבלת הדירוג.',
     createGroup: 'צור קבוצה',
     joinGroup: 'הצטרף לקבוצה',
     all: 'הכל',
@@ -510,10 +513,10 @@ export const translations = {
     cornersOver11: '≥ 11',
     bothTeamsToScore: 'שתי הקבוצות מבקיעות',
     totalGoals: 'סה"כ שערים',
-    lockInPrediction: 'נעל ניבוי',
-    updatePrediction: 'עדכן ניבוי',
+    lockInPrediction: 'נעל ניחוש',
+    updatePrediction: 'עדכן ניחוש',
     predictionSaved: '✓ ננעל — לחץ לעדכון',
-    predictionLocked: 'לא בוצע ניבוי למשחק זה',
+    predictionLocked: 'לא בוצע ניחוש למשחק זה',
     result: 'תוצאה',
     score: 'סקור',
     corners: 'קרנות',
@@ -524,8 +527,8 @@ export const translations = {
     away: 'חוץ',
     yes: 'כן',
     no: 'לא',
-    over25: 'מעל 2.5',
-    under25: 'מתחת ל-2.5',
+    over25: 'O2.5',
+    under25: 'U2.5',
     ptsEarned: 'נק׳ הושגו',
     noPoints: 'אין נקודות הפעם',
     pts: 'נק׳',
@@ -538,10 +541,10 @@ export const translations = {
     yourRank: 'הדירוג שלך',
     points: 'נקודות',
     accuracy: 'אחוזי פגיעה',
-    picks: 'ניבויים',
+    picks: 'ניחושים',
     accurate: 'מדויקים',
     noLeaderboardData: 'לוח התוצאות ריק.',
-    noLeaderboardDesc: 'בצע את הניבוי הראשון שלך כדי להופיע בטבלה.',
+    noLeaderboardDesc: 'בצע את הניחוש הראשון שלך כדי להופיע בטבלה.',
 
     // Stats labels & sublabels
     hitRate: 'ניחוש תוצאה',
@@ -559,9 +562,9 @@ export const translations = {
     // Info tips
     infoRank: 'המיקום שלך בטבלה, לפי נקודות.',
     infoPoints: 'סה"כ נקודות בתקופה זו. מקסימום 19 נק׳ למשחק.',
-    infoHitRate: 'כמה פעמים ניחשת נכון את תוצאת המשחק (ניצחון בית / תיקו / ניצחון חוץ). הסטטיסטיקה הכי חשובה בניבוי כדורגל.',
-    infoTotalPoints: 'סכום כל הנקודות ממשחקים שנפתרו. תוצאה (3), מדויק (+7), קרנות (4), שתיים מבקיעות (2), מעל/מתחת (3). מקס׳ 19 נק׳.',
-    infoPredictions: 'סה"כ ניבויים שביצעת. "נפתרו" = המשחק הסתיים והנקודות חושבו.',
+    infoHitRate: 'כמה פעמים ניחשת נכון את תוצאת המשחק (ניצחון בית / תיקו / ניצחון חוץ). הסטטיסטיקה הכי חשובה בניחוש כדורגל.',
+    infoTotalPoints: 'סכום כל הנקודות ממשחקים שנפתרו. תוצאה (3), מדויק (+7), קרנות (4), שתיים מבקיעות (2), O/U (3). מקס׳ 19 נק׳.',
+    infoPredictions: 'סה"כ ניחושים שביצעת. "נפתרו" = המשחק הסתיים והנקודות חושבו.',
 
     // Personal Analytics
     analyticsTitle: 'אנליטיקה אישית',
@@ -575,15 +578,15 @@ export const translations = {
     tierScore: 'מדויק',
     tierCorners: 'קרנות',
     tierBTTS: 'שתיים מבקיעות',
-    tierOU: 'מעל/מתחת',
-    noAnalyticsYet: 'צריך עוד ניבויים שנפתרו כדי לפתוח את המספרים.',
+    tierOU: 'O/U 2.5',
+    noAnalyticsYet: 'צריך עוד ניחושים שנפתרו כדי לפתוח את המספרים.',
     goalsOff: 'ממוצע שגיאת שערים',
     exactScoreHits: 'סקור מדויק',
     exactScoreHitsPlural: 'סקורים מדויקים',
     formStreak: 'רצף',
     formOf: '5 אחרונים',
     formStreakOf: 'מתוך 5 אחרונים',
-    noScorePreds: 'עדיין אין ניבויי סקור',
+    noScorePreds: 'עדיין אין ניחושי סקור',
 
     // Settings — admin controls
     renameGroup: 'שנה שם קבוצה',
@@ -592,17 +595,17 @@ export const translations = {
     onlyAdminLeagues: 'רק מנהל הקבוצה יכול לשנות ליגות פעילות',
     dangerZone: 'אזור סכנה',
     resetAllScores: 'אפס את כל הניקוד',
-    resetScoresDesc: 'מאפס את כל הנקודות והסטטיסטיקות של כולם בקבוצה לאפס. היסטוריית הניבויים נשמרת.',
+    resetScoresDesc: 'מאפס את כל הנקודות והסטטיסטיקות של כולם בקבוצה לאפס. היסטוריית הניחושים נשמרת.',
     resetScoresWarning: '⚠️ פעולה זו תמחק את כל הנקודות והסטטיסטיקות של כל החברים. לא ניתן לבטל.',
     yesResetAll: 'כן, אפס הכל',
     resetBtn: 'אפס',
 
     // Profile
     totalPoints: 'סה"כ נקודות',
-    predictions: 'ניבויים',
+    predictions: 'ניחושים',
     correct: 'נכון',
-    predictionHistory: 'היסטוריית ניבויים',
-    noPredictions: 'עדיין בלי ניבויים. עבור ללשונית המשחקים ותתחיל!',
+    predictionHistory: 'היסטוריית ניחושים',
+    noPredictions: 'עדיין בלי ניחושים. עבור ללשונית המשחקים ותתחיל!',
     signOut: 'התנתק',
 
     // Settings
@@ -678,7 +681,7 @@ export const translations = {
     bentoFtWinRate: 'אחוז ניחוש',
     bentoCurrentStreak: 'רצף נוכחי',
     bentoConsecutiveCorrect: 'ניחושים רצופים',
-    bentoPredictToSee: 'נבא סקורים כדי לפתוח',
+    bentoPredictToSee: 'נחש סקורים כדי לפתוח',
     bentoSharp: 'חד',
     bentoDecent: 'סביר',
     bentoRough: 'גס',
@@ -686,7 +689,7 @@ export const translations = {
     bentoOfCorrect: 'נכונים',
 
     // Match breakdown labels (used in resolved tier rows)
-    overUnder: 'מעל/מתחת',
+    overUnder: 'O/U 2.5',
     matchStats: 'נתוני משחק',
     matchTimeline: 'ציר זמן',
     lockedAt90: 'נעול ב-90′',
@@ -700,7 +703,7 @@ export const translations = {
     // Head to Head
     h2hTitle: 'ראש בראש',
     h2hLocked: 'נעול',
-    h2hNoData: 'אין ניבויים השבוע',
+    h2hNoData: 'אין ניחושים השבוע',
     h2hTied: 'שוויון',
 
     // User Guide
@@ -742,12 +745,12 @@ export const translations = {
     insightSniper: 'צלף 🎯',
     insightSniperDesc: 'אחוזי פגיעה הכי גבוהים',
     insightGrinder: 'מכונת ניחושים ⚙️',
-    insightGrinderDesc: 'הכי הרבה ניבויים',
+    insightGrinderDesc: 'הכי הרבה ניחושים',
     badgeHot: 'חם',
     badgeSniper: 'צלף',
     h2hAccuracy: 'דיוק',
     h2hTotalPoints: 'סה"כ נקודות',
-    minPredictions: 'מינ׳ {0} ניבויים',
+    minPredictions: 'מינ׳ {0} ניחושים',
 
     // The Vault (Sprint 10)
     vaultPreferences: 'העדפות',
@@ -823,14 +826,14 @@ export const translations = {
     loadingMatches: 'טוען משחקים…',
     loadingSlow: 'מעיר את השרת… עוד רגע',
     userGuideDesc: 'ניקוד, מטבעות ואיך לשחק',
-    removePrediction: 'הסר ניבוי',
+    removePrediction: 'הסר ניחוש',
 
     // Notification Center
     notifications: 'התראות',
     notifMarkAllRead: 'סמן הכל כנקרא',
     notifEmpty: 'הכל נקי על הקו.',
     notifEmptyDesc: 'נקודות שתרוויח יופיעו כאן',
-    notifPredictionResult: 'ניבוי נפתר',
+    notifPredictionResult: 'ניחוש נפתר',
     notifPts: 'נק׳',
     notifCoins: 'מטבעות',
     notifJustNow: 'עכשיו',
@@ -888,6 +891,9 @@ export const translations = {
     onTv: 'שידור',
     aggregateScore: 'מצטבר',
     scoreStacksNote: 'נצבר עם תוצאה',
+    playerLabel: 'שחקן',
+    pendingLabel: 'ממתין',
+    halfTimeResult: 'מחצית',
     legLabel: 'מחזור {0}',
     aggLabel: 'מצטבר: {0}–{1}',
   },

@@ -1067,7 +1067,7 @@ t('matchDay')  // → "Match Day" or "יום משחק"
 
 - `t()` accepts **only** `TranslationKey` — passing a plain `string` is a TS error
 - Import `TranslationKey` from `../../lib/i18n` when calling `t` in helper functions
-- **Do not use `t('halfTimeResult')`** — that key was removed. Use the hardcoded string `"Half Time"` for backward-compat HT label
+- **`halfTimeResult` key re-added** (en: `"Half Time"`, he: `"מחצית"`). Use `t('halfTimeResult')` for the backward-compat HT tier label
 - **Every visible UI string must go through `t()`** — including `aria-label`, `title`, `placeholder`, and share text. Hardcoded English strings silently break Hebrew mode.
 
 ### Parameterized translations
@@ -1278,7 +1278,7 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **Old predictions have `predicted_halftime_outcome`; new ones have `predicted_corners`.** Both coexist. `calcBreakdown()` handles both.
 - **Scoring always uses `regulation_home` / `regulation_away`** for ET/penalty matches.
 - **Corners are hidden for league 4396** (International Friendlies). Do not remove `LEAGUES_WITHOUT_CORNERS`.
-- **Do not use `t('halfTimeResult')`** — key was removed. Use hardcoded `"Half Time"`.
+- **`halfTimeResult` key re-added** — use `t('halfTimeResult')` for the old HT tier label.
 
 ### Auth
 

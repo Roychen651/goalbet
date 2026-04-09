@@ -27,8 +27,8 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
       {/* Table header */}
       <div className="flex items-center px-4 py-2 border-b border-white/8 text-[11px] text-text-muted uppercase tracking-widest font-barlow">
         <span className="w-7 text-center shrink-0">#</span>
-        <span className="flex-1 ms-3">PLAYER</span>
-        <span className="text-end">PTS</span>
+        <span className="flex-1 ms-3">{t('playerLabel')}</span>
+        <span className="text-end">{t('pts')}</span>
       </div>
 
       {/* Rows */}

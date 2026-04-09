@@ -514,6 +514,17 @@ function TierBreakdownRow({ tier, prediction, match, delay }: {
   delay: number;
 }) {
   const { t } = useLangStore();
+
+  // Map calcBreakdown keys → i18n labels
+  const tierLabel: Record<string, string> = {
+    result: t('tierResult'),
+    score: t('tierScore'),
+    ht: t('halfTimeResult'),
+    corners: t('tierCorners'),
+    btts: t('tierBTTS'),
+    ou: t('tierOU'),
+  };
+
   const outcomeLabel = (v: 'H' | 'D' | 'A' | null) =>
     v === 'H' ? match.home_team.split(' ').pop() || t('home')
     : v === 'A' ? match.away_team.split(' ').pop() || t('away')
@@ -554,13 +565,13 @@ function TierBreakdownRow({ tier, prediction, match, delay }: {
         tier.earned ? 'text-accent-green' : isPending ? 'text-blue-400 opacity-70' : 'text-text-muted opacity-60'
       }`}>
         <span className="shrink-0">{tier.earned ? '✓' : isPending ? '…' : '✗'}</span>
-        <span className="shrink-0">{tier.label}</span>
+        <span className="shrink-0">{tierLabel[tier.key] ?? tier.label}</span>
         {predDetail && (
           <span className={`truncate font-semibold ${tier.earned ? 'text-accent-green' : isPending ? 'text-blue-300/60' : 'text-white/40'}`}>
             · {predDetail}
           </span>
         )}
-        {isPending && <span className="text-[9px] text-blue-400/60 shrink-0">pending</span>}
+        {isPending && <span className="text-[9px] text-blue-400/60 shrink-0">{t('pendingLabel')}</span>}
       </span>
       <span className={`shrink-0 font-bold tabular-nums ${
         tier.earned ? 'text-accent-green' : isPending ? 'text-blue-400/50' : 'text-text-muted opacity-40'
@@ -647,7 +658,7 @@ export function LockedPrediction({
           <div className="flex flex-col items-end">
             <span className="text-[10px] text-white/30 leading-tight">you collect</span>
             <span className={`text-xl font-bebas tracking-wide ${livePotential > 0 ? 'text-accent-green' : 'text-text-muted opacity-40'}`}>
-              {livePotential > 0 ? `+${livePotential}` : '0'} <span className="text-sm">pts</span>
+              {livePotential > 0 ? `+${livePotential}` : '0'} <span className="text-sm">{t('pts')}</span>
             </span>
           </div>
         </motion.div>
@@ -689,7 +700,7 @@ export function LockedPrediction({
             <Pill label={t('score')} value={`${prediction.predicted_home_score} — ${prediction.predicted_away_score}`} />
           )}
           {prediction.predicted_halftime_outcome && (
-            <Pill label="Half Time" value={outcomeLabel(prediction.predicted_halftime_outcome)} />
+            <Pill label={t('halfTimeResult')} value={outcomeLabel(prediction.predicted_halftime_outcome)} />
           )}
           {prediction.predicted_corners && (
             <Pill label={t('corners')} value={
