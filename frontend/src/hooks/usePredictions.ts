@@ -138,7 +138,19 @@ export function usePredictions(matchIds?: string[]) {
             match_id: input.match_id,
             metadata: {
               predicted_outcome: input.predicted_outcome ?? null,
+              predicted_home_score: input.predicted_home_score ?? null,
+              predicted_away_score: input.predicted_away_score ?? null,
+              predicted_btts: input.predicted_btts ?? null,
+              predicted_over_under: input.predicted_over_under ?? null,
+              predicted_corners: input.predicted_corners ?? null,
               coins_bet: newCost,
+              tiers_count: [
+                input.predicted_outcome,
+                (input.predicted_home_score != null && input.predicted_away_score != null) ? true : null,
+                input.predicted_corners,
+                input.predicted_btts,
+                input.predicted_over_under,
+              ].filter(Boolean).length,
             },
           })
           .then(({ error: evtErr }) => {
