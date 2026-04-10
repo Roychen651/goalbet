@@ -555,12 +555,34 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
 
         if (delta <= 0) continue; // already correct or an edge case — never subtract
 
-        logger.info(`[scoreUpdater] Corners re-score: prediction ${pred.id} +${delta} pts (corners_total=${m.corners_total})`);
-
-        await supabaseAdmin
+        // ── ATOMIC CLAIM: only one concurrent worker wins the corners re-score ──
+        // Without this guard, two concurrent score syncs (GitHub Actions cron +
+        // backend scheduler + manual sync) would both read the same stale
+        // points_earned, both compute the same positive delta, and both bump
+        // the leaderboard. Coin double-credit is now blocked at the DB level
+        // by migration 032's unique index, but the leaderboard would still be
+        // over-credited without this guard.
+        //
+        // The .lt('points_earned', correctBreakdown.total) clause means: only
+        // the first writer (whose points_earned is still < new total) wins.
+        // The .select() returns affected rows so we know whether we won.
+        const { data: claimed, error: claimErr } = await supabaseAdmin
           .from('predictions')
           .update({ points_earned: correctBreakdown.total })
-          .eq('id', pred.id);
+          .eq('id', pred.id)
+          .lt('points_earned', correctBreakdown.total)
+          .select('id');
+
+        if (claimErr) {
+          logger.error(`[scoreUpdater] Corners re-score claim failed for ${pred.id}: ${claimErr.message}`);
+          continue;
+        }
+        if (!claimed || claimed.length === 0) {
+          logger.debug(`[scoreUpdater] Corners re-score for ${pred.id} already applied by another worker — skipping`);
+          continue;
+        }
+
+        logger.info(`[scoreUpdater] Corners re-score: prediction ${pred.id} +${delta} pts (corners_total=${m.corners_total})`);
 
         const { data: lbData } = await supabaseAdmin
           .from('leaderboard')
