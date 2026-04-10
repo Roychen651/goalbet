@@ -162,11 +162,16 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
   const { t } = useLangStore();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
+  // Close on outside click. Skip clicks on the bell button itself — otherwise
+  // tapping the bell while the panel is open fires this handler first (closing
+  // the panel) and then the bell's onClick fires (re-opening it). The bell is
+  // marked with data-notif-bell so we can detect and ignore it here.
   useEffect(() => {
     if (!open) return;
     const h = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+      const target = e.target as Element | null;
+      if (target?.closest('[data-notif-bell]')) return; // let the bell's own onClick handle the toggle
+      if (panelRef.current && !panelRef.current.contains(target as Node)) onClose();
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);

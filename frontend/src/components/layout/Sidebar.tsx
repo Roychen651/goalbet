@@ -79,6 +79,9 @@ export function Sidebar() {
       <div className="relative mx-2 mb-2">
         <button
           onClick={() => setShowNotif(p => !p)}
+          // data-notif-bell tells NotificationCenter's outside-click handler
+          // to ignore taps on this button so it doesn't close-then-reopen.
+          data-notif-bell
           className={cn(
             'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
             'text-text-muted hover:bg-white/5 hover:text-white',

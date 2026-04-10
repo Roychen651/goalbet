@@ -7,6 +7,7 @@ interface PendingMatch {
   id: string;
   external_id: string;
   league_id: number;
+  kickoff_time: string;
   home_score: number | null;
   away_score: number | null;
   status: string;
@@ -44,7 +45,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   // Query 1: in-progress / not-yet-finished matches
   const { data: inProgress, error: e1 } = await supabaseAdmin
     .from('matches')
-    .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, red_cards_home, red_cards_away')
+    .select('id, external_id, league_id, kickoff_time, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, red_cards_home, red_cards_away')
     .not('status', 'in', '("FT","PST","CANC")')
     .lt('kickoff_time', slightlyAhead);
 
@@ -66,7 +67,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   if (unresolvedMatchIds.length > 0) {
     const { data: ftData, error: e2 } = await supabaseAdmin
       .from('matches')
-      .select('id, external_id, league_id, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, red_cards_home, red_cards_away')
+      .select('id, external_id, league_id, kickoff_time, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, red_cards_home, red_cards_away')
       .in('id', unresolvedMatchIds)
       .eq('status', 'FT')
       .not('home_score', 'is', null)
@@ -165,6 +166,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
   regulation_away?: number | null;
   home_team?: string;
   away_team?: string;
+  kickoff_time?: string;
 }): Promise<number> {
   const { data: predictions, error } = await supabaseAdmin
     .from('predictions')
@@ -182,17 +184,19 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
     return 0;
   }
 
+  // Compute the canonical "match end" timestamp once.
+  // Used as created_at for all derived rows (coin txns, notifications, group events)
+  // so they reflect when the match actually ended — not when the backend woke up.
+  // The user's words: "the times are sacred."
+  // 90 min regulation + ~15 min for half-time + injury time ≈ 105 min from kickoff.
+  const matchEndAt = matchResult.kickoff_time
+    ? new Date(new Date(matchResult.kickoff_time).getTime() + 105 * 60 * 1000).toISOString()
+    : new Date().toISOString();
+
   let resolved = 0;
 
   for (const prediction of predictions as Prediction[]) {
     try {
-      const { data: lbData } = await supabaseAdmin
-        .from('leaderboard')
-        .select('total_points, weekly_points, predictions_made, correct_predictions')
-        .eq('user_id', prediction.user_id)
-        .eq('group_id', prediction.group_id)
-        .single();
-
       // Use 90-minute regulation score for scoring when match went to ET/penalties.
       // Predictions are always judged on the 90-minute result.
       const scoringResult = {
@@ -204,15 +208,42 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
       const finalPoints = breakdown.total;
       const isCorrect = breakdown.correct_prediction;
 
-      const { error: predUpdateError } = await supabaseAdmin
+      // ── ATOMIC CLAIM: only one concurrent caller wins ─────────────────────
+      // Race fix: previously this UPDATE had no is_resolved guard. Multiple
+      // workers (GitHub Actions cron, backend scheduler, manual sync) all
+      // SELECTed the same is_resolved=false rows, all UPDATEd them, all
+      // awarded coins. Result: duplicate coin awards on every match.
+      //
+      // The .eq('is_resolved', false) guard means: only the first writer
+      // flips the flag. The .select() returns the affected row(s) so we
+      // know whether *we* won the race. If the array is empty, another
+      // worker resolved this prediction first — skip the side effects.
+      const { data: claimed, error: predUpdateError } = await supabaseAdmin
         .from('predictions')
         .update({ points_earned: finalPoints, is_resolved: true })
-        .eq('id', prediction.id);
+        .eq('id', prediction.id)
+        .eq('is_resolved', false)
+        .select('id');
 
       if (predUpdateError) {
         logger.error(`[scoreUpdater] Failed to mark prediction ${prediction.id} as resolved:`, predUpdateError);
         continue;
       }
+
+      if (!claimed || claimed.length === 0) {
+        // Another concurrent worker already resolved this prediction.
+        // Skip coins/notifications/leaderboard to avoid duplicates.
+        logger.debug(`[scoreUpdater] Prediction ${prediction.id} already claimed by another worker — skipping side effects`);
+        continue;
+      }
+
+      // Only fetch leaderboard AFTER winning the claim — avoids stale reads.
+      const { data: lbData } = await supabaseAdmin
+        .from('leaderboard')
+        .select('total_points, weekly_points, predictions_made, correct_predictions')
+        .eq('user_id', prediction.user_id)
+        .eq('group_id', prediction.group_id)
+        .single();
 
       // ── Award coins: 2× points earned ────────────────────────────────────
       // IMPORTANT: supabaseAdmin.rpc() never throws — it returns { data, error }.
@@ -225,6 +256,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
           p_match_id: matchId,
           p_amount: coinsToAward,
           p_description: `Won ${finalPoints} pts → ${coinsToAward} coins`,
+          p_created_at: matchEndAt,  // ← coin transaction reflects match end, not server clock
         });
         if (coinError) {
           // Log full error details so Render logs capture exactly what failed.
@@ -261,6 +293,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
               type:      'prediction_result',
               title_key: 'notif_prediction_result',
               body_key:  'notif_prediction_result_body',
+              created_at: matchEndAt,  // ← time the MATCH ended, not when backend woke up
               metadata: {
                 match_id:     matchId,
                 home_team:    matchResult.home_team  ?? '',
@@ -284,6 +317,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
             user_id:    prediction.user_id,
             event_type: 'WON_COINS',
             match_id:   matchId,
+            created_at: matchEndAt,  // ← time the MATCH ended, not when backend woke up
             metadata: {
               coins:        coinsToAward,
               points:       finalPoints,
@@ -421,6 +455,7 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
               regulation_away: effectiveData.regulation_away,
               home_team: effectiveData.home_team,
               away_team: effectiveData.away_team,
+              kickoff_time: match.kickoff_time,
             });
             totalResolved += count;
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
@@ -468,6 +503,7 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
                 corners_total: match.corners_total,
                 home_team: effectiveData.home_team,
                 away_team: effectiveData.away_team,
+                kickoff_time: match.kickoff_time,
               });
               if (count > 0) {
                 totalResolved += count;
@@ -494,13 +530,13 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const { data: cornersMatches } = await supabaseAdmin
       .from('matches')
-      .select('id, home_score, away_score, corners_total, regulation_home, regulation_away')
+      .select('id, kickoff_time, home_score, away_score, corners_total, regulation_home, regulation_away')
       .eq('status', 'FT')
       .not('corners_total', 'is', null)
       .not('home_score', 'is', null)
       .gte('kickoff_time', sevenDaysAgo);
 
-    for (const m of (cornersMatches ?? []) as { id: string; home_score: number; away_score: number; corners_total: number; regulation_home: number | null; regulation_away: number | null }[]) {
+    for (const m of (cornersMatches ?? []) as { id: string; kickoff_time: string; home_score: number; away_score: number; corners_total: number; regulation_home: number | null; regulation_away: number | null }[]) {
       const { data: cornersPreds } = await supabaseAdmin
         .from('predictions')
         .select('*')
@@ -545,12 +581,14 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
         }
 
         const coinsToAward = delta * 2;
+        const cornersMatchEndAt = new Date(new Date(m.kickoff_time).getTime() + 105 * 60 * 1000).toISOString();
         const { error: coinError } = await supabaseAdmin.rpc('increment_coins', {
           p_user_id: pred.user_id,
           p_group_id: pred.group_id,
           p_match_id: m.id,
           p_amount: coinsToAward,
           p_description: `Corners re-score: +${delta} pts → +${coinsToAward} coins`,
+          p_created_at: cornersMatchEndAt,
         });
         if (coinError) {
           logger.error(`[scoreUpdater] Corners re-score coin award failed for ${pred.id}: ${coinError.message ?? JSON.stringify(coinError)}`);
@@ -578,18 +616,21 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
     if (stuckMatchIds.length > 0) {
       const { data: ftStuck } = await supabaseAdmin
         .from('matches')
-        .select('id, home_score, away_score, corners_total, regulation_home, regulation_away')
+        .select('id, kickoff_time, home_score, away_score, corners_total, regulation_home, regulation_away, home_team, away_team')
         .eq('status', 'FT')
         .not('home_score', 'is', null)
         .in('id', stuckMatchIds);
 
-      for (const m of (ftStuck ?? []) as { id: string; home_score: number; away_score: number; corners_total: number | null; regulation_home: number | null; regulation_away: number | null }[]) {
+      for (const m of (ftStuck ?? []) as { id: string; kickoff_time: string; home_score: number; away_score: number; corners_total: number | null; regulation_home: number | null; regulation_away: number | null; home_team: string; away_team: string }[]) {
         const count = await resolveMatchPredictions(m.id, {
           home_score: m.home_score,
           away_score: m.away_score,
           corners_total: m.corners_total,
           regulation_home: m.regulation_home,
           regulation_away: m.regulation_away,
+          home_team: m.home_team,
+          away_team: m.away_team,
+          kickoff_time: m.kickoff_time,
         });
         if (count > 0) {
           totalResolved += count;

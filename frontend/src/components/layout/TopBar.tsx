@@ -55,6 +55,9 @@ export function TopBar() {
             {/* Bell */}
             <button
               onClick={() => setShowNotif(p => !p)}
+              // data-notif-bell tells NotificationCenter's outside-click handler
+              // to ignore taps on this button so it doesn't close-then-reopen.
+              data-notif-bell
               className="relative flex items-center justify-center w-9 hover:bg-white/8 active:bg-white/15 transition-colors border-e border-white/10"
               aria-label="Notifications"
             >
