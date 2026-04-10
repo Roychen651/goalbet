@@ -267,7 +267,44 @@ Without `onPointerDown` on scroll containers, Framer Motion intercepts touch eve
 
 Modals with swipe-to-close: `HelpGuideModal`, `ScoringGuide`, `CoinGuide`, `CoinHistoryModal`, `UserMatchHistoryModal`.
 
-### 4.14 Always set explicit `width` and `height` on `<img>` tags
+### 4.14 Score resolution must use the atomic claim pattern + matchEndAt timestamps
+
+Concurrent score resolvers (GitHub Actions cron every 5 min + Render scheduler every 30 s + manual sync from the Settings page) all SELECT the same `is_resolved=false` predictions. Without a guard they all proceed, all award coins, all insert notifications and locker-room events. This caused real duplicates in production (cleaned up by migrations 031 + 033).
+
+**Every prediction-resolving code path in `scoreUpdater.ts` must:**
+
+```typescript
+// 1. Atomic claim — only one concurrent worker wins
+const { data: claimed } = await supabaseAdmin
+  .from('predictions')
+  .update({ points_earned: finalPoints, is_resolved: true })
+  .eq('id', prediction.id)
+  .eq('is_resolved', false)        // ← guard
+  .select('id');
+
+if (!claimed || claimed.length === 0) continue;  // we lost — skip side effects
+
+// 2. matchEndAt for every derived row (coin txn, notification, group_event)
+const matchEndAt = new Date(new Date(kickoff_time).getTime() + 105 * 60 * 1000).toISOString();
+```
+
+The corners re-score loop uses a different claim shape because `is_resolved` is already true: `.lt('points_earned', correctBreakdown.total)` so only the first writer with the new (higher) total wins.
+
+The DB has three partial unique indexes as a final backstop — see rule 4.15.
+
+### 4.15 Never drop the coin/event/notification dedup constraints
+
+Three partial unique indexes prevent duplicate awards even if application logic regresses. Do not drop these without a written, reviewed reason:
+
+- `coin_transactions_bet_won_unique` — `(user_id, group_id, match_id, description) WHERE type='bet_won' AND match_id IS NOT NULL` (migration 032)
+- `group_events_won_coins_unique` — `(group_id, user_id, match_id) WHERE event_type='WON_COINS' AND match_id IS NOT NULL` (migration 033)
+- `notifications_prediction_result_unique` — `(user_id, (metadata->>'match_id')) WHERE type='prediction_result' AND metadata ? 'match_id'` (migration 033)
+
+`description` is intentionally part of the coin key — the original "Won X pts → Y coins" award and a later "Corners re-score: +Z pts → +W coins" top-up are legitimate distinct rows for the same match. Removing `description` from the index would silently swallow the corners top-up.
+
+`increment_coins` (after migration 032) relies on `coin_transactions_bet_won_unique` as its `ON CONFLICT` target. If the index is dropped, the function's `ON CONFLICT (user_id, group_id, match_id, description) WHERE …` clause throws at runtime — coin awards stop entirely. Recreate the index immediately if it ever goes missing.
+
+### 4.16 Always set explicit `width` and `height` on `<img>` tags
 
 All `<img>` elements must have numeric `width` and `height` HTML attributes so the browser reserves layout space before the image loads. Omitting them causes Cumulative Layout Shift (CLS) on slow connections.
 
@@ -746,9 +783,35 @@ MAX_PER_MATCH: 19,
 ### Key DB functions
 
 ```sql
-increment_coins(user_id UUID, amount INT)
+-- Fully IDEMPOTENT after migration 032. Calling this 100× with the same args
+-- produces the same result as calling it once. The function tries to INSERT
+-- the coin_transactions log row first with ON CONFLICT DO NOTHING against the
+-- partial unique index `coin_transactions_bet_won_unique`. If the insert wins,
+-- group_members.coins is credited and balance_after is backfilled. If the
+-- insert loses (duplicate), the function returns the current balance unchanged.
+-- This is the race-condition fix — concurrent score resolvers (GitHub Actions
+-- cron + Render scheduler + manual sync) cannot double-credit the same award.
+increment_coins(
+  p_user_id     UUID,
+  p_group_id    UUID,
+  p_match_id    UUID,
+  p_amount      INTEGER,
+  p_description TEXT        DEFAULT 'Prediction won',
+  p_created_at  TIMESTAMPTZ DEFAULT NULL  -- when omitted, falls back to NOW()
+) RETURNS INTEGER  -- new (or unchanged) balance
+
 claim_daily_bonus(user_id UUID) → BOOLEAN  -- true = claimed, false = already claimed today
 ```
+
+### Coin transaction created_at — "the times are sacred"
+
+When `scoreUpdater.ts` resolves a prediction, it passes `p_created_at = matchEndAt` (kickoff_time + 105 min) to `increment_coins`. The same `matchEndAt` is also written to the `notifications` and `group_events` rows for that resolution. This means:
+
+- A user who wins coins from a 21:00 match always sees `21:45` (or thereabouts) as the transaction/notification time, regardless of when the backend actually processed it
+- Cold-start delays, GitHub Actions schedule jitter, and catch-up resolutions all produce the same "real" time
+- The user's words, repeated verbatim: **"גם אם שחקן לא נמצא בתוך האפליקציה עדיין הזמנים הם קודש"** ("even if a player isn't in the app, the times are still sacred")
+
+Never use `NOW()` for derived rows in resolution code paths. Always thread `matchEndAt` through.
 
 ---
 
@@ -859,7 +922,7 @@ curl "https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard"
 
 ## 14. Database & Migrations
 
-Migrations live in `supabase/migrations/`. Current sequence: **001 → 023**.
+Migrations live in `supabase/migrations/`. Current sequence: **001 → 033** (024 and 025 do not exist).
 Apply via `supabase db push --linked` (auto-runs via hook on migration file write once logged in).
 
 | Migration | What it adds |
@@ -887,6 +950,14 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `021` | Coins bug fixes |
 | `022` | Admin features: group delete policy, group_members delete policy (idempotent) |
 | `023` | Admin security RPCs: `is_super_admin`, `admin_get_stats`, `admin_get_users`, `admin_get_groups`, `admin_get_user_coins`, `admin_adjust_coins`, `admin_update_username`, `admin_delete_group`, `admin_delete_user_data`, `admin_rename_group` |
+| `026` | Persistent notifications table + RLS |
+| `027` | Fix `admin_delete_user_data` to also wipe `coin_transactions` |
+| `028` | Group activity feed (`group_events` table for The Locker Room) |
+| `029` | `group_events` FK → `profiles(id)` so PostgREST joins work |
+| `030` | `increment_coins` accepts explicit `p_created_at` so coin txns reflect match end time, not server clock ("the times are sacred") |
+| `031` | One-off cleanup of duplicate `coin_transactions` rows + rebuild `group_members.coins` from cleaned ledger (race-condition aftermath) |
+| `032` | **Bulletproof coin dedup**: partial unique index on `coin_transactions (user_id, group_id, match_id, description) WHERE type='bet_won'` + rewrite `increment_coins` as fully idempotent (`INSERT … ON CONFLICT DO NOTHING` first, then credit balance only if insert won the race) |
+| `033` | Cleanup of duplicate `group_events` WON_COINS rows + duplicate `notifications` prediction_result rows + matching partial unique indexes (`group_events_won_coins_unique`, `notifications_prediction_result_unique`) as DB-level backstops |
 
 ### Migration idempotency
 
@@ -1308,6 +1379,9 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **Daily bonus uses Israel timezone** (`Asia/Jerusalem`). `CURRENT_DATE` is wrong.
 - **Friend prediction privacy:** predictions are hidden (🔒) when `status = 'NS'` AND `kickoff > now`. Never show pre-kickoff predictions to other group members.
 - **H2H modal** opens when clicking ANOTHER user's leaderboard row. Clicking your own row opens `UserMatchHistoryModal`. This is intentional.
+- **`increment_coins` is idempotent — do not work around it.** If a re-call appears to have done nothing, it's because the unique index already accepted that exact `(user, group, match, description)` combination. Find out which earlier call inserted it; never bypass the constraint by varying the description (e.g. appending a timestamp). That defeats the dedup and re-introduces the race the user was burned by.
+- **Always pass `p_created_at = matchEndAt`** when calling `increment_coins` from a score-resolution path. The user has explicitly told us "the times are sacred" — the transaction must reflect when the match ended, not when the backend processed it. Same rule for `notifications.created_at` and `group_events.created_at` rows inserted in the same resolution block.
+- **`group_members.coins` must always equal `SUM(coin_transactions.amount)`** for that user/group. If they ever diverge, the cached balance is wrong and a one-off rebuild migration (see 031) is needed. The reconciliation can be verified with: `SELECT user_id, group_id, coins, (SELECT SUM(amount) FROM coin_transactions ct WHERE ct.user_id = gm.user_id AND ct.group_id = gm.group_id) AS ledger_sum FROM group_members gm`.
 
 ### Admin
 
