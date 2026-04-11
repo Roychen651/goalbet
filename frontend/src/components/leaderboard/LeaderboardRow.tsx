@@ -2,11 +2,14 @@ import { LeaderboardEntryWithProfile } from '../../lib/supabase';
 import { Avatar } from '../ui/Avatar';
 import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
+import type { PeriodStat } from '../../pages/LeaderboardPage';
 
 interface LeaderboardRowProps {
   entry: LeaderboardEntryWithProfile;
   isCurrentUser: boolean;
   type: 'total' | 'weekly' | 'lastWeek';
+  /** Period-filtered stats for this user. null on 'total' tab or when missing. */
+  periodStat?: PeriodStat | null;
   onClick?: () => void;
 }
 
@@ -16,13 +19,18 @@ const PODIUM_STYLES: Record<number, { ring: string; shadow: string; avatarSize: 
   3: { ring: 'ring-2 ring-amber-700/60', shadow: 'drop-shadow-[0_0_8px_rgba(180,100,50,0.25)]', avatarSize: 'lg', bg: 'bg-orange-900/10' },
 };
 
-export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: LeaderboardRowProps) {
+export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick }: LeaderboardRowProps) {
   const { t } = useLangStore();
   const points = type === 'weekly' ? entry.weekly_points
     : type === 'lastWeek' ? (entry.last_week_points ?? 0)
     : entry.total_points;
-  const accuracy = entry.predictions_made > 0
-    ? Math.round((entry.correct_predictions / entry.predictions_made) * 100)
+  // Picks / accuracy: use the period-filtered stats when on weekly/lastWeek so the
+  // subtitle row ("33 picks · 45% accurate") matches the KPI card and the Sniper insight.
+  const periodActive = type !== 'total';
+  const picksMade = periodActive ? (periodStat?.made ?? 0) : entry.predictions_made;
+  const picksCorrect = periodActive ? (periodStat?.correct ?? 0) : entry.correct_predictions;
+  const accuracy = picksMade > 0
+    ? Math.round((picksCorrect / picksMade) * 100)
     : 0;
   const podium = PODIUM_STYLES[entry.rank];
 
@@ -66,14 +74,14 @@ export function LeaderboardRow({ entry, isCurrentUser, type, onClick }: Leaderbo
               {t('badgeHot')} 🔥
             </span>
           )}
-          {accuracy >= 65 && entry.predictions_made >= 5 && (
+          {accuracy >= 65 && picksMade >= 5 && (
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-accent-green/10 text-accent-green border border-accent-green/20 leading-none whitespace-nowrap">
               {t('badgeSniper')} 🎯
             </span>
           )}
         </div>
         <div className="text-text-muted text-xs mt-0.5">
-          {entry.predictions_made} {t('picks')} · {entry.predictions_made > 0 ? `${accuracy}%` : '—'} {t('accurate')}
+          {picksMade} {t('picks')} · {picksMade > 0 ? `${accuracy}%` : '—'} {t('accurate')}
         </div>
       </div>
 

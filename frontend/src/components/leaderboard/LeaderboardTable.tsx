@@ -5,6 +5,7 @@ import { GlassCard } from '../ui/GlassCard';
 import { PageLoader } from '../ui/LoadingSpinner';
 import { EmptyState } from '../ui/EmptyState';
 import { useLangStore } from '../../stores/langStore';
+import type { PeriodStatsMap } from '../../pages/LeaderboardPage';
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntryWithProfile[];
@@ -12,9 +13,11 @@ interface LeaderboardTableProps {
   currentUserId: string | undefined;
   type: 'total' | 'weekly' | 'lastWeek';
   onUserClick?: (entry: LeaderboardEntryWithProfile) => void;
+  /** Period-filtered stats per user_id. null on 'total' tab. */
+  periodStatsMap?: PeriodStatsMap | null;
 }
 
-export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick }: LeaderboardTableProps) {
+export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap }: LeaderboardTableProps) {
   const { t } = useLangStore();
 
   if (loading) return <PageLoader />;
@@ -55,6 +58,7 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
               entry={entry}
               isCurrentUser={entry.user_id === currentUserId}
               type={type}
+              periodStat={periodStatsMap ? periodStatsMap.get(entry.user_id) ?? null : null}
               onClick={onUserClick ? () => onUserClick(entry) : undefined}
             />
           </motion.div>

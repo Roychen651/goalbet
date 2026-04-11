@@ -6,12 +6,15 @@ import { Avatar } from '../ui/Avatar';
 import { useLangStore } from '../../stores/langStore';
 import { cn } from '../../lib/utils';
 import type { LeaderboardEntryWithProfile } from '../../lib/supabase';
+import type { PeriodStatsMap } from '../../pages/LeaderboardPage';
 
 type PeriodType = 'total' | 'weekly' | 'lastWeek';
 
 interface LeaderboardInsightsProps {
   entries: LeaderboardEntryWithProfile[];
   type: PeriodType;
+  /** Period-filtered stats per user_id. null on the 'total' tab. */
+  periodStatsMap?: PeriodStatsMap | null;
 }
 
 interface Insight {
@@ -32,10 +35,19 @@ function getPoints(e: LeaderboardEntryWithProfile, type: PeriodType): number {
   return e.total_points;
 }
 
-export function LeaderboardInsights({ entries, type }: LeaderboardInsightsProps) {
+export function LeaderboardInsights({ entries, type, periodStatsMap }: LeaderboardInsightsProps) {
   const { t } = useLangStore();
 
   const insights = useMemo<Insight[]>(() => {
+    // Helpers that return the correct picks/correct counts for the active period.
+    // On 'total' we use the cached leaderboard row; on weekly/lastWeek we use the
+    // period-filtered map so Sniper and Grinder reflect the same window as the table.
+    const periodActive = type !== 'total' && periodStatsMap != null;
+    const madeOf = (e: LeaderboardEntryWithProfile) =>
+      periodActive ? (periodStatsMap!.get(e.user_id)?.made ?? 0) : e.predictions_made;
+    const correctOf = (e: LeaderboardEntryWithProfile) =>
+      periodActive ? (periodStatsMap!.get(e.user_id)?.correct ?? 0) : e.correct_predictions;
+
     // ── On Fire — highest points in the selected period (must be > 0)
     const sorted = [...entries].sort((a, b) => getPoints(b, type) - getPoints(a, type));
     const onFire = sorted.find(e => getPoints(e, type) > 0) ?? null;
@@ -48,21 +60,22 @@ export function LeaderboardInsights({ entries, type }: LeaderboardInsightsProps)
         ? t('insightOnFireLastWeek')   // "Last Week's Best"
         : t('insightOnFireAllTime');   // "Top Scorer"
 
-    // ── Sniper — highest accuracy (min 5 predictions, all-time stat)
+    // ── Sniper — highest accuracy in the active period (min 5 predictions)
     const sniper = [...entries]
-      .filter(e => e.predictions_made >= 5)
+      .filter(e => madeOf(e) >= 5)
       .sort((a, b) => {
-        const accA = a.correct_predictions / a.predictions_made;
-        const accB = b.correct_predictions / b.predictions_made;
+        const accA = correctOf(a) / madeOf(a);
+        const accB = correctOf(b) / madeOf(b);
         return accB - accA;
       })[0] ?? null;
     const sniperAcc = sniper
-      ? Math.round((sniper.correct_predictions / sniper.predictions_made) * 100)
+      ? Math.round((correctOf(sniper) / madeOf(sniper)) * 100)
       : 0;
 
-    // ── Grinder — most predictions (all-time stat)
+    // ── Grinder — most predictions in the active period
     const grinder = [...entries]
-      .sort((a, b) => b.predictions_made - a.predictions_made)[0] ?? null;
+      .sort((a, b) => madeOf(b) - madeOf(a))[0] ?? null;
+    const grinderMade = grinder ? madeOf(grinder) : 0;
 
     return [
       {
@@ -90,13 +103,13 @@ export function LeaderboardInsights({ entries, type }: LeaderboardInsightsProps)
         icon: <Activity className="w-4 h-4" />,
         title: t('insightGrinder'),
         subtitle: t('insightGrinderDesc'),
-        user: grinder && grinder.predictions_made > 0 ? grinder : null,
-        stat: grinder && grinder.predictions_made > 0 ? `${grinder.predictions_made} ${t('picks')}` : '—',
+        user: grinder && grinderMade > 0 ? grinder : null,
+        stat: grinder && grinderMade > 0 ? `${grinderMade} ${t('picks')}` : '—',
         accentClass: 'text-blue-400',
         iconBg: 'bg-blue-400/12 text-blue-400',
       },
     ];
-  }, [entries, type, t]);
+  }, [entries, type, t, periodStatsMap]);
 
   if (insights.every(i => !i.user)) return null;
 

@@ -20,28 +20,33 @@ interface SelectedUser {
   avatar_url: string | null;
 }
 
-// Sun–Sat week boundaries in ms
-function getWeekBoundsMs(type: 'weekly' | 'lastWeek'): { start: number; end: number | null } {
+// Sun-start ISO week boundaries. Must match `getWeekBoundsISO` in useLeaderboard.ts
+// so the KPI card, insights, and table rows all pull from the SAME window.
+function getWeekBoundsISO(type: 'weekly' | 'lastWeek'): { start: string; end: string } {
   const now = new Date();
-  const dow = now.getUTCDay(); // 0=Sun
   const thisSunday = new Date(now);
-  thisSunday.setUTCDate(now.getUTCDate() - dow);
+  thisSunday.setUTCDate(now.getUTCDate() - now.getUTCDay());
   thisSunday.setUTCHours(0, 0, 0, 0);
-
-  if (type === 'weekly') {
-    return { start: thisSunday.getTime(), end: null };
-  } else {
-    const lastSunday = new Date(thisSunday);
-    lastSunday.setUTCDate(thisSunday.getUTCDate() - 7);
-    return { start: lastSunday.getTime(), end: thisSunday.getTime() - 1 };
-  }
+  const lastSunday = new Date(thisSunday);
+  lastSunday.setUTCDate(thisSunday.getUTCDate() - 7);
+  const nextSunday = new Date(thisSunday);
+  nextSunday.setUTCDate(thisSunday.getUTCDate() + 7);
+  return type === 'weekly'
+    ? { start: thisSunday.toISOString(), end: nextSunday.toISOString() }
+    : { start: lastSunday.toISOString(), end: thisSunday.toISOString() };
 }
+
+export type PeriodStat = { pts: number; made: number; correct: number };
+export type PeriodStatsMap = Map<string, PeriodStat>;
 
 export function LeaderboardPage() {
   const [type, setType] = useState<LeaderboardType>('total');
   const [selectedUser, setSelectedUser] = useState<SelectedUser | null>(null);
   const [h2hFriend, setH2hFriend] = useState<H2HUser | null>(null);
-  const [periodStats, setPeriodStats] = useState<{ made: number; correct: number } | null>(null);
+  // Period-aware stats map keyed by user_id. null on 'total' tab (use cached leaderboard
+  // row values); populated on weekly/lastWeek tabs so KPI, Insights, and Row all share
+  // the SAME period-filtered numbers.
+  const [periodStatsMap, setPeriodStatsMap] = useState<PeriodStatsMap | null>(null);
   const { entries, loading } = useLeaderboard(type);
   const { user } = useAuthStore();
   const { groups, activeGroupId } = useGroupStore();
@@ -49,39 +54,79 @@ export function LeaderboardPage() {
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const currentUserEntry = entries.find(e => e.user_id === user?.id);
 
-  // Fetch period-specific predictions for the stats card hit rate
+  // Fetch period-specific predictions for ALL group members. This is the single source
+  // of truth for the weekly/lastWeek tabs — consumed by the KPI summary card, the Sniper
+  // and Grinder insights, and the picks/accuracy line in each leaderboard row.
   useEffect(() => {
-    if (!user?.id || !activeGroupId) return;
+    if (!activeGroupId) { setPeriodStatsMap(null); return; }
+    if (type === 'total') { setPeriodStatsMap(null); return; }
 
-    if (type === 'total') {
-      setPeriodStats(null); // use leaderboard row values
-      return;
-    }
+    let cancelled = false;
+    (async () => {
+      const { start, end } = getWeekBoundsISO(type);
 
-    const { start, end } = getWeekBoundsMs(type);
+      // Step 1 — matches in the week window (same filter as useLeaderboard)
+      const { data: weekMatches } = await supabase
+        .from('matches')
+        .select('id, home_score, away_score, status')
+        .gte('kickoff_time', start)
+        .lt('kickoff_time', end);
+      if (cancelled) return;
 
-    supabase
-      .from('predictions')
-      .select('id, points_earned, predicted_outcome, match:matches(kickoff_time, home_score, away_score, status)')
-      .eq('user_id', user.id)
-      .eq('group_id', activeGroupId)
-      .eq('is_resolved', true)
-      .then(({ data }) => {
-        const preds = (data ?? []).filter(p => {
-          const match = p.match as unknown as { kickoff_time: string } | null;
-          const kickoff = new Date(match?.kickoff_time ?? 0).getTime();
-          return kickoff >= start && (end === null || kickoff <= end);
-        });
-        // Hit rate counts only Full Time Result predictions that were correct
-        const correct = preds.filter(p => {
-          const match = p.match as unknown as { home_score: number; away_score: number; status: string } | null;
-          if (!match || match.status !== 'FT' || !p.predicted_outcome) return false;
-          const actual = match.home_score > match.away_score ? 'H' : match.home_score < match.away_score ? 'A' : 'D';
-          return (p.predicted_outcome as string) === actual;
-        }).length;
-        setPeriodStats({ made: preds.length, correct });
-      });
-  }, [user?.id, activeGroupId, type]);
+      const matchMap = new Map(
+        (weekMatches ?? []).map(m => [
+          m.id as string,
+          m as { id: string; home_score: number | null; away_score: number | null; status: string },
+        ]),
+      );
+
+      if (matchMap.size === 0) {
+        setPeriodStatsMap(new Map());
+        return;
+      }
+
+      // Step 2 — all group predictions for those matches
+      const { data: preds } = await supabase
+        .from('predictions')
+        .select('user_id, match_id, points_earned, predicted_outcome')
+        .eq('group_id', activeGroupId)
+        .eq('is_resolved', true)
+        .in('match_id', Array.from(matchMap.keys()));
+      if (cancelled) return;
+
+      // Step 3 — aggregate per user
+      const map: PeriodStatsMap = new Map();
+      for (const p of (preds ?? []) as {
+        user_id: string;
+        match_id: string;
+        points_earned: number | null;
+        predicted_outcome: string | null;
+      }[]) {
+        const cur = map.get(p.user_id) ?? { pts: 0, made: 0, correct: 0 };
+        cur.pts += p.points_earned ?? 0;
+        cur.made += 1;
+        const match = matchMap.get(p.match_id);
+        if (
+          match &&
+          match.status === 'FT' &&
+          p.predicted_outcome &&
+          match.home_score !== null &&
+          match.away_score !== null
+        ) {
+          const actual = match.home_score > match.away_score
+            ? 'H'
+            : match.home_score < match.away_score
+              ? 'A'
+              : 'D';
+          if (p.predicted_outcome === actual) cur.correct += 1;
+        }
+        map.set(p.user_id, cur);
+      }
+      setPeriodStatsMap(map);
+    })();
+
+    return () => { cancelled = true; };
+  }, [activeGroupId, type]);
 
   const TABS: { key: LeaderboardType; label: string }[] = [
     { key: 'total', label: t('allTime') },
@@ -89,6 +134,11 @@ export function LeaderboardPage() {
     { key: 'lastWeek', label: t('lastWeek') },
   ];
 
+  // For the POINTS KPI: prefer the period map (the canonical period-filtered sum for
+  // weekly/lastWeek). Fall back to the entry value while the map is being populated on
+  // the first tab switch — useLeaderboard has already computed the correct period value
+  // there, so this avoids a 0 flash.
+  const currentPeriodStat = periodStatsMap && user?.id ? periodStatsMap.get(user.id) ?? null : null;
   const getPoints = (entry: LeaderboardEntryWithProfile) => {
     if (type === 'weekly') return entry.weekly_points;
     if (type === 'lastWeek') return entry.last_week_points ?? 0;
@@ -99,9 +149,15 @@ export function LeaderboardPage() {
     : type === 'lastWeek' ? t('lastWeek').toLowerCase()
     : t('allTime').toLowerCase();
 
-  // Hit rate: period-specific when on weekly/lastWeek, all-time on total
-  const hitMade = periodStats !== null ? periodStats.made : (currentUserEntry?.predictions_made ?? 0);
-  const hitCorrect = periodStats !== null ? periodStats.correct : (currentUserEntry?.correct_predictions ?? 0);
+  // Hit rate: period-specific when on weekly/lastWeek, all-time on total.
+  // Reads from the same map that feeds Insights and Row so the three displays agree.
+  const periodActive = type !== 'total';
+  const hitMade = periodActive
+    ? (currentPeriodStat?.made ?? 0)
+    : (currentUserEntry?.predictions_made ?? 0);
+  const hitCorrect = periodActive
+    ? (currentPeriodStat?.correct ?? 0)
+    : (currentUserEntry?.correct_predictions ?? 0);
   const hitDisplay = hitMade > 0 ? `${hitCorrect}/${hitMade}` : '—';
   const hitPct = hitMade > 0 ? `${Math.round(hitCorrect / hitMade * 100)}%` : null;
 
@@ -131,7 +187,9 @@ export function LeaderboardPage() {
       </div>
 
       {/* Insights bento — On Fire, Sniper, Grinder */}
-      {!loading && entries.length > 0 && <LeaderboardInsights entries={entries} type={type} />}
+      {!loading && entries.length > 0 && (
+        <LeaderboardInsights entries={entries} type={type} periodStatsMap={periodStatsMap} />
+      )}
 
       {/* Your rank summary — fully period-aware */}
       {currentUserEntry && (
@@ -165,7 +223,7 @@ export function LeaderboardPage() {
             </div>
             <div className="font-bebas text-xl sm:text-2xl text-white">{hitDisplay}</div>
             <div className="text-white/25 text-[9px] mt-0.5 leading-tight">
-              {hitPct ?? (periodStats !== null ? pointsSub : t('allTimeLabel'))}
+              {hitPct ?? (periodActive ? pointsSub : t('allTimeLabel'))}
             </div>
           </div>
         </GlassCard>
@@ -176,6 +234,7 @@ export function LeaderboardPage() {
         loading={loading}
         currentUserId={user?.id}
         type={type}
+        periodStatsMap={periodStatsMap}
         onUserClick={(entry) => {
           if (entry.user_id === user?.id) {
             // Own row → show personal match history
