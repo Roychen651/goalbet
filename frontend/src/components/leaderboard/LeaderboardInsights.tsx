@@ -39,19 +39,22 @@ export function LeaderboardInsights({ entries, type, periodStatsMap }: Leaderboa
   const { t } = useLangStore();
 
   const insights = useMemo<Insight[]>(() => {
-    // Helpers that return the correct picks/correct counts for the active period.
+    // Helpers that return the correct stats for the active period.
     // On 'total' we use the cached leaderboard row; on weekly/lastWeek we use the
-    // period-filtered map so Sniper and Grinder reflect the same window as the table.
+    // period-filtered map so on-fire, Sniper, and Grinder reflect the same window as
+    // the KPI card and the leaderboard rows.
     const periodActive = type !== 'total' && periodStatsMap != null;
+    const ptsOf = (e: LeaderboardEntryWithProfile) =>
+      periodActive ? (periodStatsMap!.get(e.user_id)?.pts ?? 0) : getPoints(e, type);
     const madeOf = (e: LeaderboardEntryWithProfile) =>
       periodActive ? (periodStatsMap!.get(e.user_id)?.made ?? 0) : e.predictions_made;
     const correctOf = (e: LeaderboardEntryWithProfile) =>
       periodActive ? (periodStatsMap!.get(e.user_id)?.correct ?? 0) : e.correct_predictions;
 
     // ── On Fire — highest points in the selected period (must be > 0)
-    const sorted = [...entries].sort((a, b) => getPoints(b, type) - getPoints(a, type));
-    const onFire = sorted.find(e => getPoints(e, type) > 0) ?? null;
-    const onFirePts = onFire ? getPoints(onFire, type) : 0;
+    const sorted = [...entries].sort((a, b) => ptsOf(b) - ptsOf(a));
+    const onFire = sorted.find(e => ptsOf(e) > 0) ?? null;
+    const onFirePts = onFire ? ptsOf(onFire) : 0;
 
     // Period-aware subtitle for On Fire
     const onFireSub = type === 'weekly'

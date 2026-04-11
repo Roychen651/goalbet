@@ -21,12 +21,14 @@ const PODIUM_STYLES: Record<number, { ring: string; shadow: string; avatarSize: 
 
 export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick }: LeaderboardRowProps) {
   const { t } = useLangStore();
-  const points = type === 'weekly' ? entry.weekly_points
-    : type === 'lastWeek' ? (entry.last_week_points ?? 0)
-    : entry.total_points;
-  // Picks / accuracy: use the period-filtered stats when on weekly/lastWeek so the
-  // subtitle row ("33 picks · 45% accurate") matches the KPI card and the Sniper insight.
+  // Points / picks / accuracy: on period tabs read EVERY number from periodStat so the
+  // row, KPI card, and Insights always agree. Fall back to the entry row only on the
+  // 'total' tab. Never read entry.weekly_points / entry.last_week_points here — those
+  // can be stale cached DB values during the refetch transient.
   const periodActive = type !== 'total';
+  const points = periodActive
+    ? (periodStat?.pts ?? 0)
+    : entry.total_points;
   const picksMade = periodActive ? (periodStat?.made ?? 0) : entry.predictions_made;
   const picksCorrect = periodActive ? (periodStat?.correct ?? 0) : entry.correct_predictions;
   const accuracy = picksMade > 0

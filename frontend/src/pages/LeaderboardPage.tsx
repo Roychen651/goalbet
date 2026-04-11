@@ -12,7 +12,6 @@ import { H2HModal, H2HUser } from '../components/leaderboard/H2HModal';
 import { GlassCard } from '../components/ui/GlassCard';
 import { InfoTip } from '../components/ui/InfoTip';
 import { cn } from '../lib/utils';
-import { LeaderboardEntryWithProfile } from '../lib/supabase';
 
 interface SelectedUser {
   user_id: string;
@@ -57,9 +56,15 @@ export function LeaderboardPage() {
   // Fetch period-specific predictions for ALL group members. This is the single source
   // of truth for the weekly/lastWeek tabs — consumed by the KPI summary card, the Sniper
   // and Grinder insights, and the picks/accuracy line in each leaderboard row.
+  //
+  // CRITICAL: we clear `periodStatsMap` to null at the start of every type change so the
+  // previous tab's values can never leak into the new tab's render. Combined with the
+  // "don't render until loaded" guard on the KPI card, this eliminates the stale-state
+  // bug where the POINTS card showed the wrong tab's value during the refetch transient.
   useEffect(() => {
-    if (!activeGroupId) { setPeriodStatsMap(null); return; }
-    if (type === 'total') { setPeriodStatsMap(null); return; }
+    setPeriodStatsMap(null);
+    if (!activeGroupId) return;
+    if (type === 'total') return;
 
     let cancelled = false;
     (async () => {
@@ -134,24 +139,23 @@ export function LeaderboardPage() {
     { key: 'lastWeek', label: t('lastWeek') },
   ];
 
-  // For the POINTS KPI: prefer the period map (the canonical period-filtered sum for
-  // weekly/lastWeek). Fall back to the entry value while the map is being populated on
-  // the first tab switch — useLeaderboard has already computed the correct period value
-  // there, so this avoids a 0 flash.
+  const periodActive = type !== 'total';
   const currentPeriodStat = periodStatsMap && user?.id ? periodStatsMap.get(user.id) ?? null : null;
-  const getPoints = (entry: LeaderboardEntryWithProfile) => {
-    if (type === 'weekly') return entry.weekly_points;
-    if (type === 'lastWeek') return entry.last_week_points ?? 0;
-    return entry.total_points;
-  };
 
   const pointsSub = type === 'weekly' ? t('thisWeek').toLowerCase()
     : type === 'lastWeek' ? t('lastWeek').toLowerCase()
     : t('allTime').toLowerCase();
 
-  // Hit rate: period-specific when on weekly/lastWeek, all-time on total.
-  // Reads from the same map that feeds Insights and Row so the three displays agree.
-  const periodActive = type !== 'total';
+  // SINGLE source of truth for every number in the KPI card.
+  // - On 'total': read from the cached leaderboard row (that's what the column is for).
+  // - On 'weekly'/'lastWeek': read from periodStatsMap (computed here in this file, so
+  //   it can never disagree with what Insights and Row display).
+  // Never read entry.weekly_points / entry.last_week_points from useLeaderboard for the
+  // KPI — useLeaderboard's fallback path can return the stale cached DB column during
+  // the tab-switch transient, which is the bug we're fixing.
+  const kpiPoints = periodActive
+    ? (currentPeriodStat?.pts ?? 0)
+    : (currentUserEntry?.total_points ?? 0);
   const hitMade = periodActive
     ? (currentPeriodStat?.made ?? 0)
     : (currentUserEntry?.predictions_made ?? 0);
@@ -160,6 +164,13 @@ export function LeaderboardPage() {
     : (currentUserEntry?.correct_predictions ?? 0);
   const hitDisplay = hitMade > 0 ? `${hitCorrect}/${hitMade}` : '—';
   const hitPct = hitMade > 0 ? `${Math.round(hitCorrect / hitMade * 100)}%` : null;
+
+  // A single "data ready" gate shared by Insights, the KPI card, and the Table.
+  // On period tabs we must wait for BOTH useLeaderboard's entries AND our own
+  // periodStatsMap before rendering anything — otherwise we'd flash stale values
+  // from the previous tab or zeros between the two fetches finishing.
+  const dataReady = !loading && (type === 'total' || periodStatsMap !== null);
+  const kpiReady = Boolean(currentUserEntry) && dataReady;
 
   return (
     <div className="space-y-4">
@@ -187,12 +198,12 @@ export function LeaderboardPage() {
       </div>
 
       {/* Insights bento — On Fire, Sniper, Grinder */}
-      {!loading && entries.length > 0 && (
+      {dataReady && entries.length > 0 && (
         <LeaderboardInsights entries={entries} type={type} periodStatsMap={periodStatsMap} />
       )}
 
       {/* Your rank summary — fully period-aware */}
-      {currentUserEntry && (
+      {kpiReady && (
         <GlassCard variant="elevated" className="p-4 grid grid-cols-3 gap-2">
           <div className="text-center">
             <div className="flex items-center justify-center text-text-muted text-[10px] uppercase tracking-wider mb-1 gap-0.5">
@@ -200,7 +211,7 @@ export function LeaderboardPage() {
               <InfoTip text={t('infoRank')} />
             </div>
             <div className="font-bebas text-xl sm:text-2xl text-accent-green text-glow-green">
-              #{currentUserEntry.rank}
+              #{currentUserEntry!.rank}
             </div>
             <div className="text-white/25 text-[9px] mt-0.5 leading-tight">{pointsSub}</div>
           </div>
@@ -211,7 +222,7 @@ export function LeaderboardPage() {
               <InfoTip text={t('infoPoints')} />
             </div>
             <div className="font-bebas text-xl sm:text-2xl text-white">
-              {getPoints(currentUserEntry)}
+              {kpiPoints}
             </div>
             <div className="text-white/25 text-[9px] mt-0.5 leading-tight">{pointsSub}</div>
           </div>
@@ -231,7 +242,7 @@ export function LeaderboardPage() {
 
       <LeaderboardTable
         entries={entries}
-        loading={loading}
+        loading={!dataReady}
         currentUserId={user?.id}
         type={type}
         periodStatsMap={periodStatsMap}
