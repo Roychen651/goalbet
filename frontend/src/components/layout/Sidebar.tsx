@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Swords, Trophy, MessageCircle, User, Settings } from 'lucide-react';
+import { Swords, Trophy, BarChart3, MessageCircle, User, Settings } from 'lucide-react';
 import { ROUTES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { useGroupStore } from '../../stores/groupStore';
@@ -27,6 +27,7 @@ export function Sidebar() {
   const NAV_ITEMS = [
     { to: ROUTES.HOME, Icon: Swords, label: t('matches') },
     { to: ROUTES.LEADERBOARD, Icon: Trophy, label: t('leaderboard') },
+    { to: ROUTES.STATS, Icon: BarChart3, label: t('statsHub') },
     { to: ROUTES.LOCKER_ROOM, Icon: MessageCircle, label: t('lockerRoom') },
     { to: ROUTES.PROFILE, Icon: User, label: t('myProfile') },
     { to: ROUTES.SETTINGS, Icon: Settings, label: t('settings') },

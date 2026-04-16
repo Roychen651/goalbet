@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Swords, Trophy, MessageCircle, User, Settings, type LucideIcon } from 'lucide-react';
+import { Swords, Trophy, BarChart3, MessageCircle, User, Settings, type LucideIcon } from 'lucide-react';
 import { ROUTES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
@@ -25,6 +25,7 @@ export function BottomNav() {
       onClick: handleHomeClick,
     },
     { to: ROUTES.LEADERBOARD, Icon: Trophy, label: t('standings') },
+    { to: ROUTES.STATS, Icon: BarChart3, label: t('statsHub') },
     { to: ROUTES.LOCKER_ROOM, Icon: MessageCircle, label: t('lockerRoom') },
     { to: ROUTES.PROFILE, Icon: User, label: t('profile') },
     { to: ROUTES.SETTINGS, Icon: Settings, label: t('settings') },
