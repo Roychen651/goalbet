@@ -3,6 +3,7 @@ import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
   Trophy, Calendar, MapPin, Globe, Users, Target, CalendarDays, Zap,
   LayoutGrid, ListOrdered, GitBranch, Building2, ChevronRight,
+  Sparkles, Radio,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
@@ -21,9 +22,9 @@ import {
 } from '../../lib/worldCup2026';
 
 type T = (key: TranslationKey) => string;
-type Tone = 'muted' | 'accent-soft' | 'accent' | 'gold';
 type KickoffState = { days: number; phase: 'pre' | 'live' | 'ended' };
 type TabId = 'overview' | 'groups' | 'fixtures' | 'knockouts' | 'venues';
+type BracketRound = 'r32' | 'r16' | 'qf' | 'sf' | 'final' | 'third';
 
 const tabFade: Variants = {
   enter:  { opacity: 0, y: 8 },
@@ -521,7 +522,7 @@ function GroupsTab({ t }: { t: T }) {
   return (
     <section className="space-y-3">
       <SectionHeader label={t('wcGroupStage')} count={`${WC2026_GROUPS.length} ${t('wcGroups')}`} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
         {WC2026_GROUPS.map((g, i) => <GroupCard key={g.id} group={g} index={i} t={t} />)}
       </div>
     </section>
@@ -558,24 +559,32 @@ function GroupCard({ group, index, t }: { group: WCGroup; index: number; t: T })
 function TeamRow({ team, position, t }: { team: WCTeam; position: number; t: T }) {
   const isTbd = team.code === 'TBD';
   return (
-    <li className={cn(
-      'flex items-center gap-3 px-4 py-2.5 border-t border-border-subtle/40 first:border-t-0',
-      isTbd ? 'opacity-45' : '',
-    )}>
-      <span className="w-4 text-end text-text-muted font-mono text-[11px] tabular-nums shrink-0">
+    <li
+      className={cn(
+        'flex items-center gap-2.5 px-3.5 py-2.5 border-t border-border-subtle/40 first:border-t-0',
+        isTbd ? 'opacity-45' : '',
+      )}
+      title={team.name}
+    >
+      <span className="w-4 text-end text-text-muted/70 font-mono text-[11px] tabular-nums shrink-0">
         {position}
       </span>
-      <span aria-hidden className="text-lg leading-none shrink-0 w-6 text-center">
+      <span aria-hidden className="text-[17px] leading-none shrink-0 w-6 text-center">
         {team.flag}
       </span>
-      <span className={cn(
-        'flex-1 min-w-0 text-sm truncate',
-        isTbd ? 'text-text-muted italic' : 'text-white font-medium',
-      )}>
+      <span className="font-mono tabular-nums text-[10px] font-bold tracking-wider text-accent-green/90 bg-accent-green/8 border border-accent-green/20 rounded px-1.5 py-0.5 leading-none shrink-0">
+        {team.code}
+      </span>
+      <span
+        className={cn(
+          'flex-1 min-w-0 text-sm truncate',
+          isTbd ? 'text-text-muted italic' : 'text-white font-medium',
+        )}
+      >
         {team.name}
       </span>
       {team.host && (
-        <span className="text-[9px] font-bold uppercase tracking-wider text-accent-green bg-accent-green/10 border border-accent-green/25 rounded-full px-1.5 py-0.5 leading-none">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-accent-green bg-accent-green/10 border border-accent-green/25 rounded-full px-1.5 py-0.5 leading-none shrink-0">
           {t('wcHost')}
         </span>
       )}
@@ -751,11 +760,14 @@ function GroupFixtureCard({ match, dayDateFmt, delay }: {
 
 function TeamLine({ team }: { team: WCTeam }) {
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex items-center gap-2" title={team.name}>
       <span aria-hidden className="text-base leading-none shrink-0 w-6 text-center">
         {team.flag}
       </span>
-      <span className="flex-1 min-w-0 font-medium text-sm text-white truncate">
+      <span className="font-mono tabular-nums text-[10px] font-bold tracking-wider text-accent-green/90 shrink-0">
+        {team.code}
+      </span>
+      <span className="flex-1 min-w-0 font-medium text-sm text-white line-clamp-1 break-words">
         {team.name}
       </span>
       {team.host && (
@@ -773,219 +785,457 @@ function TeamLine({ team }: { team: WCTeam }) {
 
 function KnockoutsTab({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFormat }) {
   return (
-    <div className="space-y-5">
-      <KnockoutRound
-        t={t} shortDateFmt={shortDateFmt}
-        label={t('wcR32')}
-        matches={WC2026_R32}
-        tone="muted"
-        gridClass="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-        dateRange={`${shortDateFmt.format(new Date('2026-06-28'))} – ${shortDateFmt.format(new Date('2026-07-03'))}`}
-      />
-      <KnockoutRound
-        t={t} shortDateFmt={shortDateFmt}
-        label={t('wcR16')}
-        matches={WC2026_R16}
-        tone="accent-soft"
-        gridClass="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-        dateRange={`${shortDateFmt.format(new Date('2026-07-04'))} – ${shortDateFmt.format(new Date('2026-07-07'))}`}
-      />
-      <KnockoutRound
-        t={t} shortDateFmt={shortDateFmt}
-        label={t('wcQF')}
-        matches={WC2026_QF}
-        tone="accent"
-        gridClass="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-        dateRange={`${shortDateFmt.format(new Date('2026-07-09'))} – ${shortDateFmt.format(new Date('2026-07-11'))}`}
-      />
-      <KnockoutRound
-        t={t} shortDateFmt={shortDateFmt}
-        label={t('wcSF')}
-        matches={WC2026_SF}
-        tone="accent"
-        gridClass="grid-cols-1 sm:grid-cols-2"
-        dateRange={`${shortDateFmt.format(new Date('2026-07-14'))} – ${shortDateFmt.format(new Date('2026-07-15'))}`}
-      />
-      <KnockoutRound
-        t={t} shortDateFmt={shortDateFmt}
-        label={t('wcThirdPlace')}
-        matches={[WC2026_THIRD]}
-        tone="accent-soft"
-        gridClass="grid-cols-1"
-        dateRange={shortDateFmt.format(new Date('2026-07-18'))}
-      />
-      <FinalRound t={t} match={WC2026_FINAL} shortDateFmt={shortDateFmt} />
+    <section className="space-y-4">
+      <BracketHeader t={t} />
+      <AutoUpdateBadge t={t} />
+
+      {/* Desktop: full bracket tree */}
+      <div className="hidden lg:block">
+        <BracketTreeDesktop t={t} shortDateFmt={shortDateFmt} />
+      </div>
+
+      {/* Tablet/Mobile: stacked rounds with flow hints */}
+      <div className="lg:hidden">
+        <BracketStackedMobile t={t} shortDateFmt={shortDateFmt} />
+      </div>
+    </section>
+  );
+}
+
+function BracketHeader({ t }: { t: T }) {
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <h3 className="font-barlow text-base md:text-lg font-extrabold uppercase tracking-[0.22em] text-white/95">
+          {t('wcBracketTitle')}
+        </h3>
+        <p className="text-text-muted text-[11px] md:text-xs mt-0.5">{t('wcBracketSub')}</p>
+      </div>
+      <div className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-muted">
+        <span>{t('wcR32')}</span>
+        <ChevronRight size={12} className="opacity-50 rtl:rotate-180" />
+        <span>{t('wcR16')}</span>
+        <ChevronRight size={12} className="opacity-50 rtl:rotate-180" />
+        <span>{t('wcQF')}</span>
+        <ChevronRight size={12} className="opacity-50 rtl:rotate-180" />
+        <span>{t('wcSF')}</span>
+        <ChevronRight size={12} className="opacity-50 rtl:rotate-180" />
+        <span className="text-accent-green">{t('wcFinal')}</span>
+      </div>
     </div>
   );
 }
 
-function KnockoutRound({ t, label, matches, tone, gridClass, dateRange, shortDateFmt }: {
-  t: T;
-  label: string;
-  matches: WCKnockoutMatch[];
-  tone: Tone;
-  gridClass: string;
-  dateRange: string;
-  shortDateFmt: Intl.DateTimeFormat;
-}) {
+function AutoUpdateBadge({ t }: { t: T }) {
   return (
-    <section className="space-y-2.5">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className={cn(
-          'font-barlow text-sm md:text-base font-bold uppercase tracking-[0.22em]',
-          tone === 'gold' ? 'text-accent-green' : 'text-white/90',
-        )}>
-          {label}
-        </h3>
-        <span className="text-[10px] text-text-muted uppercase tracking-wider tabular-nums">
-          {dateRange} · {matches.length} {t('wcStatMatches').toLowerCase()}
-        </span>
-      </div>
-      <div className={cn('grid gap-2.5', gridClass)}>
-        {matches.map((m, i) => (
-          <KnockoutMatchCard key={m.id} t={t} match={m} tone={tone} shortDateFmt={shortDateFmt} delay={i * 0.03} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function FinalRound({ t, match, shortDateFmt }: {
-  t: T; match: WCKnockoutMatch; shortDateFmt: Intl.DateTimeFormat;
-}) {
-  const stadium = match.venueId ? WC2026_STADIUM_BY_ID[match.venueId] : undefined;
-  return (
-    <section className="space-y-2.5">
-      <div className="flex items-center justify-between">
-        <h3 className="font-barlow text-sm md:text-base font-bold uppercase tracking-[0.22em] text-accent-green">
-          {t('wcFinal')}
-        </h3>
-        <span className="text-[10px] text-text-muted uppercase tracking-wider tabular-nums">
-          {shortDateFmt.format(new Date(match.date))}
-        </span>
-      </div>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.4, ease: 'easeOut' as const }}
-        className="relative rounded-3xl border border-accent-green/45 overflow-hidden"
-        style={{
-          background:
-            'linear-gradient(135deg, rgba(189,232,245,0.14) 0%, rgba(73,136,196,0.10) 55%, rgba(15,40,84,0.30) 100%)',
-          boxShadow: '0 0 56px rgba(189,232,245,0.24)',
-        }}
-      >
-        <motion.div
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' as const }}
+      className="rounded-2xl border border-accent-green/25 bg-accent-green/5 px-4 py-3 flex items-center gap-3"
+    >
+      <span className="shrink-0 relative inline-flex w-8 h-8 rounded-full bg-accent-green/10 border border-accent-green/30 items-center justify-center">
+        <Radio size={14} className="text-accent-green" strokeWidth={2} />
+        <motion.span
           aria-hidden
-          className="absolute -top-16 -end-16 w-56 h-56 rounded-full bg-accent-green/15 blur-3xl"
-          animate={{ scale: [1, 1.15, 1], opacity: [0.45, 0.85, 0.45] }}
-          transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' as const }}
+          className="absolute inset-0 rounded-full border border-accent-green/40"
+          animate={{ scale: [1, 1.35], opacity: [0.8, 0] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' as const }}
         />
-        <div className="relative px-5 py-6 md:px-8 md:py-8 flex flex-col md:flex-row items-center gap-5">
-          <div className="shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-accent-green/15 border border-accent-green/40 flex items-center justify-center">
-            <Trophy className="text-accent-green w-9 h-9 md:w-10 md:h-10" strokeWidth={1.75} />
-          </div>
-          <div className="flex-1 min-w-0 text-center md:text-start">
-            <div className="text-accent-green text-[10px] font-bold uppercase tracking-[0.28em]">
-              {t('wcMatchNumber')} {match.label} · {t('wcFinal')}
-            </div>
-            <div className="flex items-center justify-center md:justify-start gap-3 md:gap-5 mt-2">
-              <div className="font-barlow font-extrabold text-lg md:text-2xl uppercase text-white tracking-wide truncate">
-                {match.home}
-              </div>
-              <div className="text-accent-green/70 text-[11px] font-bold uppercase tracking-[0.22em]">vs</div>
-              <div className="font-barlow font-extrabold text-lg md:text-2xl uppercase text-white tracking-wide truncate">
-                {match.away}
-              </div>
-            </div>
-            {stadium && (
-              <div className="flex items-center justify-center md:justify-start gap-2 text-text-muted text-[11px] md:text-xs mt-2.5">
-                <MapPin size={12} />
-                <span>{stadium.name}</span>
-                <span className="opacity-40">·</span>
-                <span>{stadium.city}</span>
-                <span aria-hidden>{stadium.countryFlag}</span>
-              </div>
-            )}
-          </div>
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="font-barlow font-bold text-[11px] uppercase tracking-[0.2em] text-accent-green leading-none">
+          {t('wcLiveAuto')}
         </div>
-      </motion.div>
-    </section>
+        <div className="text-[11px] md:text-xs text-text-muted mt-1 leading-snug">
+          {t('wcLiveAutoDesc')}
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
-function KnockoutMatchCard({ t, match, tone, shortDateFmt, delay }: {
-  t: T;
+/* ──────── Desktop bracket tree ──────── */
+// Strategy: 5-column CSS grid over 32 rows. R32 cards span 2 rows, R16 span 4,
+// QF 8, SF 16, Final 32 — so each card is vertically centered at the midpoint
+// of its two children. Connectors are drawn with ::before/::after pseudo
+// elements on the grid cells; the vertical fork span is exactly the card's
+// own height (100%) because sibling centers are one card-height apart.
+
+const BRACKET_CSS = `
+.wc-bracket {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr);
+  grid-template-rows: repeat(32, 1.95rem);
+  gap: 0 1.5rem;
+  position: relative;
+}
+.wc-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.wc-cell[data-connect-in='true']::before {
+  content: '';
+  position: absolute;
+  inset-inline-end: 100%;
+  top: 50%;
+  width: 0.75rem;
+  height: 1px;
+  background: rgba(189,232,245,0.28);
+  pointer-events: none;
+}
+.wc-cell[data-connect-out='top']::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 100%;
+  top: 50%;
+  width: 0.75rem;
+  height: 100%;
+  border-top: 1px solid rgba(189,232,245,0.28);
+  border-inline-end: 1px solid rgba(189,232,245,0.28);
+  pointer-events: none;
+}
+.wc-cell[data-connect-out='bot']::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 100%;
+  bottom: 50%;
+  width: 0.75rem;
+  height: 100%;
+  border-bottom: 1px solid rgba(189,232,245,0.28);
+  border-inline-end: 1px solid rgba(189,232,245,0.28);
+  pointer-events: none;
+}
+/* RTL: mirror the fork horizontally by swapping start/end borders. Logical
+   start/end already handles the horizontal inset; we just need the vertical
+   line on the opposite side in RTL. */
+[dir='rtl'] .wc-cell[data-connect-out='top']::after {
+  border-inline-end: none;
+  border-inline-start: 1px solid rgba(189,232,245,0.28);
+}
+[dir='rtl'] .wc-cell[data-connect-out='bot']::after {
+  border-inline-end: none;
+  border-inline-start: 1px solid rgba(189,232,245,0.28);
+}
+`;
+
+function BracketTreeDesktop({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFormat }) {
+  return (
+    <div className="rounded-3xl border border-border-subtle bg-bg-card/30 backdrop-blur-sm p-6 xl:p-8 relative overflow-hidden">
+      <style>{BRACKET_CSS}</style>
+
+      {/* Ambient glow behind the final column */}
+      <motion.div
+        aria-hidden
+        className="absolute top-1/2 end-6 -translate-y-1/2 w-56 h-56 rounded-full bg-accent-green/10 blur-3xl pointer-events-none"
+        animate={{ opacity: [0.35, 0.65, 0.35], scale: [1, 1.1, 1] }}
+        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' as const }}
+      />
+
+      <div className="relative wc-bracket">
+        {/* R32 — col 1, each spans 2 rows */}
+        {WC2026_R32.map((m, i) => (
+          <div
+            key={m.id}
+            className="wc-cell"
+            data-connect-out={i % 2 === 0 ? 'top' : 'bot'}
+            style={{ gridColumn: 1, gridRow: `${i * 2 + 1} / span 2` }}
+          >
+            <BracketMatchCard match={m} round="r32" shortDateFmt={shortDateFmt} />
+          </div>
+        ))}
+
+        {/* R16 — col 2, each spans 4 rows */}
+        {WC2026_R16.map((m, i) => (
+          <div
+            key={m.id}
+            className="wc-cell"
+            data-connect-in="true"
+            data-connect-out={i % 2 === 0 ? 'top' : 'bot'}
+            style={{ gridColumn: 2, gridRow: `${i * 4 + 1} / span 4` }}
+          >
+            <BracketMatchCard match={m} round="r16" shortDateFmt={shortDateFmt} />
+          </div>
+        ))}
+
+        {/* QF — col 3, each spans 8 rows */}
+        {WC2026_QF.map((m, i) => (
+          <div
+            key={m.id}
+            className="wc-cell"
+            data-connect-in="true"
+            data-connect-out={i % 2 === 0 ? 'top' : 'bot'}
+            style={{ gridColumn: 3, gridRow: `${i * 8 + 1} / span 8` }}
+          >
+            <BracketMatchCard match={m} round="qf" shortDateFmt={shortDateFmt} />
+          </div>
+        ))}
+
+        {/* SF — col 4, each spans 16 rows */}
+        {WC2026_SF.map((m, i) => (
+          <div
+            key={m.id}
+            className="wc-cell"
+            data-connect-in="true"
+            data-connect-out={i === 0 ? 'top' : 'bot'}
+            style={{ gridColumn: 4, gridRow: `${i * 16 + 1} / span 16` }}
+          >
+            <BracketMatchCard match={m} round="sf" shortDateFmt={shortDateFmt} />
+          </div>
+        ))}
+
+        {/* Final — col 5, spans all 32 rows (centered via flex) */}
+        <div
+          className="wc-cell"
+          data-connect-in="true"
+          style={{ gridColumn: 5, gridRow: '1 / span 32' }}
+        >
+          <FinalApex t={t} match={WC2026_FINAL} shortDateFmt={shortDateFmt} />
+        </div>
+      </div>
+
+      {/* 3rd-place — tucked below the SF column so it reads as "the other final" */}
+      <div className="relative mt-6 pt-5 border-t border-border-subtle/40">
+        <div className="flex items-center gap-3 mb-2.5">
+          <span className="font-barlow text-[11px] md:text-xs font-bold uppercase tracking-[0.22em] text-white/80">
+            {t('wcThirdPlace')}
+          </span>
+          <span className="text-[10px] text-text-muted/70 tabular-nums">
+            {shortDateFmt.format(new Date(WC2026_THIRD.date))}
+          </span>
+          <span className="flex-1 h-px bg-border-subtle/30" />
+        </div>
+        <div className="max-w-md">
+          <BracketMatchCard match={WC2026_THIRD} round="third" shortDateFmt={shortDateFmt} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────── Bracket match card (compact, used in the tree) ──────── */
+
+function BracketMatchCard({ match, round, shortDateFmt }: {
   match: WCKnockoutMatch;
-  tone: Tone;
+  round: BracketRound;
   shortDateFmt: Intl.DateTimeFormat;
-  delay: number;
 }) {
   const stadium = match.venueId ? WC2026_STADIUM_BY_ID[match.venueId] : undefined;
+  const isFinal = round === 'final';
+  const isSF = round === 'sf';
+  const isThird = round === 'third';
 
-  const frame =
-    tone === 'gold'
-      ? 'border-accent-green/50 bg-gradient-to-br from-accent-green/15 to-accent-green/5'
-      : tone === 'accent'
-      ? 'border-accent-green/30 bg-accent-green/5'
-      : tone === 'accent-soft'
-      ? 'border-accent-green/20 bg-bg-card'
-      : 'border-border-subtle bg-bg-card';
+  const accent = isFinal ? 0.55 : isSF ? 0.4 : round === 'qf' ? 0.3 : 0.2;
+
+  if (isFinal) return null; // handled by FinalApex
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.97, y: 4 }}
-      whileInView={{ opacity: 1, scale: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{ delay, duration: 0.24, ease: 'easeOut' as const }}
-      whileHover={{ y: -2 }}
-      className={cn('rounded-xl border overflow-hidden', frame)}
-      style={tone === 'gold' ? { boxShadow: '0 0 36px rgba(189,232,245,0.22)' } : undefined}
+      initial={{ opacity: 0, x: -6 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.25, ease: 'easeOut' as const }}
+      whileHover={{ scale: 1.025 }}
+      className="w-full rounded-lg border bg-bg-card/80 backdrop-blur-sm overflow-hidden"
+      style={{
+        borderColor: `rgba(189,232,245,${accent})`,
+        boxShadow: isThird || isSF ? '0 0 22px rgba(73,136,196,0.16)' : undefined,
+      }}
     >
-      <div className="px-3 pt-2.5 pb-1 flex items-center justify-between gap-2">
-        <span className={cn(
-          'inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider tabular-nums rounded-full px-2 py-0.5 border leading-none',
-          tone === 'gold'
-            ? 'border-accent-green/45 bg-accent-green/15 text-accent-green'
-            : 'border-border-subtle bg-bg-card/60 text-text-muted',
-        )}>
-          <Calendar size={10} />
+      <div className="flex items-center justify-between gap-1.5 px-2 pt-1.5 pb-0.5">
+        <span
+          className="text-[9px] font-mono font-bold tabular-nums text-accent-green/80 tracking-wider"
+          title={`Match ${match.label}`}
+        >
+          M{match.label}
+        </span>
+        <span className="text-[9px] text-text-muted/70 tabular-nums">
           {shortDateFmt.format(new Date(match.date))}
         </span>
-        <span className="text-[9px] font-mono tabular-nums text-text-muted/70">
-          {t('wcMatchNumber')} {match.label}
-        </span>
       </div>
-      <div className="px-3 py-2">
-        <BracketSlot label={match.home} tone={tone} />
-        <div className="flex items-center gap-2 my-1.5">
-          <span className="flex-1 h-px bg-border-subtle/60" />
-          <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-text-muted/80">vs</span>
-          <span className="flex-1 h-px bg-border-subtle/60" />
-        </div>
-        <BracketSlot label={match.away} tone={tone} />
+      <div className="px-2 pb-1.5 pt-0.5">
+        <BracketSlot label={match.home} />
+        <div className="h-px bg-border-subtle/30 my-1" />
+        <BracketSlot label={match.away} />
       </div>
       {stadium && (
-        <div className="px-3 py-1.5 border-t border-border-subtle/40 flex items-center gap-1.5">
-          <MapPin size={10} className="text-text-muted/70 shrink-0" />
-          <span className="text-[10px] text-text-muted truncate flex-1 min-w-0">{stadium.city}</span>
-          <span aria-hidden className="text-[10px] leading-none">{stadium.countryFlag}</span>
+        <div className="px-2 pb-1 flex items-center gap-1 border-t border-border-subtle/25">
+          <MapPin size={9} className="text-text-muted/60 shrink-0" />
+          <span className="text-[9.5px] text-text-muted/80 truncate flex-1 min-w-0">
+            {stadium.city}
+          </span>
+          <span aria-hidden className="text-[9px] leading-none">{stadium.countryFlag}</span>
         </div>
       )}
     </motion.div>
   );
 }
 
-function BracketSlot({ label, tone }: { label: string; tone: Tone }) {
-  const textClass =
-    tone === 'gold' ? 'text-accent-green'
-    : tone === 'accent' ? 'text-white'
-    : tone === 'accent-soft' ? 'text-white/95'
-    : 'text-white/85';
+function BracketSlot({ label }: { label: string }) {
+  const slot = parseSlotLabel(label);
   return (
-    <div className={cn('font-barlow font-bold text-sm uppercase tracking-wide truncate leading-tight', textClass)}>
-      {label}
+    <div className="flex items-center gap-1.5 min-w-0">
+      <span className="w-1.5 h-1.5 rounded-full bg-accent-green/40 shrink-0" aria-hidden />
+      <span className="font-barlow font-bold text-[11.5px] uppercase tracking-wide text-white/90 truncate leading-tight">
+        {slot.primary}
+      </span>
+      {slot.hint && (
+        <span className="text-[9px] text-text-muted/70 font-mono truncate">
+          {slot.hint}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Parses FIFA slot labels into a primary label + helper hint.
+ *  "1A"            → { primary: "1A",       hint: null }
+ *  "W 73"          → { primary: "W 73",     hint: null }
+ *  "3[D/E/F/J]"    → { primary: "3rd",      hint: "D/E/F/J" } — keeps the card readable
+ */
+function parseSlotLabel(label: string): { primary: string; hint: string | null } {
+  const m = label.match(/^3\[([A-Z/]+)\]$/);
+  if (m) return { primary: '3rd', hint: m[1] };
+  return { primary: label, hint: null };
+}
+
+/* ──────── Final apex card (the climax) ──────── */
+
+function FinalApex({ t, match, shortDateFmt }: {
+  t: T; match: WCKnockoutMatch; shortDateFmt: Intl.DateTimeFormat;
+}) {
+  const stadium = match.venueId ? WC2026_STADIUM_BY_ID[match.venueId] : undefined;
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.45, ease: 'easeOut' as const }}
+      className="relative w-full rounded-2xl border border-accent-green/50 overflow-hidden"
+      style={{
+        background:
+          'linear-gradient(135deg, rgba(189,232,245,0.14) 0%, rgba(73,136,196,0.10) 55%, rgba(15,40,84,0.30) 100%)',
+        boxShadow: '0 0 48px rgba(189,232,245,0.22)',
+      }}
+    >
+      <motion.div
+        aria-hidden
+        className="absolute -top-10 -end-10 w-36 h-36 rounded-full bg-accent-green/25 blur-2xl pointer-events-none"
+        animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.9, 0.5] }}
+        transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' as const }}
+      />
+      <div className="relative flex items-center gap-2 px-3 pt-2.5 pb-1.5">
+        <motion.div
+          className="shrink-0 w-8 h-8 rounded-lg bg-accent-green/15 border border-accent-green/40 flex items-center justify-center"
+          animate={{ y: [0, -2, 0] }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' as const }}
+        >
+          <Trophy size={16} className="text-accent-green" strokeWidth={1.75} />
+        </motion.div>
+        <div className="flex-1 min-w-0">
+          <div className="text-accent-green text-[9.5px] font-bold uppercase tracking-[0.22em] leading-none">
+            {t('wcFinal')}
+          </div>
+          <div className="text-[9.5px] text-text-muted/90 tabular-nums mt-0.5">
+            M{match.label} · {shortDateFmt.format(new Date(match.date))}
+          </div>
+        </div>
+        <Sparkles size={12} className="text-accent-green/70 shrink-0" />
+      </div>
+      <div className="relative px-3 pb-2 pt-1 space-y-1">
+        <BracketSlot label={match.home} />
+        <div className="flex items-center gap-2">
+          <span className="flex-1 h-px bg-accent-green/25" />
+          <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-accent-green/70">vs</span>
+          <span className="flex-1 h-px bg-accent-green/25" />
+        </div>
+        <BracketSlot label={match.away} />
+      </div>
+      {stadium && (
+        <div className="relative px-3 py-1.5 border-t border-accent-green/20 flex items-center gap-1.5">
+          <MapPin size={10} className="text-accent-green/70 shrink-0" />
+          <span className="text-[10px] text-white/85 truncate flex-1 min-w-0" title={stadium.name}>
+            {stadium.name}
+          </span>
+          <span aria-hidden className="text-[10px] leading-none">{stadium.countryFlag}</span>
+        </div>
+      )}
+      <div className="relative px-3 pb-2 pt-0.5 flex items-center gap-1.5">
+        <div className="flex-1 h-px bg-accent-green/20" />
+        <span className="text-[8.5px] font-bold uppercase tracking-[0.28em] text-accent-green/80">
+          {t('wcChampion')}
+        </span>
+        <div className="flex-1 h-px bg-accent-green/20" />
+      </div>
+    </motion.div>
+  );
+}
+
+/* ──────── Mobile stacked view ──────── */
+
+function BracketStackedMobile({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFormat }) {
+  const rounds: { label: string; matches: WCKnockoutMatch[]; round: BracketRound; cols: string }[] = [
+    { label: t('wcR32'), matches: WC2026_R32, round: 'r32', cols: 'grid-cols-1 sm:grid-cols-2' },
+    { label: t('wcR16'), matches: WC2026_R16, round: 'r16', cols: 'grid-cols-1 sm:grid-cols-2' },
+    { label: t('wcQF'),  matches: WC2026_QF,  round: 'qf',  cols: 'grid-cols-1 sm:grid-cols-2' },
+    { label: t('wcSF'),  matches: WC2026_SF,  round: 'sf',  cols: 'grid-cols-1 sm:grid-cols-2' },
+  ];
+
+  return (
+    <div className="space-y-5">
+      {rounds.map((r, idx) => (
+        <div key={r.label}>
+          <div className="flex items-center gap-3 mb-2.5">
+            <span
+              aria-hidden
+              className="w-1.5 h-1.5 rounded-full bg-accent-green/70 shrink-0"
+            />
+            <span className="font-barlow text-[12px] font-bold uppercase tracking-[0.22em] text-white/90">
+              {r.label}
+            </span>
+            <span className="text-[10px] text-text-muted/70 tabular-nums">
+              · {r.matches.length} {t('wcStatMatches').toLowerCase()}
+            </span>
+            <span className="flex-1 h-px bg-border-subtle/30" />
+          </div>
+          <div className={cn('grid gap-2', r.cols)}>
+            {r.matches.map(m => (
+              <BracketMatchCard key={m.id} match={m} round={r.round} shortDateFmt={shortDateFmt} />
+            ))}
+          </div>
+          {idx < rounds.length - 1 && (
+            <div aria-hidden className="flex justify-center mt-3">
+              <motion.span
+                className="w-px bg-gradient-to-b from-accent-green/40 to-transparent"
+                style={{ height: 18 }}
+                animate={{ opacity: [0.4, 0.9, 0.4] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' as const }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Final — full-width hero */}
+      <div className="pt-2">
+        <FinalApex t={t} match={WC2026_FINAL} shortDateFmt={shortDateFmt} />
+      </div>
+
+      {/* 3rd place — muted */}
+      <div>
+        <div className="flex items-center gap-3 mb-2.5">
+          <span className="font-barlow text-[12px] font-bold uppercase tracking-[0.22em] text-white/80">
+            {t('wcThirdPlace')}
+          </span>
+          <span className="text-[10px] text-text-muted/70 tabular-nums">
+            {shortDateFmt.format(new Date(WC2026_THIRD.date))}
+          </span>
+          <span className="flex-1 h-px bg-border-subtle/30" />
+        </div>
+        <BracketMatchCard match={WC2026_THIRD} round="third" shortDateFmt={shortDateFmt} />
+      </div>
     </div>
   );
 }
