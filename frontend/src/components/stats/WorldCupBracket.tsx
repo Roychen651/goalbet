@@ -903,13 +903,13 @@ function BracketHero({ t }: { t: T }) {
       {/* Bottom strip: round ladder + live badge */}
       <div className="relative px-5 md:px-8 pb-4 pt-0 flex items-center justify-between gap-3 flex-wrap border-t border-white/10 mt-1">
         <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-text-muted/80 pt-3">
-          <RoundPill label={t('wcR32')} tone="cool" />
+          <RoundPill label={t('wcR32Short')} tone="cool" />
           <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
-          <RoundPill label={t('wcR16')} tone="cool" />
+          <RoundPill label={t('wcR16Short')} tone="cool" />
           <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
-          <RoundPill label={t('wcQF')} tone="warm" />
+          <RoundPill label={t('wcQFShort')} tone="warm" />
           <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
-          <RoundPill label={t('wcSF')} tone="warmer" />
+          <RoundPill label={t('wcSFShort')} tone="warmer" />
           <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
           <RoundPill label={t('wcFinal')} tone="hot" />
         </div>
@@ -1112,11 +1112,11 @@ const BRACKET_SYM_CSS = `
 .wc-sym {
   display: grid;
   grid-template-columns:
-    minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 0.95fr)
-    minmax(0, 1.25fr)
-    minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 0.95fr);
-  grid-template-rows: repeat(16, 3rem);
-  column-gap: 1.25rem;
+    minmax(5rem, 1fr) minmax(5rem, 1fr) minmax(5.25rem, 1fr) minmax(5.5rem, 1fr)
+    minmax(10rem, 1.15fr)
+    minmax(5.5rem, 1fr) minmax(5.25rem, 1fr) minmax(5rem, 1fr) minmax(5rem, 1fr);
+  grid-template-rows: repeat(16, 2.75rem);
+  column-gap: 1rem;
   position: relative;
 }
 .wc-sym-cell {
@@ -1132,7 +1132,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 0.875rem;
+  width: 0.7rem;
   height: 1px;
   background: rgba(189,232,245,0.30);
   pointer-events: none;
@@ -1142,7 +1142,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 0.875rem;
+  width: 0.7rem;
   height: 100%;
   border-top: 1px solid rgba(189,232,245,0.30);
   border-inline-end: 1px solid rgba(189,232,245,0.30);
@@ -1153,7 +1153,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   bottom: 50%;
-  width: 0.875rem;
+  width: 0.7rem;
   height: 100%;
   border-bottom: 1px solid rgba(189,232,245,0.30);
   border-inline-end: 1px solid rgba(189,232,245,0.30);
@@ -1165,7 +1165,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 1.25rem;
+  width: 1rem;
   height: 1px;
   background: rgba(255,201,74,0.55);
   pointer-events: none;
@@ -1177,7 +1177,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 0.875rem;
+  width: 0.7rem;
   height: 1px;
   background: rgba(189,232,245,0.30);
   pointer-events: none;
@@ -1187,7 +1187,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 0.875rem;
+  width: 0.7rem;
   height: 100%;
   border-top: 1px solid rgba(189,232,245,0.30);
   border-inline-start: 1px solid rgba(189,232,245,0.30);
@@ -1198,7 +1198,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   bottom: 50%;
-  width: 0.875rem;
+  width: 0.7rem;
   height: 100%;
   border-bottom: 1px solid rgba(189,232,245,0.30);
   border-inline-start: 1px solid rgba(189,232,245,0.30);
@@ -1209,7 +1209,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 1.25rem;
+  width: 1rem;
   height: 1px;
   background: rgba(255,201,74,0.55);
   pointer-events: none;
@@ -1241,7 +1241,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
   const sfRight  = WC2026_SF[1];
 
   return (
-    <div className="relative rounded-3xl border border-[#FFC94A]/25 bg-gradient-to-b from-bg-card/50 via-bg-card/20 to-bg-card/40 backdrop-blur-sm overflow-hidden p-5 xl:p-7 w-full">
+    <div className="relative rounded-3xl border border-[#FFC94A]/25 bg-gradient-to-b from-bg-card/50 via-bg-card/20 to-bg-card/40 backdrop-blur-sm overflow-hidden p-3 xl:p-5 w-full">
       <style>{BRACKET_SYM_CSS}</style>
 
       {/* Ambient backdrop: gold halo at center, cool blue at edges */}
@@ -1340,7 +1340,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
         <div
           className="wc-sym-cell"
           data-tone="hot"
-          style={{ gridColumn: 5, gridRow: '1 / span 16' }}
+          style={{ gridColumn: 5, gridRow: '4 / span 10' }}
         >
           <FinalApex t={t} match={WC2026_FINAL} shortDateFmt={shortDateFmt} />
         </div>
@@ -1422,23 +1422,23 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
 // Column headers for the symmetric bracket — mirrored, highlights FINAL at center
 function SymColumnHeaders({ t }: { t: T }) {
   const cols = [
-    { label: t('wcR32'), count: 8, tone: 'cool' as const },
-    { label: t('wcR16'), count: 4, tone: 'cool' as const },
-    { label: t('wcQF'),  count: 2, tone: 'warm' as const },
-    { label: t('wcSF'),  count: 1, tone: 'warmer' as const },
+    { label: t('wcR32Short'), count: 8, tone: 'cool' as const },
+    { label: t('wcR16Short'), count: 4, tone: 'cool' as const },
+    { label: t('wcQFShort'),  count: 2, tone: 'warm' as const },
+    { label: t('wcSFShort'),  count: 1, tone: 'warmer' as const },
     { label: t('wcFinal'), count: 1, tone: 'hot' as const, center: true },
-    { label: t('wcSF'),  count: 1, tone: 'warmer' as const },
-    { label: t('wcQF'),  count: 2, tone: 'warm' as const },
-    { label: t('wcR16'), count: 4, tone: 'cool' as const },
-    { label: t('wcR32'), count: 8, tone: 'cool' as const },
+    { label: t('wcSFShort'),  count: 1, tone: 'warmer' as const },
+    { label: t('wcQFShort'),  count: 2, tone: 'warm' as const },
+    { label: t('wcR16Short'), count: 4, tone: 'cool' as const },
+    { label: t('wcR32Short'), count: 8, tone: 'cool' as const },
   ];
   return (
     <div
       className="relative grid"
       style={{
         gridTemplateColumns:
-          'minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,1.25fr) minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,0.95fr)',
-        columnGap: '1.25rem',
+          'minmax(5rem,1fr) minmax(5rem,1fr) minmax(5.25rem,1fr) minmax(5.5rem,1fr) minmax(10rem,1.15fr) minmax(5.5rem,1fr) minmax(5.25rem,1fr) minmax(5rem,1fr) minmax(5rem,1fr)',
+        columnGap: '1rem',
       }}
     >
       {cols.map((c, i) => (
@@ -1561,39 +1561,36 @@ function BracketMatchCard({ match, round, shortDateFmt }: {
         boxShadow: tone.glow ?? undefined,
       }}
     >
-      {/* Header row: M-label + date + mini host flag on the end */}
-      <div className="flex items-center gap-1.5 px-2 py-1 border-b border-white/5">
+      {/* Header row: M-label + host flag (date moved out to save horizontal space) */}
+      <div className="flex items-center justify-between gap-1 px-1.5 py-0.5 border-b border-white/5">
         <span
           className={cn(
-            'text-[9.5px] font-mono font-extrabold tabular-nums tracking-wider shrink-0',
+            'text-[9.5px] font-mono font-extrabold tabular-nums tracking-tight shrink-0',
             tone.accentText,
           )}
-          title={`Match ${match.label}`}
+          title={`Match ${match.label} · ${shortDateFmt.format(new Date(match.date))}`}
         >
           M{match.label}
         </span>
-        <span className="text-[9px] text-text-muted/70 tabular-nums truncate flex-1">
-          {shortDateFmt.format(new Date(match.date))}
-        </span>
         {stadium && (
-          <span aria-hidden className="text-[10px] leading-none shrink-0" title={`${stadium.city} · ${stadium.name}`}>
+          <span aria-hidden className="text-[9px] leading-none shrink-0" title={`${stadium.city} · ${stadium.name}`}>
             {stadium.countryFlag}
           </span>
         )}
       </div>
 
       {/* Two slots — dense, one line each */}
-      <div className="px-2 py-1.5">
+      <div className="px-1.5 py-1">
         <BracketSlot label={match.home} tone={tone} />
-        <div className="h-px bg-white/5 my-1" />
+        <div className="h-px bg-white/5 my-0.5" />
         <BracketSlot label={match.away} tone={tone} />
       </div>
 
       {/* City pill — only on R16+ where we have vertical room */}
       {showCity && stadium && (
-        <div className="px-2 pb-1 pt-0.5 flex items-center gap-1 border-t border-white/5">
-          <MapPin size={9} className={cn('shrink-0', tone.accentText, 'opacity-70')} />
-          <span className="text-[9.5px] text-text-muted/85 truncate flex-1 min-w-0" title={stadium.name}>
+        <div className="px-1.5 pb-0.5 pt-0.5 flex items-center gap-1 border-t border-white/5">
+          <MapPin size={8} className={cn('shrink-0', tone.accentText, 'opacity-70')} />
+          <span className="text-[8.5px] text-text-muted/85 truncate flex-1 min-w-0" title={stadium.name}>
             {stadium.city}
           </span>
         </div>
@@ -1610,14 +1607,12 @@ function BracketSlot({ label, tone }: {
   return (
     <div className="flex items-center gap-1.5 min-w-0 py-0.5">
       <span className={cn('w-1 h-1 rounded-full shrink-0', tone.dot)} aria-hidden />
-      <span className="font-barlow font-bold text-[11.5px] uppercase tracking-wide text-white/95 truncate leading-tight">
+      <span
+        className="font-barlow font-bold text-[11px] uppercase tracking-tight text-white/95 leading-tight whitespace-nowrap"
+        title={slot.hint ? `${slot.primary} (${slot.hint})` : slot.primary}
+      >
         {slot.primary}
       </span>
-      {slot.hint && (
-        <span className="text-[9px] text-text-muted/65 font-mono truncate">
-          {slot.hint}
-        </span>
-      )}
     </div>
   );
 }
@@ -1677,39 +1672,49 @@ function FinalApex({ t, match, shortDateFmt }: {
         ))}
       </svg>
 
-      {/* Header: Trophy orb + FINAL label + date */}
-      <div className="relative flex items-center gap-3 px-4 pt-4 pb-2.5">
-        <motion.div
-          className="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center"
-          style={{
-            background: 'linear-gradient(135deg, rgba(255,201,74,0.28) 0%, rgba(240,178,58,0.14) 100%)',
-            border: '1px solid rgba(255,201,74,0.55)',
-            boxShadow: '0 0 20px rgba(255,201,74,0.35)',
-          }}
-          animate={{ y: [0, -2.5, 0], rotate: [0, -3, 3, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' as const }}
-        >
-          <Trophy size={22} className="text-[#FFC94A]" strokeWidth={1.85} />
-        </motion.div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[#FFC94A] text-[10px] font-extrabold uppercase tracking-[0.28em] leading-none">
-              {t('wcFinal')}
-            </span>
-            <Sparkles size={10} className="text-[#FFC94A]/80" />
-          </div>
-          <div className="text-[10.5px] text-white/80 tabular-nums mt-1">
-            {t('wcMatch')} {match.label} · {shortDateFmt.format(new Date(match.date))}
-          </div>
+      {/* Header: FINAL label + match meta */}
+      <div className="relative flex flex-col items-center gap-0.5 px-3 pt-3 pb-1.5">
+        <div className="inline-flex items-center gap-1.5">
+          <Sparkles size={9} className="text-[#FFC94A]/80" />
+          <span className="text-[#FFC94A] text-[10px] font-extrabold uppercase tracking-[0.22em] leading-none">
+            {t('wcFinal')}
+          </span>
+          <Sparkles size={9} className="text-[#FFC94A]/80" />
+        </div>
+        <div className="text-[9.5px] text-white/75 tabular-nums leading-none">
+          M{match.label} · {shortDateFmt.format(new Date(match.date))}
         </div>
       </div>
 
+      {/* Trophy orb — the centerpiece */}
+      <div className="relative flex justify-center py-1">
+        <motion.div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,201,74,0.32) 0%, rgba(240,178,58,0.14) 100%)',
+            border: '1px solid rgba(255,201,74,0.6)',
+            boxShadow: '0 0 28px rgba(255,201,74,0.45)',
+          }}
+          animate={{ y: [0, -3, 0], rotate: [0, -4, 4, 0] }}
+          transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' as const }}
+        >
+          <Trophy size={28} className="text-[#FFC94A]" strokeWidth={1.85} />
+        </motion.div>
+      </div>
+
+      {/* Champions 2026 banner */}
+      <div className="relative flex justify-center pt-1.5 pb-1">
+        <span className="font-bebas text-[15px] tracking-[0.15em] text-[#FFC94A] leading-none drop-shadow-[0_0_8px_rgba(255,201,74,0.5)]">
+          {t('wcChampion')} 2026
+        </span>
+      </div>
+
       {/* Matchup */}
-      <div className="relative px-4 py-2 space-y-1.5">
+      <div className="relative px-3 py-1.5 space-y-1">
         <BracketSlot label={match.home} tone={toneFinal} />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="flex-1 h-px bg-[#FFC94A]/30" />
-          <span className="text-[9px] font-extrabold uppercase tracking-[0.28em] text-[#FFC94A]/85">vs</span>
+          <span className="text-[8.5px] font-extrabold uppercase tracking-[0.2em] text-[#FFC94A]/85">vs</span>
           <span className="flex-1 h-px bg-[#FFC94A]/30" />
         </div>
         <BracketSlot label={match.away} tone={toneFinal} />
@@ -1717,29 +1722,20 @@ function FinalApex({ t, match, shortDateFmt }: {
 
       {/* Stadium — the headline: MetLife, NY/NJ */}
       {stadium && (
-        <div className="relative mx-3 mt-2 mb-2 rounded-xl border border-[#FFC94A]/30 bg-[#FFC94A]/5 px-3 py-2">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <MapPin size={10} className="text-[#FFC94A]/90 shrink-0" />
-            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#FFC94A]/90">
+        <div className="relative mx-2.5 mt-1.5 mb-2.5 rounded-xl border border-[#FFC94A]/30 bg-[#FFC94A]/5 px-2.5 py-1.5">
+          <div className="flex items-center gap-1 mb-0.5">
+            <MapPin size={9} className="text-[#FFC94A]/90 shrink-0" />
+            <span className="text-[8.5px] font-bold uppercase tracking-[0.15em] text-[#FFC94A]/90">
               {t('wcFinalVenue')}
             </span>
-            <span aria-hidden className="ms-auto text-[11px] leading-none">{stadium.countryFlag}</span>
+            <span aria-hidden className="ms-auto text-[10px] leading-none">{stadium.countryFlag}</span>
           </div>
-          <div className="font-barlow font-extrabold text-[13px] uppercase tracking-wide text-white leading-tight truncate" title={stadium.name}>
+          <div className="font-barlow font-extrabold text-[12px] uppercase tracking-wide text-white leading-tight truncate" title={stadium.name}>
             {stadium.name}
           </div>
-          <div className="text-[10px] text-white/60 truncate">{stadium.city}</div>
+          <div className="text-[9.5px] text-white/60 truncate">{stadium.city}</div>
         </div>
       )}
-
-      {/* Champion ribbon */}
-      <div className="relative px-4 pb-3 pt-1 flex items-center gap-2">
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#FFC94A]/50 to-transparent" />
-        <span className="text-[9px] font-extrabold uppercase tracking-[0.32em] text-[#FFC94A]">
-          {t('wcChampion')}
-        </span>
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#FFC94A]/50 to-transparent" />
-      </div>
     </motion.div>
   );
 }
