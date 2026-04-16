@@ -376,6 +376,11 @@ goalbet/
 │       │   │   ├── MatchTimeline.tsx      # ESPN summary events (returns null when no data)
 │       │   │   ├── TacticalPitch.tsx      # Glass tactical formation view for Starting XI; horizontal pitch with percentage-based positioning
 │       │   │   └── PredictionForm.tsx     # 5-tier prediction input; corners hidden for league 4396
+│       │   ├── stats/
+│       │   │   ├── LeagueDropdown.tsx     # Custom animated dropdown; dual dark/light ESPN league logos; data-lenis-prevent so inner wheel-scroll works inside Lenis; layoutId-backed active bar
+│       │   │   ├── LeagueLeaders.tsx      # Top scorers / assists tables sourced from ESPN leaders feed
+│       │   │   ├── StandingsTable.tsx     # League standings table (rank, team, P/W/D/L, GF/GA/GD, pts)
+│       │   │   └── WorldCupBracket.tsx    # Custom "Route to the Trophy" view for World Cup (league 4480); hero countdown, phase timeline, groups, 5-column knockout bracket, host-stadium grid. Pure Framer Motion
 │       │   └── ui/
 │       │       ├── Avatar.tsx             # Expects emoji:🏆 prefix
 │       │       ├── CoinGuide.tsx          # Bottom sheet — swipe-to-close enabled
@@ -401,12 +406,15 @@ goalbet/
 │       ├── hooks/
 │       │   ├── useAuth.ts                 # Legacy Google OAuth (kept for backward compat)
 │       │   ├── useAuthV2.ts               # Auth-v2 state machine (8 views)
+│       │   ├── useGroupEvents.ts          # Locker Room activity feed subscriber
 │       │   ├── useGroupMatchPredictions.ts
 │       │   ├── useLeaderboard.ts
+│       │   ├── useLeagueStats.ts          # Fetches ESPN standings + leaders for Stats Hub; pass null to skip (used for custom-view leagues like World Cup)
 │       │   ├── useLiveClock.ts            # Ticking clock for live matches
 │       │   ├── useMatches.ts              # Fetches + Realtime + goalbet:synced listener
 │       │   ├── useMatchSync.ts            # Manual sync ONLY (Settings button) — 60s timeout
 │       │   ├── useNewPointsAlert.ts       # Toast on newly earned points since last visit
+│       │   ├── useNotifications.ts        # Persistent notifications feed subscriber
 │       │   ├── usePredictions.ts
 │       │   └── useRTLDirection.ts         # Sets document.dir from active language
 │       ├── lib/
@@ -415,16 +423,19 @@ goalbet/
 │       │   ├── featureFlags.ts            # Feature flag registry (currently no active flags)
 │       │   ├── i18n.ts                    # EN + HE translations, TranslationKey type
 │       │   ├── supabase.ts                # Supabase client (anon key) + all TypeScript table types
-│       │   └── utils.ts                   # calcBreakdown() (client-side scoring mirror), cn()
+│       │   ├── utils.ts                   # calcBreakdown() (client-side scoring mirror), cn()
+│       │   └── worldCup2026.ts            # Static FIFA WC 2026 data: 12 groups, R32/R16/QF/SF/3rd/Final with dates + FIFA match numbers + venueId, 16 host stadiums, tournament phases. Consumed by WorldCupBracket
 │       ├── pages/
 │       │   ├── admin/
 │       │   │   └── AdminDashboardPage.tsx # Bento grid KPIs + system health actions
 │       │   ├── AuthCallbackPage.tsx       # Handles Supabase OAuth redirect
 │       │   ├── HomePage.tsx               # Match feed — All / Upcoming / Live / Results tabs
 │       │   ├── LeaderboardPage.tsx        # Group standings with H2H modal
+│       │   ├── LockerRoomPage.tsx         # Group activity feed (WON_COINS, predictions, etc.)
 │       │   ├── LoginPage.tsx              # Thin wrapper — redirect if logged in, render AuthContainer
 │       │   ├── ProfilePage.tsx            # Stats, prediction history, sign-out button
-│       │   └── SettingsPage.tsx           # Group mgmt, leagues, admin tools, Account section
+│       │   ├── SettingsPage.tsx           # Group mgmt, leagues, admin tools, Account section
+│       │   └── StatsPage.tsx              # Stats Hub — LeagueDropdown + StandingsTable + LeagueLeaders for ESPN-backed leagues; WorldCupBracket for custom-view tournaments (CUSTOM_VIEW_LEAGUES set, currently World Cup 4480)
 │       └── stores/
 │           ├── authStore.ts               # user, profile, session; signInWithGoogle, signOut
 │           ├── coinsStore.ts              # coins, lastDailyBonus; synced from DB
@@ -477,6 +488,8 @@ goalbet/
 /auth/callback   → AuthCallbackPage   (public — Supabase Google OAuth redirect)
 /                → HomePage           (protected via AuthGuard → AppShell)
 /leaderboard     → LeaderboardPage    (protected via AuthGuard → AppShell)
+/locker-room     → LockerRoomPage     (protected via AuthGuard → AppShell)
+/stats           → StatsPage          (protected via AuthGuard → AppShell)
 /profile         → ProfilePage        (protected via AuthGuard → AppShell)
 /settings        → SettingsPage       (protected via AuthGuard → AppShell)
 /admin           → AdminDashboardPage (protected via AdminProtectedRoute → AdminLayout)
@@ -896,10 +909,10 @@ Must be kept in sync between **both** files:
 | UEFA Nations League | 4635 | `uefa.nations` |
 | World Cup Qualifiers 2026 | 5000 | `uefa.worldq` |
 
-### Leagues with NO ESPN coverage (silently skipped)
+### Leagues with NO ESPN coverage
 
-- **World Cup** (4480) — only relevant during tournament years
-- **Euro Championship** (4467) — only relevant every 4 years
+- **World Cup** (4480) — no ESPN standings/leaders feed, but surfaces in the Stats Hub through a **custom view**: `StatsPage.tsx` keeps a `CUSTOM_VIEW_LEAGUES` set (`{ 4480 }`) that bypasses the ESPN-slug filter on `FOOTBALL_LEAGUES`, and renders `<WorldCupBracket />` instead of `<StandingsTable>` + `<LeagueLeaders>`. `useLeagueStats` is passed `null` when `isCustomView` is true so the hook doesn't fire. Tournament data is static in `lib/worldCup2026.ts` (groups, knockout schedule with FIFA match numbers 73–104, 16 host stadia, phases). Add future tournaments without an ESPN feed by dropping their league id into `CUSTOM_VIEW_LEAGUES` and shipping a matching component.
+- **Euro Championship** (4467) — silently skipped (no custom view yet; only relevant every 4 years).
 
 ### Removed leagues
 
@@ -1366,6 +1379,7 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **`t()` only accepts `TranslationKey`.** Passing a plain `string` is a TypeScript error.
 - **Use `ms-` / `me-` for margins, never `ml-` / `mr-`.** RTL layout requires logical CSS properties.
 - **Bottom-sheet modals must include `onPointerDown={e => e.stopPropagation()}` on scroll containers.** Without this, Framer Motion drag fires instead of scroll on touch devices.
+- **Scrollable popovers / dropdowns / horizontal rails must carry `data-lenis-prevent` + `overscroll-contain`.** The app initializes Lenis with `smoothWheel: true` in `App.tsx`, which intercepts wheel events at the window level — without `data-lenis-prevent` on the inner scroller, the mouse wheel does nothing while the cursor is over the popover (user has to drag the scrollbar). Applies to `LeagueDropdown` list, `PhaseTimeline` rail, knockout bracket scroller in `WorldCupBracket`, and any future scrollable overlay.
 - **All `<img>` tags must have numeric `width` and `height` attributes.** Omitting them causes CLS on slow connections — even when Tailwind `w-` / `h-` classes are present.
 - **`ErrorBoundary` wraps `<Outlet />` in `AppShell`.** Do not remove it. It catches render errors in any page and shows a premium bilingual fallback instead of a white screen.
 - **`MatchCard.tsx` is the single active card implementation.** It exports two symbols: `MatchCardCore` (private internal component) and `MatchCard` (public shimmer wrapper). `MatchCardV2.tsx` was deleted in Sprint 17; `USE_V2_CARDS` no longer exists. All card work goes into `MatchCard.tsx`.
