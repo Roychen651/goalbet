@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
-  Trophy, Calendar, MapPin, Globe, Users, Target, CalendarDays, Zap,
+  Trophy, Calendar, MapPin, Users, Target, CalendarDays,
   LayoutGrid, ListOrdered, GitBranch, Building2, ChevronRight,
   Sparkles, Radio,
 } from 'lucide-react';
@@ -51,7 +51,12 @@ export function WorldCupBracket() {
   const dayDateFmt   = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short' }), [locale]);
 
   return (
-    <div className="space-y-5">
+    // Full-bleed escape — the WC view breaks out of the max-w-2xl main column
+    // and fills the entire app content width (100vw minus the desktop sidebar).
+    // The atmosphere class layers gold spotlights, navy gradient, stadium
+    // horizon and a pin-point matrix so every tab feels like a tournament
+    // destination, not a sub-page cramped inside a narrow column.
+    <div className="wc-fullbleed wc-atmosphere py-6 md:py-8 space-y-5 md:space-y-6">
       <Hero t={t} kickoff={kickoff} longDateFmt={longDateFmt} />
       <TabBar t={t} active={tab} onChange={setTab} />
 
@@ -83,148 +88,260 @@ export function WorldCupBracket() {
   );
 }
 
-/* ═════════════════════════ HERO ═════════════════════════ */
+/* ═════════════════════════ HERO — "ROAD TO METLIFE" ═════════════════════════
+   Cinematic page-level identity: this is the first thing the user sees when
+   they pick "World Cup" from the Stats dropdown. Goal: make them feel they've
+   walked up to the stadium. Layers (front → back):
+     • 48-nation flag marquee (continuous march)
+     • Countdown with pulsing gold ring
+     • Giant bebas "ROAD TO METLIFE" drop-shadowed in gold
+     • Animated tournament crest / trophy
+     • MetLife stadium silhouette at horizon
+     • Tricolor US/CAN/MEX accent ribbon at the very top
+     • Gold spotlights sweeping the backdrop
+   ═════════════════════════════════════════════════════════════════════════ */
 
 function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDateFmt: Intl.DateTimeFormat }) {
   return (
     <motion.section
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' as const }}
-      className="relative rounded-3xl border border-border-subtle overflow-hidden"
+      transition={{ duration: 0.55, ease: 'easeOut' as const }}
+      className="relative overflow-hidden rounded-3xl border wc-gold-border"
       style={{
         background:
-          'linear-gradient(135deg, rgba(73,136,196,0.24) 0%, rgba(189,232,245,0.08) 45%, rgba(15,40,84,0.35) 100%)',
+          'radial-gradient(ellipse 80% 55% at 50% 0%, rgba(255,201,74,0.22) 0%, transparent 60%), linear-gradient(180deg, #0a1733 0%, #061020 100%)',
+        boxShadow: '0 30px 80px -20px rgba(6,16,31,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
       }}
     >
+      {/* Tricolor ribbon — USA · Canada · Mexico */}
+      <div aria-hidden className="relative h-[3px] grid grid-cols-3 z-10">
+        <span className="bg-gradient-to-r from-[#B22234] via-white to-[#3C3B6E]" />
+        <span className="bg-gradient-to-r from-[#D52B1E] via-white to-[#D52B1E]" />
+        <span className="bg-gradient-to-r from-[#006847] via-white to-[#CE1126]" />
+      </div>
+
+      {/* Sweeping spotlight beams */}
+      <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="wc-spotlight absolute top-0 left-[18%] w-[32%] h-full"
+          style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.07) 0%, transparent 70%)' }}
+        />
+        <div
+          className="wc-spotlight absolute top-0 right-[18%] w-[32%] h-full"
+          style={{
+            background: 'linear-gradient(180deg, rgba(255,201,74,0.08) 0%, transparent 70%)',
+            animationDelay: '-3.5s',
+          }}
+        />
+      </div>
+
+      {/* Pulsing gold halo */}
       <motion.div
         aria-hidden
-        className="absolute inset-0 opacity-[0.16] pointer-events-none"
-        initial={{ backgroundPosition: '0% 0%' }}
-        animate={{ backgroundPosition: '100% 100%' }}
-        transition={{ duration: 18, ease: 'linear' as const, repeat: Infinity, repeatType: 'reverse' as const }}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full pointer-events-none"
         style={{
-          backgroundImage:
-            'radial-gradient(circle at 20% 30%, rgba(189,232,245,0.55) 0, transparent 38%), radial-gradient(circle at 80% 70%, rgba(73,136,196,0.55) 0, transparent 40%)',
-          backgroundSize: '200% 200%',
+          background:
+            'radial-gradient(circle, rgba(255,201,74,0.28) 0%, rgba(255,201,74,0.08) 35%, transparent 70%)',
+          filter: 'blur(22px)',
         }}
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0 opacity-[0.08] pointer-events-none"
-        style={{
-          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(189,232,245,0.7) 1px, transparent 0)',
-          backgroundSize: '22px 22px',
-        }}
+        animate={{ scale: [1, 1.09, 1], opacity: [0.55, 0.9, 0.55] }}
+        transition={{ duration: 5.2, repeat: Infinity, ease: 'easeInOut' as const }}
       />
 
-      <div className="relative px-5 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-5 lg:gap-8 items-center">
+      {/* Stadium silhouette at the horizon */}
+      <StadiumSilhouette className="absolute inset-x-0 bottom-0 h-28 md:h-36 opacity-[0.22] pointer-events-none" />
+
+      {/* ── Main content ───────────────────────────────────────── */}
+      <div className="relative px-5 md:px-10 lg:px-14 pt-7 md:pt-10 pb-4 md:pb-5">
+        <div className="flex flex-col lg:flex-row items-center lg:items-end gap-6 lg:gap-10">
           {/* Title block */}
-          <div className="flex items-start gap-4 md:gap-5 min-w-0">
+          <div className="flex-1 min-w-0 text-center lg:text-start">
             <motion.div
-              className="shrink-0 w-14 h-14 md:w-[72px] md:h-[72px] rounded-2xl bg-accent-green/10 border border-accent-green/30 flex items-center justify-center"
-              animate={{ y: [0, -4, 0], rotate: [0, -2, 0, 2, 0] }}
-              transition={{ duration: 6, ease: 'easeInOut' as const, repeat: Infinity }}
-              style={{ boxShadow: '0 0 28px rgba(73,136,196,0.4)' }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full wc-gold-border border-[1.5px] bg-[#FFC94A]/10 mb-4"
             >
-              <Trophy className="text-accent-green w-7 h-7 md:w-9 md:h-9" strokeWidth={1.75} />
+              <Sparkles size={11} className="wc-gold" />
+              <span className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.32em] wc-gold">
+                {t('wcHeroEyebrow')}
+              </span>
             </motion.div>
 
-            <div className="flex-1 min-w-0">
-              <div className="text-accent-green text-[11px] font-bold uppercase tracking-[0.28em]">
-                {t('wcRouteToTrophy')}
-              </div>
-              <h2 className="font-barlow font-extrabold text-2xl md:text-4xl lg:text-5xl uppercase tracking-wide text-white leading-[1.05] mt-1">
-                {WC2026_INFO.name}
-              </h2>
-              <div className="text-text-muted text-xs md:text-sm mt-1.5 font-medium">
-                {t('wcPathToGlory')}
-              </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-text-muted text-[11px] md:text-[13px]">
-                <span className="inline-flex items-center gap-1.5">
-                  <Calendar size={13} className="text-accent-green" />
-                  {longDateFmt.format(new Date(WC2026_INFO.startDate))}
-                  <span className="opacity-50">–</span>
-                  {longDateFmt.format(new Date(WC2026_INFO.endDate))}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Globe size={13} className="text-accent-green" />
-                  {WC2026_INFO.hosts.map(h => h.flag).join(' ')}
-                  <span className="ms-1">{t('wcHostNations')}</span>
-                </span>
-              </div>
-            </div>
+            <motion.h1
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.18, ease: 'easeOut' as const }}
+              className="font-bebas uppercase leading-[0.82] tracking-[0.02em] text-white"
+              style={{
+                fontSize: 'clamp(3rem, 7.5vw, 7rem)',
+                textShadow:
+                  '0 4px 32px rgba(255,201,74,0.45), 0 0 2px rgba(255,201,74,0.3)',
+              }}
+            >
+              {t('wcBracketTitle')}
+            </motion.h1>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.45, delay: 0.32 }}
+              className="mt-3 font-barlow font-bold text-[11px] md:text-sm uppercase tracking-[0.28em] wc-gold-muted"
+            >
+              {t('wcHeroTagline')}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.45, delay: 0.4 }}
+              className="mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-2 text-white/75 text-[12px] md:text-[13px]"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar size={13} className="wc-gold" />
+                {longDateFmt.format(new Date(WC2026_INFO.startDate))}
+                <span className="opacity-40">→</span>
+                {longDateFmt.format(new Date(WC2026_INFO.endDate))}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Building2 size={13} className="wc-gold" />
+                <span className="font-bold uppercase tracking-[0.18em]">{t('wcHeroFinalAt')}</span>
+              </span>
+            </motion.div>
           </div>
 
+          {/* Countdown */}
           <Countdown t={t} kickoff={kickoff} />
         </div>
+      </div>
+
+      {/* Flag marquee — the full 48 nations scroll across the hero footer */}
+      <div className="relative border-t border-white/5 mt-2 pt-3 pb-4 md:pb-5">
+        <div className="px-5 md:px-10 mb-2 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <motion.span
+              aria-hidden
+              className="w-1.5 h-1.5 rounded-full bg-[#FFC94A]"
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' as const }}
+            />
+            <span className="text-[9px] md:text-[10px] font-extrabold uppercase tracking-[0.3em] wc-gold-muted">
+              {t('wcNationsMarch')}
+            </span>
+          </div>
+          <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.26em] text-white/40">
+            {WC2026_INFO.totalTeams} · {WC2026_INFO.totalMatches}
+          </span>
+        </div>
+        <FlagMarquee />
       </div>
     </motion.section>
   );
 }
 
+// Continuous marquee of all 48 nation flags — seamless loop via duplication
+function FlagMarquee() {
+  const nations = useMemo(
+    () => WC2026_GROUPS.flatMap(g => g.teams),
+    [],
+  );
+  const looped = [...nations, ...nations];
+  return (
+    <div
+      aria-hidden
+      className="overflow-hidden"
+      style={{
+        WebkitMaskImage: 'linear-gradient(90deg, transparent 0, black 6%, black 94%, transparent 100%)',
+        maskImage: 'linear-gradient(90deg, transparent 0, black 6%, black 94%, transparent 100%)',
+      }}
+    >
+      <div className="wc-flag-marquee py-1">
+        {looped.map((team, i) => (
+          <div
+            key={`${team.code}-${i}`}
+            className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04]"
+          >
+            <span className="text-sm leading-none">{team.flag}</span>
+            <span className="text-[10px] font-bebas tracking-[0.12em] uppercase text-white/85">{team.code}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Countdown — dramatic ring + giant gold numeral ────────── */
 function Countdown({ t, kickoff }: { t: T; kickoff: KickoffState }) {
   if (kickoff.phase === 'live') {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
+        initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.18, duration: 0.35, ease: 'easeOut' as const }}
-        className="rounded-2xl border border-accent-green/45 bg-accent-green/10 px-5 py-4 flex items-center gap-4 lg:min-w-[260px]"
-        style={{ boxShadow: '0 0 40px rgba(189,232,245,0.28)' }}
+        transition={{ delay: 0.22, duration: 0.4, ease: 'easeOut' as const }}
+        className="relative shrink-0 rounded-2xl border-[1.5px] border-[#FFC94A]/60 bg-gradient-to-br from-[#FFC94A]/15 to-[#FFC94A]/5 px-6 py-4 flex items-center gap-4 backdrop-blur-sm"
+        style={{ boxShadow: '0 0 44px rgba(255,201,74,0.35)' }}
       >
-        <motion.span
-          aria-hidden
-          className="w-3 h-3 rounded-full bg-accent-green"
-          animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.25, 1] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' as const }}
-        />
-        <div className="flex-1">
-          <div className="font-barlow font-extrabold text-2xl uppercase text-white tracking-wide leading-tight">
-            {t('wcLiveNow')}
-          </div>
+        <div className="relative w-3 h-3">
+          <motion.span
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-[#FFC94A]"
+            animate={{ opacity: [0.4, 1, 0.4], scale: [1, 1.2, 1] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' as const }}
+          />
+          <span className="absolute inset-0 rounded-full bg-[#FFC94A] wc-pulse-ring" />
+        </div>
+        <div className="font-bebas text-3xl md:text-4xl uppercase text-white tracking-wide leading-none">
+          {t('wcLiveNow')}
         </div>
       </motion.div>
     );
   }
+
   if (kickoff.phase === 'ended') {
     return (
-      <div className="rounded-2xl border border-border-subtle bg-bg-card px-5 py-4 lg:min-w-[260px]">
-        <div className="font-barlow font-bold text-xl uppercase text-white tracking-wide">
+      <div className="shrink-0 rounded-2xl border border-white/12 bg-white/[0.04] px-6 py-4 backdrop-blur-sm">
+        <div className="font-bebas text-2xl md:text-3xl uppercase text-white/80 tracking-wide">
           {t('wcTournamentEnded')}
         </div>
       </div>
     );
   }
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.18, duration: 0.35, ease: 'easeOut' as const }}
-      className="rounded-2xl border border-accent-green/30 bg-bg-card/60 backdrop-blur-sm px-5 py-4 flex items-center gap-5 lg:min-w-[280px]"
-      style={{ boxShadow: '0 0 40px rgba(73,136,196,0.18)' }}
+      transition={{ delay: 0.22, duration: 0.45, ease: 'easeOut' as const }}
+      className="relative shrink-0 rounded-2xl border-[1.5px] border-[#FFC94A]/50 bg-gradient-to-br from-[#FFC94A]/12 to-[#4988C4]/5 px-6 py-4 md:px-8 md:py-5 backdrop-blur-sm"
+      style={{ boxShadow: '0 0 44px rgba(255,201,74,0.25)' }}
     >
-      <div className="shrink-0 w-14 h-14 rounded-xl bg-accent-green/10 border border-accent-green/25 flex items-center justify-center">
-        <Zap size={24} className="text-accent-green" strokeWidth={2} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <motion.span
-            key={kickoff.days}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="font-barlow font-extrabold text-4xl md:text-5xl text-accent-green tabular-nums leading-none"
-          >
-            {kickoff.days}
-          </motion.span>
-          <span className="font-barlow font-bold text-sm uppercase tracking-widest text-text-muted">
+      {/* Concentric pulsing ring */}
+      <span
+        aria-hidden
+        className="absolute inset-0 rounded-2xl wc-pulse-ring pointer-events-none"
+        style={{
+          boxShadow: '0 0 0 2px rgba(255,201,74,0.55)',
+        }}
+      />
+      <div className="relative flex items-baseline gap-3">
+        <motion.span
+          key={kickoff.days}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="font-bebas text-5xl md:text-6xl lg:text-7xl wc-gold tabular-nums leading-none"
+          style={{ textShadow: '0 0 32px rgba(255,201,74,0.55)' }}
+        >
+          {kickoff.days}
+        </motion.span>
+        <div className="flex flex-col leading-tight">
+          <span className="font-barlow font-extrabold text-[11px] md:text-xs uppercase tracking-[0.24em] text-white">
             {t('wcStatDays')}
           </span>
-        </div>
-        <div className="text-[11px] uppercase tracking-[0.22em] text-text-muted mt-1 font-bold">
-          {t('wcDaysToKickoff')}
+          <span className="font-barlow font-bold text-[9.5px] md:text-[10px] uppercase tracking-[0.26em] wc-gold-muted mt-0.5">
+            {t('wcDaysToKickoff')}
+          </span>
         </div>
       </div>
     </motion.div>
@@ -792,14 +909,16 @@ function KnockoutsTab({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFo
     <section className="space-y-4">
       <BracketHero t={t} />
 
-      {/* Desktop (lg+): symmetric mirror bracket — LEFT flows right, RIGHT flows left,
-          trophy at dead center. Halves total tree height vs the old 5-col layout. */}
-      <div className="hidden lg:block">
+      {/* Tablet+ (md+): symmetric mirror bracket — LEFT flows right, RIGHT flows
+          left, trophy at dead center. On viewports narrower than the grid's
+          min-width (72rem) the wc-bracket-scroller wrapper enables horizontal
+          scroll with a fade-edge mask so the cards never truncate. */}
+      <div className="hidden md:block">
         <BracketTreeSymmetric t={t} shortDateFmt={shortDateFmt} />
       </div>
 
-      {/* Tablet/Mobile: stacked rounds with flow hints */}
-      <div className="lg:hidden">
+      {/* Small phones: stacked rounds with flow hints */}
+      <div className="md:hidden">
         <BracketStackedMobile t={t} shortDateFmt={shortDateFmt} />
       </div>
     </section>
@@ -1111,12 +1230,15 @@ function AutoUpdateBadge({ t }: { t: T }) {
 const BRACKET_SYM_CSS = `
 .wc-sym {
   display: grid;
+  /* Minimum width of the bracket grid — below this the scroller takes over.
+     Ensures every card stays readable (no 2-char truncation) at any viewport. */
+  min-width: 72rem;
   grid-template-columns:
-    minmax(5rem, 1fr) minmax(5rem, 1fr) minmax(5.25rem, 1fr) minmax(5.5rem, 1fr)
-    minmax(10rem, 1.15fr)
-    minmax(5.5rem, 1fr) minmax(5.25rem, 1fr) minmax(5rem, 1fr) minmax(5rem, 1fr);
-  grid-template-rows: repeat(16, 2.75rem);
-  column-gap: 1rem;
+    minmax(7rem, 1fr) minmax(7rem, 1fr) minmax(7.25rem, 1fr) minmax(7.5rem, 1fr)
+    minmax(13rem, 1.2fr)
+    minmax(7.5rem, 1fr) minmax(7.25rem, 1fr) minmax(7rem, 1fr) minmax(7rem, 1fr);
+  grid-template-rows: repeat(16, 3rem);
+  column-gap: 1.5rem;
   position: relative;
 }
 .wc-sym-cell {
@@ -1132,7 +1254,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 0.7rem;
+  width: 1rem;
   height: 1px;
   background: rgba(189,232,245,0.30);
   pointer-events: none;
@@ -1142,7 +1264,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 0.7rem;
+  width: 1rem;
   height: 100%;
   border-top: 1px solid rgba(189,232,245,0.30);
   border-inline-end: 1px solid rgba(189,232,245,0.30);
@@ -1153,7 +1275,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   bottom: 50%;
-  width: 0.7rem;
+  width: 1rem;
   height: 100%;
   border-bottom: 1px solid rgba(189,232,245,0.30);
   border-inline-end: 1px solid rgba(189,232,245,0.30);
@@ -1165,9 +1287,9 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 1rem;
-  height: 1px;
-  background: rgba(255,201,74,0.55);
+  width: 1.5rem;
+  height: 1.5px;
+  background: linear-gradient(90deg, rgba(240,178,58,0.55), rgba(255,201,74,0.75));
   pointer-events: none;
 }
 
@@ -1177,7 +1299,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 0.7rem;
+  width: 1rem;
   height: 1px;
   background: rgba(189,232,245,0.30);
   pointer-events: none;
@@ -1187,7 +1309,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 0.7rem;
+  width: 1rem;
   height: 100%;
   border-top: 1px solid rgba(189,232,245,0.30);
   border-inline-start: 1px solid rgba(189,232,245,0.30);
@@ -1198,7 +1320,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   bottom: 50%;
-  width: 0.7rem;
+  width: 1rem;
   height: 100%;
   border-bottom: 1px solid rgba(189,232,245,0.30);
   border-inline-start: 1px solid rgba(189,232,245,0.30);
@@ -1209,9 +1331,9 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 1rem;
-  height: 1px;
-  background: rgba(255,201,74,0.55);
+  width: 1.5rem;
+  height: 1.5px;
+  background: linear-gradient(270deg, rgba(240,178,58,0.55), rgba(255,201,74,0.75));
   pointer-events: none;
 }
 
@@ -1241,7 +1363,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
   const sfRight  = WC2026_SF[1];
 
   return (
-    <div className="relative rounded-3xl border border-[#FFC94A]/25 bg-gradient-to-b from-bg-card/50 via-bg-card/20 to-bg-card/40 backdrop-blur-sm overflow-hidden p-3 xl:p-5 w-full">
+    <div className="relative rounded-3xl border border-[#FFC94A]/25 bg-gradient-to-b from-bg-card/50 via-bg-card/20 to-bg-card/40 backdrop-blur-sm overflow-hidden p-4 xl:p-6 w-full">
       <style>{BRACKET_SYM_CSS}</style>
 
       {/* Ambient backdrop: gold halo at center, cool blue at edges */}
@@ -1277,11 +1399,17 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
         }}
       />
 
-      {/* Column headers — one row, symmetric, highlighting Final in the middle */}
-      <SymColumnHeaders t={t} />
+      {/* Horizontal-scroll wrapper: on narrower viewports the 72rem grid
+          overflows this container and the scroller kicks in (Lenis opt-out,
+          fade-edge mask, gold scrollbar). At ≥1200px-ish screens with the
+          full-bleed shell the grid fills the canvas naturally. */}
+      <div className="relative wc-bracket-scroller" data-lenis-prevent>
+        <div className="min-w-[72rem]">
+          {/* Column headers — one row, symmetric, highlighting Final in the middle */}
+          <SymColumnHeaders t={t} />
 
-      {/* Main bracket grid */}
-      <div className="relative wc-sym mt-3">
+          {/* Main bracket grid */}
+          <div className="relative wc-sym mt-3">
         {/* ─────────── LEFT HALF ─────────── */}
         {/* R32 L — col 1 */}
         {r32Left.map((m, i) => (
@@ -1398,6 +1526,8 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             <BracketMatchCard match={m} round="r32" shortDateFmt={shortDateFmt} />
           </div>
         ))}
+          </div>
+        </div>
       </div>
 
       {/* 3rd-place — "consolation", lower-key, below the main bracket */}
@@ -1434,18 +1564,18 @@ function SymColumnHeaders({ t }: { t: T }) {
   ];
   return (
     <div
-      className="relative grid"
+      className="relative grid min-w-[72rem]"
       style={{
         gridTemplateColumns:
-          'minmax(5rem,1fr) minmax(5rem,1fr) minmax(5.25rem,1fr) minmax(5.5rem,1fr) minmax(10rem,1.15fr) minmax(5.5rem,1fr) minmax(5.25rem,1fr) minmax(5rem,1fr) minmax(5rem,1fr)',
-        columnGap: '1rem',
+          'minmax(7rem,1fr) minmax(7rem,1fr) minmax(7.25rem,1fr) minmax(7.5rem,1fr) minmax(13rem,1.2fr) minmax(7.5rem,1fr) minmax(7.25rem,1fr) minmax(7rem,1fr) minmax(7rem,1fr)',
+        columnGap: '1.5rem',
       }}
     >
       {cols.map((c, i) => (
         <div
           key={i}
           className={cn(
-            'flex items-center gap-1.5 min-w-0',
+            'flex items-center gap-2 min-w-0 pb-2',
             c.center && 'justify-center',
           )}
         >
@@ -1457,7 +1587,7 @@ function SymColumnHeaders({ t }: { t: T }) {
             'bg-[#FFC94A]',
           )} />
           <span className={cn(
-            'font-bebas text-[11px] tracking-[0.18em] uppercase',
+            'font-bebas text-[12px] tracking-[0.2em] uppercase',
             c.tone === 'cool' ? 'text-white/80' :
             c.tone === 'warm' ? 'text-[#E6C558]' :
             c.tone === 'warmer' ? 'text-[#F0B23A]' :
@@ -1466,7 +1596,7 @@ function SymColumnHeaders({ t }: { t: T }) {
             {c.label}
           </span>
           {!c.center && (
-            <span className="text-[9px] font-mono tabular-nums text-text-muted/60 shrink-0">
+            <span className="text-[9.5px] font-mono tabular-nums text-text-muted/60 shrink-0">
               {c.count}
             </span>
           )}
@@ -1561,36 +1691,39 @@ function BracketMatchCard({ match, round, shortDateFmt }: {
         boxShadow: tone.glow ?? undefined,
       }}
     >
-      {/* Header row: M-label + host flag (date moved out to save horizontal space) */}
-      <div className="flex items-center justify-between gap-1 px-1.5 py-0.5 border-b border-white/5">
+      {/* Header row: M-label + short date + host flag */}
+      <div className="flex items-center justify-between gap-1.5 px-2 py-1 border-b border-white/5">
         <span
           className={cn(
-            'text-[9.5px] font-mono font-extrabold tabular-nums tracking-tight shrink-0',
+            'text-[10px] font-mono font-extrabold tabular-nums tracking-tight shrink-0',
             tone.accentText,
           )}
-          title={`Match ${match.label} · ${shortDateFmt.format(new Date(match.date))}`}
+          title={`Match ${match.label}`}
         >
           M{match.label}
         </span>
+        <span className="text-[9px] font-mono tabular-nums text-text-muted/60 shrink-0 truncate">
+          {shortDateFmt.format(new Date(match.date))}
+        </span>
         {stadium && (
-          <span aria-hidden className="text-[9px] leading-none shrink-0" title={`${stadium.city} · ${stadium.name}`}>
+          <span aria-hidden className="text-[10px] leading-none shrink-0" title={`${stadium.city} · ${stadium.name}`}>
             {stadium.countryFlag}
           </span>
         )}
       </div>
 
-      {/* Two slots — dense, one line each */}
-      <div className="px-1.5 py-1">
+      {/* Two slots — one line each */}
+      <div className="px-2 py-1.5">
         <BracketSlot label={match.home} tone={tone} />
-        <div className="h-px bg-white/5 my-0.5" />
+        <div className="h-px bg-white/5 my-1" />
         <BracketSlot label={match.away} tone={tone} />
       </div>
 
       {/* City pill — only on R16+ where we have vertical room */}
       {showCity && stadium && (
-        <div className="px-1.5 pb-0.5 pt-0.5 flex items-center gap-1 border-t border-white/5">
-          <MapPin size={8} className={cn('shrink-0', tone.accentText, 'opacity-70')} />
-          <span className="text-[8.5px] text-text-muted/85 truncate flex-1 min-w-0" title={stadium.name}>
+        <div className="px-2 pb-1 pt-1 flex items-center gap-1.5 border-t border-white/5">
+          <MapPin size={9} className={cn('shrink-0', tone.accentText, 'opacity-70')} />
+          <span className="text-[9.5px] text-text-muted/85 truncate flex-1 min-w-0" title={stadium.name}>
             {stadium.city}
           </span>
         </div>
@@ -1605,14 +1738,19 @@ function BracketSlot({ label, tone }: {
 }) {
   const slot = parseSlotLabel(label);
   return (
-    <div className="flex items-center gap-1.5 min-w-0 py-0.5">
-      <span className={cn('w-1 h-1 rounded-full shrink-0', tone.dot)} aria-hidden />
+    <div className="flex items-center gap-2 min-w-0 py-0.5">
+      <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', tone.dot)} aria-hidden />
       <span
-        className="font-barlow font-bold text-[11px] uppercase tracking-tight text-white/95 leading-tight whitespace-nowrap"
+        className="font-barlow font-bold text-[12.5px] uppercase tracking-tight text-white/95 leading-tight whitespace-nowrap"
         title={slot.hint ? `${slot.primary} (${slot.hint})` : slot.primary}
       >
         {slot.primary}
       </span>
+      {slot.hint && (
+        <span className="text-[9px] font-mono text-text-muted/60 tracking-tight truncate">
+          {slot.hint}
+        </span>
+      )}
     </div>
   );
 }

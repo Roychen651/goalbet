@@ -675,3 +675,168 @@ html.light .league-logo-dark  { display: none; }
 html.light .pitch-grass {
   background: linear-gradient(160deg, rgba(30,100,50,0.08) 0%, rgba(20,70,35,0.05) 100%), var(--card-bg);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   World Cup 2026 — "Road to MetLife" Atmosphere
+   Full-bleed escape for the Stats-Hub WC view + shared shell
+   that makes every tab feel like a tournament destination,
+   not a sub-page cramped inside max-w-2xl.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Sidebar width in app shell (w-60 = 15rem = 240px on sm+, hidden below) */
+:root { --app-sidebar-w: 0px; }
+@media (min-width: 640px) { :root { --app-sidebar-w: 15rem; } }
+
+/* Full-bleed escape: the WC view lives inside a max-w-2xl main,
+   but the tournament deserves the full main-column canvas.
+   Formula: width the element to the column width (100vw - sidebar),
+   then shift it so its center sits where the <main> center already sits.
+   `mx-auto` on main keeps it centered in its flex column, so the gap
+   between main and column edge is symmetric in both LTR and RTL. */
+.wc-fullbleed {
+  width: calc(100vw - var(--app-sidebar-w));
+  margin-inline: calc((100% - (100vw - var(--app-sidebar-w))) / 2);
+  /* Horizontal padding so content breathes at the column edges */
+  padding-inline: clamp(1rem, 3vw, 2.5rem);
+}
+
+/* Tournament atmosphere — cinematic stage every tab sits on top of.
+   Layered: deep navy gradient + subtle stadium silhouette at bottom
+   + sparse spotlight blooms animated slowly + gold pin-point texture. */
+.wc-atmosphere {
+  position: relative;
+  border-radius: 1.75rem;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 0%, rgba(255,201,74,0.09) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 60% at 15% 100%, rgba(73,136,196,0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 60% at 85% 100%, rgba(255,51,102,0.14) 0%, transparent 60%),
+    linear-gradient(180deg, #071229 0%, #0a1733 45%, #06101f 100%);
+  border: 1px solid rgba(255,201,74,0.18);
+  box-shadow:
+    0 0 0 1px rgba(255,201,74,0.05),
+    0 30px 80px -20px rgba(6,16,31,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+html.light .wc-atmosphere {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 0%, rgba(184,134,11,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 60% at 15% 100%, rgba(73,136,196,0.14) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 60% at 85% 100%, rgba(201,74,26,0.08) 0%, transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, #eef3fa 50%, #e2ebf4 100%);
+  border-color: rgba(184,134,11,0.25);
+  box-shadow:
+    0 0 0 1px rgba(184,134,11,0.08),
+    0 30px 80px -20px rgba(15,40,84,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+/* Pin-point gold matrix — overlays the atmosphere, masked out at edges */
+.wc-atmosphere::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,201,74,0.16) 1px, transparent 0);
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 40%, transparent 90%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 40%, transparent 90%);
+  opacity: 0.35;
+  z-index: 0;
+}
+
+html.light .wc-atmosphere::before {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(184,134,11,0.12) 1px, transparent 0);
+  opacity: 0.5;
+}
+
+/* MetLife stadium silhouette anchor at the bottom of the atmosphere */
+.wc-atmosphere::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 38%;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(6,16,31,0.5) 100%),
+    /* horizon line */
+    linear-gradient(180deg, transparent 62%, rgba(255,201,74,0.08) 63%, transparent 65%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 60%);
+  mask-image: linear-gradient(180deg, transparent 0%, black 60%);
+  z-index: 0;
+}
+
+html.light .wc-atmosphere::after {
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(15,40,84,0.05) 100%);
+}
+
+/* Layered content above the atmosphere's ::before / ::after */
+.wc-atmosphere > * { position: relative; z-index: 1; }
+
+/* Hero sky — used in the Road-to-MetLife hero spotlights/flag strip */
+@keyframes wc-spotlight-sweep {
+  0%, 100% { transform: translateX(-6%) skewX(-18deg); opacity: 0.35; }
+  50%      { transform: translateX(6%)  skewX(-18deg); opacity: 0.55; }
+}
+.wc-spotlight { animation: wc-spotlight-sweep 7s ease-in-out infinite; }
+
+@keyframes wc-flag-march {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.wc-flag-marquee {
+  display: flex;
+  gap: 1rem;
+  width: max-content;
+  animation: wc-flag-march 45s linear infinite;
+}
+html[dir='rtl'] .wc-flag-marquee {
+  animation-direction: reverse;
+}
+
+@keyframes wc-pulse-ring {
+  0%   { transform: scale(0.9); opacity: 0.55; }
+  70%  { transform: scale(1.8); opacity: 0;    }
+  100% { transform: scale(1.8); opacity: 0;    }
+}
+.wc-pulse-ring {
+  animation: wc-pulse-ring 2.4s cubic-bezier(0.16,1,0.3,1) infinite;
+}
+
+/* Gold accent text/stroke helpers used across tabs */
+.wc-gold { color: #FFC94A; }
+.wc-gold-muted { color: rgba(255,201,74,0.75); }
+.wc-gold-border { border-color: rgba(255,201,74,0.35); }
+html.light .wc-gold { color: #8a5a08; }
+html.light .wc-gold-muted { color: rgba(138,90,8,0.80); }
+html.light .wc-gold-border { border-color: rgba(138,90,8,0.40); }
+
+/* The knockout bracket is the heaviest horizontal surface.
+   Let it scroll horizontally with Lenis opt-out when it's wider
+   than the column, and give a clear scroll affordance on mobile. */
+.wc-bracket-scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,201,74,0.35) transparent;
+  padding-block: 0.5rem;
+  /* fade edges to hint at scrollability */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, black 2.5%, black 97.5%, transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, black 2.5%, black 97.5%, transparent 100%);
+}
+.wc-bracket-scroller::-webkit-scrollbar { height: 8px; }
+.wc-bracket-scroller::-webkit-scrollbar-track { background: transparent; }
+.wc-bracket-scroller::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, rgba(255,201,74,0.4), rgba(189,232,245,0.35));
+  border-radius: 8px;
+}
