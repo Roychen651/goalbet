@@ -8,6 +8,7 @@ import {
 import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
 import { type TranslationKey } from '../../lib/i18n';
+import wcTrophyAsset from '../../assets/world-cup-trophy.svg';
 import {
   WC2026_INFO,
   WC2026_GROUPS,
@@ -97,7 +98,7 @@ export function WorldCupBracket() {
      • Countdown with pulsing gold ring
      • Giant metallic "ROAD TO METLIFE" title
      • Tri-host chip row (USA · MEX · CAN) + FIFA WC 2026 crest plate
-     • Inline Trophy2026 SVG (mobile inline, desktop watermark)
+     • FIFA trophy asset (mobile inline, desktop watermark)
      • MetLife stadium silhouette at horizon
      • Clean tri-host ribbon (no white-bleed strip)
      • Gold spotlights sweeping the backdrop + drifting confetti sparks
@@ -294,217 +295,23 @@ const CONFETTI_PIECES = Array.from({ length: 18 }, (_, i) => ({
   rotate: (i * 37) % 360,
 }));
 
-/* ═════════════════════════ TROPHY 2026 — SVG ═════════════════════════
-   The iconic FIFA World Cup Trophy by Silvio Gazzaniga (1971): two
-   swooping human figures twisting upward to hold a globe aloft, with
-   the signature narrow waist in the mid-stem and the two green
-   malachite bands ringing the base. Proportioned off the classic
-   vector references (freesvg / vecteezy). Inline SVG so it stays
-   crisp, recolorable, and lightweight.
+/* ═════════════════════════ TROPHY 2026 — ASSET ═════════════════════════
+   Authentic FIFA World Cup Trophy silhouette (Gazzaniga, 1971). Path
+   credit: "World Cup" by Clemzo, Openclipart, CC0 public domain.
+   Shipped as a static SVG asset with the gold body, green malachite
+   bands at the base, and the hand-drawn line-art overlay baked in —
+   see `frontend/src/assets/world-cup-trophy.svg`.
    ═══════════════════════════════════════════════════════════════════ */
 function Trophy2026({ className = '' }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 140 220"
-      className={cn('wc-trophy wc-trophy-bob w-full h-full', className)}
+    <img
+      src={wcTrophyAsset}
+      alt=""
       aria-hidden
-    >
-      <defs>
-        {/* Body gold — warm, polished, with highlight on left flank */}
-        <linearGradient id="wc-trophy-body" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#C57A0F" />
-          <stop offset="0.18" stopColor="#E7A92B" />
-          <stop offset="0.38" stopColor="#FFE08A" />
-          <stop offset="0.55" stopColor="#FFC94A" />
-          <stop offset="0.78" stopColor="#E09B22" />
-          <stop offset="1" stopColor="#8E5509" />
-        </linearGradient>
-        {/* Top-to-bottom luminance for the stem */}
-        <linearGradient id="wc-trophy-stem" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#FFE08A" />
-          <stop offset="0.45" stopColor="#FFC94A" />
-          <stop offset="1" stopColor="#B37708" />
-        </linearGradient>
-        {/* Globe — earthy gold with blue-black continent wash */}
-        <radialGradient id="wc-globe" cx="0.36" cy="0.32" r="0.82">
-          <stop offset="0" stopColor="#FFF2C1" />
-          <stop offset="0.35" stopColor="#FFC94A" />
-          <stop offset="0.75" stopColor="#B87A10" />
-          <stop offset="1" stopColor="#5B3A06" />
-        </radialGradient>
-        {/* Malachite green rings at the base — the iconic detail */}
-        <linearGradient id="wc-malachite" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#0F3D1E" />
-          <stop offset="0.35" stopColor="#2D7A3D" />
-          <stop offset="0.55" stopColor="#5FBF6B" />
-          <stop offset="0.78" stopColor="#2D7A3D" />
-          <stop offset="1" stopColor="#0F3D1E" />
-        </linearGradient>
-        <linearGradient id="wc-trophy-highlight" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.7" />
-          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-
-      {/* Soft drop shadow under the base */}
-      <ellipse cx="70" cy="212" rx="40" ry="4.5" fill="#000" opacity="0.35" />
-
-      {/* ── Base plinth — two green malachite bands separated by gold ── */}
-      <rect x="34" y="200" width="72" height="5" rx="1.5" fill="url(#wc-trophy-body)" />
-      <rect x="32" y="193" width="76" height="7" rx="1.2" fill="url(#wc-malachite)" />
-      <rect x="34" y="188" width="72" height="5" rx="1.2" fill="url(#wc-trophy-body)" />
-      <rect x="32" y="181" width="76" height="7" rx="1.2" fill="url(#wc-malachite)" />
-      <rect x="36" y="176" width="68" height="5" rx="1.2" fill="url(#wc-trophy-body)" />
-
-      {/* Base highlight strip — catches the light */}
-      <rect x="34" y="194" width="72" height="1.2" fill="#FFF5D1" opacity="0.45" />
-      <rect x="34" y="182" width="72" height="1.2" fill="#FFF5D1" opacity="0.45" />
-
-      {/* ── Gold collar above the base, flaring outward ── */}
-      <path
-        fill="url(#wc-trophy-body)"
-        d="M40,176 Q38,168 44,162 L96,162 Q102,168 100,176 Z"
-      />
-      <path
-        d="M44,164 L96,164"
-        stroke="#FFF5D1"
-        strokeWidth="0.8"
-        opacity="0.55"
-      />
-
-      {/* ── The signature swooping twin-figure stem ──
-           Narrow waist in the middle, flaring into the globe cup at top
-           and the collar at bottom. This silhouette IS the trophy. */}
-      <path
-        fill="url(#wc-trophy-stem)"
-        d="
-          M48,162
-          C 44,150 42,138 48,126
-          C 54,115 60,108 56,98
-          C 52,88  52,80  60,74
-          L 80,74
-          C 88,80  88,88  84,98
-          C 80,108 86,115 92,126
-          C 98,138 96,150 92,162
-          Z
-        "
-      />
-
-      {/* Inner shadow crease — the twist between the two figures */}
-      <path
-        fill="#8E5509"
-        opacity="0.42"
-        d="
-          M68,162
-          C 66,150 64,138 66,126
-          C 68,115 70,108 68,98
-          C 66,88  66,80  70,74
-          L 72,74
-          C 76,80  76,88  74,98
-          C 72,108 74,115 76,126
-          C 78,138 76,150 74,162
-          Z
-        "
-      />
-
-      {/* Left figure — flowing highlight along the outer flank */}
-      <path
-        fill="#FFE08A"
-        opacity="0.55"
-        d="
-          M50,158
-          C 47,148 46,138 51,127
-          C 56,118 60,112 58,103
-          L 55,103
-          C 54,112 50,118 48,127
-          C 44,138 45,148 48,158
-          Z
-        "
-      />
-
-      {/* Right figure — mirrored highlight */}
-      <path
-        fill="#FFE08A"
-        opacity="0.55"
-        d="
-          M90,158
-          C 93,148 94,138 89,127
-          C 84,118 80,112 82,103
-          L 85,103
-          C 86,112 90,118 92,127
-          C 96,138 95,148 92,158
-          Z
-        "
-      />
-
-      {/* Upper cup — the bowl that holds the globe */}
-      <path
-        fill="url(#wc-trophy-body)"
-        d="
-          M56,74
-          Q 54,68  58,64
-          L 82,64
-          Q 86,68  84,74
-          Z
-        "
-      />
-      <path
-        d="M58,66 L82,66"
-        stroke="#FFF5D1"
-        strokeWidth="0.9"
-        opacity="0.6"
-      />
-
-      {/* ── Globe — the earth held aloft ── */}
-      <circle cx="70" cy="42" r="26" fill="url(#wc-globe)" />
-      {/* Equator and longitude lines */}
-      <ellipse
-        cx="70"
-        cy="42"
-        rx="26"
-        ry="9"
-        stroke="#5B3A06"
-        strokeWidth="0.9"
-        fill="none"
-        opacity="0.55"
-      />
-      <ellipse
-        cx="70"
-        cy="42"
-        rx="10"
-        ry="26"
-        stroke="#5B3A06"
-        strokeWidth="0.8"
-        fill="none"
-        opacity="0.45"
-      />
-      {/* Continent silhouettes — suggestion of Earth */}
-      <path
-        fill="#5B3A06"
-        opacity="0.55"
-        d="
-          M60,34 Q66,30 72,36 Q70,42 64,42 Q58,40 60,34 Z
-          M76,46 Q82,44 86,50 Q82,54 76,52 Q72,48 76,46 Z
-          M58,52 Q64,50 66,56 Q62,60 56,58 Q54,54 58,52 Z
-        "
-      />
-      {/* Bright specular highlight on the globe */}
-      <ellipse cx="60" cy="32" rx="8" ry="4" fill="#FFFFFF" opacity="0.6" />
-      <ellipse cx="56" cy="30" rx="3" ry="1.5" fill="#FFFFFF" opacity="0.85" />
-
-      {/* Stem highlights — single bright band down the left side */}
-      <path
-        d="
-          M54,160
-          C 50,148 49,138 54,128
-          C 58,118 63,110 60,100
-        "
-        stroke="url(#wc-trophy-highlight)"
-        strokeWidth="2.2"
-        fill="none"
-        opacity="0.7"
-      />
-    </svg>
+      width={171}
+      height={426}
+      className={cn('wc-trophy wc-trophy-bob w-full h-full object-contain', className)}
+    />
   );
 }
 
