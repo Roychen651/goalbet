@@ -199,8 +199,12 @@ export function LeagueDropdown({ leagues, value, onChange }: Props) {
               </span>
             </div>
 
-            {/* List */}
-            <div className="max-h-[360px] overflow-y-auto p-1.5">
+            {/* List — data-lenis-prevent stops global Lenis smooth-scroll from
+                hijacking the wheel event so inner scrolling works. */}
+            <div
+              data-lenis-prevent
+              className="max-h-[360px] overflow-y-auto overscroll-contain p-1.5"
+            >
               {leagues.map((l, i) => {
                 const isActive = l.id === value;
                 return (
