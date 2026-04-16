@@ -840,3 +840,208 @@ html.light .wc-gold-border { border-color: rgba(138,90,8,0.40); }
   background: linear-gradient(90deg, rgba(255,201,74,0.4), rgba(189,232,245,0.35));
   border-radius: 8px;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Theme-locked tournament surfaces
+   Hero / bracket / final-apex stay cinematic dark navy in BOTH
+   light and dark modes. Reason: a World Cup is a night-stadium
+   experience — inverting these surfaces to cream/white drains
+   every ounce of drama. Lists (overview/groups/fixtures/venues)
+   still theme normally for legibility.
+   ══════════════════════════════════════════════════════════════ */
+
+.wc-hero-bg {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255,201,74,0.28) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 40% at 20% 100%, rgba(73,136,196,0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 80% 100%, rgba(206,17,38,0.12) 0%, transparent 60%),
+    linear-gradient(180deg, #0a1733 0%, #061020 100%);
+  box-shadow:
+    0 30px 80px -20px rgba(6,16,31,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+html.light .wc-hero-bg {
+  box-shadow:
+    0 30px 80px -20px rgba(15,40,84,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Bracket canvas — stays dark so gold connectors & ice-blue text read */
+.wc-bracket-bg {
+  background:
+    radial-gradient(ellipse 60% 70% at 50% 50%, rgba(255,201,74,0.10) 0%, transparent 60%),
+    linear-gradient(180deg, #0a1733 0%, #061020 65%, #0a1733 100%);
+  border: 1px solid rgba(255,201,74,0.28);
+  box-shadow:
+    0 20px 60px -15px rgba(6,16,31,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+html.light .wc-bracket-bg {
+  box-shadow:
+    0 20px 60px -15px rgba(15,40,84,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* Champion apex — gold-into-navy; locked in both themes */
+.wc-final-bg {
+  background:
+    linear-gradient(135deg, rgba(255,201,74,0.22) 0%, rgba(230,156,56,0.12) 45%, rgba(10,23,51,0.85) 100%);
+  border: 1px solid rgba(255,201,74,0.75);
+  box-shadow: 0 0 64px rgba(255,201,74,0.32);
+}
+
+/* Metallic gold title — white-to-gold fade, acts like polished trophy plate */
+.wc-gold-title {
+  background: linear-gradient(180deg, #FFFFFF 0%, #FFF5D1 38%, #FFC94A 72%, #E09B22 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 2px 24px rgba(255,201,74,0.45)) drop-shadow(0 0 1px rgba(255,255,255,0.35));
+}
+
+/* Gold-accent stat card — replaces flat bg-bg-card in the overview strip */
+.wc-stat-card {
+  position: relative;
+  border-radius: 1rem;
+  border: 1px solid rgba(255,201,74,0.22);
+  background:
+    linear-gradient(180deg, rgba(255,201,74,0.06) 0%, rgba(255,201,74,0.015) 60%),
+    rgba(10,23,51,0.55);
+  box-shadow: 0 10px 32px -16px rgba(6,16,31,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+  overflow: hidden;
+}
+.wc-stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 120% 40% at 50% 0%, rgba(255,201,74,0.18) 0%, transparent 60%);
+  opacity: 0.7;
+  pointer-events: none;
+}
+html.light .wc-stat-card {
+  border-color: rgba(184,134,11,0.28);
+  background:
+    linear-gradient(180deg, rgba(184,134,11,0.04) 0%, rgba(255,255,255,0.9) 80%),
+    #ffffff;
+  box-shadow: 0 10px 32px -16px rgba(15,40,84,0.15), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+html.light .wc-stat-card::before {
+  background: radial-gradient(ellipse 120% 40% at 50% 0%, rgba(184,134,11,0.10) 0%, transparent 60%);
+}
+
+/* Group card header — gold-edged ribbon, both themes */
+.wc-group-header {
+  background:
+    linear-gradient(90deg, rgba(255,201,74,0.14) 0%, rgba(255,201,74,0.02) 60%, transparent 100%);
+  border-bottom: 1px solid rgba(255,201,74,0.22);
+}
+html.light .wc-group-header {
+  background:
+    linear-gradient(90deg, rgba(184,134,11,0.10) 0%, rgba(184,134,11,0.02) 60%, transparent 100%);
+  border-bottom-color: rgba(184,134,11,0.24);
+}
+
+/* Capacity bar — visualizes stadium capacity in Venues grid */
+.wc-capacity-bar {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(189,232,245,0.12);
+  overflow: hidden;
+}
+.wc-capacity-bar > span {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255,201,74,0.9) 0%, rgba(240,178,58,0.8) 100%);
+  border-radius: 999px;
+  box-shadow: 0 0 8px rgba(255,201,74,0.4);
+}
+html.light .wc-capacity-bar {
+  background: rgba(15,40,84,0.08);
+}
+html.light .wc-capacity-bar > span {
+  background: linear-gradient(90deg, #C68F1F 0%, #8a5a08 100%);
+  box-shadow: none;
+}
+
+/* Role badge — gold tournament role pill used in Venues */
+.wc-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,201,74,0.45);
+  background: rgba(255,201,74,0.12);
+  color: #FFC94A;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  line-height: 1;
+}
+.wc-role-badge[data-role='final'] {
+  border-color: rgba(255,201,74,0.75);
+  background: rgba(255,201,74,0.22);
+  box-shadow: 0 0 16px rgba(255,201,74,0.35);
+}
+html.light .wc-role-badge {
+  color: #8a5a08;
+  border-color: rgba(184,134,11,0.5);
+  background: rgba(184,134,11,0.1);
+}
+html.light .wc-role-badge[data-role='final'] {
+  border-color: rgba(184,134,11,0.8);
+  background: rgba(184,134,11,0.18);
+  box-shadow: none;
+}
+
+/* Matchday date stripe — gold-ruled divider used in Fixtures tab */
+.wc-day-stripe {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.5rem;
+}
+.wc-day-stripe::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #FFC94A, #E09B22);
+  box-shadow: 0 0 6px rgba(255,201,74,0.5);
+}
+html.light .wc-day-stripe::before {
+  background: linear-gradient(180deg, #C68F1F, #8a5a08);
+  box-shadow: none;
+}
+
+/* Flag marquee chip — slightly larger on mobile so 48 nations read */
+.wc-flag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.045);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+html.light .wc-flag-chip {
+  border-color: rgba(15,40,84,0.14);
+  background: rgba(15,40,84,0.04);
+}
+
+/* Knockouts tab intro strip — phase ladder without duplicate hero messaging */
+.wc-phase-strip {
+  position: relative;
+  border-radius: 1rem;
+  border: 1px solid rgba(255,201,74,0.28);
+  background: linear-gradient(90deg, rgba(10,23,51,0.7) 0%, rgba(10,23,51,0.3) 50%, rgba(10,23,51,0.7) 100%);
+  overflow: hidden;
+}
+html.light .wc-phase-strip {
+  background: linear-gradient(90deg, rgba(10,23,51,0.85) 0%, rgba(10,23,51,0.55) 50%, rgba(10,23,51,0.85) 100%);
+}

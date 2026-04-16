@@ -3,7 +3,7 @@ import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
   Trophy, Calendar, MapPin, Users, Target, CalendarDays,
   LayoutGrid, ListOrdered, GitBranch, Building2, ChevronRight,
-  Sparkles, Radio,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
@@ -107,12 +107,7 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: 'easeOut' as const }}
-      className="relative overflow-hidden rounded-3xl border wc-gold-border"
-      style={{
-        background:
-          'radial-gradient(ellipse 80% 55% at 50% 0%, rgba(255,201,74,0.22) 0%, transparent 60%), linear-gradient(180deg, #0a1733 0%, #061020 100%)',
-        boxShadow: '0 30px 80px -20px rgba(6,16,31,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
-      }}
+      className="relative overflow-hidden rounded-3xl border border-[#FFC94A]/35 wc-hero-bg"
     >
       {/* Tricolor ribbon — USA · Canada · Mexico */}
       <div aria-hidden className="relative h-[3px] grid grid-cols-3 z-10">
@@ -173,12 +168,8 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.18, ease: 'easeOut' as const }}
-              className="font-bebas uppercase leading-[0.82] tracking-[0.02em] text-white"
-              style={{
-                fontSize: 'clamp(3rem, 7.5vw, 7rem)',
-                textShadow:
-                  '0 4px 32px rgba(255,201,74,0.45), 0 0 2px rgba(255,201,74,0.3)',
-              }}
+              className="font-bebas uppercase leading-[0.82] tracking-[0.02em] wc-gold-title"
+              style={{ fontSize: 'clamp(2.5rem, 7.5vw, 7rem)' }}
             >
               {t('wcBracketTitle')}
             </motion.h1>
@@ -258,12 +249,9 @@ function FlagMarquee() {
     >
       <div className="wc-flag-marquee py-1">
         {looped.map((team, i) => (
-          <div
-            key={`${team.code}-${i}`}
-            className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04]"
-          >
-            <span className="text-sm leading-none">{team.flag}</span>
-            <span className="text-[10px] font-bebas tracking-[0.12em] uppercase text-white/85">{team.code}</span>
+          <div key={`${team.code}-${i}`} className="wc-flag-chip">
+            <span className="text-base md:text-lg leading-none">{team.flag}</span>
+            <span className="text-[11px] md:text-[12px] font-bebas tracking-[0.14em] uppercase text-white/90">{team.code}</span>
           </div>
         ))}
       </div>
@@ -439,25 +427,32 @@ function StatStrip({ t }: { t: T }) {
     { icon: CalendarDays, label: t('wcStatDays'),    value: WC2026_INFO.totalDays },
   ];
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 md:gap-3">
       {stats.map((s, i) => (
         <motion.div
           key={s.label}
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.4 }}
-          transition={{ delay: i * 0.06, duration: 0.3, ease: 'easeOut' as const }}
-          className="rounded-2xl border border-border-subtle bg-bg-card/70 px-4 py-3.5"
+          transition={{ delay: i * 0.07, duration: 0.35, ease: 'easeOut' as const }}
+          className="wc-stat-card px-4 py-3.5 md:px-5 md:py-4"
         >
-          <div className="flex items-center gap-2.5">
-            <div className="shrink-0 w-9 h-9 rounded-lg bg-accent-green/10 border border-accent-green/20 flex items-center justify-center">
-              <s.icon size={16} className="text-accent-green" />
+          <div className="relative flex items-center gap-3">
+            <div
+              className="shrink-0 w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,201,74,0.22), rgba(255,201,74,0.06))',
+                border: '1px solid rgba(255,201,74,0.45)',
+                boxShadow: '0 0 14px rgba(255,201,74,0.18), inset 0 1px 0 rgba(255,255,255,0.08)',
+              }}
+            >
+              <s.icon size={17} className="wc-gold" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-barlow font-extrabold text-2xl md:text-[28px] text-white tabular-nums leading-none">
+              <div className="font-bebas text-[30px] md:text-[36px] text-white tabular-nums leading-[0.9] tracking-wide">
                 {s.value}
               </div>
-              <div className="text-[10px] uppercase tracking-widest text-text-muted mt-0.5 truncate">
+              <div className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.22em] wc-gold-muted mt-1 truncate">
                 {s.label}
               </div>
             </div>
@@ -498,46 +493,58 @@ function KeyMatchCard({ label, venue, city, date, tone, delay }: {
   const isGold = tone === 'gold';
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.4 }}
-      transition={{ delay, duration: 0.35, ease: 'easeOut' as const }}
+      transition={{ delay, duration: 0.4, ease: 'easeOut' as const }}
+      whileHover={{ y: -2 }}
       className={cn(
-        'relative rounded-2xl border px-4 py-4 overflow-hidden',
-        isGold
-          ? 'border-accent-green/40 bg-gradient-to-br from-accent-green/10 to-accent-green/5'
-          : 'border-border-subtle bg-bg-card',
+        'relative rounded-2xl border px-4 py-4 md:px-5 md:py-5 overflow-hidden bg-bg-card/70',
+        isGold ? 'border-[#FFC94A]/55' : 'border-[#FFC94A]/25',
       )}
-      style={isGold ? { boxShadow: '0 0 48px rgba(189,232,245,0.22)' } : undefined}
+      style={isGold ? { boxShadow: '0 0 44px rgba(255,201,74,0.26)' } : undefined}
     >
       {isGold && (
         <motion.div
           aria-hidden
-          className="absolute -top-12 -end-10 w-32 h-32 rounded-full bg-accent-green/15 blur-2xl"
-          animate={{ scale: [1, 1.12, 1], opacity: [0.45, 0.8, 0.45] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' as const }}
+          className="absolute -top-14 -end-10 w-40 h-40 rounded-full blur-2xl pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(255,201,74,0.45) 0%, transparent 70%)' }}
+          animate={{ scale: [1, 1.15, 1], opacity: [0.55, 0.95, 0.55] }}
+          transition={{ duration: 4.2, repeat: Infinity, ease: 'easeInOut' as const }}
         />
       )}
       <div className="relative flex items-start justify-between gap-2">
-        <div className={cn(
-          'text-[10px] font-bold uppercase tracking-[0.24em]',
-          isGold ? 'text-accent-green' : 'text-text-muted',
-        )}>
-          {label}
+        <div className="inline-flex items-center gap-2">
+          <span
+            aria-hidden
+            className="w-1 h-4 rounded-full"
+            style={{
+              background: isGold
+                ? 'linear-gradient(180deg, #FFC94A, #E09B22)'
+                : 'linear-gradient(180deg, rgba(255,201,74,0.5), rgba(224,155,34,0.3))',
+              boxShadow: isGold ? '0 0 8px rgba(255,201,74,0.55)' : undefined,
+            }}
+          />
+          <div className={cn(
+            'text-[10px] font-extrabold uppercase tracking-[0.28em]',
+            'wc-gold',
+          )}>
+            {label}
+          </div>
         </div>
-        {isGold && <Trophy size={14} className="text-accent-green shrink-0" />}
+        {isGold && <Trophy size={15} className="wc-gold shrink-0" />}
       </div>
-      <div className="relative font-barlow font-extrabold text-lg md:text-xl uppercase text-white mt-2 leading-tight">
+      <div className="relative font-barlow font-extrabold text-lg md:text-xl uppercase text-white mt-2.5 leading-tight tracking-wide">
         {venue}
       </div>
       <div className="relative flex items-center gap-2 text-text-muted text-[11px] mt-1.5">
         <span className="inline-flex items-center gap-1">
-          <MapPin size={11} />
+          <MapPin size={11} className="wc-gold-muted" />
           {city}
         </span>
         <span className="opacity-30">·</span>
         <span className="inline-flex items-center gap-1">
-          <Calendar size={11} />
+          <Calendar size={11} className="wc-gold-muted" />
           {date}
         </span>
       </div>
@@ -658,13 +665,21 @@ function GroupCard({ group, index, t }: { group: WCGroup; index: number; t: T })
       viewport={{ once: true, amount: 0.2 }}
       transition={{ delay: index * 0.03, duration: 0.28, ease: 'easeOut' as const }}
       whileHover={{ y: -2 }}
-      className="rounded-2xl border border-border-subtle bg-bg-card overflow-hidden"
+      className="rounded-2xl border border-[#FFC94A]/22 bg-bg-card overflow-hidden"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle/60 bg-gradient-to-r from-accent-green/10 to-transparent">
-        <div className="font-barlow font-extrabold text-base uppercase tracking-widest text-white">
-          Group {group.id}
+      <div className="wc-group-header flex items-center justify-between px-4 py-3">
+        <div className="inline-flex items-center gap-2">
+          <span className="font-bebas text-[11px] tracking-[0.26em] wc-gold-muted uppercase leading-none">
+            {t('wcGroups').replace(/s$/i, '')}
+          </span>
+          <span className="font-bebas text-2xl leading-none wc-gold tracking-wide drop-shadow-[0_0_8px_rgba(255,201,74,0.35)]">
+            {group.id}
+          </span>
         </div>
-        <span className="text-[10px] font-mono tabular-nums text-accent-green bg-accent-green/10 border border-accent-green/25 rounded-full px-1.5 py-0.5 leading-none">
+        <span
+          className="text-[10px] font-mono tabular-nums wc-gold leading-none rounded-full px-2 py-1 border border-[#FFC94A]/35"
+          style={{ background: 'rgba(255,201,74,0.1)' }}
+        >
           {group.teams.length}
         </span>
       </div>
@@ -682,18 +697,21 @@ function TeamRow({ team, position, t }: { team: WCTeam; position: number; t: T }
   return (
     <li
       className={cn(
-        'flex items-center gap-2.5 px-3.5 py-2.5 border-t border-border-subtle/40 first:border-t-0',
-        isTbd ? 'opacity-45' : '',
+        'flex items-center gap-2.5 px-3.5 py-2.5 border-t border-border-subtle/40 first:border-t-0 transition-colors',
+        isTbd ? 'opacity-45' : 'hover:bg-[#FFC94A]/[0.04]',
       )}
       title={team.name}
     >
-      <span className="w-4 text-end text-text-muted/70 font-mono text-[11px] tabular-nums shrink-0">
+      <span className="w-4 text-end wc-gold-muted font-mono text-[11px] tabular-nums shrink-0">
         {position}
       </span>
-      <span aria-hidden className="text-[17px] leading-none shrink-0 w-6 text-center">
+      <span aria-hidden className="text-[19px] leading-none shrink-0 w-7 text-center">
         {team.flag}
       </span>
-      <span className="font-mono tabular-nums text-[10px] font-bold tracking-wider text-accent-green/90 bg-accent-green/8 border border-accent-green/20 rounded px-1.5 py-0.5 leading-none shrink-0">
+      <span
+        className="font-mono tabular-nums text-[10px] font-bold tracking-wider wc-gold rounded px-1.5 py-0.5 leading-none shrink-0 border border-[#FFC94A]/25"
+        style={{ background: 'rgba(255,201,74,0.08)' }}
+      >
         {team.code}
       </span>
       <span
@@ -705,7 +723,7 @@ function TeamRow({ team, position, t }: { team: WCTeam; position: number; t: T }
         {team.name}
       </span>
       {team.host && (
-        <span className="text-[9px] font-bold uppercase tracking-wider text-accent-green bg-accent-green/10 border border-accent-green/25 rounded-full px-1.5 py-0.5 leading-none shrink-0">
+        <span className="wc-role-badge shrink-0" data-role="host">
           {t('wcHost')}
         </span>
       )}
@@ -807,21 +825,22 @@ function DaySection({ date, matches, dayDateFmt, shortDateFmt }: {
   const isPast = dateObj.getTime() + 86400000 < Date.now();
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-3 px-1">
-        <span
-          aria-hidden
-          className={cn(
-            'w-1.5 h-1.5 rounded-full',
-            isToday ? 'bg-accent-green' : isPast ? 'bg-text-muted/40' : 'bg-text-muted/70',
-          )}
-        />
-        <span className="font-barlow text-[11px] md:text-[12px] font-bold uppercase tracking-[0.18em] text-white/85">
+      <div className="wc-day-stripe">
+        <span className="font-bebas text-[15px] md:text-[16px] tracking-[0.18em] uppercase text-white/95 leading-none">
           {dayDateFmt.format(dateObj)}
         </span>
-        <span className="text-[10px] text-text-muted/70">
-          · {matches.length} {matches.length === 1 ? 'match' : 'matches'}
+        {isToday && (
+          <span className="text-[9px] font-extrabold uppercase tracking-[0.22em] wc-gold rounded-full px-2 py-0.5 border border-[#FFC94A]/45" style={{ background: 'rgba(255,201,74,0.1)' }}>
+            Today
+          </span>
+        )}
+        <span className={cn(
+          'text-[10px] tabular-nums',
+          isToday ? 'wc-gold-muted' : isPast ? 'text-text-muted/60' : 'text-text-muted/80',
+        )}>
+          {matches.length} {matches.length === 1 ? 'match' : 'matches'}
         </span>
-        <span className="flex-1 h-px bg-border-subtle/40" />
+        <span className="flex-1 h-px bg-[#FFC94A]/15" />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
         {matches.map((m, i) => (
@@ -907,7 +926,7 @@ function TeamLine({ team }: { team: WCTeam }) {
 function KnockoutsTab({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFormat }) {
   return (
     <section className="space-y-4">
-      <BracketHero t={t} />
+      <KnockoutsIntro t={t} />
 
       {/* Tablet+ (md+): symmetric mirror bracket — LEFT flows right, RIGHT flows
           left, trophy at dead center. On viewports narrower than the grid's
@@ -925,180 +944,49 @@ function KnockoutsTab({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFo
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  HERO — WC 2026 tournament-specific identity
-//  Dominant tricolor backdrop (US navy → gold trophy center → MX green),
-//  stadium-silhouette SVG base layer, animated tournament crest, and
-//  "FIFA WORLD CUP 2026" ticker band. Meant to feel like walking up to
-//  the stadium, not a generic bracket header.
-// ═══════════════════════════════════════════════════════════════════
-function BracketHero({ t }: { t: T }) {
-  const finalDate = useMemo(() => new Date(WC2026_FINAL.date), []);
-  const daysToFinal = Math.max(0, Math.ceil((finalDate.getTime() - Date.now()) / 86400000));
-
+/**
+ * Lean intro strip for the Knockouts tab. The main Hero above already says
+ * "Road to MetLife" — we don't re-announce the tournament here. This strip
+ * shows ONLY the phase ladder (R32 → Final) with heat escalation and a
+ * live/auto-update pulse so the user knows the bracket is alive.
+ */
+function KnockoutsIntro({ t }: { t: T }) {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-[#FFC94A]/35">
-      {/* Backdrop: tri-host gradient — US navy/red left, gold-trophy center, MX green right */}
-      <div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'linear-gradient(105deg, rgba(15,40,84,0.85) 0%, rgba(73,136,196,0.35) 22%, rgba(255,201,74,0.28) 50%, rgba(206,17,38,0.22) 78%, rgba(0,104,71,0.55) 100%)',
-        }}
-      />
-      {/* Pulsing gold spotlight behind the crest */}
-      <motion.div
-        aria-hidden
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] rounded-full pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(circle, rgba(255,201,74,0.32) 0%, rgba(255,201,74,0.1) 40%, transparent 70%)',
-          filter: 'blur(18px)',
-        }}
-        animate={{ scale: [1, 1.12, 1], opacity: [0.5, 0.85, 0.5] }}
-        transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' as const }}
-      />
-      {/* Stadium silhouette — low-opacity SVG baseline, gives "inside the venue" vibe */}
-      <StadiumSilhouette className="absolute inset-x-0 bottom-0 h-24 md:h-32 opacity-[0.18] pointer-events-none" />
-
-      {/* Tricolor bar — USA · Canada · Mexico at the very top */}
-      <div aria-hidden className="relative h-[3px] grid grid-cols-3 z-10">
-        <span className="bg-gradient-to-r from-[#B22234] via-[#FFFFFF] to-[#3C3B6E]" />
-        <span className="bg-gradient-to-r from-[#D52B1E] via-[#FFFFFF] to-[#D52B1E]" />
-        <span className="bg-gradient-to-r from-[#006847] via-[#FFFFFF] to-[#CE1126]" />
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: 'easeOut' as const }}
+      className="wc-phase-strip px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between gap-3 flex-wrap"
+    >
+      <div className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
+        <span className="font-bebas text-[14px] tracking-[0.26em] wc-gold leading-none">
+          {t('wcKnockouts')}
+        </span>
+        <span className="opacity-30">·</span>
+        <RoundPill label={t('wcR32Short')} tone="cool" />
+        <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
+        <RoundPill label={t('wcR16Short')} tone="cool" />
+        <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
+        <RoundPill label={t('wcQFShort')} tone="warm" />
+        <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
+        <RoundPill label={t('wcSFShort')} tone="warmer" />
+        <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
+        <RoundPill label={t('wcFinal')} tone="hot" />
       </div>
-
-      {/* Main hero body */}
-      <div className="relative px-5 md:px-8 py-6 md:py-8 flex flex-col md:flex-row items-center gap-5 md:gap-7">
-        {/* Animated tournament crest — the centerpiece */}
-        <TournamentCrest />
-
-        {/* Title + subtitle + host flags */}
-        <div className="flex-1 min-w-0 text-center md:text-start">
-          {/* Tiny banner pill */}
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-[#FFC94A]/40 bg-[#FFC94A]/10 mb-2.5">
-            <Sparkles size={10} className="text-[#FFC94A]" />
-            <span className="text-[9.5px] md:text-[10px] font-extrabold uppercase tracking-[0.28em] text-[#FFC94A]">
-              FIFA World Cup · 2026
-            </span>
-          </div>
-          <h3 className="font-bebas text-3xl md:text-5xl tracking-[0.04em] text-white leading-[0.95]">
-            {t('wcBracketTitle')}
-          </h3>
-          <p className="text-white/70 text-[12px] md:text-[14px] mt-2 leading-snug max-w-xl mx-auto md:mx-0">
-            {t('wcBracketSub')}
-          </p>
-
-          {/* Host row: 3 country chips with full context */}
-          <div className="flex items-center justify-center md:justify-start gap-1.5 mt-3 flex-wrap">
-            <HostChip flag="🇺🇸" name="USA" />
-            <span className="text-white/30 text-xs">·</span>
-            <HostChip flag="🇨🇦" name="Canada" />
-            <span className="text-white/30 text-xs">·</span>
-            <HostChip flag="🇲🇽" name="Mexico" />
-          </div>
-        </div>
-
-        {/* Right-side stat: Final countdown */}
-        <div className="shrink-0 flex flex-row md:flex-col items-center gap-3 md:gap-0 md:text-end">
-          <div className="inline-flex items-baseline gap-1.5 md:gap-2 md:flex-col md:items-end">
-            <span className="font-bebas text-4xl md:text-6xl text-[#FFC94A] tabular-nums leading-none drop-shadow-[0_0_20px_rgba(255,201,74,0.6)]">
-              {daysToFinal}
-            </span>
-            <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-[0.22em] text-white/70">
-              days to
-            </span>
-          </div>
-          <div className="inline-flex items-center gap-1 mt-0.5 md:mt-0.5">
-            <Trophy size={11} className="text-[#FFC94A]" />
-            <span className="text-[11px] md:text-[12px] font-bebas tracking-[0.18em] uppercase text-white">
-              The Final · Jul 19
-            </span>
-          </div>
-        </div>
+      <div className="inline-flex items-center gap-2 text-[10px]">
+        <span className="relative inline-flex w-2 h-2 rounded-full bg-[#FFC94A]">
+          <motion.span
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-[#FFC94A]"
+            animate={{ scale: [1, 2.2], opacity: [0.8, 0] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' as const }}
+          />
+        </span>
+        <span className="font-bold uppercase tracking-widest wc-gold">
+          {t('wcLiveAuto')}
+        </span>
       </div>
-
-      {/* Bottom strip: round ladder + live badge */}
-      <div className="relative px-5 md:px-8 pb-4 pt-0 flex items-center justify-between gap-3 flex-wrap border-t border-white/10 mt-1">
-        <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-text-muted/80 pt-3">
-          <RoundPill label={t('wcR32Short')} tone="cool" />
-          <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
-          <RoundPill label={t('wcR16Short')} tone="cool" />
-          <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
-          <RoundPill label={t('wcQFShort')} tone="warm" />
-          <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
-          <RoundPill label={t('wcSFShort')} tone="warmer" />
-          <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
-          <RoundPill label={t('wcFinal')} tone="hot" />
-        </div>
-        <div className="inline-flex items-center gap-2 text-[10px] pt-3">
-          <span className="relative inline-flex w-2 h-2 rounded-full bg-accent-green">
-            <motion.span
-              aria-hidden
-              className="absolute inset-0 rounded-full bg-accent-green"
-              animate={{ scale: [1, 2.2], opacity: [0.8, 0] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' as const }}
-            />
-          </span>
-          <span className="font-bold uppercase tracking-widest text-accent-green">
-            {t('wcLiveAuto')}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Small chip: flag + country name — used in the hero host row
-function HostChip({ flag, name }: { flag: string; name: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-white/15 bg-white/[0.04]">
-      <span aria-hidden className="text-base leading-none">{flag}</span>
-      <span className="text-[11px] font-bebas tracking-[0.14em] uppercase text-white/90">{name}</span>
-    </span>
-  );
-}
-
-// Animated tournament crest — circular gold-rim badge with trophy + "2026"
-function TournamentCrest() {
-  return (
-    <div className="relative shrink-0 w-24 h-24 md:w-32 md:h-32">
-      {/* Outer rotating ring of stars */}
-      <motion.div
-        aria-hidden
-        className="absolute inset-0"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 40, repeat: Infinity, ease: 'linear' as const }}
-      >
-        <svg viewBox="0 0 100 100" className="w-full h-full">
-          <defs>
-            <path id="wc-crest-circle" d="M 50,50 m -42,0 a 42,42 0 1,1 84,0 a 42,42 0 1,1 -84,0" />
-          </defs>
-          <text className="text-[7px] fill-[#FFC94A] font-bold tracking-[0.3em]" style={{ letterSpacing: '0.35em' }}>
-            <textPath href="#wc-crest-circle" startOffset="0%">
-              WORLD CUP · 2026 · USA · CAN · MEX · WORLD CUP · 2026 ·
-            </textPath>
-          </text>
-        </svg>
-      </motion.div>
-      {/* Inner gold disc */}
-      <div
-        className="absolute inset-[18%] rounded-full flex items-center justify-center"
-        style={{
-          background:
-            'radial-gradient(circle at 30% 30%, #FFE7A3 0%, #FFC94A 35%, #C68F1F 78%, #8C6314 100%)',
-          boxShadow: '0 0 28px rgba(255,201,74,0.55), inset 0 0 10px rgba(140,99,20,0.5)',
-        }}
-      >
-        <motion.div
-          animate={{ y: [0, -2, 0], rotate: [0, -3, 3, 0] }}
-          transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' as const }}
-        >
-          <Trophy size={28} className="text-[#4A2F05]" strokeWidth={2.2} />
-        </motion.div>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1152,61 +1040,6 @@ function RoundPill({ label, tone }: { label: string; tone: 'cool' | 'warm' | 'wa
   );
 }
 
-// Legacy header kept for any external ref — now unused by KnockoutsTab.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _LegacyBracketHeader({ t }: { t: T }) {
-  return (
-    <div className="flex items-center justify-between gap-3 flex-wrap">
-      <div>
-        <h3 className="font-barlow text-base md:text-lg font-extrabold uppercase tracking-[0.22em] text-white/95">
-          {t('wcBracketTitle')}
-        </h3>
-        <p className="text-text-muted text-[11px] md:text-xs mt-0.5">{t('wcBracketSub')}</p>
-      </div>
-      <div className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-muted">
-        <span>{t('wcR32')}</span>
-        <ChevronRight size={12} className="opacity-50 rtl:rotate-180" />
-        <span>{t('wcR16')}</span>
-        <ChevronRight size={12} className="opacity-50 rtl:rotate-180" />
-        <span>{t('wcQF')}</span>
-        <ChevronRight size={12} className="opacity-50 rtl:rotate-180" />
-        <span>{t('wcSF')}</span>
-        <ChevronRight size={12} className="opacity-50 rtl:rotate-180" />
-        <span className="text-accent-green">{t('wcFinal')}</span>
-      </div>
-    </div>
-  );
-}
-
-function AutoUpdateBadge({ t }: { t: T }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' as const }}
-      className="rounded-2xl border border-accent-green/25 bg-accent-green/5 px-4 py-3 flex items-center gap-3"
-    >
-      <span className="shrink-0 relative inline-flex w-8 h-8 rounded-full bg-accent-green/10 border border-accent-green/30 items-center justify-center">
-        <Radio size={14} className="text-accent-green" strokeWidth={2} />
-        <motion.span
-          aria-hidden
-          className="absolute inset-0 rounded-full border border-accent-green/40"
-          animate={{ scale: [1, 1.35], opacity: [0.8, 0] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' as const }}
-        />
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="font-barlow font-bold text-[11px] uppercase tracking-[0.2em] text-accent-green leading-none">
-          {t('wcLiveAuto')}
-        </div>
-        <div className="text-[11px] md:text-xs text-text-muted mt-1 leading-snug">
-          {t('wcLiveAutoDesc')}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
 /* ──────── Desktop bracket tree — SYMMETRIC MIRROR LAYOUT ────────
  *
  * 9-column CSS grid: R32L | R16L | QFL | SFL | FINAL | SFR | QFR | R16R | R32R
@@ -1256,7 +1089,7 @@ const BRACKET_SYM_CSS = `
   top: 50%;
   width: 1rem;
   height: 1px;
-  background: rgba(189,232,245,0.30);
+  background: rgba(255,201,74,0.42);
   pointer-events: none;
 }
 .wc-sym-cell[data-side='left'][data-connect-out='top']::after {
@@ -1266,8 +1099,8 @@ const BRACKET_SYM_CSS = `
   top: 50%;
   width: 1rem;
   height: 100%;
-  border-top: 1px solid rgba(189,232,245,0.30);
-  border-inline-end: 1px solid rgba(189,232,245,0.30);
+  border-top: 1px solid rgba(255,201,74,0.42);
+  border-inline-end: 1px solid rgba(255,201,74,0.42);
   pointer-events: none;
 }
 .wc-sym-cell[data-side='left'][data-connect-out='bot']::after {
@@ -1277,8 +1110,8 @@ const BRACKET_SYM_CSS = `
   bottom: 50%;
   width: 1rem;
   height: 100%;
-  border-bottom: 1px solid rgba(189,232,245,0.30);
-  border-inline-end: 1px solid rgba(189,232,245,0.30);
+  border-bottom: 1px solid rgba(255,201,74,0.42);
+  border-inline-end: 1px solid rgba(255,201,74,0.42);
   pointer-events: none;
 }
 /* SF-L: single card flowing into Final — straight horizontal stub */
@@ -1301,7 +1134,7 @@ const BRACKET_SYM_CSS = `
   top: 50%;
   width: 1rem;
   height: 1px;
-  background: rgba(189,232,245,0.30);
+  background: rgba(255,201,74,0.42);
   pointer-events: none;
 }
 .wc-sym-cell[data-side='right'][data-connect-out='top']::after {
@@ -1311,8 +1144,8 @@ const BRACKET_SYM_CSS = `
   top: 50%;
   width: 1rem;
   height: 100%;
-  border-top: 1px solid rgba(189,232,245,0.30);
-  border-inline-start: 1px solid rgba(189,232,245,0.30);
+  border-top: 1px solid rgba(255,201,74,0.42);
+  border-inline-start: 1px solid rgba(255,201,74,0.42);
   pointer-events: none;
 }
 .wc-sym-cell[data-side='right'][data-connect-out='bot']::after {
@@ -1322,8 +1155,8 @@ const BRACKET_SYM_CSS = `
   bottom: 50%;
   width: 1rem;
   height: 100%;
-  border-bottom: 1px solid rgba(189,232,245,0.30);
-  border-inline-start: 1px solid rgba(189,232,245,0.30);
+  border-bottom: 1px solid rgba(255,201,74,0.42);
+  border-inline-start: 1px solid rgba(255,201,74,0.42);
   pointer-events: none;
 }
 .wc-sym-cell[data-side='right'][data-connect-out='straight']::after {
@@ -1363,7 +1196,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
   const sfRight  = WC2026_SF[1];
 
   return (
-    <div className="relative rounded-3xl border border-[#FFC94A]/25 bg-gradient-to-b from-bg-card/50 via-bg-card/20 to-bg-card/40 backdrop-blur-sm overflow-hidden p-4 xl:p-6 w-full">
+    <div className="relative rounded-3xl wc-bracket-bg backdrop-blur-sm overflow-hidden p-4 xl:p-6 w-full">
       <style>{BRACKET_SYM_CSS}</style>
 
       {/* Ambient backdrop: gold halo at center, cool blue at edges */}
@@ -1779,13 +1612,7 @@ function FinalApex({ t, match, shortDateFmt }: {
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.5, ease: 'easeOut' as const }}
-      className="relative w-full rounded-2xl border overflow-hidden"
-      style={{
-        borderColor: toneFinal.border,
-        background:
-          'linear-gradient(135deg, rgba(255,201,74,0.18) 0%, rgba(230,156,56,0.10) 45%, rgba(15,40,84,0.55) 100%)',
-        boxShadow: '0 0 64px rgba(255,201,74,0.28)',
-      }}
+      className="relative w-full rounded-2xl wc-final-bg overflow-hidden"
     >
       {/* Shimmering gold orb behind the trophy */}
       <motion.div
@@ -1959,55 +1786,84 @@ function VenuesTab({ t }: { t: T }) {
 }
 
 function StadiumCard({ stadium, index, t }: { stadium: WCStadium; index: number; t: T }) {
-  const roleMap: Record<NonNullable<WCStadium['role']>, { key: TranslationKey; style: string }> = {
-    final:        { key: 'wcRoleFinal',    style: 'text-accent-green border-accent-green/40 bg-accent-green/15' },
-    semifinal:    { key: 'wcRoleSemi',     style: 'text-accent-green/90 border-accent-green/25 bg-accent-green/10' },
-    third:        { key: 'wcRoleThird',    style: 'text-accent-green/80 border-accent-green/20 bg-accent-green/5' },
-    quarterfinal: { key: 'wcRoleQuarter',  style: 'text-accent-green/80 border-accent-green/20 bg-accent-green/5' },
-    opening:      { key: 'wcRoleOpening',  style: 'text-accent-green border-accent-green/35 bg-accent-green/10' },
+  const roleMap: Record<NonNullable<WCStadium['role']>, TranslationKey> = {
+    final:        'wcRoleFinal',
+    semifinal:    'wcRoleSemi',
+    third:        'wcRoleThird',
+    quarterfinal: 'wcRoleQuarter',
+    opening:      'wcRoleOpening',
   };
   const role = stadium.role ? roleMap[stadium.role] : null;
   const isMarquee = stadium.role === 'final' || stadium.role === 'opening';
+  // Largest WC 2026 host: MetLife (82,500). Normalize bar width against that.
+  const MAX_CAPACITY = 82500;
+  const capacityPct = Math.min(100, Math.round((stadium.capacity / MAX_CAPACITY) * 100));
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 8 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
-      transition={{ delay: index * 0.025, duration: 0.24, ease: 'easeOut' as const }}
-      whileHover={{ y: -2 }}
+      transition={{ delay: index * 0.025, duration: 0.3, ease: 'easeOut' as const }}
+      whileHover={{ y: -3 }}
       className={cn(
-        'rounded-xl border px-3 py-3 relative overflow-hidden',
-        isMarquee
-          ? 'border-accent-green/35 bg-gradient-to-br from-accent-green/10 to-transparent'
-          : 'border-border-subtle bg-bg-card',
+        'rounded-xl border px-3.5 py-3 relative overflow-hidden bg-bg-card',
+        isMarquee ? 'border-[#FFC94A]/55' : 'border-[#FFC94A]/22',
       )}
-      style={isMarquee ? { boxShadow: '0 0 32px rgba(189,232,245,0.14)' } : undefined}
+      style={isMarquee ? { boxShadow: '0 0 32px rgba(255,201,74,0.22)' } : undefined}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span aria-hidden className="text-lg leading-none">{stadium.countryFlag}</span>
+      {/* Stadium silhouette — tiny decorative baseline */}
+      <svg
+        aria-hidden
+        viewBox="0 0 200 40"
+        preserveAspectRatio="none"
+        className="absolute inset-x-0 bottom-0 h-10 opacity-[0.10] pointer-events-none"
+      >
+        <path
+          d="M0,40 L0,34 Q30,28 60,26 L90,22 Q120,16 150,20 L180,24 Q195,28 200,30 L200,40 Z"
+          fill={isMarquee ? '#FFC94A' : '#BDE8F5'}
+        />
+      </svg>
+
+      {isMarquee && (
+        <div
+          aria-hidden
+          className="absolute -top-10 -end-8 w-32 h-32 rounded-full blur-2xl pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(255,201,74,0.4) 0%, transparent 70%)' }}
+        />
+      )}
+
+      <div className="relative flex items-start justify-between gap-2">
+        <span aria-hidden className="text-xl leading-none">{stadium.countryFlag}</span>
         {role && (
-          <span className={cn(
-            'text-[9px] font-bold uppercase tracking-widest rounded-full px-1.5 py-0.5 border leading-none',
-            role.style,
-          )}>
-            {t(role.key)}
+          <span className="wc-role-badge" data-role={stadium.role}>
+            {t(role)}
           </span>
         )}
       </div>
-      <div className="font-barlow font-extrabold text-[13px] uppercase tracking-wide text-white leading-tight mt-2.5 truncate">
+      <div className="relative font-barlow font-extrabold text-[13px] md:text-sm uppercase tracking-wide text-white leading-tight mt-2.5 truncate">
         {stadium.name}
       </div>
-      <div className="text-[10.5px] text-text-muted mt-0.5 truncate">
+      <div className="relative text-[10.5px] text-text-muted mt-0.5 truncate">
         {stadium.city}
       </div>
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border-subtle/40">
-        <span className="text-[9px] uppercase tracking-widest text-text-muted/70">
-          {t('wcCapacity')}
-        </span>
-        <span className="text-[11px] font-mono tabular-nums font-bold text-white">
-          {stadium.capacity.toLocaleString()}
-        </span>
+      <div className="relative mt-3 pt-2 border-t border-[#FFC94A]/15 space-y-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[9px] uppercase tracking-[0.2em] wc-gold-muted font-bold">
+            {t('wcCapacity')}
+          </span>
+          <span className="text-[11px] font-mono tabular-nums font-bold text-white">
+            {stadium.capacity.toLocaleString()}
+          </span>
+        </div>
+        <div className="wc-capacity-bar" aria-label={`${capacityPct}% of max capacity`}>
+          <motion.span
+            initial={{ width: 0 }}
+            whileInView={{ width: `${capacityPct}%` }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ delay: 0.1 + index * 0.03, duration: 0.9, ease: 'easeOut' as const }}
+          />
+        </div>
       </div>
     </motion.div>
   );
