@@ -6,33 +6,40 @@ import { useLeagueStats } from '../hooks/useLeagueStats';
 import { StandingsTable } from '../components/stats/StandingsTable';
 import { LeagueLeaders } from '../components/stats/LeagueLeaders';
 import { LeagueDropdown } from '../components/stats/LeagueDropdown';
+import { WorldCupBracket } from '../components/stats/WorldCupBracket';
 import { PageLoader } from '../components/ui/LoadingSpinner';
 import { EmptyState } from '../components/ui/EmptyState';
+
+// Leagues handled by a custom view instead of the ESPN standings/leaders feed.
+const WORLD_CUP_ID = 4480;
+const CUSTOM_VIEW_LEAGUES = new Set<number>([WORLD_CUP_ID]);
 
 export function StatsPage() {
   const { t } = useLangStore();
   const { groups, activeGroupId } = useGroupStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
-  // Only offer leagues that have an ESPN slug — otherwise the backend has no data source.
+  // Offer leagues with ESPN data, plus tournaments we render with a custom view.
   const availableLeagues = useMemo(
-    () => FOOTBALL_LEAGUES.filter(l => LEAGUE_ESPN_SLUG[l.id]),
+    () => FOOTBALL_LEAGUES.filter(l => LEAGUE_ESPN_SLUG[l.id] || CUSTOM_VIEW_LEAGUES.has(l.id)),
     [],
   );
 
   const defaultLeagueId = useMemo(() => {
-    const fromGroup = activeGroup?.active_leagues?.find(id => LEAGUE_ESPN_SLUG[id]);
+    const fromGroup = activeGroup?.active_leagues?.find(
+      id => LEAGUE_ESPN_SLUG[id] || CUSTOM_VIEW_LEAGUES.has(id),
+    );
     return fromGroup ?? availableLeagues[0]?.id ?? null;
   }, [activeGroup, availableLeagues]);
 
   const [leagueId, setLeagueId] = useState<number | null>(defaultLeagueId);
 
-  // If group's active leagues load in after initial mount, update default once.
   useEffect(() => {
     if (leagueId == null && defaultLeagueId != null) setLeagueId(defaultLeagueId);
   }, [defaultLeagueId, leagueId]);
 
-  const { data, loading, error } = useLeagueStats(leagueId);
+  const isCustomView = leagueId != null && CUSTOM_VIEW_LEAGUES.has(leagueId);
+  const { data, loading, error } = useLeagueStats(isCustomView ? null : leagueId);
 
   const selectedLeague = availableLeagues.find(l => l.id === leagueId);
 
@@ -49,7 +56,6 @@ export function StatsPage() {
           )}
         </div>
 
-        {/* League selector */}
         <LeagueDropdown
           leagues={availableLeagues}
           value={leagueId}
@@ -57,31 +63,35 @@ export function StatsPage() {
         />
       </div>
 
-      {/* Standings */}
-      <section className="space-y-2">
-        <h2 className="font-barlow text-xs font-bold uppercase tracking-widest text-text-muted">
-          {t('statsStandings')}
-        </h2>
-        {loading && !data ? (
-          <PageLoader />
-        ) : error || !data?.standings?.length ? (
-          <EmptyState icon="📊" title={t('statsNoData')} description="" />
-        ) : (
-          <StandingsTable rows={data.standings} />
-        )}
-      </section>
+      {leagueId === WORLD_CUP_ID ? (
+        <WorldCupBracket />
+      ) : (
+        <>
+          <section className="space-y-2">
+            <h2 className="font-barlow text-xs font-bold uppercase tracking-widest text-text-muted">
+              {t('statsStandings')}
+            </h2>
+            {loading && !data ? (
+              <PageLoader />
+            ) : error || !data?.standings?.length ? (
+              <EmptyState icon="📊" title={t('statsNoData')} description="" />
+            ) : (
+              <StandingsTable rows={data.standings} />
+            )}
+          </section>
 
-      {/* Leaders — silently hidden when unavailable */}
-      {data?.leaders && (data.leaders.scorers?.length > 0 || data.leaders.assists?.length > 0) && (
-        <section className="space-y-2">
-          <h2 className="font-barlow text-xs font-bold uppercase tracking-widest text-text-muted">
-            {t('statsLeaders')}
-          </h2>
-          <LeagueLeaders
-            scorers={data.leaders.scorers ?? []}
-            assists={data.leaders.assists ?? []}
-          />
-        </section>
+          {data?.leaders && (data.leaders.scorers?.length > 0 || data.leaders.assists?.length > 0) && (
+            <section className="space-y-2">
+              <h2 className="font-barlow text-xs font-bold uppercase tracking-widest text-text-muted">
+                {t('statsLeaders')}
+              </h2>
+              <LeagueLeaders
+                scorers={data.leaders.scorers ?? []}
+                assists={data.leaders.assists ?? []}
+              />
+            </section>
+          )}
+        </>
       )}
     </div>
   );

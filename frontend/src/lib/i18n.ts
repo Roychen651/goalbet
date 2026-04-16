@@ -484,6 +484,25 @@ export const translations = {
     statsPlayerMatches: '{0} matches',
     statsGoals: 'Goals',
     statsAssists: 'Assists',
+
+    // World Cup bracket view
+    wcRouteToTrophy: 'Route to the Trophy',
+    wcHostNations: 'Host Nations',
+    wcStatTeams: 'Teams',
+    wcStatMatches: 'Matches',
+    wcStatCities: 'Host Cities',
+    wcOpeningMatch: 'Opening Match',
+    wcFinalMatch: 'Final',
+    wcGroupStage: 'Group Stage',
+    wcKnockoutStage: 'Knockout Stage',
+    wcGroups: 'groups',
+    wcMatches: 'matches',
+    wcR32: 'Round of 32',
+    wcR16: 'Round of 16',
+    wcQF: 'Quarterfinals',
+    wcSF: 'Semifinals',
+    wcFinal: 'Final',
+    wcThirdPlace: '3rd-Place Play-off',
   },
 
   he: {
@@ -966,6 +985,25 @@ export const translations = {
     statsPlayerMatches: '{0} משחקים',
     statsGoals: 'שערים',
     statsAssists: 'בישולים',
+
+    // World Cup bracket view
+    wcRouteToTrophy: 'הדרך לגביע',
+    wcHostNations: 'מדינות מארחות',
+    wcStatTeams: 'נבחרות',
+    wcStatMatches: 'משחקים',
+    wcStatCities: 'ערים מארחות',
+    wcOpeningMatch: 'משחק הפתיחה',
+    wcFinalMatch: 'הגמר',
+    wcGroupStage: 'שלב הבתים',
+    wcKnockoutStage: 'שלב הנוקאאוט',
+    wcGroups: 'בתים',
+    wcMatches: 'משחקים',
+    wcR32: 'שלב ה־32',
+    wcR16: 'שמינית הגמר',
+    wcQF: 'רבע הגמר',
+    wcSF: 'חצי הגמר',
+    wcFinal: 'גמר',
+    wcThirdPlace: 'משחק מקום שלישי',
   },
 } as const;
 
