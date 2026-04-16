@@ -780,12 +780,16 @@ html.light .wc-atmosphere::after {
 /* Layered content above the atmosphere's ::before / ::after */
 .wc-atmosphere > * { position: relative; z-index: 1; }
 
-/* Hero sky — used in the Road-to-MetLife hero spotlights/flag strip */
+/* Hero sky — stadium floodlights sweeping slowly across the backdrop.
+   Both beams now tinted gold so light mode doesn't get a "cold white strip
+   that ends mid-page". Amplitude reduced so the sweep stays atmospheric
+   and doesn't visually dominate the composition. */
 @keyframes wc-spotlight-sweep {
-  0%, 100% { transform: translateX(-6%) skewX(-18deg); opacity: 0.35; }
-  50%      { transform: translateX(6%)  skewX(-18deg); opacity: 0.55; }
+  0%, 100% { transform: translateX(-3%) skewX(-14deg); opacity: 0.28; }
+  50%      { transform: translateX(3%)  skewX(-14deg); opacity: 0.48; }
 }
-.wc-spotlight { animation: wc-spotlight-sweep 7s ease-in-out infinite; }
+.wc-spotlight { animation: wc-spotlight-sweep 9s ease-in-out infinite; }
+html.light .wc-spotlight { opacity: 0.65; mix-blend-mode: multiply; }
 
 @keyframes wc-flag-march {
   from { transform: translateX(0); }
@@ -1039,9 +1043,276 @@ html.light .wc-flag-chip {
   position: relative;
   border-radius: 1rem;
   border: 1px solid rgba(255,201,74,0.28);
-  background: linear-gradient(90deg, rgba(10,23,51,0.7) 0%, rgba(10,23,51,0.3) 50%, rgba(10,23,51,0.7) 100%);
+  background: linear-gradient(90deg, rgba(10,23,51,0.92) 0%, rgba(15,35,75,0.75) 50%, rgba(10,23,51,0.92) 100%);
   overflow: hidden;
 }
 html.light .wc-phase-strip {
-  background: linear-gradient(90deg, rgba(10,23,51,0.85) 0%, rgba(10,23,51,0.55) 50%, rgba(10,23,51,0.85) 100%);
+  background: linear-gradient(90deg, rgba(10,23,51,0.95) 0%, rgba(15,35,75,0.85) 50%, rgba(10,23,51,0.95) 100%);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MUNDIAL 2026 — "UNITED" tournament identity layer
+   Everything in this block is purpose-built for the World Cup view:
+   tri-host (USA · MEX · CAN) accents, trophy styling, host-city
+   ticker, ambient confetti, gold shimmer for hero stats. Reason:
+   fans must feel they've walked into the tournament the moment
+   the dropdown opens — the site-wide theme alone cannot carry
+   that emotion. Every helper here is :theme-aware, so the Mundial
+   stays Mundial in both dark and light mode.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Tri-host flag chip — USA / MEX / CAN */
+.wc-host-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,201,74,0.35);
+  background:
+    linear-gradient(90deg,
+      rgba(178,34,52,0.18) 0%,
+      rgba(178,34,52,0.14) 33%,
+      rgba(213,43,30,0.14) 33%,
+      rgba(213,43,30,0.14) 66%,
+      rgba(0,104,71,0.16) 66%,
+      rgba(0,104,71,0.20) 100%
+    ),
+    rgba(10,23,51,0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 0 24px rgba(255,201,74,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.wc-host-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: #FFF5D1;
+  line-height: 1;
+}
+.wc-host-chip + .wc-host-chip::before {
+  content: '';
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255,201,74,0.6);
+  margin-right: 0.3rem;
+}
+html[dir='rtl'] .wc-host-chip + .wc-host-chip::before { margin-right: 0; margin-left: 0.3rem; }
+html.light .wc-host-row {
+  border-color: rgba(138,90,8,0.4);
+  background:
+    linear-gradient(90deg,
+      rgba(178,34,52,0.10) 0%,
+      rgba(178,34,52,0.08) 33%,
+      rgba(213,43,30,0.08) 33%,
+      rgba(213,43,30,0.10) 66%,
+      rgba(0,104,71,0.10) 66%,
+      rgba(0,104,71,0.12) 100%
+    ),
+    rgba(10,23,51,0.88);
+}
+
+/* Trophy SVG — gold polish + pulsing halo behind */
+.wc-trophy {
+  filter:
+    drop-shadow(0 0 24px rgba(255,201,74,0.55))
+    drop-shadow(0 6px 12px rgba(224,155,34,0.35));
+}
+@keyframes wc-trophy-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-4px) rotate(0.8deg); }
+}
+.wc-trophy-bob { animation: wc-trophy-bob 4.6s ease-in-out infinite; }
+
+.wc-trophy-halo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, rgba(255,201,74,0.45) 0%, rgba(255,201,74,0.12) 30%, transparent 65%);
+  filter: blur(18px);
+}
+@keyframes wc-halo-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0.95; transform: scale(1.08); }
+}
+.wc-halo-breathe { animation: wc-halo-breathe 5.4s ease-in-out infinite; }
+
+/* Host-city ticker — secondary marquee below or near flags */
+@keyframes wc-city-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.wc-city-marquee {
+  display: flex;
+  width: max-content;
+  gap: 1.5rem;
+  animation: wc-city-scroll 60s linear infinite;
+}
+html[dir='rtl'] .wc-city-marquee { animation-direction: reverse; }
+.wc-city-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  color: rgba(255,245,209,0.72);
+  white-space: nowrap;
+}
+.wc-city-item::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #FFC94A;
+  box-shadow: 0 0 6px rgba(255,201,74,0.7);
+  flex-shrink: 0;
+}
+html.light .wc-city-item { color: rgba(255,245,209,0.88); }
+
+/* Gold plate used as label shelf ("FIFA WORLD CUP 2026") */
+.wc-crest-plate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,201,74,0.55);
+  background:
+    linear-gradient(180deg, rgba(255,245,209,0.18) 0%, rgba(255,201,74,0.08) 55%, rgba(224,155,34,0.06) 100%),
+    rgba(10,23,51,0.62);
+  box-shadow:
+    0 0 28px rgba(255,201,74,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  color: #FFF5D1;
+  line-height: 1;
+}
+html.light .wc-crest-plate {
+  border-color: rgba(138,90,8,0.55);
+  color: #FFF5D1;
+  background:
+    linear-gradient(180deg, rgba(255,245,209,0.22) 0%, rgba(255,201,74,0.12) 55%, rgba(224,155,34,0.10) 100%),
+    rgba(10,23,51,0.92);
+}
+
+/* Gold shimmer — animated highlight that sweeps across hero stat numbers */
+@keyframes wc-shimmer-sweep {
+  0%   { background-position: -120% 0; }
+  60%  { background-position: 220% 0; }
+  100% { background-position: 220% 0; }
+}
+.wc-shimmer-gold {
+  background: linear-gradient(100deg,
+    #FFF5D1 0%,
+    #FFF5D1 35%,
+    #FFFFFF 48%,
+    #FFC94A 55%,
+    #E09B22 70%,
+    #E09B22 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: wc-shimmer-sweep 5.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 18px rgba(255,201,74,0.35));
+}
+
+/* Confetti — tiny gold/red/green sparks drifting in the hero */
+@keyframes wc-confetti-drift {
+  0%   { transform: translateY(-10%) translateX(0)   rotate(0deg);   opacity: 0; }
+  8%   { opacity: 0.9; }
+  90%  { opacity: 0.7; }
+  100% { transform: translateY(110%) translateX(14px) rotate(320deg); opacity: 0; }
+}
+.wc-confetti {
+  position: absolute;
+  width: 5px;
+  height: 9px;
+  border-radius: 1px;
+  top: -10%;
+  animation: wc-confetti-drift 9s linear infinite;
+  pointer-events: none;
+}
+
+/* Tri-host ribbon replacement — no more raw "via-white" that reads as
+   a horizontal white strip in light mode. Uses subtle gold hairlines
+   between flag tones. */
+.wc-host-ribbon {
+  height: 3px;
+  background:
+    linear-gradient(90deg,
+      #B22234 0%,
+      #B22234 33%,
+      #D52B1E 33%,
+      #D52B1E 66%,
+      #006847 66%,
+      #CE1126 100%
+    );
+  opacity: 0.85;
+  position: relative;
+}
+.wc-host-ribbon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    transparent 32.5%, rgba(255,245,209,0.7) 33%, transparent 33.5%,
+    transparent 65.5%, rgba(255,245,209,0.7) 66%, transparent 66.5%
+  );
+}
+
+/* Tab bar active indicator — gold-forward so light mode reads active state */
+.wc-tab-active {
+  background: linear-gradient(180deg, rgba(255,201,74,0.22) 0%, rgba(255,201,74,0.08) 100%) !important;
+  border-color: rgba(255,201,74,0.55) !important;
+  box-shadow: 0 0 18px rgba(255,201,74,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+html.light .wc-tab-active {
+  background: linear-gradient(180deg, rgba(184,134,11,0.18) 0%, rgba(184,134,11,0.08) 100%) !important;
+  border-color: rgba(138,90,8,0.5) !important;
+  box-shadow: 0 0 12px rgba(184,134,11,0.2);
+}
+
+/* Hero right-side trophy watermark — large, subtle, non-interactive.
+   Positioned absolutely on desktop; hidden on mobile to save space
+   (mobile already has a compact Trophy2026 inline in the content). */
+.wc-trophy-watermark {
+  position: absolute;
+  top: 50%;
+  right: -2%;
+  transform: translateY(-45%);
+  width: 320px;
+  height: 320px;
+  opacity: 0.22;
+  filter: drop-shadow(0 0 48px rgba(255,201,74,0.35));
+  pointer-events: none;
+  z-index: 0;
+}
+html[dir='rtl'] .wc-trophy-watermark { right: auto; left: -2%; }
+@media (max-width: 1023px) { .wc-trophy-watermark { display: none; } }
+
+/* Ambient fixed-attachment layer the whole WC view floats over.
+   Combined with wc-atmosphere, this gives the page the feeling of
+   standing on a stadium concourse rather than a flat card. */
+.wc-atmosphere-inner {
+  position: relative;
+}
+.wc-atmosphere-inner::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle 300px at 10% 15%, rgba(255,201,74,0.06) 0%, transparent 70%),
+    radial-gradient(circle 400px at 90% 30%, rgba(73,136,196,0.08) 0%, transparent 70%);
+  z-index: 0;
 }

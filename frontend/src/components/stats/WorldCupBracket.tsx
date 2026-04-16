@@ -93,13 +93,23 @@ export function WorldCupBracket() {
    they pick "World Cup" from the Stats dropdown. Goal: make them feel they've
    walked up to the stadium. Layers (front → back):
      • 48-nation flag marquee (continuous march)
+     • Host-city ticker (26 cities, USA · MEX · CAN)
      • Countdown with pulsing gold ring
-     • Giant bebas "ROAD TO METLIFE" drop-shadowed in gold
-     • Animated tournament crest / trophy
+     • Giant metallic "ROAD TO METLIFE" title
+     • Tri-host chip row (USA · MEX · CAN) + FIFA WC 2026 crest plate
+     • Inline Trophy2026 SVG (mobile inline, desktop watermark)
      • MetLife stadium silhouette at horizon
-     • Tricolor US/CAN/MEX accent ribbon at the very top
-     • Gold spotlights sweeping the backdrop
+     • Clean tri-host ribbon (no white-bleed strip)
+     • Gold spotlights sweeping the backdrop + drifting confetti sparks
    ═════════════════════════════════════════════════════════════════════════ */
+
+// Host cities across the 3 host nations — 26 total. Ordered for ticker flow.
+const HOST_CITIES = [
+  'New York · NJ',       'Los Angeles',     'Dallas',           'Atlanta',
+  'Kansas City',         'Miami',           'Seattle',          'San Francisco',
+  'Houston',             'Philadelphia',    'Boston',           'Toronto',
+  'Vancouver',           'Mexico City',     'Guadalajara',      'Monterrey',
+] as const;
 
 function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDateFmt: Intl.DateTimeFormat }) {
   return (
@@ -109,40 +119,60 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
       transition={{ duration: 0.55, ease: 'easeOut' as const }}
       className="relative overflow-hidden rounded-3xl border border-[#FFC94A]/35 wc-hero-bg"
     >
-      {/* Tricolor ribbon — USA · Canada · Mexico */}
-      <div aria-hidden className="relative h-[3px] grid grid-cols-3 z-10">
-        <span className="bg-gradient-to-r from-[#B22234] via-white to-[#3C3B6E]" />
-        <span className="bg-gradient-to-r from-[#D52B1E] via-white to-[#D52B1E]" />
-        <span className="bg-gradient-to-r from-[#006847] via-white to-[#CE1126]" />
-      </div>
+      {/* Tri-host ribbon — solid flag tones with gold hairline separators.
+          Replaced the previous via-white gradient to kill the harsh light
+          strip that showed up on desktop light mode. */}
+      <div aria-hidden className="wc-host-ribbon z-10" />
 
-      {/* Sweeping spotlight beams */}
+      {/* Sweeping spotlight beams — BOTH gold so light mode behaves */}
       <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
-          className="wc-spotlight absolute top-0 left-[18%] w-[32%] h-full"
-          style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.07) 0%, transparent 70%)' }}
+          className="wc-spotlight absolute top-0 left-[12%] w-[30%] h-full"
+          style={{ background: 'linear-gradient(180deg, rgba(255,201,74,0.10) 0%, transparent 70%)' }}
         />
         <div
-          className="wc-spotlight absolute top-0 right-[18%] w-[32%] h-full"
+          className="wc-spotlight absolute top-0 right-[12%] w-[30%] h-full"
           style={{
-            background: 'linear-gradient(180deg, rgba(255,201,74,0.08) 0%, transparent 70%)',
-            animationDelay: '-3.5s',
+            background: 'linear-gradient(180deg, rgba(255,201,74,0.10) 0%, transparent 70%)',
+            animationDelay: '-4.5s',
           }}
         />
+      </div>
+
+      {/* Drifting confetti sparks — gold/red/green — anchored behind content */}
+      <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
+        {CONFETTI_PIECES.map((c, i) => (
+          <span
+            key={i}
+            className="wc-confetti"
+            style={{
+              left: c.left,
+              background: c.color,
+              animationDelay: c.delay,
+              animationDuration: c.duration,
+              transform: `rotate(${c.rotate}deg)`,
+            }}
+          />
+        ))}
       </div>
 
       {/* Pulsing gold halo */}
       <motion.div
         aria-hidden
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full pointer-events-none"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] h-[560px] rounded-full pointer-events-none"
         style={{
           background:
-            'radial-gradient(circle, rgba(255,201,74,0.28) 0%, rgba(255,201,74,0.08) 35%, transparent 70%)',
-          filter: 'blur(22px)',
+            'radial-gradient(circle, rgba(255,201,74,0.30) 0%, rgba(255,201,74,0.08) 35%, transparent 70%)',
+          filter: 'blur(26px)',
         }}
         animate={{ scale: [1, 1.09, 1], opacity: [0.55, 0.9, 0.55] }}
         transition={{ duration: 5.2, repeat: Infinity, ease: 'easeInOut' as const }}
       />
+
+      {/* Desktop-only: giant trophy watermark on the right */}
+      <div className="wc-trophy-watermark">
+        <Trophy2026 />
+      </div>
 
       {/* Stadium silhouette at the horizon */}
       <StadiumSilhouette className="absolute inset-x-0 bottom-0 h-28 md:h-36 opacity-[0.22] pointer-events-none" />
@@ -152,24 +182,46 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
         <div className="flex flex-col lg:flex-row items-center lg:items-end gap-6 lg:gap-10">
           {/* Title block */}
           <div className="flex-1 min-w-0 text-center lg:text-start">
+            {/* FIFA World Cup 2026 crest plate */}
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full wc-gold-border border-[1.5px] bg-[#FFC94A]/10 mb-4"
+              transition={{ duration: 0.5, delay: 0.08 }}
+              className="wc-crest-plate mb-3"
             >
               <Sparkles size={11} className="wc-gold" />
-              <span className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-[0.32em] wc-gold">
-                {t('wcHeroEyebrow')}
+              <span>{t('wcHeroEyebrow')}</span>
+            </motion.div>
+
+            {/* Tri-host chip row — USA · MEX · CAN */}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.14 }}
+              className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mb-4"
+            >
+              <div className="wc-host-row">
+                <span className="wc-host-chip">
+                  <span className="text-[14px] leading-none">🇺🇸</span>USA
+                </span>
+                <span className="wc-host-chip">
+                  <span className="text-[14px] leading-none">🇲🇽</span>MEX
+                </span>
+                <span className="wc-host-chip">
+                  <span className="text-[14px] leading-none">🇨🇦</span>CAN
+                </span>
+              </div>
+              <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.28em] wc-gold-muted">
+                {t('wcUnitedTagline')}
               </span>
             </motion.div>
 
             <motion.h1
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.18, ease: 'easeOut' as const }}
+              transition={{ duration: 0.6, delay: 0.22, ease: 'easeOut' as const }}
               className="font-bebas uppercase leading-[0.82] tracking-[0.02em] wc-gold-title"
-              style={{ fontSize: 'clamp(2.5rem, 7.5vw, 7rem)' }}
+              style={{ fontSize: 'clamp(2.6rem, 7.5vw, 7.2rem)' }}
             >
               {t('wcBracketTitle')}
             </motion.h1>
@@ -177,7 +229,7 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.45, delay: 0.32 }}
+              transition={{ duration: 0.45, delay: 0.34 }}
               className="mt-3 font-barlow font-bold text-[11px] md:text-sm uppercase tracking-[0.28em] wc-gold-muted"
             >
               {t('wcHeroTagline')}
@@ -186,7 +238,7 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.45, delay: 0.4 }}
+              transition={{ duration: 0.45, delay: 0.42 }}
               className="mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-2 text-white/75 text-[12px] md:text-[13px]"
             >
               <span className="inline-flex items-center gap-1.5">
@@ -207,8 +259,26 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
         </div>
       </div>
 
+      {/* Host-city ticker — 16 host cities on a slow scroll */}
+      <div className="relative px-5 md:px-10 mt-1 mb-2">
+        <div
+          aria-hidden
+          className="overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(90deg, transparent 0, black 8%, black 92%, transparent 100%)',
+            maskImage: 'linear-gradient(90deg, transparent 0, black 8%, black 92%, transparent 100%)',
+          }}
+        >
+          <div className="wc-city-marquee py-1">
+            {[...HOST_CITIES, ...HOST_CITIES].map((city, i) => (
+              <span key={`${city}-${i}`} className="wc-city-item">{city}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Flag marquee — the full 48 nations scroll across the hero footer */}
-      <div className="relative border-t border-white/5 mt-2 pt-3 pb-4 md:pb-5">
+      <div className="relative border-t border-white/5 mt-1 pt-3 pb-4 md:pb-5">
         <div className="px-5 md:px-10 mb-2 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <motion.span
@@ -228,6 +298,110 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
         <FlagMarquee />
       </div>
     </motion.section>
+  );
+}
+
+// Confetti sparks — pre-generated positions so SSR/hydration is stable.
+// Colors rotate through gold, USA red, CAN red, MEX green.
+const CONFETTI_COLORS = ['#FFC94A', '#E09B22', '#B22234', '#D52B1E', '#006847'] as const;
+const CONFETTI_PIECES = Array.from({ length: 18 }, (_, i) => ({
+  left: `${(i * 7.3 + 4) % 96}%`,
+  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+  delay: `${(i * 0.42) % 9}s`,
+  duration: `${8 + (i % 5)}s`,
+  rotate: (i * 37) % 360,
+}));
+
+/* ═════════════════════════ TROPHY 2026 — SVG ═════════════════════════
+   The FIFA World Cup trophy: two human figures holding a globe aloft.
+   Rendered as inline SVG so it's lightweight, recolorable via CSS, and
+   crisp at any size. Gold gradients are baked into the <defs> so the
+   trophy looks polished regardless of surrounding theme.
+   ═══════════════════════════════════════════════════════════════════ */
+function Trophy2026({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 140 200"
+      className={cn('wc-trophy wc-trophy-bob w-full h-full', className)}
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="wc-trophy-body" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#FFF5D1" />
+          <stop offset="0.28" stopColor="#FFDC7A" />
+          <stop offset="0.55" stopColor="#FFC94A" />
+          <stop offset="0.85" stopColor="#E09B22" />
+          <stop offset="1" stopColor="#C57A0F" />
+        </linearGradient>
+        <linearGradient id="wc-trophy-highlight" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
+          <stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.55" />
+          <stop offset="0.55" stopColor="#FFFFFF" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+        </linearGradient>
+        <radialGradient id="wc-globe" cx="0.38" cy="0.35" r="0.75">
+          <stop offset="0" stopColor="#FFF5D1" />
+          <stop offset="0.5" stopColor="#FFC94A" />
+          <stop offset="1" stopColor="#8a5a08" />
+        </radialGradient>
+      </defs>
+
+      {/* Base plinth */}
+      <ellipse cx="70" cy="190" rx="42" ry="6" fill="#000" opacity="0.28" />
+      <rect x="32" y="170" width="76" height="16" rx="3" fill="url(#wc-trophy-body)" />
+      <rect x="32" y="170" width="76" height="3" fill="url(#wc-trophy-highlight)" opacity="0.6" />
+      <rect x="38" y="158" width="64" height="12" rx="2" fill="url(#wc-trophy-body)" />
+
+      {/* Stem — two flowing figures lift the globe */}
+      <path
+        fill="url(#wc-trophy-body)"
+        d="M52,158 C50,150 48,140 52,126 C56,112 62,100 64,88 L76,88 C78,100 84,112 88,126 C92,140 90,150 88,158 Z"
+      />
+      {/* Subtle figure silhouettes — hint at the two humans */}
+      <path
+        fill="#C57A0F"
+        opacity="0.55"
+        d="M58,156 C56,148 54,138 58,124 C60,116 63,108 65,100 L63,100 C60,108 57,116 55,124 C51,138 53,148 55,156 Z"
+      />
+      <path
+        fill="#C57A0F"
+        opacity="0.55"
+        d="M82,156 C84,148 86,138 82,124 C80,116 77,108 75,100 L77,100 C80,108 83,116 85,124 C89,138 87,148 85,156 Z"
+      />
+
+      {/* Globe cupped at the top */}
+      <circle cx="70" cy="54" r="30" fill="url(#wc-globe)" />
+      <path
+        d="M40,54 Q70,30 100,54 Q70,78 40,54 Z"
+        stroke="#8a5a08"
+        strokeWidth="1.3"
+        fill="none"
+        opacity="0.6"
+      />
+      <path
+        d="M40,54 Q70,78 100,54"
+        stroke="#8a5a08"
+        strokeWidth="1.1"
+        fill="none"
+        opacity="0.55"
+      />
+      {/* Continents hint */}
+      <path
+        fill="#8a5a08"
+        opacity="0.4"
+        d="M56,46 Q62,42 66,48 Q60,52 54,50 Z M72,58 Q80,54 84,62 Q76,66 70,62 Z M60,66 Q66,64 70,70 Q64,72 58,70 Z"
+      />
+
+      {/* Specular highlight */}
+      <ellipse cx="58" cy="40" rx="12" ry="6" fill="#FFFFFF" opacity="0.5" />
+      <ellipse cx="62" cy="110" rx="5" ry="18" fill="#FFFFFF" opacity="0.28" />
+
+      {/* Star on top */}
+      <path
+        fill="#FFF5D1"
+        d="M70,14 L72.5,20 L79,20.6 L74,25 L75.6,31.4 L70,28 L64.4,31.4 L66,25 L61,20.6 L67.5,20 Z"
+      />
+    </svg>
   );
 }
 
@@ -367,13 +541,12 @@ function TabBar({ t, active, onChange }: { t: T; active: TabId; onChange: (id: T
               {isActive && (
                 <motion.span
                   layoutId="wc-tab-indicator"
-                  className="absolute inset-0 rounded-xl bg-accent-green/15 border border-accent-green/35"
-                  style={{ boxShadow: '0 0 22px rgba(73,136,196,0.25)' }}
+                  className="absolute inset-0 rounded-xl wc-tab-active"
                   transition={{ type: 'spring', stiffness: 360, damping: 32 }}
                 />
               )}
               <span className="relative inline-flex items-center gap-2">
-                <tab.icon size={14} className={cn(isActive ? 'text-accent-green' : 'text-text-muted')} />
+                <tab.icon size={14} className={cn(isActive ? 'wc-gold' : 'text-text-muted')} />
                 <span className="font-barlow text-[12px] md:text-[13px] font-bold uppercase tracking-[0.18em] leading-none">
                   {t(tab.labelKey)}
                 </span>
@@ -959,7 +1132,10 @@ function KnockoutsIntro({ t }: { t: T }) {
       className="wc-phase-strip px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between gap-3 flex-wrap"
     >
       <div className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
-        <span className="font-bebas text-[14px] tracking-[0.26em] wc-gold leading-none">
+        <span aria-hidden className="w-6 h-6 md:w-7 md:h-7 shrink-0">
+          <Trophy2026 className="w-full h-full" />
+        </span>
+        <span className="font-bebas text-[14px] tracking-[0.26em] text-[#FFC94A] leading-none drop-shadow-[0_0_8px_rgba(255,201,74,0.45)]">
           {t('wcKnockouts')}
         </span>
         <span className="opacity-30">·</span>
@@ -982,7 +1158,7 @@ function KnockoutsIntro({ t }: { t: T }) {
             transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' as const }}
           />
         </span>
-        <span className="font-bold uppercase tracking-widest wc-gold">
+        <span className="font-bold uppercase tracking-widest text-[#FFC94A] drop-shadow-[0_0_8px_rgba(255,201,74,0.4)]">
           {t('wcLiveAuto')}
         </span>
       </div>
@@ -1651,20 +1827,12 @@ function FinalApex({ t, match, shortDateFmt }: {
         </div>
       </div>
 
-      {/* Trophy orb — the centerpiece */}
+      {/* Trophy centerpiece — full FIFA trophy with breathing halo */}
       <div className="relative flex justify-center py-1">
-        <motion.div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center"
-          style={{
-            background: 'linear-gradient(135deg, rgba(255,201,74,0.32) 0%, rgba(240,178,58,0.14) 100%)',
-            border: '1px solid rgba(255,201,74,0.6)',
-            boxShadow: '0 0 28px rgba(255,201,74,0.45)',
-          }}
-          animate={{ y: [0, -3, 0], rotate: [0, -4, 4, 0] }}
-          transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' as const }}
-        >
-          <Trophy size={28} className="text-[#FFC94A]" strokeWidth={1.85} />
-        </motion.div>
+        <div className="relative w-20 h-20">
+          <div className="wc-trophy-halo wc-halo-breathe" />
+          <Trophy2026 className="w-full h-full relative z-10" />
+        </div>
       </div>
 
       {/* Champions 2026 banner */}

@@ -557,6 +557,10 @@ export const translations = {
     wcGroupRunnerUp: 'Runner-Up',
     wcWinnerOf: 'Winner of',
     wcLoserOf: 'Loser of',
+    wcHostsLabel: 'Host Nations',
+    wcUnitedTagline: 'United by Football',
+    wcCitiesLabel: 'Host Cities',
+    wcTrophyLabel: 'The Trophy',
   },
 
   he: {
@@ -1112,6 +1116,10 @@ export const translations = {
     wcGroupRunnerUp: 'מקום שני',
     wcWinnerOf: 'מנצח',
     wcLoserOf: 'מפסיד',
+    wcHostsLabel: 'מדינות מארחות',
+    wcUnitedTagline: 'מאוחדות בכדורגל',
+    wcCitiesLabel: 'ערי האירוח',
+    wcTrophyLabel: 'הגביע',
   },
 } as const;
 
