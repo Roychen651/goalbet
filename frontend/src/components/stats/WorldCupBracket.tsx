@@ -449,7 +449,7 @@ function PhaseTimeline({ t, phases, shortDateFmt }: {
               viewport={{ once: true, amount: 0.2 }}
               transition={{ delay: i * 0.035, duration: 0.28, ease: 'easeOut' as const }}
               className={cn(
-                'rounded-xl border px-3 py-3',
+                'rounded-xl border px-2.5 py-2.5 min-w-0',
                 status === 'current'
                   ? 'border-accent-green/50 bg-accent-green/10'
                   : status === 'past'
@@ -457,22 +457,26 @@ function PhaseTimeline({ t, phases, shortDateFmt }: {
                   : 'border-border-subtle bg-bg-card',
               )}
             >
-              <div className="flex items-center gap-1.5">
+              {/* Big match count + status dot — no abbreviation */}
+              <div className="flex items-baseline gap-1.5 min-w-0">
+                <span className="font-bebas tabular-nums text-xl leading-none text-white">
+                  {p.matches}
+                </span>
                 <span
                   aria-hidden
                   className={cn(
-                    'w-1.5 h-1.5 rounded-full shrink-0',
-                    status === 'current' ? 'bg-accent-green' : 'bg-text-muted/60',
+                    'w-1.5 h-1.5 rounded-full shrink-0 ms-auto',
+                    status === 'current' ? 'bg-accent-green animate-pulse' :
+                    status === 'past' ? 'bg-text-muted/30' : 'bg-text-muted/60',
                   )}
                 />
-                <div className="font-barlow text-[10px] font-bold uppercase tracking-widest text-text-muted truncate">
-                  {p.matches} {t('wcStatMatches').toLowerCase()}
-                </div>
               </div>
-              <div className="font-barlow font-bold text-[13px] uppercase tracking-wide text-white mt-1.5 leading-tight">
+              {/* Phase name — wraps if needed, never truncates */}
+              <div className="font-barlow font-bold text-[11px] uppercase tracking-[0.08em] text-white/95 mt-1.5 leading-[1.15] break-words">
                 {t(p.labelKey)}
               </div>
-              <div className="text-[10px] text-text-muted/80 mt-1 leading-tight tabular-nums">
+              {/* Dates — tabular-nums prevent width jitter */}
+              <div className="text-[9.5px] text-text-muted/80 mt-1 leading-tight tabular-nums">
                 {shortDateFmt.format(new Date(p.startDate))}
                 {p.startDate !== p.endDate && (
                   <>
@@ -788,9 +792,10 @@ function KnockoutsTab({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFo
     <section className="space-y-4">
       <BracketHero t={t} />
 
-      {/* Desktop: full bracket tree */}
+      {/* Desktop (lg+): symmetric mirror bracket — LEFT flows right, RIGHT flows left,
+          trophy at dead center. Halves total tree height vs the old 5-col layout. */}
       <div className="hidden lg:block">
-        <BracketTreeDesktop t={t} shortDateFmt={shortDateFmt} />
+        <BracketTreeSymmetric t={t} shortDateFmt={shortDateFmt} />
       </div>
 
       {/* Tablet/Mobile: stacked rounds with flow hints */}
@@ -802,87 +807,113 @@ function KnockoutsTab({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFo
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  HERO HEADER — WC 2026 tri-host identity
-//  The three host nations (US/CA/MX) are the anchor visual here; their
-//  flags sit alongside "Road to MetLife" (the final's venue) as a
-//  tournament-specific identity. This replaces the generic "Road to
-//  Glory" title + separate Auto-Update badge with a single cohesive
-//  hero that immediately signals "this is WC 2026, not any bracket".
+//  HERO — WC 2026 tournament-specific identity
+//  Dominant tricolor backdrop (US navy → gold trophy center → MX green),
+//  stadium-silhouette SVG base layer, animated tournament crest, and
+//  "FIFA WORLD CUP 2026" ticker band. Meant to feel like walking up to
+//  the stadium, not a generic bracket header.
 // ═══════════════════════════════════════════════════════════════════
 function BracketHero({ t }: { t: T }) {
+  const finalDate = useMemo(() => new Date(WC2026_FINAL.date), []);
+  const daysToFinal = Math.max(0, Math.ceil((finalDate.getTime() - Date.now()) / 86400000));
+
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-accent-green/30 bg-gradient-to-br from-accent-green/10 via-bg-card/50 to-bg-card/20 backdrop-blur-sm">
-      {/* Tricolor ribbon — the three host nations as a subtle top-edge accent */}
-      <div aria-hidden className="absolute inset-x-0 top-0 h-[2px] grid grid-cols-3">
+    <div className="relative overflow-hidden rounded-3xl border border-[#FFC94A]/35">
+      {/* Backdrop: tri-host gradient — US navy/red left, gold-trophy center, MX green right */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'linear-gradient(105deg, rgba(15,40,84,0.85) 0%, rgba(73,136,196,0.35) 22%, rgba(255,201,74,0.28) 50%, rgba(206,17,38,0.22) 78%, rgba(0,104,71,0.55) 100%)',
+        }}
+      />
+      {/* Pulsing gold spotlight behind the crest */}
+      <motion.div
+        aria-hidden
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] rounded-full pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(circle, rgba(255,201,74,0.32) 0%, rgba(255,201,74,0.1) 40%, transparent 70%)',
+          filter: 'blur(18px)',
+        }}
+        animate={{ scale: [1, 1.12, 1], opacity: [0.5, 0.85, 0.5] }}
+        transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' as const }}
+      />
+      {/* Stadium silhouette — low-opacity SVG baseline, gives "inside the venue" vibe */}
+      <StadiumSilhouette className="absolute inset-x-0 bottom-0 h-24 md:h-32 opacity-[0.18] pointer-events-none" />
+
+      {/* Tricolor bar — USA · Canada · Mexico at the very top */}
+      <div aria-hidden className="relative h-[3px] grid grid-cols-3 z-10">
         <span className="bg-gradient-to-r from-[#B22234] via-[#FFFFFF] to-[#3C3B6E]" />
         <span className="bg-gradient-to-r from-[#D52B1E] via-[#FFFFFF] to-[#D52B1E]" />
         <span className="bg-gradient-to-r from-[#006847] via-[#FFFFFF] to-[#CE1126]" />
       </div>
 
-      {/* Ambient trophy glow top-right */}
-      <motion.div
-        aria-hidden
-        className="absolute -top-10 end-0 w-52 h-52 rounded-full bg-accent-green/15 blur-3xl pointer-events-none"
-        animate={{ opacity: [0.4, 0.8, 0.4], scale: [1, 1.1, 1] }}
-        transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' as const }}
-      />
+      {/* Main hero body */}
+      <div className="relative px-5 md:px-8 py-6 md:py-8 flex flex-col md:flex-row items-center gap-5 md:gap-7">
+        {/* Animated tournament crest — the centerpiece */}
+        <TournamentCrest />
 
-      <div className="relative px-5 py-5 md:px-7 md:py-6 flex items-center gap-4 md:gap-6 flex-wrap">
-        {/* Trophy orb */}
-        <motion.div
-          className="shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-accent-green/15 border border-accent-green/40 flex items-center justify-center"
-          animate={{ y: [0, -3, 0] }}
-          transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' as const }}
-          style={{ boxShadow: '0 0 28px rgba(189,232,245,0.3)' }}
-        >
-          <Trophy size={26} className="text-accent-green" strokeWidth={1.8} />
-        </motion.div>
-
-        {/* Title + tagline */}
-        <div className="flex-1 min-w-[220px]">
-          <h3 className="font-barlow text-lg md:text-2xl font-extrabold uppercase tracking-[0.18em] text-white leading-tight">
+        {/* Title + subtitle + host flags */}
+        <div className="flex-1 min-w-0 text-center md:text-start">
+          {/* Tiny banner pill */}
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-[#FFC94A]/40 bg-[#FFC94A]/10 mb-2.5">
+            <Sparkles size={10} className="text-[#FFC94A]" />
+            <span className="text-[9.5px] md:text-[10px] font-extrabold uppercase tracking-[0.28em] text-[#FFC94A]">
+              FIFA World Cup · 2026
+            </span>
+          </div>
+          <h3 className="font-bebas text-3xl md:text-5xl tracking-[0.04em] text-white leading-[0.95]">
             {t('wcBracketTitle')}
           </h3>
-          <p className="text-text-muted text-[11px] md:text-[13px] mt-1 leading-snug max-w-xl">
+          <p className="text-white/70 text-[12px] md:text-[14px] mt-2 leading-snug max-w-xl mx-auto md:mx-0">
             {t('wcBracketSub')}
           </p>
+
+          {/* Host row: 3 country chips with full context */}
+          <div className="flex items-center justify-center md:justify-start gap-1.5 mt-3 flex-wrap">
+            <HostChip flag="🇺🇸" name="USA" />
+            <span className="text-white/30 text-xs">·</span>
+            <HostChip flag="🇨🇦" name="Canada" />
+            <span className="text-white/30 text-xs">·</span>
+            <HostChip flag="🇲🇽" name="Mexico" />
+          </div>
         </div>
 
-        {/* Host-nation flags — the three co-hosts, shown with subtle borders */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <span className="hidden md:inline text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted me-1">
-            {t('wcHostNations')}
-          </span>
-          {(['🇺🇸', '🇨🇦', '🇲🇽'] as const).map((flag, i) => (
-            <motion.span
-              key={flag}
-              aria-hidden
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + i * 0.08, duration: 0.3, ease: 'easeOut' as const }}
-              className="inline-flex w-9 h-9 md:w-10 md:h-10 items-center justify-center rounded-xl border border-accent-green/25 bg-bg-card/70 text-xl md:text-2xl leading-none"
-              whileHover={{ scale: 1.1, y: -2 }}
-            >
-              {flag}
-            </motion.span>
-          ))}
+        {/* Right-side stat: Final countdown */}
+        <div className="shrink-0 flex flex-row md:flex-col items-center gap-3 md:gap-0 md:text-end">
+          <div className="inline-flex items-baseline gap-1.5 md:gap-2 md:flex-col md:items-end">
+            <span className="font-bebas text-4xl md:text-6xl text-[#FFC94A] tabular-nums leading-none drop-shadow-[0_0_20px_rgba(255,201,74,0.6)]">
+              {daysToFinal}
+            </span>
+            <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-[0.22em] text-white/70">
+              days to
+            </span>
+          </div>
+          <div className="inline-flex items-center gap-1 mt-0.5 md:mt-0.5">
+            <Trophy size={11} className="text-[#FFC94A]" />
+            <span className="text-[11px] md:text-[12px] font-bebas tracking-[0.18em] uppercase text-white">
+              The Final · Jul 19
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Bottom strip: round progression + live badge */}
-      <div className="relative px-5 md:px-7 pb-4 flex items-center justify-between gap-4 flex-wrap">
-        <div className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-muted/80">
+      {/* Bottom strip: round ladder + live badge */}
+      <div className="relative px-5 md:px-8 pb-4 pt-0 flex items-center justify-between gap-3 flex-wrap border-t border-white/10 mt-1">
+        <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-text-muted/80 pt-3">
           <RoundPill label={t('wcR32')} tone="cool" />
-          <ChevronRight size={11} className="opacity-40 rtl:rotate-180" />
+          <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
           <RoundPill label={t('wcR16')} tone="cool" />
-          <ChevronRight size={11} className="opacity-40 rtl:rotate-180" />
+          <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
           <RoundPill label={t('wcQF')} tone="warm" />
-          <ChevronRight size={11} className="opacity-40 rtl:rotate-180" />
+          <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
           <RoundPill label={t('wcSF')} tone="warmer" />
-          <ChevronRight size={11} className="opacity-40 rtl:rotate-180" />
+          <ChevronRight size={10} className="opacity-40 rtl:rotate-180" />
           <RoundPill label={t('wcFinal')} tone="hot" />
         </div>
-        <div className="inline-flex items-center gap-2 text-[10px]">
+        <div className="inline-flex items-center gap-2 text-[10px] pt-3">
           <span className="relative inline-flex w-2 h-2 rounded-full bg-accent-green">
             <motion.span
               aria-hidden
@@ -897,6 +928,89 @@ function BracketHero({ t }: { t: T }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// Small chip: flag + country name — used in the hero host row
+function HostChip({ flag, name }: { flag: string; name: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-white/15 bg-white/[0.04]">
+      <span aria-hidden className="text-base leading-none">{flag}</span>
+      <span className="text-[11px] font-bebas tracking-[0.14em] uppercase text-white/90">{name}</span>
+    </span>
+  );
+}
+
+// Animated tournament crest — circular gold-rim badge with trophy + "2026"
+function TournamentCrest() {
+  return (
+    <div className="relative shrink-0 w-24 h-24 md:w-32 md:h-32">
+      {/* Outer rotating ring of stars */}
+      <motion.div
+        aria-hidden
+        className="absolute inset-0"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 40, repeat: Infinity, ease: 'linear' as const }}
+      >
+        <svg viewBox="0 0 100 100" className="w-full h-full">
+          <defs>
+            <path id="wc-crest-circle" d="M 50,50 m -42,0 a 42,42 0 1,1 84,0 a 42,42 0 1,1 -84,0" />
+          </defs>
+          <text className="text-[7px] fill-[#FFC94A] font-bold tracking-[0.3em]" style={{ letterSpacing: '0.35em' }}>
+            <textPath href="#wc-crest-circle" startOffset="0%">
+              WORLD CUP · 2026 · USA · CAN · MEX · WORLD CUP · 2026 ·
+            </textPath>
+          </text>
+        </svg>
+      </motion.div>
+      {/* Inner gold disc */}
+      <div
+        className="absolute inset-[18%] rounded-full flex items-center justify-center"
+        style={{
+          background:
+            'radial-gradient(circle at 30% 30%, #FFE7A3 0%, #FFC94A 35%, #C68F1F 78%, #8C6314 100%)',
+          boxShadow: '0 0 28px rgba(255,201,74,0.55), inset 0 0 10px rgba(140,99,20,0.5)',
+        }}
+      >
+        <motion.div
+          animate={{ y: [0, -2, 0], rotate: [0, -3, 3, 0] }}
+          transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' as const }}
+        >
+          <Trophy size={28} className="text-[#4A2F05]" strokeWidth={2.2} />
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+// Low-poly stadium silhouette — drawn in SVG so it's tiny (bytes) and themable
+function StadiumSilhouette({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 1200 200"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="wc-stadium-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#BDE8F5" stopOpacity="0" />
+          <stop offset="1" stopColor="#BDE8F5" stopOpacity="1" />
+        </linearGradient>
+      </defs>
+      {/* Ground line */}
+      <path
+        fill="url(#wc-stadium-grad)"
+        d="M0,200 L0,160 Q40,150 80,148 L140,140 L180,135 Q240,128 300,130 L380,125 Q440,110 520,105 L600,90 Q680,82 760,95 L840,110 Q920,118 1000,124 L1060,130 Q1120,140 1200,145 L1200,200 Z"
+      />
+      {/* Tower lights */}
+      {[100, 300, 900, 1100].map((x, i) => (
+        <g key={x}>
+          <line x1={x} y1={160 - i * 2} x2={x} y2={100} stroke="#BDE8F5" strokeOpacity="0.35" strokeWidth="1" />
+          <circle cx={x} cy={100} r="3" fill="#FFC94A" opacity="0.7" />
+        </g>
+      ))}
+    </svg>
   );
 }
 
@@ -974,145 +1088,207 @@ function AutoUpdateBadge({ t }: { t: T }) {
   );
 }
 
-/* ──────── Desktop bracket tree ──────── */
-// Strategy: 5-column CSS grid over 32 rows. R32 cards span 2 rows, R16 span 4,
-// QF 8, SF 16, Final 32 — so each card is vertically centered at the midpoint
-// of its two children. Connectors are drawn with ::before/::after pseudo
-// elements on the grid cells; the vertical fork span is exactly the card's
-// own height (100%) because sibling centers are one card-height apart.
+/* ──────── Desktop bracket tree — SYMMETRIC MIRROR LAYOUT ────────
+ *
+ * 9-column CSS grid: R32L | R16L | QFL | SFL | FINAL | SFR | QFR | R16R | R32R
+ * Half the vertical height of a one-sided tree (16 rows vs 32) so the full
+ * bracket fits on one screen without scroll. Both sides flow toward the
+ * Final in the center — left side flows right, right side flows left.
+ *
+ * Row span per round (same as before, but only 8 R32 per side):
+ *   R32 = 2 rows  (8 cards × 2 = 16 rows per side)
+ *   R16 = 4 rows  (4 cards × 4 = 16)
+ *   QF  = 8 rows  (2 cards × 8 = 16)
+ *   SF  = 16 rows (1 card spans full height per side)
+ *   FINAL: 16 rows, centered, flanked by both SFs
+ *
+ * Connectors use data-side="left"|"right" to mirror direction. On the
+ * RIGHT side, outgoing lines extend leftward (toward center) and the
+ * L-fork pivots on the opposite border. Logical CSS properties auto-flip
+ * under RTL so Hebrew readers still see a valid symmetric bracket.
+ */
 
-// Bracket dimensions — chosen so R32 cards fit ~80px content (M#/date + two
-// slot lines + tiny venue flag) without overflowing. 32 rows × 2.5rem = 80rem
-// (1280px) tall; R32 cards span 2 rows = 5rem (80px), R16 span 4 = 10rem,
-// QF span 8 = 20rem, SF span 16 = 40rem, Final spans 32 = whole column.
-// The fork connector's vertical leg = 100% of card height because sibling
-// R32 card centers are exactly one card-height apart.
-const BRACKET_CSS = `
-.wc-bracket {
+const BRACKET_SYM_CSS = `
+.wc-sym {
   display: grid;
   grid-template-columns:
-    minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr);
-  grid-template-rows: repeat(32, 2.5rem);
-  column-gap: 2.25rem;
+    minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 0.95fr)
+    minmax(0, 1.25fr)
+    minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(0, 0.95fr);
+  grid-template-rows: repeat(16, 3rem);
+  column-gap: 1.25rem;
   position: relative;
 }
-.wc-cell {
+.wc-sym-cell {
   position: relative;
   display: flex;
   align-items: center;
   min-width: 0;
 }
-.wc-cell[data-connect-in='true']::before {
+
+/* ========== LEFT-SIDE CONNECTORS (flow rightward toward center) ========== */
+.wc-sym-cell[data-side='left'][data-connect-in='true']::before {
   content: '';
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 1.125rem;
+  width: 0.875rem;
   height: 1px;
   background: rgba(189,232,245,0.30);
   pointer-events: none;
 }
-.wc-cell[data-connect-out='top']::after {
+.wc-sym-cell[data-side='left'][data-connect-out='top']::after {
   content: '';
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 1.125rem;
+  width: 0.875rem;
   height: 100%;
   border-top: 1px solid rgba(189,232,245,0.30);
   border-inline-end: 1px solid rgba(189,232,245,0.30);
   pointer-events: none;
 }
-.wc-cell[data-connect-out='bot']::after {
+.wc-sym-cell[data-side='left'][data-connect-out='bot']::after {
   content: '';
   position: absolute;
   inset-inline-start: 100%;
   bottom: 50%;
-  width: 1.125rem;
+  width: 0.875rem;
   height: 100%;
   border-bottom: 1px solid rgba(189,232,245,0.30);
   border-inline-end: 1px solid rgba(189,232,245,0.30);
   pointer-events: none;
 }
-/* RTL: the horizontal inset already flips via inset-inline-*, but the
-   vertical border needs to be on the opposite visual edge. */
-[dir='rtl'] .wc-cell[data-connect-out='top']::after,
-[dir='rtl'] .wc-cell[data-connect-out='bot']::after {
-  border-inline-end: none;
+/* SF-L: single card flowing into Final — straight horizontal stub */
+.wc-sym-cell[data-side='left'][data-connect-out='straight']::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 100%;
+  top: 50%;
+  width: 1.25rem;
+  height: 1px;
+  background: rgba(255,201,74,0.55);
+  pointer-events: none;
+}
+
+/* ========== RIGHT-SIDE CONNECTORS (flow leftward toward center, mirrored) ========== */
+.wc-sym-cell[data-side='right'][data-connect-in='true']::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 100%;
+  top: 50%;
+  width: 0.875rem;
+  height: 1px;
+  background: rgba(189,232,245,0.30);
+  pointer-events: none;
+}
+.wc-sym-cell[data-side='right'][data-connect-out='top']::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: 100%;
+  top: 50%;
+  width: 0.875rem;
+  height: 100%;
+  border-top: 1px solid rgba(189,232,245,0.30);
   border-inline-start: 1px solid rgba(189,232,245,0.30);
+  pointer-events: none;
 }
-/* Connector accent: warmer rounds get a hotter line tint */
-.wc-cell[data-tone='warm']::before, .wc-cell[data-tone='warm']::after {
-  border-color: rgba(230,197,88,0.35) !important;
-  background: rgba(230,197,88,0.35);
+.wc-sym-cell[data-side='right'][data-connect-out='bot']::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: 100%;
+  bottom: 50%;
+  width: 0.875rem;
+  height: 100%;
+  border-bottom: 1px solid rgba(189,232,245,0.30);
+  border-inline-start: 1px solid rgba(189,232,245,0.30);
+  pointer-events: none;
 }
-.wc-cell[data-tone='warmer']::before, .wc-cell[data-tone='warmer']::after {
-  border-color: rgba(240,178,58,0.45) !important;
-  background: rgba(240,178,58,0.45);
+.wc-sym-cell[data-side='right'][data-connect-out='straight']::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: 100%;
+  top: 50%;
+  width: 1.25rem;
+  height: 1px;
+  background: rgba(255,201,74,0.55);
+  pointer-events: none;
 }
-.wc-cell[data-tone='hot']::before, .wc-cell[data-tone='hot']::after {
-  border-color: rgba(255,201,74,0.6) !important;
-  background: rgba(255,201,74,0.6);
+
+/* Round tone tints — gold escalates as stakes rise */
+.wc-sym-cell[data-tone='warm']::before, .wc-sym-cell[data-tone='warm']::after {
+  border-color: rgba(230,197,88,0.4) !important;
+  background: rgba(230,197,88,0.4);
+}
+.wc-sym-cell[data-tone='warmer']::before, .wc-sym-cell[data-tone='warmer']::after {
+  border-color: rgba(240,178,58,0.5) !important;
+  background: rgba(240,178,58,0.5);
+}
+.wc-sym-cell[data-tone='hot']::before, .wc-sym-cell[data-tone='hot']::after {
+  border-color: rgba(255,201,74,0.65) !important;
+  background: rgba(255,201,74,0.65);
 }
 `;
 
-function BracketTreeDesktop({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFormat }) {
-  return (
-    <div className="rounded-3xl border border-border-subtle bg-gradient-to-b from-bg-card/40 to-bg-card/10 backdrop-blur-sm p-5 xl:p-7 relative overflow-hidden w-full">
-      <style>{BRACKET_CSS}</style>
+function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFormat }) {
+  const r32Left  = WC2026_R32.slice(0, 8);
+  const r32Right = WC2026_R32.slice(8);
+  const r16Left  = WC2026_R16.slice(0, 4);
+  const r16Right = WC2026_R16.slice(4);
+  const qfLeft   = WC2026_QF.slice(0, 2);
+  const qfRight  = WC2026_QF.slice(2);
+  const sfLeft   = WC2026_SF[0];
+  const sfRight  = WC2026_SF[1];
 
-      {/* Ambient golden glow escalating toward the Final column */}
+  return (
+    <div className="relative rounded-3xl border border-[#FFC94A]/25 bg-gradient-to-b from-bg-card/50 via-bg-card/20 to-bg-card/40 backdrop-blur-sm overflow-hidden p-5 xl:p-7 w-full">
+      <style>{BRACKET_SYM_CSS}</style>
+
+      {/* Ambient backdrop: gold halo at center, cool blue at edges */}
       <motion.div
         aria-hidden
-        className="absolute top-1/2 end-0 -translate-y-1/2 w-72 h-72 rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(255,201,74,0.18) 0%, rgba(189,232,245,0.08) 40%, transparent 70%)' }}
-        animate={{ opacity: [0.45, 0.85, 0.45], scale: [1, 1.08, 1] }}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[70%] rounded-full pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse, rgba(255,201,74,0.18) 0%, rgba(189,232,245,0.08) 30%, transparent 60%)',
+        }}
+        animate={{ scale: [1, 1.08, 1], opacity: [0.5, 0.9, 0.5] }}
         transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' as const }}
       />
       <motion.div
         aria-hidden
-        className="absolute top-1/2 start-0 -translate-y-1/2 w-52 h-52 rounded-full bg-accent-green/8 blur-3xl pointer-events-none"
-        animate={{ opacity: [0.3, 0.5, 0.3] }}
+        className="absolute top-1/2 start-0 -translate-y-1/2 w-48 h-48 rounded-full bg-accent-green/10 blur-3xl pointer-events-none"
+        animate={{ opacity: [0.3, 0.55, 0.3] }}
         transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' as const }}
       />
+      <motion.div
+        aria-hidden
+        className="absolute top-1/2 end-0 -translate-y-1/2 w-48 h-48 rounded-full bg-accent-green/10 blur-3xl pointer-events-none"
+        animate={{ opacity: [0.3, 0.55, 0.3] }}
+        transition={{ duration: 5, delay: 1.5, repeat: Infinity, ease: 'easeInOut' as const }}
+      />
+      {/* Subtle dot grid for "stadium floor" feel */}
+      <div
+        aria-hidden
+        className="absolute inset-0 opacity-[0.06] pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,201,74,0.8) 1px, transparent 0)',
+          backgroundSize: '26px 26px',
+        }}
+      />
 
-      {/* Column headers — label each round above the tree */}
-      <div className="relative grid mb-4" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.25fr)', columnGap: '2.25rem' }}>
-        {([
-          { label: t('wcR32'), count: 16, tone: 'cool' as const },
-          { label: t('wcR16'), count: 8,  tone: 'cool' as const },
-          { label: t('wcQF'),  count: 4,  tone: 'warm' as const },
-          { label: t('wcSF'),  count: 2,  tone: 'warmer' as const },
-          { label: t('wcFinal'), count: 1, tone: 'hot' as const },
-        ]).map((h, i) => (
-          <div key={i} className="flex items-center gap-2 min-w-0">
-            <span className={cn(
-              'w-1.5 h-1.5 rounded-full shrink-0',
-              h.tone === 'cool' ? 'bg-accent-green/50' :
-              h.tone === 'warm' ? 'bg-[#E6C558]/70' :
-              h.tone === 'warmer' ? 'bg-[#F0B23A]/80' :
-              'bg-[#FFC94A]',
-            )} />
-            <span className={cn(
-              'font-barlow text-[11px] font-extrabold uppercase tracking-[0.22em] truncate',
-              h.tone === 'cool' ? 'text-white/85' :
-              h.tone === 'warm' ? 'text-[#E6C558]' :
-              h.tone === 'warmer' ? 'text-[#F0B23A]' :
-              'text-[#FFC94A]',
-            )}>
-              {h.label}
-            </span>
-            <span className="text-[9px] font-mono tabular-nums text-text-muted/60 shrink-0">{h.count}</span>
-          </div>
-        ))}
-      </div>
+      {/* Column headers — one row, symmetric, highlighting Final in the middle */}
+      <SymColumnHeaders t={t} />
 
-      <div className="relative wc-bracket">
-        {/* R32 — col 1 */}
-        {WC2026_R32.map((m, i) => (
+      {/* Main bracket grid */}
+      <div className="relative wc-sym mt-3">
+        {/* ─────────── LEFT HALF ─────────── */}
+        {/* R32 L — col 1 */}
+        {r32Left.map((m, i) => (
           <div
             key={m.id}
-            className="wc-cell"
+            className="wc-sym-cell"
+            data-side="left"
             data-connect-out={i % 2 === 0 ? 'top' : 'bot'}
             data-tone="cool"
             style={{ gridColumn: 1, gridRow: `${i * 2 + 1} / span 2` }}
@@ -1120,12 +1296,12 @@ function BracketTreeDesktop({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Date
             <BracketMatchCard match={m} round="r32" shortDateFmt={shortDateFmt} />
           </div>
         ))}
-
-        {/* R16 — col 2 */}
-        {WC2026_R16.map((m, i) => (
+        {/* R16 L — col 2 */}
+        {r16Left.map((m, i) => (
           <div
             key={m.id}
-            className="wc-cell"
+            className="wc-sym-cell"
+            data-side="left"
             data-connect-in="true"
             data-connect-out={i % 2 === 0 ? 'top' : 'bot'}
             data-tone="cool"
@@ -1134,62 +1310,168 @@ function BracketTreeDesktop({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Date
             <BracketMatchCard match={m} round="r16" shortDateFmt={shortDateFmt} />
           </div>
         ))}
-
-        {/* QF — col 3, warm gold */}
-        {WC2026_QF.map((m, i) => (
+        {/* QF L — col 3 */}
+        {qfLeft.map((m, i) => (
           <div
             key={m.id}
-            className="wc-cell"
+            className="wc-sym-cell"
+            data-side="left"
             data-connect-in="true"
-            data-connect-out={i % 2 === 0 ? 'top' : 'bot'}
+            data-connect-out={i === 0 ? 'top' : 'bot'}
             data-tone="warm"
             style={{ gridColumn: 3, gridRow: `${i * 8 + 1} / span 8` }}
           >
             <BracketMatchCard match={m} round="qf" shortDateFmt={shortDateFmt} />
           </div>
         ))}
-
-        {/* SF — col 4, warmer gold */}
-        {WC2026_SF.map((m, i) => (
-          <div
-            key={m.id}
-            className="wc-cell"
-            data-connect-in="true"
-            data-connect-out={i === 0 ? 'top' : 'bot'}
-            data-tone="warmer"
-            style={{ gridColumn: 4, gridRow: `${i * 16 + 1} / span 16` }}
-          >
-            <BracketMatchCard match={m} round="sf" shortDateFmt={shortDateFmt} />
-          </div>
-        ))}
-
-        {/* Final — col 5, hot gold */}
+        {/* SF L — col 4 */}
         <div
-          className="wc-cell"
+          className="wc-sym-cell"
+          data-side="left"
           data-connect-in="true"
+          data-connect-out="straight"
+          data-tone="warmer"
+          style={{ gridColumn: 4, gridRow: '1 / span 16' }}
+        >
+          <BracketMatchCard match={sfLeft} round="sf" shortDateFmt={shortDateFmt} />
+        </div>
+
+        {/* ─────────── CENTER — FINAL ─────────── */}
+        <div
+          className="wc-sym-cell"
           data-tone="hot"
-          style={{ gridColumn: 5, gridRow: '1 / span 32' }}
+          style={{ gridColumn: 5, gridRow: '1 / span 16' }}
         >
           <FinalApex t={t} match={WC2026_FINAL} shortDateFmt={shortDateFmt} />
         </div>
+
+        {/* ─────────── RIGHT HALF ─────────── */}
+        {/* SF R — col 6 */}
+        <div
+          className="wc-sym-cell"
+          data-side="right"
+          data-connect-in="true"
+          data-connect-out="straight"
+          data-tone="warmer"
+          style={{ gridColumn: 6, gridRow: '1 / span 16' }}
+        >
+          <BracketMatchCard match={sfRight} round="sf" shortDateFmt={shortDateFmt} />
+        </div>
+        {/* QF R — col 7 */}
+        {qfRight.map((m, i) => (
+          <div
+            key={m.id}
+            className="wc-sym-cell"
+            data-side="right"
+            data-connect-in="true"
+            data-connect-out={i === 0 ? 'top' : 'bot'}
+            data-tone="warm"
+            style={{ gridColumn: 7, gridRow: `${i * 8 + 1} / span 8` }}
+          >
+            <BracketMatchCard match={m} round="qf" shortDateFmt={shortDateFmt} />
+          </div>
+        ))}
+        {/* R16 R — col 8 */}
+        {r16Right.map((m, i) => (
+          <div
+            key={m.id}
+            className="wc-sym-cell"
+            data-side="right"
+            data-connect-in="true"
+            data-connect-out={i % 2 === 0 ? 'top' : 'bot'}
+            data-tone="cool"
+            style={{ gridColumn: 8, gridRow: `${i * 4 + 1} / span 4` }}
+          >
+            <BracketMatchCard match={m} round="r16" shortDateFmt={shortDateFmt} />
+          </div>
+        ))}
+        {/* R32 R — col 9 */}
+        {r32Right.map((m, i) => (
+          <div
+            key={m.id}
+            className="wc-sym-cell"
+            data-side="right"
+            data-connect-out={i % 2 === 0 ? 'top' : 'bot'}
+            data-tone="cool"
+            style={{ gridColumn: 9, gridRow: `${i * 2 + 1} / span 2` }}
+          >
+            <BracketMatchCard match={m} round="r32" shortDateFmt={shortDateFmt} />
+          </div>
+        ))}
       </div>
 
-      {/* 3rd-place — "the other final", lower-key */}
-      <div className="relative mt-8 pt-5 border-t border-border-subtle/40">
-        <div className="flex items-center gap-3 mb-3">
+      {/* 3rd-place — "consolation", lower-key, below the main bracket */}
+      <div className="relative mt-8 pt-5 border-t border-[#FFC94A]/15">
+        <div className="flex items-center gap-3 mb-3 justify-center">
           <span className="w-1.5 h-1.5 rounded-full bg-text-muted/60" aria-hidden />
-          <span className="font-barlow text-[11px] md:text-xs font-extrabold uppercase tracking-[0.22em] text-white/80">
+          <span className="font-bebas text-base tracking-[0.22em] uppercase text-white/80">
             {t('wcThirdPlace')}
           </span>
           <span className="text-[10px] text-text-muted/70 tabular-nums">
             {shortDateFmt.format(new Date(WC2026_THIRD.date))}
           </span>
-          <span className="flex-1 h-px bg-border-subtle/30" />
         </div>
-        <div className="max-w-md">
+        <div className="mx-auto max-w-md">
           <BracketMatchCard match={WC2026_THIRD} round="third" shortDateFmt={shortDateFmt} />
         </div>
       </div>
+    </div>
+  );
+}
+
+// Column headers for the symmetric bracket — mirrored, highlights FINAL at center
+function SymColumnHeaders({ t }: { t: T }) {
+  const cols = [
+    { label: t('wcR32'), count: 8, tone: 'cool' as const },
+    { label: t('wcR16'), count: 4, tone: 'cool' as const },
+    { label: t('wcQF'),  count: 2, tone: 'warm' as const },
+    { label: t('wcSF'),  count: 1, tone: 'warmer' as const },
+    { label: t('wcFinal'), count: 1, tone: 'hot' as const, center: true },
+    { label: t('wcSF'),  count: 1, tone: 'warmer' as const },
+    { label: t('wcQF'),  count: 2, tone: 'warm' as const },
+    { label: t('wcR16'), count: 4, tone: 'cool' as const },
+    { label: t('wcR32'), count: 8, tone: 'cool' as const },
+  ];
+  return (
+    <div
+      className="relative grid"
+      style={{
+        gridTemplateColumns:
+          'minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,1.25fr) minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,0.95fr) minmax(0,0.95fr)',
+        columnGap: '1.25rem',
+      }}
+    >
+      {cols.map((c, i) => (
+        <div
+          key={i}
+          className={cn(
+            'flex items-center gap-1.5 min-w-0',
+            c.center && 'justify-center',
+          )}
+        >
+          <span className={cn(
+            'w-1.5 h-1.5 rounded-full shrink-0',
+            c.tone === 'cool' ? 'bg-accent-green/50' :
+            c.tone === 'warm' ? 'bg-[#E6C558]/70' :
+            c.tone === 'warmer' ? 'bg-[#F0B23A]/80' :
+            'bg-[#FFC94A]',
+          )} />
+          <span className={cn(
+            'font-bebas text-[11px] tracking-[0.18em] uppercase',
+            c.tone === 'cool' ? 'text-white/80' :
+            c.tone === 'warm' ? 'text-[#E6C558]' :
+            c.tone === 'warmer' ? 'text-[#F0B23A]' :
+            'text-[#FFC94A]',
+          )}>
+            {c.label}
+          </span>
+          {!c.center && (
+            <span className="text-[9px] font-mono tabular-nums text-text-muted/60 shrink-0">
+              {c.count}
+            </span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
