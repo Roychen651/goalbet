@@ -517,6 +517,16 @@ export const translations = {
     wcRoleQuarter: 'Quarterfinal',
     wcRoleFinal: 'Final',
     wcTournamentEnded: 'Tournament Complete',
+    wcOverview: 'Overview',
+    wcFixtures: 'Fixtures',
+    wcKnockouts: 'Knockouts',
+    wcVenues: 'Venues',
+    wcMatchday: 'Matchday',
+    wcAllMatchdays: 'All',
+    wcGroupFixtures: 'Group Fixtures',
+    wcHost: 'Host',
+    wcNext: 'Next',
+    wcView: 'View',
   },
 
   he: {
@@ -1032,6 +1042,16 @@ export const translations = {
     wcRoleQuarter: 'רבע גמר',
     wcRoleFinal: 'גמר',
     wcTournamentEnded: 'הטורניר הסתיים',
+    wcOverview: 'סקירה',
+    wcFixtures: 'לוח משחקים',
+    wcKnockouts: 'נוקאאוט',
+    wcVenues: 'אצטדיונים',
+    wcMatchday: 'מחזור',
+    wcAllMatchdays: 'הכל',
+    wcGroupFixtures: 'משחקי הבתים',
+    wcHost: 'מארחת',
+    wcNext: 'הבא',
+    wcView: 'תצוגה',
   },
 } as const;
 
