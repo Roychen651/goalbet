@@ -1,11 +1,11 @@
 import { useMemo, useState, useEffect } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../lib/constants';
 import { useLangStore } from '../stores/langStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useLeagueStats } from '../hooks/useLeagueStats';
 import { StandingsTable } from '../components/stats/StandingsTable';
 import { LeagueLeaders } from '../components/stats/LeagueLeaders';
+import { LeagueDropdown } from '../components/stats/LeagueDropdown';
 import { PageLoader } from '../components/ui/LoadingSpinner';
 import { EmptyState } from '../components/ui/EmptyState';
 
@@ -50,25 +50,11 @@ export function StatsPage() {
         </div>
 
         {/* League selector */}
-        <div className="relative">
-          <label htmlFor="stats-league" className="sr-only">{t('statsSelectLeague')}</label>
-          <select
-            id="stats-league"
-            value={leagueId ?? ''}
-            onChange={(e) => setLeagueId(parseInt(e.target.value, 10))}
-            className="appearance-none bg-bg-card border border-border-subtle rounded-lg ps-3 pe-8 py-2 text-sm text-white font-medium cursor-pointer hover:border-border-bright transition-colors min-w-[180px]"
-          >
-            {availableLeagues.map(l => (
-              <option key={l.id} value={l.id} className="bg-bg-base">
-                {l.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            size={16}
-            className="absolute end-2 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-          />
-        </div>
+        <LeagueDropdown
+          leagues={availableLeagues}
+          value={leagueId}
+          onChange={setLeagueId}
+        />
       </div>
 
       {/* Standings */}
