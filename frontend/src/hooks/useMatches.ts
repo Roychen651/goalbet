@@ -169,7 +169,14 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upcomingDays, setUpcomingDays] = useState(INITIAL_UPCOMING_DAYS);
+  const [hasMore, setHasMore] = useState(true);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Ref mirrors upcomingDays so full/background fetch callbacks don't need it
+  // in their deps. Including it would rebuild the callbacks on every loadMore,
+  // re-fire the subscribe effect, and flip loading=true — which swaps the match
+  // list for skeletons mid-click, collapsing page height and resetting scroll.
+  const upcomingDaysRef = useRef(INITIAL_UPCOMING_DAYS);
 
   const { activeGroupId, groups, loading: groupsLoading } = useGroupStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
@@ -199,7 +206,7 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
     setLoading(true);
     setError(null);
     try {
-      const data = await queryMatches(activeLeagues, statusFilter, days ?? upcomingDays);
+      const data = await queryMatches(activeLeagues, statusFilter, days ?? upcomingDaysRef.current);
       setMatches(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load matches');
@@ -207,7 +214,7 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGroupId, leaguesKey, statusFilter, groupsLoading, upcomingDays]);
+  }, [activeGroupId, leaguesKey, statusFilter, groupsLoading]);
 
   // ── Background fetch (zero UI disruption) ─────────────────────────────────
   // Called by: goalbet:synced event, tab restore after inactivity.
@@ -218,30 +225,44 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
   const backgroundFetch = useCallback(async () => {
     if (!activeGroupId || groupsLoading || activeLeagues.length === 0) return;
     try {
-      const data = await queryMatches(activeLeagues, statusFilter, upcomingDays);
+      const data = await queryMatches(activeLeagues, statusFilter, upcomingDaysRef.current);
       setMatches(prev => mergeMatches(prev, data));
     } catch {
       // Silent — existing data stays, user is not disrupted
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGroupId, leaguesKey, statusFilter, groupsLoading, upcomingDays]);
+  }, [activeGroupId, leaguesKey, statusFilter, groupsLoading]);
 
-  // Load more fixtures: extend window without resetting scroll or showing full spinner
+  // Load more fixtures: extend window without resetting scroll or showing full spinner.
+  // If a bump returns the same match count (or fewer), we've hit the backend sync
+  // ceiling — ESPN has no more scheduled fixtures. Flip hasMore so the UI can
+  // swap the button for a "no more fixtures" note instead of lying to the user.
   const loadMore = useCallback(async () => {
-    if (loadingMore) return;
+    if (loadingMore || !hasMore) return;
     const newDays = upcomingDays + LOAD_MORE_DAYS;
-    setUpcomingDays(newDays);
+    const prevCount = matches.length;
     setLoadingMore(true);
     try {
       const data = await queryMatches(activeLeagues, statusFilter, newDays);
       setMatches(data);
+      upcomingDaysRef.current = newDays;
+      setUpcomingDays(newDays);
+      if (data.length <= prevCount) setHasMore(false);
     } catch {
       // silent — existing matches stay
     } finally {
       setLoadingMore(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upcomingDays, loadingMore, activeLeagues, statusFilter]);
+  }, [upcomingDays, loadingMore, hasMore, matches.length, activeLeagues, statusFilter]);
+
+  // Reset the "hit the ceiling" flag whenever the underlying data scope changes.
+  useEffect(() => {
+    setHasMore(true);
+    upcomingDaysRef.current = INITIAL_UPCOMING_DAYS;
+    setUpcomingDays(INITIAL_UPCOMING_DAYS);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaguesKey, statusFilter, activeGroupId]);
 
   const subscribeToMatches = useCallback(() => {
     channelRef.current?.unsubscribe();
@@ -289,5 +310,5 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
     };
   }, [fetchMatches, subscribeToMatches, backgroundFetch]);
 
-  return { matches, loading, loadingMore, error, refetch: fetchMatches, loadMore, upcomingDays };
+  return { matches, loading, loadingMore, error, refetch: fetchMatches, loadMore, upcomingDays, hasMore };
 }

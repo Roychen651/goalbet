@@ -22,7 +22,7 @@ export function HomePage() {
   const [activeTab, setActiveTab] = useState<Tab>('all');
   const [showScoringGuide, setShowScoringGuide] = useState(false);
   const [showCoinGuide, setShowCoinGuide] = useState(false);
-  const { matches, loading, loadingMore, error, loadMore, upcomingDays } = useMatches(activeTab);
+  const { matches, loading, loadingMore, error, loadMore, upcomingDays, hasMore } = useMatches(activeTab);
   const { predictions, saving, savePrediction } = usePredictions(matches.map(m => m.id));
   const { groups, activeGroupId, loading: groupsLoading, setActiveGroup } = useGroupStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
@@ -177,28 +177,33 @@ export function HomePage() {
       />
 
       {/* Load More Fixtures — only shown on upcoming-facing tabs, not results */}
-      {!loading && activeTab !== 'completed' && activeTab !== 'live' && (
+      {!loading && activeTab !== 'completed' && activeTab !== 'live' && matches.length > 0 && (
         <div className="flex flex-col items-center gap-2 pb-6">
-          <motion.button
-            onClick={async () => {
-              const y = window.scrollY;
-              await loadMore();
-              requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' }));
-            }}
-            disabled={loadingMore}
-            whileHover={{ scale: loadingMore ? 1 : 1.03 }}
-            whileTap={{ scale: loadingMore ? 1 : 0.97 }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/5 border border-white/10 text-text-muted text-sm hover:bg-white/10 hover:border-white/20 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loadingMore ? (
-              <span className="animate-spin text-accent-green">⟳</span>
-            ) : (
-              <span>⬇</span>
-            )}
-            <span>{loadingMore ? t('loadingMore') : t('loadMore')}</span>
-            {!loadingMore && <span className="text-white/30 text-xs">+14 days</span>}
-          </motion.button>
-          <p className="text-white/20 text-xs">Showing up to {upcomingDays} days ahead</p>
+          {hasMore ? (
+            <motion.button
+              onClick={loadMore}
+              disabled={loadingMore}
+              whileHover={{ scale: loadingMore ? 1 : 1.03 }}
+              whileTap={{ scale: loadingMore ? 1 : 0.97 }}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/5 border border-white/10 text-text-muted text-sm hover:bg-white/10 hover:border-white/20 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingMore ? (
+                <span className="animate-spin text-accent-green">⟳</span>
+              ) : (
+                <span>⬇</span>
+              )}
+              <span>{loadingMore ? t('loadingMore') : t('loadMore')}</span>
+              {!loadingMore && <span className="text-white/30 text-xs">+14 {t('daysShort')}</span>}
+            </motion.button>
+          ) : (
+            <div className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/[0.03] border border-white/5 text-text-muted/70 text-xs">
+              <span className="text-accent-green">✓</span>
+              <span>{t('noMoreFixtures')}</span>
+            </div>
+          )}
+          <p className="text-white/20 text-[11px]">
+            {t('showingUpToDays').replace('{0}', String(upcomingDays))}
+          </p>
         </div>
       )}
 
