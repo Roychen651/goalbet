@@ -856,9 +856,11 @@ html.light .wc-gold-border { border-color: rgba(138,90,8,0.40); }
 
 .wc-hero-bg {
   background:
-    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255,201,74,0.28) 0%, transparent 65%),
-    radial-gradient(ellipse 50% 40% at 20% 100%, rgba(73,136,196,0.22) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 80% 100%, rgba(206,17,38,0.12) 0%, transparent 60%),
+    /* top gold halo — centered over the title */
+    radial-gradient(ellipse 65% 45% at 50% 0%, rgba(255,201,74,0.26) 0%, transparent 62%),
+    /* bottom warm glow — centered + symmetric, no more bottom-left cold strip */
+    radial-gradient(ellipse 70% 32% at 50% 100%, rgba(224,155,34,0.10) 0%, transparent 65%),
+    /* base — stadium-night navy */
     linear-gradient(180deg, #0a1733 0%, #061020 100%);
   box-shadow:
     0 30px 80px -20px rgba(6,16,31,0.6),
@@ -869,6 +871,59 @@ html.light .wc-hero-bg {
     0 30px 80px -20px rgba(15,40,84,0.4),
     inset 0 1px 0 rgba(255,255,255,0.08);
 }
+
+/* ════════════════════════════════════════════════════════════════
+   CRITICAL — Text colour overrides INSIDE dark-locked surfaces.
+   The hero, bracket canvas, final apex, and knockouts phase strip
+   stay navy-dark in BOTH themes. But generic classes like `.wc-gold`,
+   `.wc-gold-muted`, `.wc-gold-border`, and `text-white/XX` all get
+   remapped to navy/brown in light mode by the global html.light
+   overrides — which would paint dark text on dark backgrounds and
+   render the hero unreadable in Frost. These scoped rules restore
+   the dark-mode colour palette *only* inside those locked surfaces.
+   ════════════════════════════════════════════════════════════════ */
+html.light .wc-hero-bg .wc-gold,
+html.light .wc-bracket-bg .wc-gold,
+html.light .wc-final-bg .wc-gold,
+html.light .wc-phase-strip .wc-gold { color: #FFC94A !important; }
+
+html.light .wc-hero-bg .wc-gold-muted,
+html.light .wc-bracket-bg .wc-gold-muted,
+html.light .wc-final-bg .wc-gold-muted,
+html.light .wc-phase-strip .wc-gold-muted { color: rgba(255,201,74,0.78) !important; }
+
+html.light .wc-hero-bg .wc-gold-border,
+html.light .wc-bracket-bg .wc-gold-border,
+html.light .wc-final-bg .wc-gold-border,
+html.light .wc-phase-strip .wc-gold-border { border-color: rgba(255,201,74,0.45) !important; }
+
+/* text-white/* inside the same surfaces stays WHITE (don't flip to navy) */
+html.light .wc-hero-bg .text-white,
+html.light .wc-bracket-bg .text-white,
+html.light .wc-final-bg .text-white,
+html.light .wc-phase-strip .text-white { color: #FFFFFF !important; }
+
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) :is(
+  [class*="text-white\\/"]
+) { color: rgba(255,255,255,0.9) !important; }
+
+/* Explicit opacity rungs so we keep proper hierarchy inside hero.
+   :is(selector-list) would flatten everything to 0.9, so we call
+   out the ones actually used. */
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/90 { color: rgba(255,255,255,0.92) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/85 { color: rgba(255,255,255,0.88) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/80 { color: rgba(255,255,255,0.82) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/75 { color: rgba(255,255,255,0.78) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/70 { color: rgba(255,255,255,0.72) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/65 { color: rgba(255,255,255,0.68) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/60 { color: rgba(255,255,255,0.62) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/55 { color: rgba(255,255,255,0.55) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/50 { color: rgba(255,255,255,0.52) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/45 { color: rgba(255,255,255,0.48) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/40 { color: rgba(255,255,255,0.42) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/35 { color: rgba(255,255,255,0.36) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/30 { color: rgba(255,255,255,0.32) !important; }
+html.light :is(.wc-hero-bg, .wc-bracket-bg, .wc-final-bg, .wc-phase-strip) .text-white\/25 { color: rgba(255,255,255,0.28) !important; }
 
 /* Bracket canvas — stays dark so gold connectors & ice-blue text read */
 .wc-bracket-bg {

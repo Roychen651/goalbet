@@ -124,21 +124,6 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
           strip that showed up on desktop light mode. */}
       <div aria-hidden className="wc-host-ribbon z-10" />
 
-      {/* Sweeping spotlight beams — BOTH gold so light mode behaves */}
-      <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className="wc-spotlight absolute top-0 left-[12%] w-[30%] h-full"
-          style={{ background: 'linear-gradient(180deg, rgba(255,201,74,0.10) 0%, transparent 70%)' }}
-        />
-        <div
-          className="wc-spotlight absolute top-0 right-[12%] w-[30%] h-full"
-          style={{
-            background: 'linear-gradient(180deg, rgba(255,201,74,0.10) 0%, transparent 70%)',
-            animationDelay: '-4.5s',
-          }}
-        />
-      </div>
-
       {/* Drifting confetti sparks — gold/red/green — anchored behind content */}
       <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
         {CONFETTI_PIECES.map((c, i) => (
@@ -173,9 +158,6 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
       <div className="wc-trophy-watermark">
         <Trophy2026 />
       </div>
-
-      {/* Stadium silhouette at the horizon */}
-      <StadiumSilhouette className="absolute inset-x-0 bottom-0 h-28 md:h-36 opacity-[0.22] pointer-events-none" />
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div className="relative px-5 md:px-10 lg:px-14 pt-7 md:pt-10 pb-4 md:pb-5">
@@ -313,93 +295,214 @@ const CONFETTI_PIECES = Array.from({ length: 18 }, (_, i) => ({
 }));
 
 /* ═════════════════════════ TROPHY 2026 — SVG ═════════════════════════
-   The FIFA World Cup trophy: two human figures holding a globe aloft.
-   Rendered as inline SVG so it's lightweight, recolorable via CSS, and
-   crisp at any size. Gold gradients are baked into the <defs> so the
-   trophy looks polished regardless of surrounding theme.
+   The iconic FIFA World Cup Trophy by Silvio Gazzaniga (1971): two
+   swooping human figures twisting upward to hold a globe aloft, with
+   the signature narrow waist in the mid-stem and the two green
+   malachite bands ringing the base. Proportioned off the classic
+   vector references (freesvg / vecteezy). Inline SVG so it stays
+   crisp, recolorable, and lightweight.
    ═══════════════════════════════════════════════════════════════════ */
 function Trophy2026({ className = '' }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 140 200"
+      viewBox="0 0 140 220"
       className={cn('wc-trophy wc-trophy-bob w-full h-full', className)}
       aria-hidden
     >
       <defs>
-        <linearGradient id="wc-trophy-body" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#FFF5D1" />
-          <stop offset="0.28" stopColor="#FFDC7A" />
+        {/* Body gold — warm, polished, with highlight on left flank */}
+        <linearGradient id="wc-trophy-body" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#C57A0F" />
+          <stop offset="0.18" stopColor="#E7A92B" />
+          <stop offset="0.38" stopColor="#FFE08A" />
           <stop offset="0.55" stopColor="#FFC94A" />
-          <stop offset="0.85" stopColor="#E09B22" />
-          <stop offset="1" stopColor="#C57A0F" />
+          <stop offset="0.78" stopColor="#E09B22" />
+          <stop offset="1" stopColor="#8E5509" />
         </linearGradient>
-        <linearGradient id="wc-trophy-highlight" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
-          <stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.55" />
-          <stop offset="0.55" stopColor="#FFFFFF" stopOpacity="0.55" />
+        {/* Top-to-bottom luminance for the stem */}
+        <linearGradient id="wc-trophy-stem" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#FFE08A" />
+          <stop offset="0.45" stopColor="#FFC94A" />
+          <stop offset="1" stopColor="#B37708" />
+        </linearGradient>
+        {/* Globe — earthy gold with blue-black continent wash */}
+        <radialGradient id="wc-globe" cx="0.36" cy="0.32" r="0.82">
+          <stop offset="0" stopColor="#FFF2C1" />
+          <stop offset="0.35" stopColor="#FFC94A" />
+          <stop offset="0.75" stopColor="#B87A10" />
+          <stop offset="1" stopColor="#5B3A06" />
+        </radialGradient>
+        {/* Malachite green rings at the base — the iconic detail */}
+        <linearGradient id="wc-malachite" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#0F3D1E" />
+          <stop offset="0.35" stopColor="#2D7A3D" />
+          <stop offset="0.55" stopColor="#5FBF6B" />
+          <stop offset="0.78" stopColor="#2D7A3D" />
+          <stop offset="1" stopColor="#0F3D1E" />
+        </linearGradient>
+        <linearGradient id="wc-trophy-highlight" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.7" />
           <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
         </linearGradient>
-        <radialGradient id="wc-globe" cx="0.38" cy="0.35" r="0.75">
-          <stop offset="0" stopColor="#FFF5D1" />
-          <stop offset="0.5" stopColor="#FFC94A" />
-          <stop offset="1" stopColor="#8a5a08" />
-        </radialGradient>
       </defs>
 
-      {/* Base plinth */}
-      <ellipse cx="70" cy="190" rx="42" ry="6" fill="#000" opacity="0.28" />
-      <rect x="32" y="170" width="76" height="16" rx="3" fill="url(#wc-trophy-body)" />
-      <rect x="32" y="170" width="76" height="3" fill="url(#wc-trophy-highlight)" opacity="0.6" />
-      <rect x="38" y="158" width="64" height="12" rx="2" fill="url(#wc-trophy-body)" />
+      {/* Soft drop shadow under the base */}
+      <ellipse cx="70" cy="212" rx="40" ry="4.5" fill="#000" opacity="0.35" />
 
-      {/* Stem — two flowing figures lift the globe */}
+      {/* ── Base plinth — two green malachite bands separated by gold ── */}
+      <rect x="34" y="200" width="72" height="5" rx="1.5" fill="url(#wc-trophy-body)" />
+      <rect x="32" y="193" width="76" height="7" rx="1.2" fill="url(#wc-malachite)" />
+      <rect x="34" y="188" width="72" height="5" rx="1.2" fill="url(#wc-trophy-body)" />
+      <rect x="32" y="181" width="76" height="7" rx="1.2" fill="url(#wc-malachite)" />
+      <rect x="36" y="176" width="68" height="5" rx="1.2" fill="url(#wc-trophy-body)" />
+
+      {/* Base highlight strip — catches the light */}
+      <rect x="34" y="194" width="72" height="1.2" fill="#FFF5D1" opacity="0.45" />
+      <rect x="34" y="182" width="72" height="1.2" fill="#FFF5D1" opacity="0.45" />
+
+      {/* ── Gold collar above the base, flaring outward ── */}
       <path
         fill="url(#wc-trophy-body)"
-        d="M52,158 C50,150 48,140 52,126 C56,112 62,100 64,88 L76,88 C78,100 84,112 88,126 C92,140 90,150 88,158 Z"
-      />
-      {/* Subtle figure silhouettes — hint at the two humans */}
-      <path
-        fill="#C57A0F"
-        opacity="0.55"
-        d="M58,156 C56,148 54,138 58,124 C60,116 63,108 65,100 L63,100 C60,108 57,116 55,124 C51,138 53,148 55,156 Z"
+        d="M40,176 Q38,168 44,162 L96,162 Q102,168 100,176 Z"
       />
       <path
-        fill="#C57A0F"
+        d="M44,164 L96,164"
+        stroke="#FFF5D1"
+        strokeWidth="0.8"
         opacity="0.55"
-        d="M82,156 C84,148 86,138 82,124 C80,116 77,108 75,100 L77,100 C80,108 83,116 85,124 C89,138 87,148 85,156 Z"
       />
 
-      {/* Globe cupped at the top */}
-      <circle cx="70" cy="54" r="30" fill="url(#wc-globe)" />
+      {/* ── The signature swooping twin-figure stem ──
+           Narrow waist in the middle, flaring into the globe cup at top
+           and the collar at bottom. This silhouette IS the trophy. */}
       <path
-        d="M40,54 Q70,30 100,54 Q70,78 40,54 Z"
-        stroke="#8a5a08"
-        strokeWidth="1.3"
-        fill="none"
+        fill="url(#wc-trophy-stem)"
+        d="
+          M48,162
+          C 44,150 42,138 48,126
+          C 54,115 60,108 56,98
+          C 52,88  52,80  60,74
+          L 80,74
+          C 88,80  88,88  84,98
+          C 80,108 86,115 92,126
+          C 98,138 96,150 92,162
+          Z
+        "
+      />
+
+      {/* Inner shadow crease — the twist between the two figures */}
+      <path
+        fill="#8E5509"
+        opacity="0.42"
+        d="
+          M68,162
+          C 66,150 64,138 66,126
+          C 68,115 70,108 68,98
+          C 66,88  66,80  70,74
+          L 72,74
+          C 76,80  76,88  74,98
+          C 72,108 74,115 76,126
+          C 78,138 76,150 74,162
+          Z
+        "
+      />
+
+      {/* Left figure — flowing highlight along the outer flank */}
+      <path
+        fill="#FFE08A"
+        opacity="0.55"
+        d="
+          M50,158
+          C 47,148 46,138 51,127
+          C 56,118 60,112 58,103
+          L 55,103
+          C 54,112 50,118 48,127
+          C 44,138 45,148 48,158
+          Z
+        "
+      />
+
+      {/* Right figure — mirrored highlight */}
+      <path
+        fill="#FFE08A"
+        opacity="0.55"
+        d="
+          M90,158
+          C 93,148 94,138 89,127
+          C 84,118 80,112 82,103
+          L 85,103
+          C 86,112 90,118 92,127
+          C 96,138 95,148 92,158
+          Z
+        "
+      />
+
+      {/* Upper cup — the bowl that holds the globe */}
+      <path
+        fill="url(#wc-trophy-body)"
+        d="
+          M56,74
+          Q 54,68  58,64
+          L 82,64
+          Q 86,68  84,74
+          Z
+        "
+      />
+      <path
+        d="M58,66 L82,66"
+        stroke="#FFF5D1"
+        strokeWidth="0.9"
         opacity="0.6"
       />
-      <path
-        d="M40,54 Q70,78 100,54"
-        stroke="#8a5a08"
-        strokeWidth="1.1"
+
+      {/* ── Globe — the earth held aloft ── */}
+      <circle cx="70" cy="42" r="26" fill="url(#wc-globe)" />
+      {/* Equator and longitude lines */}
+      <ellipse
+        cx="70"
+        cy="42"
+        rx="26"
+        ry="9"
+        stroke="#5B3A06"
+        strokeWidth="0.9"
         fill="none"
         opacity="0.55"
       />
-      {/* Continents hint */}
-      <path
-        fill="#8a5a08"
-        opacity="0.4"
-        d="M56,46 Q62,42 66,48 Q60,52 54,50 Z M72,58 Q80,54 84,62 Q76,66 70,62 Z M60,66 Q66,64 70,70 Q64,72 58,70 Z"
+      <ellipse
+        cx="70"
+        cy="42"
+        rx="10"
+        ry="26"
+        stroke="#5B3A06"
+        strokeWidth="0.8"
+        fill="none"
+        opacity="0.45"
       />
-
-      {/* Specular highlight */}
-      <ellipse cx="58" cy="40" rx="12" ry="6" fill="#FFFFFF" opacity="0.5" />
-      <ellipse cx="62" cy="110" rx="5" ry="18" fill="#FFFFFF" opacity="0.28" />
-
-      {/* Star on top */}
+      {/* Continent silhouettes — suggestion of Earth */}
       <path
-        fill="#FFF5D1"
-        d="M70,14 L72.5,20 L79,20.6 L74,25 L75.6,31.4 L70,28 L64.4,31.4 L66,25 L61,20.6 L67.5,20 Z"
+        fill="#5B3A06"
+        opacity="0.55"
+        d="
+          M60,34 Q66,30 72,36 Q70,42 64,42 Q58,40 60,34 Z
+          M76,46 Q82,44 86,50 Q82,54 76,52 Q72,48 76,46 Z
+          M58,52 Q64,50 66,56 Q62,60 56,58 Q54,54 58,52 Z
+        "
+      />
+      {/* Bright specular highlight on the globe */}
+      <ellipse cx="60" cy="32" rx="8" ry="4" fill="#FFFFFF" opacity="0.6" />
+      <ellipse cx="56" cy="30" rx="3" ry="1.5" fill="#FFFFFF" opacity="0.85" />
+
+      {/* Stem highlights — single bright band down the left side */}
+      <path
+        d="
+          M54,160
+          C 50,148 49,138 54,128
+          C 58,118 63,110 60,100
+        "
+        stroke="url(#wc-trophy-highlight)"
+        strokeWidth="2.2"
+        fill="none"
+        opacity="0.7"
       />
     </svg>
   );
@@ -1163,37 +1266,6 @@ function KnockoutsIntro({ t }: { t: T }) {
         </span>
       </div>
     </motion.div>
-  );
-}
-
-// Low-poly stadium silhouette — drawn in SVG so it's tiny (bytes) and themable
-function StadiumSilhouette({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 1200 200"
-      preserveAspectRatio="none"
-      aria-hidden
-    >
-      <defs>
-        <linearGradient id="wc-stadium-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#BDE8F5" stopOpacity="0" />
-          <stop offset="1" stopColor="#BDE8F5" stopOpacity="1" />
-        </linearGradient>
-      </defs>
-      {/* Ground line */}
-      <path
-        fill="url(#wc-stadium-grad)"
-        d="M0,200 L0,160 Q40,150 80,148 L140,140 L180,135 Q240,128 300,130 L380,125 Q440,110 520,105 L600,90 Q680,82 760,95 L840,110 Q920,118 1000,124 L1060,130 Q1120,140 1200,145 L1200,200 Z"
-      />
-      {/* Tower lights */}
-      {[100, 300, 900, 1100].map((x, i) => (
-        <g key={x}>
-          <line x1={x} y1={160 - i * 2} x2={x} y2={100} stroke="#BDE8F5" strokeOpacity="0.35" strokeWidth="1" />
-          <circle cx={x} cy={100} r="3" fill="#FFC94A" opacity="0.7" />
-        </g>
-      ))}
-    </svg>
   );
 }
 
