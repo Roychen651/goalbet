@@ -1094,14 +1094,18 @@ function RoundPill({ label, tone }: { label: string; tone: 'cool' | 'warm' | 'wa
     cool:   'text-text-muted/80 border-border-subtle bg-bg-card/40',
     warm:   'text-[#E6C558]/90 border-[#E6C558]/25 bg-[#E6C558]/5',
     warmer: 'text-[#F0B23A]/95 border-[#F0B23A]/30 bg-[#F0B23A]/8',
-    hot:    'text-[#FFC94A] border-[#FFC94A]/50 bg-[#FFC94A]/10',
+    hot:    'text-[#FFC94A] border-[#FFC94A]/50 bg-[#FFC94A]/12',
   } as const;
+  const isHot = tone === 'hot';
   return (
-    <span className={cn(
-      'rounded-full border px-2 py-0.5 leading-none',
-      toneMap[tone],
-    )}>
-      {label}
+    <span
+      className={cn(
+        'rounded-full border px-2.5 py-0.5 leading-none text-[10px] font-bold uppercase tracking-[0.14em] font-barlow whitespace-nowrap shrink-0',
+        toneMap[tone],
+        isHot && 'drop-shadow-[0_0_6px_rgba(255,201,74,0.4)]',
+      )}
+    >
+      {isHot && '🏆 '}{label}
     </span>
   );
 }
@@ -1129,15 +1133,15 @@ function RoundPill({ label, tone }: { label: string; tone: 'cool' | 'warm' | 'wa
 const BRACKET_SYM_CSS = `
 .wc-sym {
   display: grid;
-  /* Minimum width of the bracket grid — below this the scroller takes over.
-     Ensures every card stays readable (no 2-char truncation) at any viewport. */
-  min-width: 72rem;
+  /* Fits on ~1100px+ screens without h-scroll. R32/R16 columns are tighter,
+     QF/SF wider, Final widest — mirrors the escalation of stakes. */
+  min-width: 62rem;
   grid-template-columns:
-    minmax(7rem, 1fr) minmax(7rem, 1fr) minmax(7.25rem, 1fr) minmax(7.5rem, 1fr)
-    minmax(13rem, 1.2fr)
-    minmax(7.5rem, 1fr) minmax(7.25rem, 1fr) minmax(7rem, 1fr) minmax(7rem, 1fr);
-  grid-template-rows: repeat(16, 3rem);
-  column-gap: 1.5rem;
+    minmax(5.5rem, 1fr) minmax(5.5rem, 1fr) minmax(6rem, 1.05fr) minmax(6.5rem, 1.1fr)
+    minmax(11rem, 1.4fr)
+    minmax(6.5rem, 1.1fr) minmax(6rem, 1.05fr) minmax(5.5rem, 1fr) minmax(5.5rem, 1fr);
+  grid-template-rows: repeat(16, 3.25rem);
+  column-gap: 0.75rem;
   position: relative;
 }
 .wc-sym-cell {
@@ -1153,9 +1157,9 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 1rem;
-  height: 1px;
-  background: rgba(255,201,74,0.42);
+  width: 0.75rem;
+  height: 1.5px;
+  background: linear-gradient(90deg, rgba(255,201,74,0.25), rgba(255,201,74,0.55));
   pointer-events: none;
 }
 .wc-sym-cell[data-side='left'][data-connect-out='top']::after {
@@ -1163,10 +1167,10 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 1rem;
+  width: 0.75rem;
   height: 100%;
-  border-top: 1px solid rgba(255,201,74,0.42);
-  border-inline-end: 1px solid rgba(255,201,74,0.42);
+  border-top: 1.5px solid rgba(255,201,74,0.42);
+  border-inline-end: 1.5px solid rgba(255,201,74,0.42);
   pointer-events: none;
 }
 .wc-sym-cell[data-side='left'][data-connect-out='bot']::after {
@@ -1174,10 +1178,10 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   bottom: 50%;
-  width: 1rem;
+  width: 0.75rem;
   height: 100%;
-  border-bottom: 1px solid rgba(255,201,74,0.42);
-  border-inline-end: 1px solid rgba(255,201,74,0.42);
+  border-bottom: 1.5px solid rgba(255,201,74,0.42);
+  border-inline-end: 1.5px solid rgba(255,201,74,0.42);
   pointer-events: none;
 }
 /* SF-L: single card flowing into Final — straight horizontal stub */
@@ -1186,9 +1190,9 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 1.5rem;
-  height: 1.5px;
-  background: linear-gradient(90deg, rgba(240,178,58,0.55), rgba(255,201,74,0.75));
+  width: 0.75rem;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(240,178,58,0.55), rgba(255,201,74,0.85));
   pointer-events: none;
 }
 
@@ -1198,9 +1202,9 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 1rem;
-  height: 1px;
-  background: rgba(255,201,74,0.42);
+  width: 0.75rem;
+  height: 1.5px;
+  background: linear-gradient(270deg, rgba(255,201,74,0.25), rgba(255,201,74,0.55));
   pointer-events: none;
 }
 .wc-sym-cell[data-side='right'][data-connect-out='top']::after {
@@ -1208,10 +1212,10 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 1rem;
+  width: 0.75rem;
   height: 100%;
-  border-top: 1px solid rgba(255,201,74,0.42);
-  border-inline-start: 1px solid rgba(255,201,74,0.42);
+  border-top: 1.5px solid rgba(255,201,74,0.42);
+  border-inline-start: 1.5px solid rgba(255,201,74,0.42);
   pointer-events: none;
 }
 .wc-sym-cell[data-side='right'][data-connect-out='bot']::after {
@@ -1219,10 +1223,10 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   bottom: 50%;
-  width: 1rem;
+  width: 0.75rem;
   height: 100%;
-  border-bottom: 1px solid rgba(255,201,74,0.42);
-  border-inline-start: 1px solid rgba(255,201,74,0.42);
+  border-bottom: 1.5px solid rgba(255,201,74,0.42);
+  border-inline-start: 1.5px solid rgba(255,201,74,0.42);
   pointer-events: none;
 }
 .wc-sym-cell[data-side='right'][data-connect-out='straight']::after {
@@ -1230,9 +1234,9 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 1.5rem;
-  height: 1.5px;
-  background: linear-gradient(270deg, rgba(240,178,58,0.55), rgba(255,201,74,0.75));
+  width: 0.75rem;
+  height: 2px;
+  background: linear-gradient(270deg, rgba(240,178,58,0.55), rgba(255,201,74,0.85));
   pointer-events: none;
 }
 
@@ -1262,7 +1266,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
   const sfRight  = WC2026_SF[1];
 
   return (
-    <div className="relative rounded-3xl wc-bracket-bg backdrop-blur-sm overflow-hidden p-4 xl:p-6 w-full">
+    <div className="relative rounded-3xl wc-bracket-bg backdrop-blur-sm overflow-hidden p-5 xl:p-7 w-full">
       <style>{BRACKET_SYM_CSS}</style>
 
       {/* Ambient backdrop: gold halo at center, cool blue at edges */}
@@ -1303,7 +1307,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
           fade-edge mask, gold scrollbar). At ≥1200px-ish screens with the
           full-bleed shell the grid fills the canvas naturally. */}
       <div className="relative wc-bracket-scroller" data-lenis-prevent>
-        <div className="min-w-[72rem]">
+        <div className="min-w-[62rem]">
           {/* Column headers — one row, symmetric, highlighting Final in the middle */}
           <SymColumnHeaders t={t} />
 
@@ -1463,39 +1467,41 @@ function SymColumnHeaders({ t }: { t: T }) {
   ];
   return (
     <div
-      className="relative grid min-w-[72rem]"
+      className="relative grid min-w-[62rem]"
       style={{
         gridTemplateColumns:
-          'minmax(7rem,1fr) minmax(7rem,1fr) minmax(7.25rem,1fr) minmax(7.5rem,1fr) minmax(13rem,1.2fr) minmax(7.5rem,1fr) minmax(7.25rem,1fr) minmax(7rem,1fr) minmax(7rem,1fr)',
-        columnGap: '1.5rem',
+          'minmax(5.5rem,1fr) minmax(5.5rem,1fr) minmax(6rem,1.05fr) minmax(6.5rem,1.1fr) minmax(11rem,1.4fr) minmax(6.5rem,1.1fr) minmax(6rem,1.05fr) minmax(5.5rem,1fr) minmax(5.5rem,1fr)',
+        columnGap: '0.75rem',
       }}
     >
       {cols.map((c, i) => (
         <div
           key={i}
           className={cn(
-            'flex items-center gap-2 min-w-0 pb-2',
+            'flex items-center gap-1.5 min-w-0 pb-2.5',
             c.center && 'justify-center',
           )}
         >
           <span className={cn(
-            'w-1.5 h-1.5 rounded-full shrink-0',
+            'w-2 h-2 rounded-full shrink-0',
             c.tone === 'cool' ? 'bg-accent-green/50' :
             c.tone === 'warm' ? 'bg-[#E6C558]/70' :
             c.tone === 'warmer' ? 'bg-[#F0B23A]/80' :
             'bg-[#FFC94A]',
+            c.center && 'hidden',
           )} />
           <span className={cn(
-            'font-bebas text-[12px] tracking-[0.2em] uppercase',
+            'font-bebas tracking-[0.2em] uppercase leading-none',
+            c.center ? 'text-[16px] drop-shadow-[0_0_10px_rgba(255,201,74,0.6)]' : 'text-[13px]',
             c.tone === 'cool' ? 'text-white/80' :
             c.tone === 'warm' ? 'text-[#E6C558]' :
             c.tone === 'warmer' ? 'text-[#F0B23A]' :
             'text-[#FFC94A]',
           )}>
-            {c.label}
+            {c.center && '✦ '}{c.label}{c.center && ' ✦'}
           </span>
           {!c.center && (
-            <span className="text-[9.5px] font-mono tabular-nums text-text-muted/60 shrink-0">
+            <span className="text-[9px] font-mono tabular-nums text-text-muted/50 shrink-0">
               {c.count}
             </span>
           )}
