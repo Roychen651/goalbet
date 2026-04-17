@@ -1196,6 +1196,29 @@ html.light .wc-host-row {
 }
 .wc-halo-breathe { animation: wc-halo-breathe 5.4s ease-in-out infinite; }
 
+/* FinalApex sunburst — slow rotating conic rays */
+.wc-sunburst {
+  animation: wc-sunburst-rotate 30s linear infinite;
+}
+@keyframes wc-sunburst-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* FinalApex floating particles — soft gold orbs that drift + pulse */
+.wc-final-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: #FFC94A;
+  box-shadow: 0 0 6px rgba(255,201,74,0.6), 0 0 12px rgba(255,201,74,0.3);
+  animation: wc-particle-float ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes wc-particle-float {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
+  50%      { transform: translateY(-8px) scale(1.3); opacity: 0.8; }
+}
+
 /* Mobile hero trophy glow */
 .wc-mobile-trophy-halo {
   position: absolute;

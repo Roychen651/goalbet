@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
   Trophy, Calendar, MapPin, Users, Target, CalendarDays,
@@ -779,8 +779,32 @@ function GroupCard({ group, index, t }: { group: WCGroup; index: number; t: T })
   );
 }
 
+// FIFA Seed Pot assignments for WC 2026 draw — accurate per final draw (2025-12-05)
+const TEAM_POT: Record<string, number> = {
+  // Pot 1: Hosts + top FIFA-ranked
+  USA: 1, MEX: 1, CAN: 1, BRA: 1, ARG: 1, ENG: 1, FRA: 1, ESP: 1, POR: 1, GER: 1, NED: 1, BEL: 1,
+  // Pot 2
+  COL: 2, URU: 2, JPN: 2, MAR: 2, CRO: 2, SUI: 2, AUT: 2, TUR: 2, KOR: 2, SEN: 2, EGY: 2, ECU: 2,
+  // Pot 3
+  CIV: 2, IRN: 3, ALG: 3, TUN: 3, SCO: 3, SWE: 3, NOR: 3, QAT: 3, PAR: 3, AUS: 3, BIH: 3, GHA: 3,
+  // Pot 4
+  JOR: 4, IRQ: 4, NZL: 4, CPV: 4, COD: 4, UZB: 4, PAN: 4, HAI: 4, RSA: 4, CZE: 4, CUW: 4, KSA: 4,
+};
+
+// Approximate FIFA World Ranking (April 2026) for display
+const TEAM_FIFA_RANK: Record<string, number> = {
+  ARG: 1, FRA: 2, BRA: 3, ENG: 4, ESP: 5, BEL: 6, POR: 7, NED: 8,
+  GER: 9, COL: 10, URU: 11, CRO: 12, USA: 13, MAR: 14, JPN: 15, MEX: 16,
+  SUI: 17, IRN: 18, AUT: 19, TUR: 20, SEN: 21, KOR: 22, ECU: 23, EGY: 24,
+  AUS: 25, ALG: 26, TUN: 27, SCO: 28, SWE: 29, CAN: 30, NOR: 31, CIV: 32,
+  PAR: 33, BIH: 34, QAT: 35, GHA: 36, RSA: 37, IRQ: 38, JOR: 39, KSA: 40,
+  NZL: 41, CZE: 42, PAN: 43, CPV: 44, UZB: 45, COD: 46, HAI: 47, CUW: 48,
+};
+
 function TeamRow({ team, position, t }: { team: WCTeam; position: number; t: T }) {
   const isTbd = team.code === 'TBD';
+  const pot = TEAM_POT[team.code];
+  const rank = TEAM_FIFA_RANK[team.code];
   return (
     <li
       className={cn(
@@ -809,6 +833,29 @@ function TeamRow({ team, position, t }: { team: WCTeam; position: number; t: T }
       >
         {team.name}
       </span>
+      {/* FIFA ranking pill */}
+      {rank && !isTbd && (
+        <span
+          className="text-[9px] font-mono tabular-nums font-bold text-white/60 shrink-0 leading-none"
+          title={`FIFA ${t('wcFifaRank')} #${rank}`}
+        >
+          #{rank}
+        </span>
+      )}
+      {/* Seed pot indicator */}
+      {pot && !isTbd && (
+        <span
+          className={cn(
+            'text-[8px] font-extrabold uppercase tracking-[0.12em] leading-none rounded-full px-1.5 py-[3px] shrink-0 border',
+            pot === 1 ? 'text-[#FFC94A] border-[#FFC94A]/40 bg-[#FFC94A]/10' :
+            pot === 2 ? 'text-[#E6C558]/80 border-[#E6C558]/25 bg-[#E6C558]/5' :
+            pot === 3 ? 'text-white/50 border-white/15 bg-white/[0.03]' :
+            'text-white/35 border-white/10 bg-white/[0.02]',
+          )}
+        >
+          {t('wcPot')} {pot}
+        </span>
+      )}
       {team.host && (
         <span className="wc-role-badge shrink-0" data-role="host">
           {t('wcHost')}
@@ -857,6 +904,7 @@ function FixturesTab({ t, dayDateFmt, shortDateFmt }: {
             matches={day}
             dayDateFmt={dayDateFmt}
             shortDateFmt={shortDateFmt}
+            t={t}
           />
         ))}
       </div>
@@ -902,8 +950,8 @@ function MatchdayPicker({ t, active, onChange }: {
   );
 }
 
-function DaySection({ date, matches, dayDateFmt, shortDateFmt }: {
-  date: string; matches: WCGroupMatch[]; dayDateFmt: Intl.DateTimeFormat; shortDateFmt: Intl.DateTimeFormat;
+function DaySection({ date, matches, dayDateFmt, shortDateFmt, t }: {
+  date: string; matches: WCGroupMatch[]; dayDateFmt: Intl.DateTimeFormat; shortDateFmt: Intl.DateTimeFormat; t: T;
 }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -918,14 +966,14 @@ function DaySection({ date, matches, dayDateFmt, shortDateFmt }: {
         </span>
         {isToday && (
           <span className="text-[9px] font-extrabold uppercase tracking-[0.22em] wc-gold rounded-full px-2 py-0.5 border border-[#FFC94A]/45" style={{ background: 'rgba(255,201,74,0.1)' }}>
-            Today
+            {t('wcToday')}
           </span>
         )}
         <span className={cn(
           'text-[10px] tabular-nums',
           isToday ? 'wc-gold-muted' : isPast ? 'text-text-muted/60' : 'text-text-muted/80',
         )}>
-          {matches.length} {matches.length === 1 ? 'match' : 'matches'}
+          {matches.length} {matches.length === 1 ? t('wcMatchSingular') : t('wcMatchPlural')}
         </span>
         <span className="flex-1 h-px bg-[#FFC94A]/15" />
       </div>
@@ -1724,29 +1772,45 @@ function FinalApex({ t, match, shortDateFmt }: {
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.5, ease: 'easeOut' as const }}
       className="relative w-full rounded-2xl wc-final-bg overflow-hidden"
+      style={{ border: '1.5px solid rgba(255,201,74,0.55)' }}
     >
       {/* Shimmering gold orb behind the trophy */}
       <motion.div
         aria-hidden
-        className="absolute -top-14 -end-14 w-48 h-48 rounded-full blur-2xl pointer-events-none"
+        className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full blur-2xl pointer-events-none"
         style={{ background: 'radial-gradient(circle, rgba(255,201,74,0.55) 0%, rgba(240,178,58,0.2) 50%, transparent 75%)' }}
         animate={{ scale: [1, 1.2, 1], opacity: [0.55, 0.95, 0.55] }}
         transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' as const }}
       />
 
-      {/* Subtle ray lines — conveys "destination" without going loud */}
-      <svg aria-hidden className="absolute inset-0 w-full h-full opacity-[0.08] pointer-events-none" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="wc-ray" x1="0" y1="0" x2="1" y2="0.5">
-            <stop offset="0" stopColor="#FFC94A" stopOpacity="0" />
-            <stop offset="0.5" stopColor="#FFC94A" stopOpacity="1" />
-            <stop offset="1" stopColor="#FFC94A" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {[0.15, 0.35, 0.6, 0.8].map(y => (
-          <line key={y} x1="0%" y1={`${y * 100}%`} x2="100%" y2={`${(y + 0.08) * 100}%`} stroke="url(#wc-ray)" strokeWidth="1" />
+      {/* Rotating sunburst — CSS conic gradient with mask */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none wc-sunburst"
+        style={{
+          background: 'conic-gradient(from 0deg at 50% 42%, rgba(255,201,74,0.12) 0deg, transparent 15deg, rgba(255,201,74,0.08) 30deg, transparent 45deg, rgba(255,201,74,0.12) 60deg, transparent 75deg, rgba(255,201,74,0.08) 90deg, transparent 105deg, rgba(255,201,74,0.12) 120deg, transparent 135deg, rgba(255,201,74,0.08) 150deg, transparent 165deg, rgba(255,201,74,0.12) 180deg, transparent 195deg, rgba(255,201,74,0.08) 210deg, transparent 225deg, rgba(255,201,74,0.12) 240deg, transparent 255deg, rgba(255,201,74,0.08) 270deg, transparent 285deg, rgba(255,201,74,0.12) 300deg, transparent 315deg, rgba(255,201,74,0.08) 330deg, transparent 345deg, rgba(255,201,74,0.12) 360deg)',
+          maskImage: 'radial-gradient(circle at 50% 42%, black 0%, transparent 65%)',
+          WebkitMaskImage: 'radial-gradient(circle at 50% 42%, black 0%, transparent 65%)',
+        }}
+      />
+
+      {/* Floating gold particles */}
+      <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
+        {FINAL_PARTICLES.map((p, i) => (
+          <span
+            key={i}
+            className="wc-final-particle"
+            style={{
+              left: p.left,
+              top: p.top,
+              width: p.size,
+              height: p.size,
+              animationDelay: p.delay,
+              animationDuration: p.duration,
+            }}
+          />
         ))}
-      </svg>
+      </div>
 
       {/* Header: FINAL label + match meta */}
       <div className="relative flex flex-col items-center gap-0.5 px-3 pt-3 pb-1.5">
@@ -1770,10 +1834,19 @@ function FinalApex({ t, match, shortDateFmt }: {
         </div>
       </div>
 
-      {/* Champions 2026 banner */}
-      <div className="relative flex justify-center pt-1.5 pb-1">
-        <span className="font-bebas text-[18px] md:text-[15px] tracking-[0.15em] text-[#FFC94A] leading-none drop-shadow-[0_0_8px_rgba(255,201,74,0.5)]">
-          {t('wcChampion')} 2026
+      {/* Champions 2026 banner — massive glowing Bebas text */}
+      <div className="relative flex justify-center pt-1 pb-1">
+        <span
+          className="font-bebas text-[22px] md:text-[17px] tracking-[0.18em] uppercase leading-none"
+          style={{
+            background: 'linear-gradient(180deg, #FFC94A 0%, #E09B22 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            filter: 'drop-shadow(0 0 12px rgba(255,201,74,0.6))',
+          }}
+        >
+          {t('wcChampion2026')}
         </span>
       </div>
 
@@ -1808,30 +1881,52 @@ function FinalApex({ t, match, shortDateFmt }: {
   );
 }
 
+// Pre-generated floating particle positions for the FinalApex
+const FINAL_PARTICLES = Array.from({ length: 8 }, (_, i) => ({
+  left: `${12 + (i * 13) % 80}%`,
+  top: `${8 + (i * 17) % 75}%`,
+  size: `${2 + (i % 3)}px`,
+  delay: `${i * 0.7}s`,
+  duration: `${3.5 + (i % 4) * 0.8}s`,
+}));
+
 /* ──────── Mobile stacked view ──────── */
 
 function BracketStackedMobile({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.DateTimeFormat }) {
-  const rounds: { label: string; matches: WCKnockoutMatch[]; round: BracketRound; cols: string }[] = [
-    { label: t('wcR32'), matches: WC2026_R32, round: 'r32', cols: 'grid-cols-1 sm:grid-cols-2' },
-    { label: t('wcR16'), matches: WC2026_R16, round: 'r16', cols: 'grid-cols-1 sm:grid-cols-2' },
-    { label: t('wcQF'),  matches: WC2026_QF,  round: 'qf',  cols: 'grid-cols-1 sm:grid-cols-2' },
-    { label: t('wcSF'),  matches: WC2026_SF,  round: 'sf',  cols: 'grid-cols-1' },
+  const rounds: { id: BracketRound; label: string; matches: WCKnockoutMatch[]; cols: string }[] = [
+    { id: 'r32', label: t('wcR32'), matches: WC2026_R32, cols: 'grid-cols-1 sm:grid-cols-2' },
+    { id: 'r16', label: t('wcR16'), matches: WC2026_R16, cols: 'grid-cols-1 sm:grid-cols-2' },
+    { id: 'qf',  label: t('wcQF'),  matches: WC2026_QF,  cols: 'grid-cols-1 sm:grid-cols-2' },
+    { id: 'sf',  label: t('wcSF'),  matches: WC2026_SF,  cols: 'grid-cols-1' },
   ];
 
   const roundIcons: Record<string, string> = {
     r32: '⚔️', r16: '🏟️', qf: '🔥', sf: '⭐',
   };
 
+  // Accordion state — default to R16 (the likely "current" round pre-tournament)
+  const [expanded, setExpanded] = useState<BracketRound>('r16');
+  const toggle = useCallback((id: BracketRound) => {
+    setExpanded(prev => prev === id ? id : id);
+  }, []);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {rounds.map((r, idx) => {
-        const tone = ROUND_TONES[r.round];
+        const tone = ROUND_TONES[r.id];
+        const isOpen = expanded === r.id;
         return (
-          <div key={r.label}>
-            {/* Round header — dramatic gold-heated strip */}
-            <div className="wc-mobile-round-header mb-3" data-round={r.round}>
+          <div key={r.id}>
+            {/* Round header — tappable accordion trigger */}
+            <button
+              type="button"
+              onClick={() => toggle(r.id)}
+              className="wc-mobile-round-header w-full mb-0 min-h-[44px]"
+              data-round={r.id}
+              aria-expanded={isOpen}
+            >
               <div className="flex items-center gap-2.5">
-                <span aria-hidden className="text-[15px] leading-none">{roundIcons[r.round]}</span>
+                <span aria-hidden className="text-[15px] leading-none">{roundIcons[r.id]}</span>
                 <span className={cn(
                   'font-bebas text-[18px] tracking-[0.22em] uppercase leading-none drop-shadow-sm',
                   tone.accentText,
@@ -1841,26 +1936,48 @@ function BracketStackedMobile({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-text-muted/70 tabular-nums font-mono">
-                  {r.matches.length} {t('wcStatMatches').toLowerCase()}
+                  {r.matches.length} {r.matches.length === 1 ? t('wcMatchSingular') : t('wcMatchPlural')}
                 </span>
                 <span className={cn('w-1.5 h-1.5 rounded-full', tone.dot)} />
+                <motion.span
+                  animate={{ rotate: isOpen ? 90 : 0 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' as const }}
+                  className="text-text-muted/60"
+                >
+                  <ChevronRight size={14} />
+                </motion.span>
               </div>
-            </div>
-            <div className={cn('grid gap-2.5', r.cols)}>
-              {r.matches.map((m, mi) => (
-                <BracketMatchCard key={m.id} match={m} round={r.round} shortDateFmt={shortDateFmt} delay={mi * 0.03} />
-              ))}
-            </div>
+            </button>
+
+            {/* Collapsible content */}
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' as const }}
+                  className="overflow-hidden"
+                >
+                  <div className={cn('grid gap-2.5 pt-3', r.cols)}>
+                    {r.matches.map((m, mi) => (
+                      <BracketMatchCard key={m.id} match={m} round={r.id} shortDateFmt={shortDateFmt} delay={mi * 0.03} />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Flow connector between rounds */}
             {idx < rounds.length - 1 && (
-              <div aria-hidden className="flex flex-col items-center gap-0.5 mt-4">
+              <div aria-hidden className="flex flex-col items-center gap-0.5 mt-3">
                 <motion.span
                   className="w-px bg-gradient-to-b from-[#FFC94A]/50 via-[#FFC94A]/25 to-transparent"
-                  style={{ height: 28 }}
+                  style={{ height: 20 }}
                   animate={{ opacity: [0.4, 0.9, 0.4] }}
                   transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' as const }}
                 />
                 <motion.span
-                  aria-hidden
                   className="w-1 h-1 rounded-full bg-[#FFC94A]/50"
                   animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0.8, 0.4] }}
                   transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' as const }}
@@ -1878,7 +1995,11 @@ function BracketStackedMobile({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
 
       {/* 3rd place — muted */}
       <div>
-        <div className="wc-mobile-round-header mb-3" data-round="third">
+        <button
+          type="button"
+          className="wc-mobile-round-header w-full mb-3 min-h-[44px]"
+          data-round="third"
+        >
           <div className="flex items-center gap-2.5">
             <span aria-hidden className="text-[15px] leading-none">🥉</span>
             <span className="font-bebas text-[18px] tracking-[0.22em] uppercase leading-none text-text-muted/80">
@@ -1888,7 +2009,7 @@ function BracketStackedMobile({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
           <span className="text-[10px] text-text-muted/60 tabular-nums font-mono">
             {shortDateFmt.format(new Date(WC2026_THIRD.date))}
           </span>
-        </div>
+        </button>
         <BracketMatchCard match={WC2026_THIRD} round="third" shortDateFmt={shortDateFmt} />
       </div>
     </div>

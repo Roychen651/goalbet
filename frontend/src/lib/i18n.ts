@@ -561,6 +561,12 @@ export const translations = {
     wcUnitedTagline: 'United by Football',
     wcCitiesLabel: 'Host Cities',
     wcTrophyLabel: 'The Trophy',
+    wcToday: 'Today',
+    wcMatchSingular: 'match',
+    wcMatchPlural: 'matches',
+    wcPot: 'Pot',
+    wcFifaRank: 'Rank',
+    wcChampion2026: '2026 Champion',
   },
 
   he: {
@@ -1120,6 +1126,12 @@ export const translations = {
     wcUnitedTagline: 'מאוחדות בכדורגל',
     wcCitiesLabel: 'ערי האירוח',
     wcTrophyLabel: 'הגביע',
+    wcToday: 'היום',
+    wcMatchSingular: 'משחק',
+    wcMatchPlural: 'משחקים',
+    wcPot: 'סל',
+    wcFifaRank: 'דירוג',
+    wcChampion2026: 'אלופת 2026',
   },
 } as const;
 
