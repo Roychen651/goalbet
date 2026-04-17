@@ -380,7 +380,7 @@ goalbet/
 │       │   │   ├── LeagueDropdown.tsx     # Custom animated dropdown; dual dark/light ESPN league logos; data-lenis-prevent so inner wheel-scroll works inside Lenis; layoutId-backed active bar
 │       │   │   ├── LeagueLeaders.tsx      # Top scorers / assists tables sourced from ESPN leaders feed
 │       │   │   ├── StandingsTable.tsx     # League standings table (rank, team, P/W/D/L, GF/GA/GD, pts)
-│       │   │   └── WorldCupBracket.tsx    # Custom "Route to the Trophy" view for World Cup (league 4480); hero countdown, phase timeline, groups, 5-column knockout bracket, host-stadium grid. Pure Framer Motion
+│       │   │   └── WorldCupBracket.tsx    # Custom "Route to the Trophy" view for World Cup (league 4480); hero countdown with inline mobile trophy, phase timeline, groups, 9-column symmetric knockout bracket (BracketTreeCard compact for desktop grid, BracketMatchCard full-detail for mobile stacked), FinalApex climax card, host-stadium grid. 4 tabs: groups/fixtures/knockouts/venues. Pure Framer Motion
 │       │   └── ui/
 │       │       ├── Avatar.tsx             # Expects emoji:🏆 prefix
 │       │       ├── CoinGuide.tsx          # Bottom sheet — swipe-to-close enabled
@@ -911,7 +911,7 @@ Must be kept in sync between **both** files:
 
 ### Leagues with NO ESPN coverage
 
-- **World Cup** (4480) — no ESPN standings/leaders feed, but surfaces in the Stats Hub through a **custom view**: `StatsPage.tsx` keeps a `CUSTOM_VIEW_LEAGUES` set (`{ 4480 }`) that bypasses the ESPN-slug filter on `FOOTBALL_LEAGUES`, and renders `<WorldCupBracket />` instead of `<StandingsTable>` + `<LeagueLeaders>`. `useLeagueStats` is passed `null` when `isCustomView` is true so the hook doesn't fire. Tournament data is static in `lib/worldCup2026.ts` (groups, knockout schedule with FIFA match numbers 73–104, 16 host stadia, phases). Add future tournaments without an ESPN feed by dropping their league id into `CUSTOM_VIEW_LEAGUES` and shipping a matching component.
+- **World Cup** (4480) — no ESPN standings/leaders feed, but surfaces in the Stats Hub through a **custom view**: `StatsPage.tsx` keeps a `CUSTOM_VIEW_LEAGUES` set (`{ 4480 }`) that bypasses the ESPN-slug filter on `FOOTBALL_LEAGUES`, and renders `<WorldCupBracket />` instead of `<StandingsTable>` + `<LeagueLeaders>`. `useLeagueStats` is passed `null` when `isCustomView` is true so the hook doesn't fire. Tournament data is static in `lib/worldCup2026.ts` (groups, knockout schedule with FIFA match numbers 73–104, 16 host stadia, phases). The component has 4 tabs (groups / fixtures / knockouts / venues) — the `overview` tab was removed. The knockout bracket uses two card types: `BracketTreeCard` (ultra-compact, desktop 9-column grid) and `BracketMatchCard` (full-detail, mobile stacked view). Trophy SVG is in `assets/world-cup-trophy.svg` (4-layer: gold body gradient + specular highlight + green malachite bands + outline stroke). Add future tournaments without an ESPN feed by dropping their league id into `CUSTOM_VIEW_LEAGUES` and shipping a matching component.
 - **Euro Championship** (4467) — silently skipped (no custom view yet; only relevant every 4 years).
 
 ### Removed leagues
@@ -1119,6 +1119,22 @@ ESPN logo IDs are in `constants.ts → FOOTBALL_LEAGUES[].espnLogoId`. Set to `n
 | `.pitch-grass` | Subtle dark green gradient background | `TacticalPitch` — pitch surface |
 
 Score flip animation uses Framer Motion `AnimatePresence mode="popLayout"` with spring scale (1.3→1→0.8).
+
+### World Cup CSS classes (index.css)
+
+| CSS class | Effect | Where used |
+|-----------|--------|------------|
+| `.wc-trophy` | Gold drop-shadow (24px + 12px) | `Trophy2026` component — wraps the SVG `<img>` |
+| `.wc-trophy-bob` | Gentle bobbing animation (4.6s, translateY + rotate) | Desktop trophy watermark |
+| `.wc-trophy-halo` | Radial gold glow positioned behind trophy | `FinalApex` trophy centerpiece |
+| `.wc-halo-breathe` | Breathing scale+opacity animation (5.4s) | Trophy halos (desktop + mobile) |
+| `.wc-trophy-watermark` | Absolute positioned, 320×320, hidden <1023px | Hero section — desktop-only watermark |
+| `.wc-mobile-trophy-halo` | Radial gold glow with blur, uses halo-breathe animation | Hero section — mobile inline trophy |
+| `.wc-mobile-round-header` | Flex strip with gold gradient bg, data-round attribute for QF/SF glow | Mobile knockout bracket round headers |
+| `.wc-hero-bg` | Theme-locked dark hero background | Hero section |
+| `.wc-bracket-bg` | Theme-locked dark bracket background | Desktop bracket wrapper |
+| `.wc-final-bg` | Theme-locked dark final card background | FinalApex card |
+| `.wc-phase-strip` | Theme-locked dark phase strip | KnockoutsIntro |
 
 ### Rules
 
@@ -1386,6 +1402,9 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **The share invite string in `SettingsPage.tsx` must be localized.** It is the primary viral surface — a Hebrew user must send a Hebrew message.
 - **TacticalPitch player nodes must all be full opacity.** Never use `opacity-30` or similar on subbed-out players — it makes them invisible on the glass pitch. Use the `▼` marker instead.
 - **Never use Tailwind `dark:` prefix in this project.** Theme toggle uses `html.light` class, not Tailwind's dark-mode. Use CSS class pairs (e.g., `.league-logo-dark` / `.league-logo-light`) toggled via `html.light` selectors in `index.css`.
+- **World Cup bracket has two card types — never merge them.** `BracketTreeCard` is ultra-compact (two slot labels + separator, no header/date/city) for the desktop 9-column grid where columns are ~4.5rem wide. `BracketMatchCard` is full-detail (match number, date, city, vs divider) for the mobile stacked view. Putting full-detail cards in the tree grid causes text overlap. The desktop bracket grid (`BRACKET_SYM_CSS`) uses `min-width: 56rem` and `column-gap: 0.5rem` — keep connector `width` values in sync with the gap.
+- **World Cup trophy SVG (`assets/world-cup-trophy.svg`) has 4 layers.** Gold body gradient (fill-rule="nonzero") → specular highlight overlay → green malachite bands (clipped to silhouette) → thin outline stroke. Do not add solid-fill layers that cover the gold — this was the root cause of the "dark blob" bug. The trophy renders via `<img>` tag with `width={181} height={435}`.
+- **World Cup CSS classes are theme-locked to dark.** `.wc-hero-bg`, `.wc-bracket-bg`, `.wc-final-bg`, `.wc-phase-strip` all force dark backgrounds in both light and dark modes. Gold colors (`#FFC94A`, `wc-gold`, `wc-gold-muted`) must be used inside these containers, never the site-wide accent vars. `html.light` overrides for `text-white/*` inside these containers are in `index.css`.
 
 ### Coins
 
