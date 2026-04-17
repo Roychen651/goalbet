@@ -1196,6 +1196,42 @@ html.light .wc-host-row {
 }
 .wc-halo-breathe { animation: wc-halo-breathe 5.4s ease-in-out infinite; }
 
+/* Mobile hero trophy glow */
+.wc-mobile-trophy-halo {
+  position: absolute;
+  inset: -18%;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 50% 42%, rgba(255,201,74,0.50) 0%, rgba(255,201,74,0.15) 38%, transparent 70%);
+  filter: blur(14px);
+  animation: wc-halo-breathe 5.4s ease-in-out infinite;
+}
+
+/* Mobile knockout round headers — dramatic gold-heated strip per round */
+.wc-mobile-round-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255,201,74,0.18);
+  background: linear-gradient(135deg, rgba(255,201,74,0.06) 0%, rgba(10,23,51,0.60) 100%);
+}
+.wc-mobile-round-header[data-round='qf'],
+.wc-mobile-round-header[data-round='sf'] {
+  border-color: rgba(255,201,74,0.30);
+  background: linear-gradient(135deg, rgba(255,201,74,0.10) 0%, rgba(10,23,51,0.65) 100%);
+  box-shadow: 0 0 18px rgba(255,201,74,0.08);
+}
+html.light .wc-mobile-round-header {
+  background: linear-gradient(135deg, rgba(255,201,74,0.12) 0%, rgba(10,23,51,0.75) 100%);
+}
+html.light .wc-mobile-round-header[data-round='qf'],
+html.light .wc-mobile-round-header[data-round='sf'] {
+  background: linear-gradient(135deg, rgba(255,201,74,0.18) 0%, rgba(10,23,51,0.80) 100%);
+}
+
 /* Host-city ticker — secondary marquee below or near flags */
 @keyframes wc-city-scroll {
   from { transform: translateX(0); }
