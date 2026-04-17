@@ -1,12 +1,13 @@
-import { useMemo, useState, useCallback } from 'react';
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { useMemo, useState, useCallback, useRef } from 'react';
+import { motion, AnimatePresence, useScroll, useTransform, type Variants } from 'framer-motion';
 import {
   Trophy, Calendar, MapPin, Users, Target, CalendarDays,
   LayoutGrid, ListOrdered, GitBranch, Building2, ChevronRight,
-  Sparkles,
+  Sparkles, Ticket,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
+import { useUIStore } from '../../stores/uiStore';
 import { type TranslationKey } from '../../lib/i18n';
 import wcTrophyAsset from '../../assets/world-cup-trophy.svg';
 import {
@@ -37,6 +38,7 @@ export function WorldCupBracket() {
   const { t, lang } = useLangStore();
   const locale = lang === 'he' ? 'he-IL' : 'en-US';
   const [tab, setTab] = useState<TabId>('groups');
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const kickoff = useMemo<KickoffState>(() => {
     const start = new Date(WC2026_INFO.startDate).getTime();
@@ -52,14 +54,13 @@ export function WorldCupBracket() {
   const dayDateFmt   = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short' }), [locale]);
 
   return (
-    // Full-bleed escape — the WC view breaks out of the max-w-2xl main column
-    // and fills the entire app content width (100vw minus the desktop sidebar).
-    // The atmosphere class layers gold spotlights, navy gradient, stadium
-    // horizon and a pin-point matrix so every tab feels like a tournament
-    // destination, not a sub-page cramped inside a narrow column.
-    <div className="wc-fullbleed wc-atmosphere py-6 md:py-8 space-y-5 md:space-y-6">
-      <Hero t={t} kickoff={kickoff} longDateFmt={longDateFmt} />
-      <TabBar t={t} active={tab} onChange={setTab} />
+    <div ref={containerRef} className="wc-fullbleed wc-atmosphere py-6 md:py-8 space-y-5 md:space-y-6">
+      <Hero t={t} kickoff={kickoff} longDateFmt={longDateFmt} containerRef={containerRef} />
+
+      {/* Floating Glass Navigation — sticks below hero on scroll */}
+      <div className="sticky top-3 z-[60]">
+        <TabBar t={t} active={tab} onChange={setTab} />
+      </div>
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
@@ -103,7 +104,16 @@ const HOST_CITIES = [
   'Vancouver',           'Mexico City',     'Guadalajara',      'Monterrey',
 ] as const;
 
-function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDateFmt: Intl.DateTimeFormat }) {
+function Hero({ t, kickoff, longDateFmt, containerRef }: {
+  t: T; kickoff: KickoffState; longDateFmt: Intl.DateTimeFormat;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  // Parallax scroll — background elements move slower than foreground
+  const { scrollY } = useScroll();
+  const bgY = useTransform(scrollY, [0, 500], [0, 80]);
+  const trophyY = useTransform(scrollY, [0, 500], [0, 120]);
+  const haloScale = useTransform(scrollY, [0, 400], [1, 1.25]);
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 14 }}
@@ -111,13 +121,11 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
       transition={{ duration: 0.55, ease: 'easeOut' as const }}
       className="relative overflow-hidden rounded-3xl border border-[#FFC94A]/35 wc-hero-bg"
     >
-      {/* Tri-host ribbon — solid flag tones with gold hairline separators.
-          Replaced the previous via-white gradient to kill the harsh light
-          strip that showed up on desktop light mode. */}
+      {/* Tri-host ribbon */}
       <div aria-hidden className="wc-host-ribbon z-10" />
 
-      {/* Drifting confetti sparks — gold/red/green — anchored behind content */}
-      <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
+      {/* Drifting confetti sparks — parallax layer (moves slower) */}
+      <motion.div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none" style={{ y: bgY }}>
         {CONFETTI_PIECES.map((c, i) => (
           <span
             key={i}
@@ -131,9 +139,9 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
             }}
           />
         ))}
-      </div>
+      </motion.div>
 
-      {/* Pulsing gold halo */}
+      {/* Pulsing gold halo — parallax (scales up on scroll) */}
       <motion.div
         aria-hidden
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] h-[560px] rounded-full pointer-events-none"
@@ -141,15 +149,17 @@ function Hero({ t, kickoff, longDateFmt }: { t: T; kickoff: KickoffState; longDa
           background:
             'radial-gradient(circle, rgba(255,201,74,0.30) 0%, rgba(255,201,74,0.08) 35%, transparent 70%)',
           filter: 'blur(26px)',
+          scale: haloScale,
+          y: bgY,
         }}
-        animate={{ scale: [1, 1.09, 1], opacity: [0.55, 0.9, 0.55] }}
+        animate={{ opacity: [0.55, 0.9, 0.55] }}
         transition={{ duration: 5.2, repeat: Infinity, ease: 'easeInOut' as const }}
       />
 
-      {/* Desktop-only: giant trophy watermark on the right */}
-      <div className="wc-trophy-watermark">
+      {/* Desktop-only: giant trophy watermark — parallax (drifts up faster) */}
+      <motion.div className="wc-trophy-watermark" style={{ y: trophyY }}>
         <Trophy2026 />
-      </div>
+      </motion.div>
 
       {/* ── Main content ───────────────────────────────────────── */}
       <div className="relative px-5 md:px-10 lg:px-14 pt-7 md:pt-10 pb-4 md:pb-5">
@@ -436,9 +446,16 @@ function TabBar({ t, active, onChange }: { t: T; active: TabId; onChange: (id: T
   return (
     <nav
       data-lenis-prevent
-      className="overflow-x-auto overscroll-contain -mx-1 px-1 pb-1 scrollbar-thin"
+      className="overflow-x-auto overscroll-contain scrollbar-thin flex justify-center"
     >
-      <div className="inline-flex min-w-full md:w-full gap-1 md:gap-1.5 p-1 rounded-2xl border border-[#FFC94A]/25 bg-bg-card/60 backdrop-blur-sm">
+      {/* Floating Glass Pill — "Dynamic Island" style */}
+      <div
+        className="inline-flex gap-1 md:gap-1.5 p-1 rounded-full backdrop-blur-xl border border-white/[0.12]"
+        style={{
+          background: 'rgba(10,23,51,0.75)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,201,74,0.08), inset 0 1px 0 rgba(255,255,255,0.06)',
+        }}
+      >
         {tabs.map(tab => {
           const isActive = tab.id === active;
           const isKnockouts = tab.id === 'knockouts';
@@ -448,19 +465,24 @@ function TabBar({ t, active, onChange }: { t: T; active: TabId; onChange: (id: T
               type="button"
               onClick={() => onChange(tab.id)}
               className={cn(
-                'relative flex-1 inline-flex items-center justify-center gap-1.5 md:gap-2 rounded-xl px-2.5 py-2.5 md:px-4 md:py-2.5 transition-colors whitespace-nowrap min-h-[44px]',
-                isActive ? 'text-white' : 'text-text-muted hover:text-white/90',
+                'relative inline-flex items-center justify-center gap-1.5 md:gap-2 rounded-full px-3 py-2.5 md:px-5 md:py-2.5 transition-colors whitespace-nowrap min-h-[44px]',
+                isActive ? 'text-white' : 'text-white/50 hover:text-white/80',
               )}
             >
               {isActive && (
                 <motion.span
                   layoutId="wc-tab-indicator"
-                  className="absolute inset-0 rounded-xl wc-tab-active"
-                  transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,201,74,0.20) 0%, rgba(255,201,74,0.08) 100%)',
+                    border: '1px solid rgba(255,201,74,0.35)',
+                    boxShadow: '0 0 16px rgba(255,201,74,0.15)',
+                  }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 34 }}
                 />
               )}
               <span className="relative inline-flex items-center gap-1.5 md:gap-2">
-                <tab.icon size={isKnockouts ? 15 : 14} className={cn(isActive ? 'wc-gold' : 'text-text-muted')} />
+                <tab.icon size={isKnockouts ? 15 : 14} className={cn(isActive ? 'wc-gold' : 'text-white/40')} />
                 <span className="font-barlow text-[11px] md:text-[13px] font-bold uppercase tracking-[0.14em] md:tracking-[0.18em] leading-none">
                   {t(tab.labelKey)}
                 </span>
@@ -724,7 +746,7 @@ function NextMatches({ t, matches, dayDateFmt, onSeeAll }: {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
         {matches.map((m, i) => (
-          <GroupFixtureCard key={m.id} match={m} dayDateFmt={dayDateFmt} delay={i * 0.05} />
+          <GroupFixtureCard key={m.id} match={m} dayDateFmt={dayDateFmt} delay={i * 0.05} t={t} />
         ))}
       </div>
     </section>
@@ -979,17 +1001,19 @@ function DaySection({ date, matches, dayDateFmt, shortDateFmt, t }: {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
         {matches.map((m, i) => (
-          <GroupFixtureCard key={m.id} match={m} dayDateFmt={shortDateFmt} delay={i * 0.02} />
+          <GroupFixtureCard key={m.id} match={m} dayDateFmt={shortDateFmt} delay={i * 0.02} t={t} />
         ))}
       </div>
     </div>
   );
 }
 
-function GroupFixtureCard({ match, dayDateFmt, delay }: {
-  match: WCGroupMatch; dayDateFmt: Intl.DateTimeFormat; delay: number;
+function GroupFixtureCard({ match, dayDateFmt, delay, t }: {
+  match: WCGroupMatch; dayDateFmt: Intl.DateTimeFormat; delay: number; t: T;
 }) {
   const stadium = WC2026_STADIUM_BY_ID[match.venueId];
+  const addToast = useUIStore(s => s.addToast);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -1022,13 +1046,25 @@ function GroupFixtureCard({ match, dayDateFmt, delay }: {
         <TeamLine team={match.away} />
       </div>
 
-      {stadium && (
-        <div className="px-3 py-2 md:py-1.5 border-t border-[#FFC94A]/10 flex items-center gap-1.5">
-          <MapPin size={10} className="wc-gold-muted shrink-0" />
-          <span className="text-[10px] text-text-muted truncate flex-1 min-w-0">{stadium.city}</span>
-          <span aria-hidden className="text-[11px] md:text-[10px] leading-none">{stadium.countryFlag}</span>
-        </div>
-      )}
+      {/* Footer: venue + predict action */}
+      <div className="px-3 py-2 md:py-1.5 border-t border-[#FFC94A]/10 flex items-center gap-1.5">
+        {stadium && (
+          <>
+            <MapPin size={10} className="wc-gold-muted shrink-0" />
+            <span className="text-[10px] text-text-muted truncate flex-1 min-w-0">{stadium.city}</span>
+            <span aria-hidden className="text-[11px] md:text-[10px] leading-none">{stadium.countryFlag}</span>
+          </>
+        )}
+        {!stadium && <span className="flex-1" />}
+        <button
+          type="button"
+          onClick={() => addToast(t('wcPredictSoon'), 'info')}
+          className="inline-flex items-center gap-1 ms-auto px-2 py-1 rounded-full border border-[#FFC94A]/30 bg-[#FFC94A]/8 text-[#FFC94A] text-[9px] font-bold uppercase tracking-[0.12em] hover:bg-[#FFC94A]/15 transition-colors shrink-0 min-h-[28px]"
+        >
+          <Ticket size={10} />
+          {t('wcPredict')}
+        </button>
+      </div>
     </motion.div>
   );
 }
@@ -1652,13 +1688,15 @@ function BracketTreeCard({ match, round }: {
 }
 
 /* ────── FULL card (mobile stacked view) ────── */
-function BracketMatchCard({ match, round, shortDateFmt, delay = 0 }: {
+function BracketMatchCard({ match, round, shortDateFmt, delay = 0, t }: {
   match: WCKnockoutMatch;
   round: BracketRound;
   shortDateFmt: Intl.DateTimeFormat;
   delay?: number;
+  t?: T;
 }) {
   const stadium = match.venueId ? WC2026_STADIUM_BY_ID[match.venueId] : undefined;
+  const addToast = useUIStore(s => s.addToast);
   if (round === 'final') return null; // handled by FinalApex
 
   const tone = ROUND_TONES[round];
@@ -1713,13 +1751,31 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0 }: {
         <BracketSlot label={match.away} tone={tone} />
       </div>
 
-      {/* City */}
-      {stadium && (
-        <div className="px-3 pb-1.5 pt-1 flex items-center gap-1.5 border-t border-white/5">
-          <MapPin size={10} className={cn('shrink-0', tone.accentText, 'opacity-70')} />
-          <span className="text-[10px] text-text-muted/85 truncate flex-1 min-w-0">{stadium.city}</span>
-        </div>
-      )}
+      {/* City + predict */}
+      <div className="px-3 pb-1.5 pt-1 flex items-center gap-1.5 border-t border-white/5">
+        {stadium && (
+          <>
+            <MapPin size={10} className={cn('shrink-0', tone.accentText, 'opacity-70')} />
+            <span className="text-[10px] text-text-muted/85 truncate flex-1 min-w-0">{stadium.city}</span>
+          </>
+        )}
+        {!stadium && <span className="flex-1" />}
+        {t && (
+          <button
+            type="button"
+            onClick={() => addToast(t('wcPredictSoon'), 'info')}
+            className={cn(
+              'inline-flex items-center gap-1 ms-auto px-2 py-1 rounded-full border text-[9px] font-bold uppercase tracking-[0.12em] transition-colors shrink-0 min-h-[26px]',
+              isHighStakes
+                ? 'border-[#FFC94A]/40 bg-[#FFC94A]/12 text-[#FFC94A] hover:bg-[#FFC94A]/20'
+                : 'border-white/15 bg-white/[0.04] text-white/60 hover:bg-white/[0.08]',
+            )}
+          >
+            <Ticket size={10} />
+            {t('wcPredict')}
+          </button>
+        )}
+      </div>
     </motion.div>
   );
 }
@@ -1961,7 +2017,7 @@ function BracketStackedMobile({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
                 >
                   <div className={cn('grid gap-2.5 pt-3', r.cols)}>
                     {r.matches.map((m, mi) => (
-                      <BracketMatchCard key={m.id} match={m} round={r.id} shortDateFmt={shortDateFmt} delay={mi * 0.03} />
+                      <BracketMatchCard key={m.id} match={m} round={r.id} shortDateFmt={shortDateFmt} delay={mi * 0.03} t={t} />
                     ))}
                   </div>
                 </motion.div>
@@ -2010,7 +2066,7 @@ function BracketStackedMobile({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             {shortDateFmt.format(new Date(WC2026_THIRD.date))}
           </span>
         </button>
-        <BracketMatchCard match={WC2026_THIRD} round="third" shortDateFmt={shortDateFmt} />
+        <BracketMatchCard match={WC2026_THIRD} round="third" shortDateFmt={shortDateFmt} t={t} />
       </div>
     </div>
   );
@@ -2022,8 +2078,33 @@ function VenuesTab({ t }: { t: T }) {
   return (
     <section className="space-y-3">
       <SectionHeader label={t('wcHostStadiums')} count={`${WC2026_STADIUMS.length} ${t('wcStatCities').toLowerCase()}`} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
-        {WC2026_STADIUMS.map((s, i) => <StadiumCard key={s.id} stadium={s} index={i} t={t} />)}
+
+      {/* Mobile: horizontal scroll-snap carousel */}
+      <div
+        className="md:hidden flex overflow-x-auto snap-x snap-mandatory gap-3 -mx-2 px-2 pb-3 scrollbar-none"
+        data-lenis-prevent
+        style={{
+          WebkitMaskImage: 'linear-gradient(90deg, transparent 0, black 3%, black 97%, transparent 100%)',
+          maskImage: 'linear-gradient(90deg, transparent 0, black 3%, black 97%, transparent 100%)',
+        }}
+      >
+        {WC2026_STADIUMS.map((s, i) => (
+          <div key={s.id} className="snap-center shrink-0 min-w-[82vw] max-w-[340px]">
+            <StadiumCard stadium={s} index={i} t={t} />
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: masonry-style grid — marquee venues span 2 cols */}
+      <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+        {WC2026_STADIUMS.map((s, i) => {
+          const isMarquee = s.role === 'final' || s.role === 'opening';
+          return (
+            <div key={s.id} className={isMarquee ? 'md:col-span-2 lg:col-span-2' : ''}>
+              <StadiumCard stadium={s} index={i} t={t} />
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -2049,9 +2130,10 @@ function StadiumCard({ stadium, index, t }: { stadium: WCStadium; index: number;
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ delay: index * 0.025, duration: 0.3, ease: 'easeOut' as const }}
-      whileHover={{ y: -3 }}
+      whileHover={{ y: -4, scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
       className={cn(
-        'rounded-xl border px-3.5 py-3 relative overflow-hidden bg-bg-card',
+        'rounded-xl border px-3.5 py-3 relative overflow-hidden bg-bg-card h-full',
         isMarquee ? 'border-[#FFC94A]/55' : 'border-[#FFC94A]/22',
       )}
       style={isMarquee ? { boxShadow: '0 0 32px rgba(255,201,74,0.22)' } : undefined}

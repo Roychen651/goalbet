@@ -567,6 +567,8 @@ export const translations = {
     wcPot: 'Pot',
     wcFifaRank: 'Rank',
     wcChampion2026: '2026 Champion',
+    wcPredict: 'Predict',
+    wcPredictSoon: 'World Cup predictions open 30 days before kickoff!',
   },
 
   he: {
@@ -1132,6 +1134,8 @@ export const translations = {
     wcPot: 'סל',
     wcFifaRank: 'דירוג',
     wcChampion2026: 'אלופת 2026',
+    wcPredict: 'ניחוש',
+    wcPredictSoon: 'ניחושי המונדיאל ייפתחו 30 יום לפני הפתיחה!',
   },
 } as const;
 
