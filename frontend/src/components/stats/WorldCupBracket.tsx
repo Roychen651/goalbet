@@ -1133,15 +1133,15 @@ function RoundPill({ label, tone }: { label: string; tone: 'cool' | 'warm' | 'wa
 const BRACKET_SYM_CSS = `
 .wc-sym {
   display: grid;
-  /* Fits on ~1100px+ screens without h-scroll. R32/R16 columns are tighter,
-     QF/SF wider, Final widest — mirrors the escalation of stakes. */
-  min-width: 62rem;
+  /* Compact tree cards → narrower columns. Fits ~1000px+ without h-scroll.
+     Columns widen as stakes rise: R32/R16 tight → QF/SF medium → Final wide. */
+  min-width: 56rem;
   grid-template-columns:
-    minmax(5.5rem, 1fr) minmax(5.5rem, 1fr) minmax(6rem, 1.05fr) minmax(6.5rem, 1.1fr)
-    minmax(11rem, 1.4fr)
-    minmax(6.5rem, 1.1fr) minmax(6rem, 1.05fr) minmax(5.5rem, 1fr) minmax(5.5rem, 1fr);
-  grid-template-rows: repeat(16, 3.25rem);
-  column-gap: 0.75rem;
+    minmax(4.5rem, 1fr) minmax(4.5rem, 1fr) minmax(5rem, 1.05fr) minmax(5.5rem, 1.1fr)
+    minmax(10rem, 1.5fr)
+    minmax(5.5rem, 1.1fr) minmax(5rem, 1.05fr) minmax(4.5rem, 1fr) minmax(4.5rem, 1fr);
+  grid-template-rows: repeat(16, 2.75rem);
+  column-gap: 0.5rem;
   position: relative;
 }
 .wc-sym-cell {
@@ -1157,7 +1157,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 0.75rem;
+  width: 0.5rem;
   height: 1.5px;
   background: linear-gradient(90deg, rgba(255,201,74,0.25), rgba(255,201,74,0.55));
   pointer-events: none;
@@ -1167,7 +1167,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 0.75rem;
+  width: 0.5rem;
   height: 100%;
   border-top: 1.5px solid rgba(255,201,74,0.42);
   border-inline-end: 1.5px solid rgba(255,201,74,0.42);
@@ -1178,7 +1178,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   bottom: 50%;
-  width: 0.75rem;
+  width: 0.5rem;
   height: 100%;
   border-bottom: 1.5px solid rgba(255,201,74,0.42);
   border-inline-end: 1.5px solid rgba(255,201,74,0.42);
@@ -1190,7 +1190,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 0.75rem;
+  width: 0.5rem;
   height: 2px;
   background: linear-gradient(90deg, rgba(240,178,58,0.55), rgba(255,201,74,0.85));
   pointer-events: none;
@@ -1202,7 +1202,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-start: 100%;
   top: 50%;
-  width: 0.75rem;
+  width: 0.5rem;
   height: 1.5px;
   background: linear-gradient(270deg, rgba(255,201,74,0.25), rgba(255,201,74,0.55));
   pointer-events: none;
@@ -1212,7 +1212,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 0.75rem;
+  width: 0.5rem;
   height: 100%;
   border-top: 1.5px solid rgba(255,201,74,0.42);
   border-inline-start: 1.5px solid rgba(255,201,74,0.42);
@@ -1223,7 +1223,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   bottom: 50%;
-  width: 0.75rem;
+  width: 0.5rem;
   height: 100%;
   border-bottom: 1.5px solid rgba(255,201,74,0.42);
   border-inline-start: 1.5px solid rgba(255,201,74,0.42);
@@ -1234,7 +1234,7 @@ const BRACKET_SYM_CSS = `
   position: absolute;
   inset-inline-end: 100%;
   top: 50%;
-  width: 0.75rem;
+  width: 0.5rem;
   height: 2px;
   background: linear-gradient(270deg, rgba(240,178,58,0.55), rgba(255,201,74,0.85));
   pointer-events: none;
@@ -1307,14 +1307,13 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
           fade-edge mask, gold scrollbar). At ≥1200px-ish screens with the
           full-bleed shell the grid fills the canvas naturally. */}
       <div className="relative wc-bracket-scroller" data-lenis-prevent>
-        <div className="min-w-[62rem]">
+        <div className="min-w-[56rem]">
           {/* Column headers — one row, symmetric, highlighting Final in the middle */}
           <SymColumnHeaders t={t} />
 
           {/* Main bracket grid */}
           <div className="relative wc-sym mt-3">
         {/* ─────────── LEFT HALF ─────────── */}
-        {/* R32 L — col 1 */}
         {r32Left.map((m, i) => (
           <div
             key={m.id}
@@ -1324,10 +1323,9 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="cool"
             style={{ gridColumn: 1, gridRow: `${i * 2 + 1} / span 2` }}
           >
-            <BracketMatchCard match={m} round="r32" shortDateFmt={shortDateFmt} />
+            <BracketTreeCard match={m} round="r32" />
           </div>
         ))}
-        {/* R16 L — col 2 */}
         {r16Left.map((m, i) => (
           <div
             key={m.id}
@@ -1338,10 +1336,9 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="cool"
             style={{ gridColumn: 2, gridRow: `${i * 4 + 1} / span 4` }}
           >
-            <BracketMatchCard match={m} round="r16" shortDateFmt={shortDateFmt} />
+            <BracketTreeCard match={m} round="r16" />
           </div>
         ))}
-        {/* QF L — col 3 */}
         {qfLeft.map((m, i) => (
           <div
             key={m.id}
@@ -1352,10 +1349,9 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="warm"
             style={{ gridColumn: 3, gridRow: `${i * 8 + 1} / span 8` }}
           >
-            <BracketMatchCard match={m} round="qf" shortDateFmt={shortDateFmt} />
+            <BracketTreeCard match={m} round="qf" />
           </div>
         ))}
-        {/* SF L — col 4 */}
         <div
           className="wc-sym-cell"
           data-side="left"
@@ -1364,7 +1360,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
           data-tone="warmer"
           style={{ gridColumn: 4, gridRow: '1 / span 16' }}
         >
-          <BracketMatchCard match={sfLeft} round="sf" shortDateFmt={shortDateFmt} />
+          <BracketTreeCard match={sfLeft} round="sf" />
         </div>
 
         {/* ─────────── CENTER — FINAL ─────────── */}
@@ -1377,7 +1373,6 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
         </div>
 
         {/* ─────────── RIGHT HALF ─────────── */}
-        {/* SF R — col 6 */}
         <div
           className="wc-sym-cell"
           data-side="right"
@@ -1386,9 +1381,8 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
           data-tone="warmer"
           style={{ gridColumn: 6, gridRow: '1 / span 16' }}
         >
-          <BracketMatchCard match={sfRight} round="sf" shortDateFmt={shortDateFmt} />
+          <BracketTreeCard match={sfRight} round="sf" />
         </div>
-        {/* QF R — col 7 */}
         {qfRight.map((m, i) => (
           <div
             key={m.id}
@@ -1399,10 +1393,9 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="warm"
             style={{ gridColumn: 7, gridRow: `${i * 8 + 1} / span 8` }}
           >
-            <BracketMatchCard match={m} round="qf" shortDateFmt={shortDateFmt} />
+            <BracketTreeCard match={m} round="qf" />
           </div>
         ))}
-        {/* R16 R — col 8 */}
         {r16Right.map((m, i) => (
           <div
             key={m.id}
@@ -1413,10 +1406,9 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="cool"
             style={{ gridColumn: 8, gridRow: `${i * 4 + 1} / span 4` }}
           >
-            <BracketMatchCard match={m} round="r16" shortDateFmt={shortDateFmt} />
+            <BracketTreeCard match={m} round="r16" />
           </div>
         ))}
-        {/* R32 R — col 9 */}
         {r32Right.map((m, i) => (
           <div
             key={m.id}
@@ -1426,7 +1418,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="cool"
             style={{ gridColumn: 9, gridRow: `${i * 2 + 1} / span 2` }}
           >
-            <BracketMatchCard match={m} round="r32" shortDateFmt={shortDateFmt} />
+            <BracketTreeCard match={m} round="r32" />
           </div>
         ))}
           </div>
@@ -1445,7 +1437,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
           </span>
         </div>
         <div className="mx-auto max-w-md">
-          <BracketMatchCard match={WC2026_THIRD} round="third" shortDateFmt={shortDateFmt} />
+          <BracketTreeCard match={WC2026_THIRD} round="third" />
         </div>
       </div>
     </div>
@@ -1467,11 +1459,11 @@ function SymColumnHeaders({ t }: { t: T }) {
   ];
   return (
     <div
-      className="relative grid min-w-[62rem]"
+      className="relative grid min-w-[56rem]"
       style={{
         gridTemplateColumns:
-          'minmax(5.5rem,1fr) minmax(5.5rem,1fr) minmax(6rem,1.05fr) minmax(6.5rem,1.1fr) minmax(11rem,1.4fr) minmax(6.5rem,1.1fr) minmax(6rem,1.05fr) minmax(5.5rem,1fr) minmax(5.5rem,1fr)',
-        columnGap: '0.75rem',
+          'minmax(4.5rem,1fr) minmax(4.5rem,1fr) minmax(5rem,1.05fr) minmax(5.5rem,1.1fr) minmax(10rem,1.5fr) minmax(5.5rem,1.1fr) minmax(5rem,1.05fr) minmax(4.5rem,1fr) minmax(4.5rem,1fr)',
+        columnGap: '0.5rem',
       }}
     >
       {cols.map((c, i) => (
@@ -1569,6 +1561,49 @@ const ROUND_TONES: Record<BracketRound, {
   },
 };
 
+/* ────── COMPACT tree card (desktop bracket grid) ────── */
+function BracketTreeCard({ match, round }: {
+  match: WCKnockoutMatch;
+  round: BracketRound;
+}) {
+  if (round === 'final') return null;
+  const tone = ROUND_TONES[round];
+  const slot1 = parseSlotLabel(match.home);
+  const slot2 = parseSlotLabel(match.away);
+
+  return (
+    <div
+      className={cn('w-full rounded-lg border overflow-hidden', tone.bg)}
+      style={{ borderColor: tone.border, boxShadow: tone.glow ?? undefined }}
+      title={`M${match.label} — ${match.home} vs ${match.away}`}
+    >
+      {/* Home slot */}
+      <div className="flex items-center gap-1.5 px-2 py-[5px] min-w-0">
+        <span className={cn('w-[5px] h-[5px] rounded-full shrink-0', tone.dot)} />
+        <span className="font-barlow font-bold text-[11px] uppercase tracking-tight text-white/95 leading-none truncate">
+          {slot1.primary}
+        </span>
+        {slot1.hint && (
+          <span className="text-[8px] font-mono text-text-muted/50 truncate ms-auto shrink-0">{slot1.hint}</span>
+        )}
+      </div>
+      {/* Separator */}
+      <div className="h-px bg-white/8 mx-1.5" />
+      {/* Away slot */}
+      <div className="flex items-center gap-1.5 px-2 py-[5px] min-w-0">
+        <span className={cn('w-[5px] h-[5px] rounded-full shrink-0', tone.dot)} />
+        <span className="font-barlow font-bold text-[11px] uppercase tracking-tight text-white/95 leading-none truncate">
+          {slot2.primary}
+        </span>
+        {slot2.hint && (
+          <span className="text-[8px] font-mono text-text-muted/50 truncate ms-auto shrink-0">{slot2.hint}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ────── FULL card (mobile stacked view) ────── */
 function BracketMatchCard({ match, round, shortDateFmt, delay = 0 }: {
   match: WCKnockoutMatch;
   round: BracketRound;
@@ -1587,9 +1622,8 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0 }: {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ delay, duration: 0.26, ease: 'easeOut' as const }}
-      whileHover={{ scale: 1.03, y: -1 }}
       className={cn(
-        'w-full rounded-xl border backdrop-blur-sm overflow-hidden',
+        'w-full rounded-xl border backdrop-blur-sm overflow-hidden relative',
         tone.bg,
       )}
       style={{
@@ -1597,7 +1631,6 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0 }: {
         boxShadow: tone.glow ?? undefined,
       }}
     >
-      {/* High-stakes glow orb for QF/SF */}
       {isHighStakes && (
         <div
           aria-hidden
@@ -1606,31 +1639,25 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0 }: {
         />
       )}
 
-      {/* Header row: M-label + short date + host flag */}
-      <div className="flex items-center justify-between gap-1.5 px-3 py-1.5 md:px-2 md:py-1 border-b border-white/5">
-        <span
-          className={cn(
-            'text-[10px] md:text-[10px] font-mono font-extrabold tabular-nums tracking-tight shrink-0',
-            tone.accentText,
-          )}
-          title={`Match ${match.label}`}
-        >
+      {/* Header row */}
+      <div className="flex items-center justify-between gap-1.5 px-3 py-1.5 border-b border-white/5">
+        <span className={cn('text-[10px] font-mono font-extrabold tabular-nums tracking-tight shrink-0', tone.accentText)}>
           M{match.label}
         </span>
-        <span className="text-[9.5px] md:text-[9px] font-mono tabular-nums text-text-muted/60 shrink-0 truncate">
+        <span className="text-[9.5px] font-mono tabular-nums text-text-muted/60 shrink-0 truncate">
           {shortDateFmt.format(new Date(match.date))}
         </span>
         {stadium && (
-          <span aria-hidden className="text-[11px] md:text-[10px] leading-none shrink-0" title={`${stadium.city} · ${stadium.name}`}>
+          <span aria-hidden className="text-[11px] leading-none shrink-0" title={`${stadium.city} · ${stadium.name}`}>
             {stadium.countryFlag}
           </span>
         )}
       </div>
 
-      {/* Two slots — one line each */}
-      <div className="px-3 py-2 md:px-2 md:py-1.5">
+      {/* Two slots */}
+      <div className="px-3 py-2">
         <BracketSlot label={match.home} tone={tone} />
-        <div className="flex items-center gap-2 my-1.5 md:my-1">
+        <div className="flex items-center gap-2 my-1.5">
           <span className="flex-1 h-px bg-white/5" />
           <span className={cn('text-[8px] font-extrabold uppercase tracking-[0.2em]', tone.accentText, 'opacity-60')}>vs</span>
           <span className="flex-1 h-px bg-white/5" />
@@ -1638,13 +1665,11 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0 }: {
         <BracketSlot label={match.away} tone={tone} />
       </div>
 
-      {/* City pill — always show on mobile for context */}
+      {/* City */}
       {stadium && (
-        <div className="px-3 pb-1.5 pt-1 md:px-2 md:pb-1 flex items-center gap-1.5 border-t border-white/5">
+        <div className="px-3 pb-1.5 pt-1 flex items-center gap-1.5 border-t border-white/5">
           <MapPin size={10} className={cn('shrink-0', tone.accentText, 'opacity-70')} />
-          <span className="text-[10px] md:text-[9.5px] text-text-muted/85 truncate flex-1 min-w-0" title={stadium.name}>
-            {stadium.city}
-          </span>
+          <span className="text-[10px] text-text-muted/85 truncate flex-1 min-w-0">{stadium.city}</span>
         </div>
       )}
     </motion.div>
@@ -1658,15 +1683,15 @@ function BracketSlot({ label, tone }: {
   const slot = parseSlotLabel(label);
   return (
     <div className="flex items-center gap-2 min-w-0 py-0.5">
-      <span className={cn('w-2 h-2 md:w-1.5 md:h-1.5 rounded-full shrink-0', tone.dot)} aria-hidden />
+      <span className={cn('w-2 h-2 rounded-full shrink-0', tone.dot)} aria-hidden />
       <span
-        className="font-barlow font-bold text-[13.5px] md:text-[12.5px] uppercase tracking-tight text-white/95 leading-tight whitespace-nowrap"
+        className="font-barlow font-bold text-[13.5px] uppercase tracking-tight text-white/95 leading-tight whitespace-nowrap"
         title={slot.hint ? `${slot.primary} (${slot.hint})` : slot.primary}
       >
         {slot.primary}
       </span>
       {slot.hint && (
-        <span className="text-[9.5px] md:text-[9px] font-mono text-text-muted/60 tracking-tight truncate">
+        <span className="text-[9.5px] font-mono text-text-muted/60 tracking-tight truncate">
           {slot.hint}
         </span>
       )}
