@@ -380,7 +380,7 @@ goalbet/
 │       │   │   ├── LeagueDropdown.tsx     # Custom animated dropdown; dual dark/light ESPN league logos; data-lenis-prevent so inner wheel-scroll works inside Lenis; layoutId-backed active bar
 │       │   │   ├── LeagueLeaders.tsx      # Top scorers / assists tables sourced from ESPN leaders feed
 │       │   │   ├── StandingsTable.tsx     # League standings table (rank, team, P/W/D/L, GF/GA/GD, pts)
-│       │   │   └── WorldCupBracket.tsx    # Custom "Route to the Trophy" view for World Cup (league 4480); hero countdown with inline mobile trophy, phase timeline, groups, 9-column symmetric knockout bracket (BracketTreeCard compact for desktop grid, BracketMatchCard full-detail for mobile stacked), FinalApex climax card, host-stadium grid. 4 tabs: groups/fixtures/knockouts/venues. Pure Framer Motion
+│       │   │   └── WorldCupBracket.tsx    # Custom "Route to the Trophy" view for World Cup (league 4480). Parallax hero (useScroll/useTransform on confetti, halo, trophy watermark), floating glass pill navigation (sticky, rounded-full, dark glass backdrop-blur-xl), 4 tabs: groups/fixtures/knockouts/venues. Groups: FIFA rank + seed pot indicators. Fixtures: gold "Predict" button with toast teaser. Knockouts: Framer Motion accordion on mobile, 9-column symmetric bracket on desktop (BracketTreeCard compact grid / BracketMatchCard full-detail mobile). FinalApex: rotating sunburst, floating particles, gradient champion text. Venues: mobile scroll-snap carousel, desktop masonry grid (marquee venues span 2 cols). Pure Framer Motion + useScroll
 │       │   └── ui/
 │       │       ├── Avatar.tsx             # Expects emoji:🏆 prefix
 │       │       ├── CoinGuide.tsx          # Bottom sheet — swipe-to-close enabled
@@ -1135,6 +1135,8 @@ Score flip animation uses Framer Motion `AnimatePresence mode="popLayout"` with 
 | `.wc-bracket-bg` | Theme-locked dark bracket background | Desktop bracket wrapper |
 | `.wc-final-bg` | Theme-locked dark final card background | FinalApex card |
 | `.wc-phase-strip` | Theme-locked dark phase strip | KnockoutsIntro |
+| `.wc-sunburst` | Rotating conic-gradient sunburst (30s linear infinite) | FinalApex background |
+| `.wc-final-particle` | Floating gold particle with scale+opacity keyframes | FinalApex ambient particles |
 
 ### Rules
 
@@ -1405,6 +1407,11 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **World Cup bracket has two card types — never merge them.** `BracketTreeCard` is ultra-compact (two slot labels + separator, no header/date/city) for the desktop 9-column grid where columns are ~4.5rem wide. `BracketMatchCard` is full-detail (match number, date, city, vs divider) for the mobile stacked view. Putting full-detail cards in the tree grid causes text overlap. The desktop bracket grid (`BRACKET_SYM_CSS`) uses `min-width: 56rem` and `column-gap: 0.5rem` — keep connector `width` values in sync with the gap.
 - **World Cup trophy SVG (`assets/world-cup-trophy.svg`) has 4 layers.** Gold body gradient (fill-rule="nonzero") → specular highlight overlay → green malachite bands (clipped to silhouette) → thin outline stroke. Do not add solid-fill layers that cover the gold — this was the root cause of the "dark blob" bug. The trophy renders via `<img>` tag with `width={181} height={435}`.
 - **World Cup CSS classes are theme-locked to dark.** `.wc-hero-bg`, `.wc-bracket-bg`, `.wc-final-bg`, `.wc-phase-strip` all force dark backgrounds in both light and dark modes. Gold colors (`#FFC94A`, `wc-gold`, `wc-gold-muted`) must be used inside these containers, never the site-wide accent vars. `html.light` overrides for `text-white/*` inside these containers are in `index.css`.
+- **World Cup parallax uses `useScroll`/`useTransform` (Framer Motion).** The hero maps `scrollY` to `y` transforms on confetti, halo, and trophy layers at different speeds (80px, 120px). This keeps transforms on the compositor thread — never replace with `onScroll` + `setState` which causes main-thread layout thrashing.
+- **World Cup floating glass nav is `sticky top-3 z-[60]`.** The TabBar is wrapped in a sticky div, not `position: fixed`. The pill uses `backdrop-blur-xl` + `rgba(10,23,51,0.75)` dark glass. Do not detach it from flow or change to fixed positioning — it breaks scroll behavior.
+- **World Cup mobile knockouts use Framer Motion accordion.** One round expanded at a time via `useState<BracketRound>`. Uses `<AnimatePresence>` with `height: "auto"` / `height: 0` + `overflow: hidden`. Do not convert to CSS transitions — Framer handles the auto-height measurement.
+- **World Cup predict buttons fire a toast teaser, not a real prediction.** Since WC 2026 matches don't exist in the DB yet, the "Predict" button calls `addToast(t('wcPredictSoon'), 'info')`. When real match data arrives, replace with `openPredictionModal(matchId)`. The `t` prop on `BracketMatchCard` is optional so desktop `BracketTreeCard` (no predict button) isn't affected.
+- **World Cup venues have two layouts.** Mobile: horizontal scroll-snap carousel (`snap-x snap-mandatory` + `data-lenis-prevent`). Desktop: CSS grid masonry where marquee venues (final, opening) span 2 columns. These are independent implementations behind `md:hidden` / `hidden md:grid` — changes to one don't affect the other.
 
 ### Coins
 
