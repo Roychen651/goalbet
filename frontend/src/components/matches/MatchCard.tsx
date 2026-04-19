@@ -9,6 +9,7 @@ import { MatchTimeline } from './MatchTimeline';
 import { MatchStats } from './MatchStats';
 import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
+import { AIScoutCard } from '../ui/AIScoutCard';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown, isMatchLocked } from '../../lib/utils';
 import { CoinIcon } from '../ui/CoinIcon';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../../lib/constants';
@@ -755,6 +756,12 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
                 <>
                   {/* ET/PEN result block — shown for ALL finished AET/PEN cards */}
                   {isFinished && <ETSummaryBlock match={match} />}
+                  {/* AI Scout pre-match insight — NS only, first thing users see */}
+                  {match.status === 'NS' && match.ai_pre_match_insight && (
+                    <div className="mb-3">
+                      <AIScoutCard title="aiScoutPreMatchTitle" text={match.ai_pre_match_insight} tone="pre" />
+                    </div>
+                  )}
                   {/* Tactical intel — form, H2H, venue (NS upcoming only) */}
                   {!isFinished && !isLive && !isAET && espnInfo && (
                     <TacticalIntelSection
