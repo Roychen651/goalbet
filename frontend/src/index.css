@@ -780,6 +780,113 @@ html.light .wc-atmosphere::after {
 /* Layered content above the atmosphere's ::before / ::after */
 .wc-atmosphere > * { position: relative; z-index: 1; }
 
+/* ════════════════════════════════════════════════════════════════
+   TRI-HOST AURORA — three host-nation colors drifting behind everything.
+   Mexico (neon green), Canada (maple crimson), USA (electric cyan).
+   Rendered as large blurred blobs with `mix-blend-mode: screen` over
+   the existing navy, so they never flatten the atmosphere — they
+   TINT it. Always sits at z-0 inside a relatively-positioned parent.
+   ════════════════════════════════════════════════════════════════ */
+.wc-aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  mix-blend-mode: screen;
+  border-radius: inherit;
+}
+.wc-aurora-blob {
+  position: absolute;
+  width: 70vw;
+  max-width: 720px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.32;
+  will-change: transform;
+}
+.wc-aurora-blob.mexico {
+  background: radial-gradient(circle, #00FF87 0%, rgba(0,255,135,0.35) 35%, transparent 68%);
+  top: -12%;
+  left: -15%;
+  animation: wc-aurora-a 22s ease-in-out infinite;
+}
+.wc-aurora-blob.usa {
+  background: radial-gradient(circle, #00E5FF 0%, rgba(0,229,255,0.35) 35%, transparent 68%);
+  top: 18%;
+  right: -18%;
+  animation: wc-aurora-b 27s ease-in-out infinite;
+}
+.wc-aurora-blob.canada {
+  background: radial-gradient(circle, #FF004D 0%, rgba(255,0,77,0.3) 35%, transparent 68%);
+  bottom: -22%;
+  left: 28%;
+  animation: wc-aurora-c 32s ease-in-out infinite;
+}
+html.light .wc-aurora-blob { opacity: 0.22; }
+
+@keyframes wc-aurora-a {
+  0%,100% { transform: translate3d(0,0,0) scale(1); }
+  50%     { transform: translate3d(28%, 22%, 0) scale(1.14); }
+}
+@keyframes wc-aurora-b {
+  0%,100% { transform: translate3d(0,0,0) scale(1); }
+  50%     { transform: translate3d(-24%, 26%, 0) scale(1.18); }
+}
+@keyframes wc-aurora-c {
+  0%,100% { transform: translate3d(0,0,0) scale(1); }
+  50%     { transform: translate3d(18%, -28%, 0) scale(1.1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wc-aurora-blob { animation: none; }
+}
+
+/* Broadcast grain — subtle monochrome noise to kill the plastic smoothness.
+   Inline SVG with feTurbulence; masked to darken edges via overlay blend. */
+.wc-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.09;
+  mix-blend-mode: overlay;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+html.light .wc-grain { opacity: 0.11; mix-blend-mode: multiply; }
+
+/* Brutalist hollow display text — absurdly large, thin-stroke outline.
+   Used for the scroll-reveal "2026" behind the Hero content. */
+.wc-brutalist-hollow {
+  -webkit-text-stroke: 2px rgba(255,255,255,0.14);
+  color: transparent;
+  font-family: 'Bebas Neue', 'Barlow Condensed', sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 0.78;
+  user-select: none;
+  -webkit-user-select: none;
+}
+html.light .wc-brutalist-hollow {
+  -webkit-text-stroke-color: rgba(255,201,74,0.22);
+}
+
+/* The aurora-filled text overlay that reveals via scrollY. Uses background-clip. */
+.wc-brutalist-fill {
+  font-family: 'Bebas Neue', 'Barlow Condensed', sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 0.78;
+  user-select: none;
+  -webkit-user-select: none;
+  background-image: linear-gradient(120deg, #00E5FF 0%, #00FF87 48%, #FF004D 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
 /* Hero sky — stadium floodlights sweeping slowly across the backdrop.
    Both beams now tinted gold so light mode doesn't get a "cold white strip
    that ends mid-page". Amplitude reduced so the sweep stays atmospheric

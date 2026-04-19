@@ -55,6 +55,15 @@ export function WorldCupBracket() {
 
   return (
     <div ref={containerRef} className="wc-fullbleed wc-atmosphere py-6 md:py-8 space-y-5 md:space-y-6">
+      {/* Tri-Host Aurora — Mexico green · USA cyan · Canada crimson, drifting */}
+      <div aria-hidden className="wc-aurora">
+        <span className="wc-aurora-blob mexico" />
+        <span className="wc-aurora-blob usa" />
+        <span className="wc-aurora-blob canada" />
+      </div>
+      {/* Broadcast grain — gritty premium texture */}
+      <div aria-hidden className="wc-grain" />
+
       <Hero t={t} kickoff={kickoff} longDateFmt={longDateFmt} containerRef={containerRef} />
 
       {/* Floating Glass Navigation — sticks below hero on scroll */}
@@ -113,6 +122,9 @@ function Hero({ t, kickoff, longDateFmt, containerRef }: {
   const bgY = useTransform(scrollY, [0, 500], [0, 80]);
   const trophyY = useTransform(scrollY, [0, 500], [0, 120]);
   const haloScale = useTransform(scrollY, [0, 400], [1, 1.25]);
+  // Brutalist scroll-fill — hollow "2026" stays always; aurora fill reveals on scroll
+  const brutalistFillOpacity = useTransform(scrollY, [0, 260, 460], [0, 0.6, 1]);
+  const brutalistY = useTransform(scrollY, [0, 500], [0, 40]);
 
   return (
     <motion.section
@@ -123,6 +135,26 @@ function Hero({ t, kickoff, longDateFmt, containerRef }: {
     >
       {/* Tri-host ribbon */}
       <div aria-hidden className="wc-host-ribbon z-10" />
+
+      {/* Brutalist backdrop "2026" — hollow outline base + aurora-filled scroll reveal */}
+      <motion.div
+        aria-hidden
+        className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
+        style={{ y: brutalistY }}
+      >
+        <span
+          className="relative block whitespace-nowrap select-none"
+          style={{ fontSize: 'clamp(9rem, 26vw, 22rem)' }}
+        >
+          <span className="wc-brutalist-hollow block">2026</span>
+          <motion.span
+            className="wc-brutalist-fill absolute inset-0 block"
+            style={{ opacity: brutalistFillOpacity }}
+          >
+            2026
+          </motion.span>
+        </span>
+      </motion.div>
 
       {/* Drifting confetti sparks — parallax layer (moves slower) */}
       <motion.div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none" style={{ y: bgY }}>
@@ -769,12 +801,13 @@ function GroupsTab({ t }: { t: T }) {
 function GroupCard({ group, index, t }: { group: WCGroup; index: number; t: T }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 50, rotateX: 15, scale: 0.95 }}
+      whileInView={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
       viewport={{ once: true, amount: 0.2 }}
-      transition={{ delay: index * 0.03, duration: 0.28, ease: 'easeOut' as const }}
-      whileHover={{ y: -2 }}
-      className="rounded-2xl border border-[#FFC94A]/22 bg-bg-card overflow-hidden"
+      transition={{ delay: index * 0.04, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -3 }}
+      style={{ transformPerspective: 1000, transformStyle: 'preserve-3d' }}
+      className="rounded-2xl border border-[#FFC94A]/22 bg-bg-card/70 backdrop-blur-2xl overflow-hidden"
     >
       <div className="wc-group-header flex items-center justify-between px-4 py-3">
         <div className="inline-flex items-center gap-2">
@@ -2126,17 +2159,21 @@ function StadiumCard({ stadium, index, t }: { stadium: WCStadium; index: number;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 50, rotateX: 15, scale: 0.95 }}
+      whileInView={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
       viewport={{ once: true, amount: 0.2 }}
-      transition={{ delay: index * 0.025, duration: 0.3, ease: 'easeOut' as const }}
+      transition={{ delay: index * 0.03, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -4, scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       className={cn(
-        'rounded-xl border px-3.5 py-3 relative overflow-hidden bg-bg-card h-full',
-        isMarquee ? 'border-[#FFC94A]/55' : 'border-[#FFC94A]/22',
+        'rounded-xl border px-3.5 py-3 relative overflow-hidden bg-bg-card/70 backdrop-blur-2xl h-full',
+        isMarquee ? 'border-[#FFC94A]/55' : 'border-white/10',
       )}
-      style={isMarquee ? { boxShadow: '0 0 32px rgba(255,201,74,0.22)' } : undefined}
+      style={{
+        transformPerspective: 1000,
+        transformStyle: 'preserve-3d',
+        ...(isMarquee ? { boxShadow: '0 0 32px rgba(255,201,74,0.22)' } : {}),
+      }}
     >
       {/* Stadium silhouette — tiny decorative baseline */}
       <svg
