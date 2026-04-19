@@ -569,6 +569,11 @@ export const translations = {
     wcChampion2026: '2026 Champion',
     wcPredict: 'Predict',
     wcPredictSoon: 'World Cup predictions open 30 days before kickoff!',
+
+    // AI Scout (Sprint 26)
+    aiScoutLabel: 'AI Scout',
+    aiScoutPreMatchTitle: 'Scout Insight',
+    aiScoutPostMatchTitle: 'Match Recap',
   },
 
   he: {
@@ -1136,6 +1141,11 @@ export const translations = {
     wcChampion2026: 'אלופת 2026',
     wcPredict: 'ניחוש',
     wcPredictSoon: 'ניחושי המונדיאל ייפתחו 30 יום לפני הפתיחה!',
+
+    // AI Scout (Sprint 26)
+    aiScoutLabel: 'סייר AI',
+    aiScoutPreMatchTitle: 'תובנת הסייר',
+    aiScoutPostMatchTitle: 'סיכום המשחק',
   },
 } as const;
 

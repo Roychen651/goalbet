@@ -84,6 +84,8 @@ export type Database = {
           season: string | null;
           round: string | null;
           updated_at: string;
+          ai_pre_match_insight: string | null;
+          ai_post_match_summary: string | null;
         };
         Insert: never;
         Update: never;

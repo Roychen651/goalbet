@@ -15,6 +15,7 @@ import { LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import type { TranslationKey } from '../../lib/i18n';
 import type { Match } from '../../lib/supabase';
+import { AIScoutCard } from '../ui/AIScoutCard';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -198,13 +199,21 @@ export function MatchStats({ match }: { match: Match }) {
     return () => { cancelled = true; };
   }, [open, match.external_id, match.league_id]);
 
-  // Hide entirely when no ESPN coverage
-  if (!LEAGUE_ESPN_SLUG[match.league_id]) return null;
-  // Hide once we know there are no stats
-  if (stats !== null && stats.length === 0 && !loading) return null;
+  const hasSummary = !!match.ai_post_match_summary && match.status === 'FT';
+  const hasEspn = !!LEAGUE_ESPN_SLUG[match.league_id];
+  const noStatsAvailable = hasEspn && stats !== null && stats.length === 0 && !loading;
+
+  // Hide entirely only when there's neither a summary nor usable ESPN stats.
+  if (!hasSummary && !hasEspn) return null;
+  if (!hasSummary && noStatsAvailable) return null;
 
   return (
-    <div className="mt-3 border-t border-white/5 pt-3">
+    <div className="mt-3 border-t border-white/5 pt-3 space-y-3">
+      {hasSummary && (
+        <AIScoutCard title="aiScoutPostMatchTitle" text={match.ai_post_match_summary} tone="post" />
+      )}
+      {hasEspn && !noStatsAvailable && (
+      <>
       <button
         onClick={() => setOpen(p => !p)}
         className="w-full flex items-center justify-between px-2 py-1 rounded-xl hover:bg-white/3 transition-colors group"
@@ -267,6 +276,8 @@ export function MatchStats({ match }: { match: Match }) {
           </motion.div>
         )}
       </AnimatePresence>
+      </>
+      )}
     </div>
   );
 }

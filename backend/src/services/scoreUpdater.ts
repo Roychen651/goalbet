@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, fetchMatchHalftimeScore, fetchMatchLinescoreRepair, fetchMatchKeyEvents, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
 import { calculatePoints } from './pointsEngine';
 import { logger } from '../lib/logger';
+import { ensurePostMatchSummary } from './aiScout';
 
 interface PendingMatch {
   id: string;
@@ -459,6 +460,10 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
             });
             totalResolved += count;
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
+
+            // Post-match AI Scout — generates a witty summary once, then served infinitely
+            // from the DB. Silent no-op if Groq isn't configured or the call fails.
+            await ensurePostMatchSummary(match.id);
           }
         } else {
           // ── ET detection: resolve predictions at the end of 90 min ──────────

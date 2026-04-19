@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
 import { CoinIcon } from '../ui/CoinIcon';
+import { AIScoutCard } from '../ui/AIScoutCard';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, POINTS, calcPredictionCost } from '../../lib/constants';
 
@@ -193,6 +194,11 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
 
   return (
     <div className="space-y-1.5">
+      {match.ai_pre_match_insight && (
+        <div className="pb-1">
+          <AIScoutCard title="aiScoutPreMatchTitle" text={match.ai_pre_match_insight} tone="pre" />
+        </div>
+      )}
       {tiers.map((tier, i) => (
         <motion.div
           key={tier.key}

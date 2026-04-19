@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, LEAGUE_ESPN_MAP } from './espn';
 import { DBMatch } from './sportsdb';
 import { logger } from '../lib/logger';
+import { runPreMatchBatch } from './aiScout';
 
 export interface SyncResult {
   leagueId: number;
@@ -115,6 +116,10 @@ export async function syncAllActiveLeagues(): Promise<SyncResult[]> {
   const totalInserted = results.reduce((sum, r) => sum + r.inserted, 0);
   const totalErrors = results.reduce((sum, r) => sum + r.errors, 0);
   logger.info(`[matchSync] Complete. Inserted/updated: ${totalInserted}, errors: ${totalErrors}`);
+
+  // Pre-match AI Scout — process a small batch so we never spam Groq.
+  // Silent no-op if GROQ_API_KEY isn't set. Fully try/catch'd internally.
+  await runPreMatchBatch(2);
 
   return results;
 }
