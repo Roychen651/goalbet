@@ -80,12 +80,34 @@ interface PreMatchContext {
   kickoffTime: string;
 }
 
-const PRE_MATCH_SYSTEM = `You are an elite, slightly cynical football betting analyst.
+const PRE_MATCH_SYSTEM_EN = `You are an elite, slightly cynical football betting analyst.
 Given the match context, return ONE short, punchy sentence (≤ 22 words) of insight.
 Do not hallucinate specific stats, results, or quotes you were not given.
 Do not invent player names. Never wrap in quotes. Output the sentence only.`;
 
-async function generatePreMatchInsight(ctx: PreMatchContext): Promise<string | null> {
+const PRE_MATCH_SYSTEM_HE = `אתה אנליסט הימורי כדורגל אליטיסטי וקצת ציני.
+בהינתן הקשר המשחק, החזר משפט אחד קצר ונוקב (עד 22 מילים) של תובנה.
+אל תמציא סטטיסטיקות, תוצאות או ציטוטים ספציפיים שלא ניתנו לך.
+אל תמציא שמות שחקנים. לעולם אל תעטוף במרכאות. החזר את המשפט בלבד, בעברית תקנית.`;
+
+async function generatePreMatchInsight(ctx: PreMatchContext, lang: 'en' | 'he'): Promise<string | null> {
+  if (lang === 'he') {
+    const league = ctx.leagueName ?? 'ליגה מקצועית בכירה';
+    const user =
+      `משחק: ${ctx.homeTeam} מול ${ctx.awayTeam}\n` +
+      `תחרות: ${league}\n` +
+      `פתיחה: ${ctx.kickoffTime}\n\n` +
+      `כתוב משפט חד אחד שמהמר מנוסה היה רוצה לשמוע לפני שהוא מנחש. ` +
+      `התמקד בטון, בזווית, או בתחושה כללית — לא בסטטיסטיקות בדויות.`;
+    return callGroq(
+      [
+        { role: 'system', content: PRE_MATCH_SYSTEM_HE },
+        { role: 'user', content: user },
+      ],
+      180,
+    );
+  }
+
   const league = ctx.leagueName ?? 'a top-flight league';
   const user =
     `Match: ${ctx.homeTeam} vs ${ctx.awayTeam}\n` +
@@ -93,10 +115,9 @@ async function generatePreMatchInsight(ctx: PreMatchContext): Promise<string | n
     `Kickoff: ${ctx.kickoffTime}\n\n` +
     `Write one sharp sentence an experienced bettor would want to hear before placing a pick. ` +
     `Focus on tone, angle, or a general read — not fabricated statistics.`;
-
   return callGroq(
     [
-      { role: 'system', content: PRE_MATCH_SYSTEM },
+      { role: 'system', content: PRE_MATCH_SYSTEM_EN },
       { role: 'user', content: user },
     ],
     120,
@@ -120,12 +141,46 @@ interface PostMatchContext {
   cornersTotal: number | null;
 }
 
-const POST_MATCH_SYSTEM = `You are a witty sports commentator.
+const POST_MATCH_SYSTEM_EN = `You are a witty sports commentator.
 Given the final score and stats, summarize the match in TWO short, entertaining sentences (≤ 40 words total).
 Do not invent player names, minutes, or stats you were not given.
 Never wrap in quotes. Output the summary only.`;
 
-async function generatePostMatchSummary(ctx: PostMatchContext): Promise<string | null> {
+const POST_MATCH_SYSTEM_HE = `אתה פרשן ספורט שנון.
+בהינתן התוצאה הסופית והנתונים, סכם את המשחק בשני משפטים קצרים ומשעשעים (עד 40 מילים סך הכל).
+אל תמציא שמות שחקנים, דקות או סטטיסטיקות שלא ניתנו לך.
+לעולם אל תעטוף במרכאות. החזר את הסיכום בלבד, בעברית תקנית.`;
+
+async function generatePostMatchSummary(ctx: PostMatchContext, lang: 'en' | 'he'): Promise<string | null> {
+  if (lang === 'he') {
+    const league = ctx.leagueName ?? 'ליגה';
+    const regLine = ctx.regulationHome !== null && ctx.regulationAway !== null
+      && (ctx.regulationHome !== ctx.homeScore || ctx.regulationAway !== ctx.awayScore)
+      ? `זמן חוקי (90′): ${ctx.regulationHome}-${ctx.regulationAway}\n`
+      : '';
+    const penLine = ctx.wentToPenalties && ctx.penaltyHome !== null && ctx.penaltyAway !== null
+      ? `דו-קרב פנדלים: ${ctx.penaltyHome}-${ctx.penaltyAway}\n`
+      : '';
+    const cornersLine = ctx.cornersTotal !== null ? `סך קרנות: ${ctx.cornersTotal}\n` : '';
+
+    const user =
+      `משחק: ${ctx.homeTeam} מול ${ctx.awayTeam}\n` +
+      `תחרות: ${league}\n` +
+      `תוצאה סופית: ${ctx.homeScore}-${ctx.awayScore}\n` +
+      regLine +
+      penLine +
+      cornersLine +
+      `\nכתוב שני משפטים משעשעים שמסכמים איך המשחק התנהל, אך ורק על בסיס המידע שלמעלה.`;
+
+    return callGroq(
+      [
+        { role: 'system', content: POST_MATCH_SYSTEM_HE },
+        { role: 'user', content: user },
+      ],
+      260,
+    );
+  }
+
   const league = ctx.leagueName ?? 'league play';
   const regLine = ctx.regulationHome !== null && ctx.regulationAway !== null
     && (ctx.regulationHome !== ctx.homeScore || ctx.regulationAway !== ctx.awayScore)
@@ -147,7 +202,7 @@ async function generatePostMatchSummary(ctx: PostMatchContext): Promise<string |
 
   return callGroq(
     [
-      { role: 'system', content: POST_MATCH_SYSTEM },
+      { role: 'system', content: POST_MATCH_SYSTEM_EN },
       { role: 'user', content: user },
     ],
     180,
@@ -156,7 +211,13 @@ async function generatePostMatchSummary(ctx: PostMatchContext): Promise<string |
 
 // ── Public API: write insights into `matches` ───────────────────────────────
 
-async function writeInsight(matchId: string, column: 'ai_pre_match_insight' | 'ai_post_match_summary', text: string): Promise<void> {
+type InsightColumn =
+  | 'ai_pre_match_insight'
+  | 'ai_pre_match_insight_he'
+  | 'ai_post_match_summary'
+  | 'ai_post_match_summary_he';
+
+async function writeInsight(matchId: string, column: InsightColumn, text: string): Promise<void> {
   const { error } = await supabaseAdmin
     .from('matches')
     .update({ [column]: text })
@@ -181,9 +242,9 @@ export async function runPreMatchBatch(limit = 2): Promise<void> {
 
     const { data: rows, error } = await supabaseAdmin
       .from('matches')
-      .select('id, home_team, away_team, league_name, kickoff_time')
+      .select('id, home_team, away_team, league_name, kickoff_time, ai_pre_match_insight, ai_pre_match_insight_he')
       .eq('status', 'NS')
-      .is('ai_pre_match_insight', null)
+      .or('ai_pre_match_insight.is.null,ai_pre_match_insight_he.is.null')
       .gte('kickoff_time', now.toISOString())
       .lte('kickoff_time', cutoff.toISOString())
       .order('kickoff_time', { ascending: true })
@@ -198,17 +259,27 @@ export async function runPreMatchBatch(limit = 2): Promise<void> {
 
     logger.info(`[aiScout] Generating pre-match insight for ${rows.length} match(es)`);
 
-    for (const row of rows as Array<{ id: string; home_team: string; away_team: string; league_name: string | null; kickoff_time: string }>) {
-      const insight = await generatePreMatchInsight({
+    for (const row of rows) {
+      const ctx = {
         matchId: row.id,
         homeTeam: row.home_team,
         awayTeam: row.away_team,
         leagueName: row.league_name,
         kickoffTime: row.kickoff_time,
-      });
-      if (insight) {
-        await writeInsight(row.id, 'ai_pre_match_insight', insight);
-        logger.info(`[aiScout] Pre-match insight saved for ${row.home_team} vs ${row.away_team}`);
+      };
+      if (!row.ai_pre_match_insight) {
+        const en = await generatePreMatchInsight(ctx, 'en');
+        if (en) {
+          await writeInsight(row.id, 'ai_pre_match_insight', en);
+          logger.info(`[aiScout] Pre-match EN insight saved for ${row.home_team} vs ${row.away_team}`);
+        }
+      }
+      if (!row.ai_pre_match_insight_he) {
+        const he = await generatePreMatchInsight(ctx, 'he');
+        if (he) {
+          await writeInsight(row.id, 'ai_pre_match_insight_he', he);
+          logger.info(`[aiScout] Pre-match HE insight saved for ${row.home_team} vs ${row.away_team}`);
+        }
       }
     }
   } catch (err) {
@@ -232,9 +303,9 @@ export async function runPostMatchBatch(limit = 3): Promise<void> {
 
     const { data: rows, error } = await supabaseAdmin
       .from('matches')
-      .select('id, home_team, away_team, league_name, home_score, away_score, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, corners_total')
+      .select('id, home_team, away_team, league_name, home_score, away_score, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, corners_total, ai_post_match_summary, ai_post_match_summary_he')
       .eq('status', 'FT')
-      .is('ai_post_match_summary', null)
+      .or('ai_post_match_summary.is.null,ai_post_match_summary_he.is.null')
       .not('home_score', 'is', null)
       .not('away_score', 'is', null)
       .gte('kickoff_time', sevenDaysAgo)
@@ -251,7 +322,7 @@ export async function runPostMatchBatch(limit = 3): Promise<void> {
     logger.info(`[aiScout] Generating post-match summary for ${rows.length} match(es)`);
 
     for (const row of rows) {
-      const summary = await generatePostMatchSummary({
+      const ctx = {
         matchId: row.id,
         homeTeam: row.home_team,
         awayTeam: row.away_team,
@@ -264,10 +335,20 @@ export async function runPostMatchBatch(limit = 3): Promise<void> {
         penaltyHome: row.penalty_home,
         penaltyAway: row.penalty_away,
         cornersTotal: row.corners_total,
-      });
-      if (summary) {
-        await writeInsight(row.id, 'ai_post_match_summary', summary);
-        logger.info(`[aiScout] Post-match summary saved for ${row.home_team} ${row.home_score}-${row.away_score} ${row.away_team}`);
+      };
+      if (!row.ai_post_match_summary) {
+        const en = await generatePostMatchSummary(ctx, 'en');
+        if (en) {
+          await writeInsight(row.id, 'ai_post_match_summary', en);
+          logger.info(`[aiScout] Post-match EN summary saved for ${row.home_team} ${row.home_score}-${row.away_score} ${row.away_team}`);
+        }
+      }
+      if (!row.ai_post_match_summary_he) {
+        const he = await generatePostMatchSummary(ctx, 'he');
+        if (he) {
+          await writeInsight(row.id, 'ai_post_match_summary_he', he);
+          logger.info(`[aiScout] Post-match HE summary saved for ${row.home_team} ${row.home_score}-${row.away_score} ${row.away_team}`);
+        }
       }
     }
   } catch (err) {
@@ -286,16 +367,16 @@ export async function ensurePostMatchSummary(matchId: string): Promise<void> {
   try {
     const { data: row, error } = await supabaseAdmin
       .from('matches')
-      .select('id, home_team, away_team, league_name, home_score, away_score, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, corners_total, status, ai_post_match_summary')
+      .select('id, home_team, away_team, league_name, home_score, away_score, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, corners_total, status, ai_post_match_summary, ai_post_match_summary_he')
       .eq('id', matchId)
       .single();
 
     if (error || !row) return;
     if (row.status !== 'FT') return;
-    if (row.ai_post_match_summary) return;
     if (row.home_score === null || row.away_score === null) return;
+    if (row.ai_post_match_summary && row.ai_post_match_summary_he) return;
 
-    const summary = await generatePostMatchSummary({
+    const ctx = {
       matchId: row.id,
       homeTeam: row.home_team,
       awayTeam: row.away_team,
@@ -308,11 +389,21 @@ export async function ensurePostMatchSummary(matchId: string): Promise<void> {
       penaltyHome: row.penalty_home,
       penaltyAway: row.penalty_away,
       cornersTotal: row.corners_total,
-    });
+    };
 
-    if (summary) {
-      await writeInsight(row.id, 'ai_post_match_summary', summary);
-      logger.info(`[aiScout] Post-match summary saved for ${row.home_team} ${row.home_score}-${row.away_score} ${row.away_team}`);
+    if (!row.ai_post_match_summary) {
+      const en = await generatePostMatchSummary(ctx, 'en');
+      if (en) {
+        await writeInsight(row.id, 'ai_post_match_summary', en);
+        logger.info(`[aiScout] Post-match EN summary saved for ${row.home_team} ${row.home_score}-${row.away_score} ${row.away_team}`);
+      }
+    }
+    if (!row.ai_post_match_summary_he) {
+      const he = await generatePostMatchSummary(ctx, 'he');
+      if (he) {
+        await writeInsight(row.id, 'ai_post_match_summary_he', he);
+        logger.info(`[aiScout] Post-match HE summary saved for ${row.home_team} ${row.home_score}-${row.away_score} ${row.away_team}`);
+      }
     }
   } catch (err) {
     logger.warn(`[aiScout] ensurePostMatchSummary crashed for ${matchId}: ${err instanceof Error ? err.message : String(err)}`);

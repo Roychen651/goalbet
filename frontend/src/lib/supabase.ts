@@ -85,7 +85,9 @@ export type Database = {
           round: string | null;
           updated_at: string;
           ai_pre_match_insight: string | null;
+          ai_pre_match_insight_he: string | null;
           ai_post_match_summary: string | null;
+          ai_post_match_summary_he: string | null;
         };
         Insert: never;
         Update: never;

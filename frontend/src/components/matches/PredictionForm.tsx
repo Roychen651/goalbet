@@ -192,11 +192,14 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
     }] : []),
   ];
 
+  const lang = useLangStore(s => s.lang);
+  const preMatchInsight = (lang === 'he' && match.ai_pre_match_insight_he) || match.ai_pre_match_insight;
+
   return (
     <div className="space-y-1.5">
-      {match.ai_pre_match_insight && (
+      {preMatchInsight && (
         <div className="pb-1">
-          <AIScoutCard title="aiScoutPreMatchTitle" text={match.ai_pre_match_insight} tone="pre" />
+          <AIScoutCard title="aiScoutPreMatchTitle" text={preMatchInsight} tone="pre" />
         </div>
       )}
       {tiers.map((tier, i) => (

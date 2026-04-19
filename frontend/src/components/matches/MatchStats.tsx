@@ -177,7 +177,8 @@ function StatsSkeleton() {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export function MatchStats({ match }: { match: Match }) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
+  const postMatchSummary = (lang === 'he' && match.ai_post_match_summary_he) || match.ai_post_match_summary;
   const [open, setOpen] = useState(false);
   const [stats, setStats] = useState<StatRow[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -199,7 +200,7 @@ export function MatchStats({ match }: { match: Match }) {
     return () => { cancelled = true; };
   }, [open, match.external_id, match.league_id]);
 
-  const hasSummary = !!match.ai_post_match_summary && match.status === 'FT';
+  const hasSummary = !!postMatchSummary && match.status === 'FT';
   const hasEspn = !!LEAGUE_ESPN_SLUG[match.league_id];
   const noStatsAvailable = hasEspn && stats !== null && stats.length === 0 && !loading;
 
@@ -210,7 +211,7 @@ export function MatchStats({ match }: { match: Match }) {
   return (
     <div className="mt-3 border-t border-white/5 pt-3 space-y-3">
       {hasSummary && (
-        <AIScoutCard title="aiScoutPostMatchTitle" text={match.ai_post_match_summary} tone="post" />
+        <AIScoutCard title="aiScoutPostMatchTitle" text={postMatchSummary} tone="post" />
       )}
       {hasEspn && !noStatsAvailable && (
       <>

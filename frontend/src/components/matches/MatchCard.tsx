@@ -757,9 +757,13 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
                   {/* ET/PEN result block — shown for ALL finished AET/PEN cards */}
                   {isFinished && <ETSummaryBlock match={match} />}
                   {/* AI Scout pre-match insight — NS only, first thing users see */}
-                  {match.status === 'NS' && match.ai_pre_match_insight && (
+                  {match.status === 'NS' && ((lang === 'he' && match.ai_pre_match_insight_he) || match.ai_pre_match_insight) && (
                     <div className="mb-3">
-                      <AIScoutCard title="aiScoutPreMatchTitle" text={match.ai_pre_match_insight} tone="pre" />
+                      <AIScoutCard
+                        title="aiScoutPreMatchTitle"
+                        text={(lang === 'he' && match.ai_pre_match_insight_he) || match.ai_pre_match_insight}
+                        tone="pre"
+                      />
                     </div>
                   )}
                   {/* Tactical intel — form, H2H, venue (NS upcoming only) */}
