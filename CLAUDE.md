@@ -380,7 +380,7 @@ goalbet/
 │       │   │   ├── LeagueDropdown.tsx     # Custom animated dropdown; dual dark/light ESPN league logos; data-lenis-prevent so inner wheel-scroll works inside Lenis; layoutId-backed active bar
 │       │   │   ├── LeagueLeaders.tsx      # Top scorers / assists tables sourced from ESPN leaders feed
 │       │   │   ├── StandingsTable.tsx     # League standings table (rank, team, P/W/D/L, GF/GA/GD, pts)
-│       │   │   └── WorldCupBracket.tsx    # Custom "Route to the Trophy" view for World Cup (league 4480). Parallax hero (useScroll/useTransform on confetti, halo, trophy watermark), floating glass pill navigation (sticky, rounded-full, dark glass backdrop-blur-xl), 4 tabs: groups/fixtures/knockouts/venues. Groups: FIFA rank + seed pot indicators. Fixtures: gold "Predict" button with toast teaser. Knockouts: Framer Motion accordion on mobile, 9-column symmetric bracket on desktop (BracketTreeCard compact grid / BracketMatchCard full-detail mobile). FinalApex: rotating sunburst, floating particles, gradient champion text. Venues: mobile scroll-snap carousel, desktop masonry grid (marquee venues span 2 cols). Pure Framer Motion + useScroll
+│       │   │   └── WorldCupBracket.tsx    # Custom "Route to the Trophy" view for World Cup (league 4480). Tri-Host Aurora (Mexico #00FF87 + USA #00E5FF + Canada #FF004D blurred blobs, mix-blend: screen) + broadcast grain overlay on the root wrapper. Parallax hero (useScroll/useTransform on confetti, halo, trophy watermark) with brutalist hollow "2026" behind content — aurora-gradient fill reveals on scroll. Floating glass pill navigation (sticky, rounded-full, dark glass backdrop-blur-xl). 4 tabs: groups/fixtures/knockouts/venues. Groups: FIFA rank + seed pot indicators, GroupCard enters with 3D rotateX perspective. Fixtures: gold "Predict" button with toast teaser. Knockouts: Framer Motion accordion on mobile, 9-column symmetric bracket on desktop (BracketTreeCard compact grid / BracketMatchCard full-detail mobile). FinalApex: rotating sunburst, floating particles, gradient champion text. Venues: mobile scroll-snap carousel, desktop masonry grid (marquee venues span 2 cols), StadiumCard enters with 3D rotateX perspective + backdrop-blur glass. Pure Framer Motion + useScroll
 │       │   └── ui/
 │       │       ├── Avatar.tsx             # Expects emoji:🏆 prefix
 │       │       ├── CoinGuide.tsx          # Bottom sheet — swipe-to-close enabled
@@ -1137,6 +1137,11 @@ Score flip animation uses Framer Motion `AnimatePresence mode="popLayout"` with 
 | `.wc-phase-strip` | Theme-locked dark phase strip | KnockoutsIntro |
 | `.wc-sunburst` | Rotating conic-gradient sunburst (30s linear infinite) | FinalApex background |
 | `.wc-final-particle` | Floating gold particle with scale+opacity keyframes | FinalApex ambient particles |
+| `.wc-aurora` | Absolute container for tri-host drifting blobs, mix-blend: screen | WC root wrapper |
+| `.wc-aurora-blob.mexico\|.usa\|.canada` | Neon green / cyan / crimson blurred blobs with drift keyframes | Inside `.wc-aurora` |
+| `.wc-grain` | feTurbulence SVG noise overlay, mix-blend: overlay | WC root wrapper (above aurora) |
+| `.wc-brutalist-hollow` | Massive Bebas hollow-stroke text (color: transparent) | Hero backdrop "2026" base layer |
+| `.wc-brutalist-fill` | Aurora-gradient text-clip (cyan→green→crimson) | Hero backdrop "2026" scroll-reveal overlay |
 
 ### Rules
 
@@ -1412,6 +1417,10 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **World Cup mobile knockouts use Framer Motion accordion.** One round expanded at a time via `useState<BracketRound>`. Uses `<AnimatePresence>` with `height: "auto"` / `height: 0` + `overflow: hidden`. Do not convert to CSS transitions — Framer handles the auto-height measurement.
 - **World Cup predict buttons fire a toast teaser, not a real prediction.** Since WC 2026 matches don't exist in the DB yet, the "Predict" button calls `addToast(t('wcPredictSoon'), 'info')`. When real match data arrives, replace with `openPredictionModal(matchId)`. The `t` prop on `BracketMatchCard` is optional so desktop `BracketTreeCard` (no predict button) isn't affected.
 - **World Cup venues have two layouts.** Mobile: horizontal scroll-snap carousel (`snap-x snap-mandatory` + `data-lenis-prevent`). Desktop: CSS grid masonry where marquee venues (final, opening) span 2 columns. These are independent implementations behind `md:hidden` / `hidden md:grid` — changes to one don't affect the other.
+- **Tri-Host Aurora lives on the WC root wrapper, not inside Hero.** `.wc-aurora` is an absolutely positioned sibling of the Hero/tabs content inside the WC atmosphere wrapper. It uses `mix-blend-mode: screen` to TINT the navy background, not replace it. Three blobs (`.mexico`, `.usa`, `.canada`) drift with CSS keyframes (22s/27s/32s — desynced on purpose). Do not wrap these in Framer Motion — the CSS is compositor-only and stays 60fps.
+- **Brutalist "2026" is two stacked spans.** The base `.wc-brutalist-hollow` stays always visible (hollow stroke). The `.wc-brutalist-fill` overlay uses `-webkit-background-clip: text` with a tri-host gradient and its opacity is driven by `useTransform(scrollY, [0, 260, 460], [0, 0.6, 1])`. Do not collapse into one span — text-clip and stroke can't coexist cleanly on a single element.
+- **World Cup card 3D entrances need `transformPerspective: 1000` on the motion element itself.** `GroupCard` and `StadiumCard` animate `rotateX: 15 → 0` + `scale: 0.95 → 1`; without `transformPerspective` on the same element (or `perspective` on the parent), `rotateX` collapses to a 2D scale and the tilt is invisible. Also set `transformStyle: 'preserve-3d'`.
+- **Trophy SVG has 5 ordered layers — do not reorder.** (1) Gold body with `filter="url(#wc-3d)"` for drop shadow; (2) left-side specular rim-light gradient; (3) vertical top-down inner-shine gradient; (4) engraved detail group clipped to the silhouette (globe meridians, continents, figure curves, malachite rings separated by a gold band); (5) dark outline stroke. The engraved detail layer uses strokes and low-opacity fills so the gold underneath is never occluded. The base is now **2 malachite rings separated by a gold band** (not 4 bands), matching the authentic Jules Gazzaniga design.
 
 ### Coins
 
