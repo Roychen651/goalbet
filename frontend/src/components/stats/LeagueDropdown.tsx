@@ -180,7 +180,8 @@ export function LeagueDropdown({ leagues, value, onChange }: Props) {
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 360, damping: 28 }}
             className={cn(
-              'absolute z-50 top-full mt-2 end-0 w-[320px]',
+              'absolute z-50 top-full mt-2 start-0 end-0 w-auto',
+              'sm:start-auto sm:end-0 sm:w-[320px]',
               'rounded-2xl border border-border-subtle overflow-hidden',
               'shadow-[0_20px_60px_-12px_rgba(0,0,0,0.55)]',
             )}
