@@ -178,6 +178,17 @@ Max spend per match: **19 coins**. Max return: **38 coins**. Lost bets are not r
 
 ---
 
+## AI-Powered Insights
+
+Every match picks up a layer of generative commentary — no extra taps, no loading spinners. All text is produced **once** on the backend by Groq (Llama 3.1 8B Instant) in both English and Hebrew, cached in Supabase, and served as plain text. If the model ever fails or rate-limits, the feature silently hides itself. Zero paid APIs.
+
+- **Scout Insight** — a one-sentence tactical angle on every upcoming match, surfaced inside the expanded card and at the top of the prediction modal
+- **Half-Time Read** — a live broadcast-style lower-third that appears on the match card during the HT break, predicting the second half based on what actually happened in the first. Typewriter reveal, pulsing red `LIVE AI READ` badge, animated neon border
+- **Match Recap** — a witty two-sentence post-match summary that slots in above the full stats once the final whistle blows
+- **Hall of Fame Chronicles** — nail a perfect score (+10 pts) on a top-tier European match and you earn a 3D gold-and-crimson card on your profile with a mythical Groq-generated saga about your pick. Cards tilt with your cursor / touch
+
+---
+
 ## Notifications
 
 The bell icon opens a glassmorphism dropdown with real-time notifications. When a prediction resolves, you see the match result, points earned, and coins gained — all at a glance.
@@ -300,8 +311,10 @@ goalbet/
 │       │   ├── layout/        # AppShell, TopBar, BottomNav, Sidebar, NotificationCenter
 │       │   ├── leaderboard/   # LeaderboardTable, H2HModal, UserMatchHistoryModal
 │       │   ├── matches/       # MatchCard, MatchFeed, PredictionForm, MatchTimeline
+│       │   ├── profile/       # ProfileBentoV2, AvatarPicker, HallOfFameChronicles
 │       │   └── ui/            # GlassCard, NeonButton, ScoringGuide, CoinGuide,
-│       │                      # HelpGuideModal, Avatar, ThemeToggle, Toast...
+│       │                      # HelpGuideModal, HTAnalystCard, AIScoutCard,
+│       │                      # Avatar, ThemeToggle, Toast...
 │       ├── hooks/             # useMatches, usePredictions, useLeaderboard,
 │       │                      # useAuthV2, useLiveClock, useNewPointsAlert...
 │       ├── lib/               # supabase.ts, i18n.ts (EN + HE), constants.ts, utils.ts
@@ -316,7 +329,7 @@ goalbet/
 │       └── cron/              # 30s live score poller, daily sync, weekly reset
 │
 ├── supabase/
-│   ├── migrations/            # SQL migrations 001 → 023
+│   ├── migrations/            # SQL migrations 001 → 035
 │   └── email-templates/       # Themed signup confirmation + password reset emails
 │
 └── .github/workflows/
@@ -347,7 +360,8 @@ cd ../backend && npm install
 
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Run migrations in order via the SQL Editor:
-   `supabase/migrations/001_initial_schema.sql` → `023_admin_security_rpcs.sql`
+   `supabase/migrations/001_initial_schema.sql` → `035_ht_insight_and_chronicles.sql`
+   (Or use the Supabase CLI: `supabase db push --linked`)
 3. **Authentication → Providers:** enable **Email** + **Google OAuth**
 4. **Authentication → URL Configuration:**
    - Site URL: `http://localhost:5173`
@@ -369,6 +383,7 @@ PORT=3001
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
 NODE_ENV=development
+GROQ_API_KEY=your-groq-key   # optional — if omitted, all AI text silently hides
 ```
 
 ### 4. Run locally

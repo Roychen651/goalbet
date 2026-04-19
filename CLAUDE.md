@@ -29,6 +29,7 @@ Read this before touching any file. Everything here reflects the live codebase.
 20. [Admin Console](#20-admin-console)
 21. [Common Pitfalls](#21-common-pitfalls)
 22. [AI Scout (Sprint 26)](#22-ai-scout-sprint-26)
+23. [AI Live Read + Chronicles (Sprint 27)](#23-ai-live-read--chronicles-sprint-27)
 
 ---
 
@@ -368,8 +369,12 @@ goalbet/
 │       │   │   ├── LeaderboardRow.tsx     # Own row → history modal; other row → H2H modal
 │       │   │   ├── LeaderboardTable.tsx
 │       │   │   └── UserMatchHistoryModal.tsx  # Bottom sheet — swipe-to-close enabled
+│       │   ├── profile/
+│       │   │   ├── AvatarPicker.tsx       # Emoji avatar chooser
+│       │   │   ├── HallOfFameChronicles.tsx # Sprint 27 — 3D-tilt gold/crimson carousel of user_chronicles (perfect +10 on high-profile matches); returns null when empty
+│       │   │   └── ProfileBentoV2.tsx     # Stats bento grid
 │       │   ├── matches/
-│       │   │   ├── MatchCard.tsx          # ACTIVE card: MatchCardCore (private) + MatchCard (public, shimmer wrapper). isPastKickoffNS, DELAYED, live clock, weather/referee/competition phase, TacticalIntelSection, dual dark/light league logos, live breathing glow, goal flash, score flip
+│       │   │   ├── MatchCard.tsx          # ACTIVE card: MatchCardCore (private) + MatchCard (public, shimmer wrapper). isPastKickoffNS, DELAYED, live clock, weather/referee/competition phase, TacticalIntelSection, dual dark/light league logos, live breathing glow, goal flash, score flip. HT broadcast ticker via HTAnalystCard
 │       │   │   ├── MatchFeed.tsx          # Date-grouped feed; imports MatchCard directly
 │       │   │   ├── MatchRosters.tsx       # Starting XI + substitutes fetched from ESPN; feeds TacticalPitch
 │       │   │   ├── MatchStats.tsx         # Post-match statistics (possession, shots, corners, etc.)
@@ -391,6 +396,7 @@ goalbet/
 │       │       ├── FadeInView.tsx         # Wrapper: fade-in on mount via Framer Motion
 │       │       ├── GlassCard.tsx
 │       │       ├── HelpGuideModal.tsx     # Bottom sheet — swipe-to-close enabled
+│       │       ├── HTAnalystCard.tsx      # Sprint 27 — broadcast-TV lower-third for live HT tactical read; rotating red/amber/cyan conic border + pulsing red LIVE badge + word-by-word typewriter reveal. Returns null when text is empty
 │       │       ├── InfoTip.tsx            # Tooltip using CSS vars (works in both themes)
 │       │       ├── LangToggle.tsx
 │       │       ├── LoadingSpinner.tsx
@@ -974,6 +980,7 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `032` | **Bulletproof coin dedup**: partial unique index on `coin_transactions (user_id, group_id, match_id, description) WHERE type='bet_won'` + rewrite `increment_coins` as fully idempotent (`INSERT … ON CONFLICT DO NOTHING` first, then credit balance only if insert won the race) |
 | `033` | Cleanup of duplicate `group_events` WON_COINS rows + duplicate `notifications` prediction_result rows + matching partial unique indexes (`group_events_won_coins_unique`, `notifications_prediction_result_unique`) as DB-level backstops |
 | `034` | AI Scout Hebrew variants: `ai_pre_match_insight_he` + `ai_post_match_summary_he` nullable TEXT on `matches` (Sprint 26 follow-up) |
+| `035` | Sprint 27: `ai_ht_insight` + `ai_ht_insight_he` nullable TEXT on `matches`; creates `user_chronicles` table (uuid match_id FK, title, epic_text + _he, predicted/final scores, points_earned) with partial unique index `(user_id, match_id)` for idempotency + RLS (authenticated-read, service-role write) |
 
 ### Migration idempotency
 
@@ -1536,3 +1543,99 @@ aiScoutPostMatchTitle // "Match Recap" / "סיכום המשחק"
 - **Always generate both EN and HE** for a match when producing a new insight. Skipping HE "because the user is in EN mode" defeats the architecture — insights are cached at the DB level per language, not per user session.
 - **New render site?** Use the lang-aware pattern shown above. Never hardcode `match.ai_pre_match_insight` — Hebrew users will see English text.
 - **Rotate the Groq API key if it ever appears in chat, git, or logs.** Current key lives only in `backend/.env` on Render and the local dev `.env`; both are gitignored.
+
+---
+
+## 23. AI Live Read + Chronicles (Sprint 27)
+
+Two additions on top of the Sprint 26 "compute-once, serve-infinite" foundation. Both follow the same rules as AI Scout — Groq-only backend calls, silent on failure, EN + HE generated in the same batch.
+
+### 23.1 Half-Time Tactical Read (`ai_ht_insight` / `ai_ht_insight_he`)
+
+A **live** one-sentence tactical read that appears on the MatchCard during the HT break. Distinct aesthetic from `AIScoutCard` on purpose: this is a broadcast lower-third overlay, not a pre-match insight box.
+
+**Backend (`aiScout.ts` HT block):**
+
+| Function | Purpose |
+|----------|---------|
+| `summarizeFirstHalfEvents(events)` | Compresses ESPN `keyEvents` array into a plain string feed for the prompt |
+| `generateHTInsight(ctx, lang)` | One punchy sentence predicting the second half (≤22 words). `lang` toggles EN / HE prompts |
+| `runHTInsightBatch(limit=2)` | SELECT matches `WHERE status='HT' AND (ai_ht_insight IS NULL OR ai_ht_insight_he IS NULL)`, fetch ESPN keyEvents, generate whichever language is null. Called from `matchSync.syncAllActiveLeagues()` between `runPreMatchBatch` and `runPostMatchBatch` |
+
+Coverage is **only while a match is actually at HT**. Once it flips to `2H` the row is never re-processed — that's intentional. HT is a narrow window (≈15 min) so the batch must run on every sync cycle (every 5 min via `sync-cron.yml`) to hit it.
+
+**Frontend (`components/ui/HTAnalystCard.tsx`):**
+
+- Pure black glass (`linear-gradient(180deg, rgba(0,0,0,0.72), rgba(4,8,16,0.70))`) + `backdrop-blur-2xl` — sits over the team palette like a broadcast graphic, not blending in
+- Rotating conic-gradient border: red `#FF4D66` → amber `#FFC94A` → cyan `#BDE8F5` → red. 4.2s linear infinite — faster than `AIScoutCard` (7s) to feel urgent
+- Pulsing red dot + `LIVE AI READ` badge (`t('aiLiveReadLabel')`) in Bebas Neue, letter-spacing `0.28em`
+- Typewriter reveal: split text on whitespace, each word is a `motion.span` with `{opacity, y, filter: blur}` variants, stagger 0.035s, delayChildren 0.15s
+- Subtle scanline overlay via `repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 1px, transparent 1px 3px)` at 0.18 opacity + `mix-blend-overlay`
+- Returns `null` when `text` is falsy — forgetting the lang-aware fallback in a new call site fails gracefully
+
+Rendered in `MatchCard.tsx` inside the expanded body when `match.status === 'HT'`, lang-aware: `(lang === 'he' && match.ai_ht_insight_he) || match.ai_ht_insight`.
+
+### 23.2 Hall of Fame Chronicles (`user_chronicles` table)
+
+A personal trophy shelf on the ProfilePage that celebrates the user's **perfect +10** predictions on high-profile matches with a mythical Groq-generated saga.
+
+**Schema (migration 035):**
+
+```sql
+CREATE TABLE user_chronicles (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  match_id        UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  group_id        UUID REFERENCES groups(id) ON DELETE SET NULL,
+  title           TEXT NOT NULL,        -- "The {Team} Prophecy" or similar
+  epic_text       TEXT NOT NULL,        -- EN mythical 3-sentence saga
+  epic_text_he    TEXT,                 -- HE saga (may be null if Groq failed one lang)
+  predicted_home  INT,
+  predicted_away  INT,
+  final_home      INT,
+  final_away      INT,
+  points_earned   INT NOT NULL,         -- always 10+ by gating
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX user_chronicles_user_match_unique ON user_chronicles (user_id, match_id);
+-- RLS: readable by any authenticated user; service role writes only
+```
+
+The partial unique index is the **concurrency backstop** — same pattern as coin/notification dedup (rule 4.15). Concurrent score resolvers all try to insert, only the first succeeds.
+
+**Backend (`aiScout.ts` Chronicler block):**
+
+| Function | Purpose |
+|----------|---------|
+| `HIGH_PROFILE_LEAGUE_IDS` | `Set<number>` gating which leagues trigger a chronicle: PL, La Liga, Bundesliga, Serie A, Ligue 1, UCL, UEL, UECL, Nations League, WCQ. Excluded: friendlies, FA Cup, League Cup, Copa del Rey, World Cup (no fixtures yet) |
+| `generateChronicleText(seed, lang)` | Three mythical sentences in broadcaster-poet tone. `lang` switches EN / HE prompts |
+| `buildChronicleTitle(seed)` | Short EN title like "The Arsenal Prophecy" |
+| `ensureChronicle(seed)` | EXPORTED. Idempotent entry point: bails if `pointsEarned < 10`, bails if league not in `HIGH_PROFILE_LEAGUE_IDS`, checks for existing row, fetches username from `profiles`, generates EN + HE in parallel via `Promise.all`, skips INSERT if EN missing, relies on unique index as final backstop |
+
+`ensureChronicle` is called from `scoreUpdater.resolveMatchPredictions` **after the atomic claim succeeds** on FT / ET resolution and in the catch-up loop. It's `void`-prefixed — fire and forget, never awaited, never blocks coin resolution.
+
+**Frontend (`components/profile/HallOfFameChronicles.tsx`):**
+
+- Returns `null` when `chronicles.length === 0` — "don't advertise an empty hall of fame"
+- Horizontal scroll-snap carousel, `data-lenis-prevent` so trackpad/wheel scrolls the rail (not the page — see pitfall "Scrollable popovers")
+- Each `ChronicleCard` is a real **3D-perspective artefact**, not a glass square:
+  - Outer wrapper: `perspective: 1200`, `transformStyle: 'preserve-3d'`
+  - Inner: `useMotionValue` for mouse x/y → `useSpring` (stiffness 140, damping 18) → `useTransform` → `rotateX: [8, -8]`, `rotateY: [-10, 10]`
+  - Cursor-tracking glare via `useTransform([glareX, glareY], …)` returning a `radial-gradient` string with `mix-blend-mode: screen`
+  - Rotating gold/crimson conic-gradient border, 9s linear infinite (slower than HTAnalystCard — this is heritage, not live)
+  - Deep radial gradient bg: gold top-left + crimson bottom-right + `linear-gradient(180deg, rgba(12,7,22,0.92), rgba(24,8,20,0.94))` base
+  - Title with `WebkitBackgroundClip: text` gold gradient + `transform: translateZ(30px)` for real depth
+  - Predicted-score badge (e.g. `3–1`) + footer with date + `+10 PTS` gold→crimson gradient stamp
+
+Lang-aware text: `(lang === 'he' && chronicle.epic_text_he) || chronicle.epic_text`. Mounted in `ProfilePage.tsx` between the analytics bento and prediction sections.
+
+### Rules
+
+- **Chronicler is fire-and-forget.** Always `void ensureChronicle(...)` from `scoreUpdater.ts`. A Groq timeout or rate-limit must never block coin resolution or notification emission.
+- **Never re-score the chronicle threshold.** The gate is hardcoded `pointsEarned >= 10` (the Tier 1 + Tier 2 perfect-exact-score combo). If a match is corners-re-scored and bumps someone from +9 to +11, `ensureChronicle` is NOT called a second time. Chronicles are for the initial perfect pick, not top-ups.
+- **HIGH_PROFILE_LEAGUE_IDS is in the backend only.** Don't mirror it to the frontend — the frontend reads whatever chronicles exist in the table. If we ever expand the set, old matches will never retroactively produce chronicles (no backfill by design; only live resolutions create them).
+- **HT batch limit stays at 2.** Half-time windows are narrow and concurrent across a matchday; a larger batch risks Groq 429s that would starve the pre/post-match batches sharing the same rate budget.
+- **Chronicle uniqueness is DB-enforced.** `user_chronicles_user_match_unique` is the source of truth. Application-level "existing row" check is an optimisation; never drop the index.
+- **HTAnalystCard and AIScoutCard are intentionally different components.** Don't merge them — the HT card is a live broadcast overlay (pure black glass, red/amber/cyan neon, urgent rotation speed), the AIScout card is a refined insight box (navy glass, navy/accent border, 7s rotation). Collapsing them destroys the "this is happening right now" signal.
+- **New i18n keys added this sprint:** `aiLiveReadLabel`, `aiHTAnalystTitle`, `chroniclesTitle`. All three exist in `en` and `he` blocks of `i18n.ts`.
