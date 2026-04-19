@@ -28,6 +28,7 @@ Read this before touching any file. Everything here reflects the live codebase.
 19. [CI / GitHub Actions](#19-ci--github-actions)
 20. [Admin Console](#20-admin-console)
 21. [Common Pitfalls](#21-common-pitfalls)
+22. [AI Scout (Sprint 26)](#22-ai-scout-sprint-26)
 
 ---
 
@@ -935,7 +936,7 @@ curl "https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard"
 
 ## 14. Database & Migrations
 
-Migrations live in `supabase/migrations/`. Current sequence: **001 → 033** (024 and 025 do not exist).
+Migrations live in `supabase/migrations/`. Current sequence: **001 → 034** (024 does not exist).
 Apply via `supabase db push --linked` (auto-runs via hook on migration file write once logged in).
 
 | Migration | What it adds |
@@ -963,6 +964,7 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `021` | Coins bug fixes |
 | `022` | Admin features: group delete policy, group_members delete policy (idempotent) |
 | `023` | Admin security RPCs: `is_super_admin`, `admin_get_stats`, `admin_get_users`, `admin_get_groups`, `admin_get_user_coins`, `admin_adjust_coins`, `admin_update_username`, `admin_delete_group`, `admin_delete_user_data`, `admin_rename_group` |
+| `025` | AI Scout: `ai_pre_match_insight` + `ai_post_match_summary` nullable TEXT on `matches` (Sprint 26) |
 | `026` | Persistent notifications table + RLS |
 | `027` | Fix `admin_delete_user_data` to also wipe `coin_transactions` |
 | `028` | Group activity feed (`group_events` table for The Locker Room) |
@@ -971,6 +973,7 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `031` | One-off cleanup of duplicate `coin_transactions` rows + rebuild `group_members.coins` from cleaned ledger (race-condition aftermath) |
 | `032` | **Bulletproof coin dedup**: partial unique index on `coin_transactions (user_id, group_id, match_id, description) WHERE type='bet_won'` + rewrite `increment_coins` as fully idempotent (`INSERT … ON CONFLICT DO NOTHING` first, then credit balance only if insert won the race) |
 | `033` | Cleanup of duplicate `group_events` WON_COINS rows + duplicate `notifications` prediction_result rows + matching partial unique indexes (`group_events_won_coins_unique`, `notifications_prediction_result_unique`) as DB-level backstops |
+| `034` | AI Scout Hebrew variants: `ai_pre_match_insight_he` + `ai_post_match_summary_he` nullable TEXT on `matches` (Sprint 26 follow-up) |
 
 ### Migration idempotency
 
@@ -1439,3 +1442,97 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **Admin routes on the backend use service-role JWT verification**, not anon key. Never swap `supabaseAdmin` for the regular `supabase` client in `backend/src/routes/admin.ts`.
 - **`DangerModal` requires typing `"DELETE"` exactly.** Do not pre-fill or bypass the input check for "convenience".
 - **Migrations that already exist in the remote history** can be force-reapplied with `supabase migration repair --linked --status reverted <version>` then `supabase db push --linked`.
+
+---
+
+## 22. AI Scout (Sprint 26)
+
+Generative pre-match + post-match insights powered by **Groq (Llama 3.1 8B Instant)**. $0 budget, zero client-side API calls, graceful degradation when Groq fails.
+
+### Architecture — "Compute Once, Serve Infinite"
+
+1. Backend generates text ONCE per match per language and writes it to Supabase
+2. Frontend reads plain text — never calls Groq directly
+3. If `GROQ_API_KEY` is missing or a call fails/times out, the columns stay NULL and the frontend **completely hides** the AI UI. The app MUST NEVER BREAK.
+
+### Schema
+
+```sql
+-- migrations/025 (EN) and 034 (HE)
+matches.ai_pre_match_insight       text null
+matches.ai_pre_match_insight_he    text null
+matches.ai_post_match_summary      text null
+matches.ai_post_match_summary_he   text null
+```
+
+All four columns are independently nullable — partial coverage is the norm (e.g. EN written, HE pending next cycle).
+
+### Backend — `backend/src/services/aiScout.ts`
+
+| Function | Called from | Purpose |
+|----------|-------------|---------|
+| `getApiKey()` | all public fns | Returns `null` if `GROQ_API_KEY` is unset → everything becomes silent no-op |
+| `callGroq(messages, maxTokens)` | internal | axios POST to Groq, 12s timeout, strips wrapping quotes, clamps to 500 chars, swallows all errors |
+| `generatePreMatchInsight(ctx, lang)` | batch | One punchy sentence (≤22 words). `lang` is `'en'` or `'he'` — each has its own system + user prompt |
+| `generatePostMatchSummary(ctx, lang)` | batch + ensure | Two witty sentences (≤40 words). Same lang switch |
+| `writeInsight(matchId, column, text)` | internal | UPDATE with `.is(column, null)` guard so concurrent workers never overwrite |
+| `runPreMatchBatch(limit=2)` | `matchSync.ts` | Processes NS matches in the next 24h missing EN OR HE; fills whichever is null |
+| `runPostMatchBatch(limit=3)` | `matchSync.ts` | Backfills FT matches from the last 7 days missing EN OR HE |
+| `ensurePostMatchSummary(matchId)` | `scoreUpdater.ts` | On FT transition, generates whichever of EN/HE is still null |
+
+### Why two batch functions and not one per-match trigger
+
+The per-FT-transition `ensurePostMatchSummary` only fires when a score resolver flips a match NS→FT. Every match that was already FT when Sprint 26 shipped — or that had EN but no HE when Sprint 26-HE shipped — never triggers. `runPostMatchBatch` is the sweeper: it runs every sync cycle (every 5 min via `sync-cron.yml`) and chips away at the backlog 3 at a time.
+
+### Frontend rendering
+
+Shared component: `components/ui/AIScoutCard.tsx` — rotating conic-gradient border (Framer Motion, 7s linear), dark navy glass inner card, Sparkles icon with wobble, `tone: 'pre' | 'post'` switches gradient colors.
+
+Three render sites — **all are lang-aware** via `useLangStore`:
+
+```tsx
+const { lang } = useLangStore();
+const text = (lang === 'he' && match.ai_X_he) || match.ai_X;
+```
+
+Graceful fallback: if HE is still null but EN exists, Hebrew users see EN for now (until the next batch cycle fills HE).
+
+| Site | File | Condition |
+|------|------|-----------|
+| Inline in expanded MatchCard | `MatchCard.tsx` | `match.status === 'NS'` — surfaced above Tactical Intel so it's visible without opening the prediction modal |
+| Top of prediction modal | `PredictionForm.tsx` | non-locked NS form — second place users can see it while placing a bet |
+| Top of MatchStats | `MatchStats.tsx` | `match.status === 'FT'` — above the ESPN stats collapse button |
+
+The `AIScoutCard` component itself returns `null` when `text` is falsy, so forgetting the lang-aware fallback in a new call site fails gracefully (just shows nothing) instead of breaking.
+
+### mergeMatches must include the AI columns
+
+`useMatches.ts → mergeMatches` preserves object identity for unchanged matches so React's memo bails out of subtree re-renders. All four AI columns MUST be in the identity comparison — without them, a background sync that only wrote an AI column silently drops the new text (stale reference, no re-render). This bit us once; fixed in commit `c905bf4`.
+
+```typescript
+p.ai_pre_match_insight     === m.ai_pre_match_insight     &&
+p.ai_pre_match_insight_he  === m.ai_pre_match_insight_he  &&
+p.ai_post_match_summary    === m.ai_post_match_summary    &&
+p.ai_post_match_summary_he === m.ai_post_match_summary_he
+```
+
+### Rate limiting
+
+Groq free tier returns **429** after bursts of ~30 requests. The backfill scripts (`backend/src/scripts/backfillPostMatch.ts`, `backfillHebrew.ts`) will hit this — by design they just log and continue; the sync cron fills the rest at 3 matches/cycle over time. Do not add retry/backoff — the silent-fail pattern is correct; the cron is the retry loop.
+
+### i18n keys
+
+```typescript
+aiScoutLabel          // "AI Scout" / "סייר AI"
+aiScoutPreMatchTitle  // "Scout Insight" / "תובנת הסייר"
+aiScoutPostMatchTitle // "Match Recap" / "סיכום המשחק"
+```
+
+### Rules
+
+- **Never call Groq from the frontend.** Only the backend has the API key; frontend is pure consumer.
+- **Never throw from an AI function.** Every public function in `aiScout.ts` must swallow errors and log at `warn` level. A Groq outage must not break sync, score resolution, or any UI.
+- **Never use `.update()` without `.is(column, null)`** when persisting an insight. Concurrent workers (Render scheduler + GitHub Actions cron + backfill script) all run the same queries; the null-guard is the only thing preventing overwrites.
+- **Always generate both EN and HE** for a match when producing a new insight. Skipping HE "because the user is in EN mode" defeats the architecture — insights are cached at the DB level per language, not per user session.
+- **New render site?** Use the lang-aware pattern shown above. Never hardcode `match.ai_pre_match_insight` — Hebrew users will see English text.
+- **Rotate the Groq API key if it ever appears in chat, git, or logs.** Current key lives only in `backend/.env` on Render and the local dev `.env`; both are gitignored.
