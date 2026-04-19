@@ -24,7 +24,9 @@ function mergeMatches(prev: Match[], next: Match[]): Match[] {
       p.penalty_home   === m.penalty_home   &&
       p.penalty_away   === m.penalty_away   &&
       p.halftime_home  === m.halftime_home  &&
-      p.halftime_away  === m.halftime_away
+      p.halftime_away  === m.halftime_away  &&
+      p.ai_pre_match_insight  === m.ai_pre_match_insight  &&
+      p.ai_post_match_summary === m.ai_post_match_summary
     ) {
       return p; // nothing changed — same reference, React bails out of subtree
     }
