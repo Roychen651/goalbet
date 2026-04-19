@@ -217,6 +217,65 @@ export async function runPreMatchBatch(limit = 2): Promise<void> {
 }
 
 /**
+ * Backfill post-match summaries for recent FT matches missing one.
+ *
+ * The per-match `ensurePostMatchSummary` only fires on the FT *transition*;
+ * matches that were already FT when Sprint 26 shipped never trigger it. This
+ * batch is called on the same sync cycle as the pre-match batch so recent
+ * backlog gets filled in gradually without hammering Groq.
+ */
+export async function runPostMatchBatch(limit = 3): Promise<void> {
+  if (!getApiKey()) return;
+
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: rows, error } = await supabaseAdmin
+      .from('matches')
+      .select('id, home_team, away_team, league_name, home_score, away_score, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, corners_total')
+      .eq('status', 'FT')
+      .is('ai_post_match_summary', null)
+      .not('home_score', 'is', null)
+      .not('away_score', 'is', null)
+      .gte('kickoff_time', sevenDaysAgo)
+      .order('kickoff_time', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      logger.warn(`[aiScout] Post-match batch query failed: ${error.message}`);
+      return;
+    }
+
+    if (!rows || rows.length === 0) return;
+
+    logger.info(`[aiScout] Generating post-match summary for ${rows.length} match(es)`);
+
+    for (const row of rows) {
+      const summary = await generatePostMatchSummary({
+        matchId: row.id,
+        homeTeam: row.home_team,
+        awayTeam: row.away_team,
+        leagueName: row.league_name,
+        homeScore: row.home_score,
+        awayScore: row.away_score,
+        regulationHome: row.regulation_home,
+        regulationAway: row.regulation_away,
+        wentToPenalties: row.went_to_penalties,
+        penaltyHome: row.penalty_home,
+        penaltyAway: row.penalty_away,
+        cornersTotal: row.corners_total,
+      });
+      if (summary) {
+        await writeInsight(row.id, 'ai_post_match_summary', summary);
+        logger.info(`[aiScout] Post-match summary saved for ${row.home_team} ${row.home_score}-${row.away_score} ${row.away_team}`);
+      }
+    }
+  } catch (err) {
+    logger.warn(`[aiScout] runPostMatchBatch crashed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/**
  * Generate the post-match summary for a single FT match that still has null
  * `ai_post_match_summary`. Called inline from the score resolver after a match
  * flips to FT. Errors swallowed.
