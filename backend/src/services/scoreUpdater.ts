@@ -2,7 +2,7 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, fetchMatchHalftimeScore, fetchMatchLinescoreRepair, fetchMatchKeyEvents, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
 import { calculatePoints } from './pointsEngine';
 import { logger } from '../lib/logger';
-import { ensurePostMatchSummary } from './aiScout';
+import { ensurePostMatchSummary, ensureChronicle } from './aiScout';
 
 interface PendingMatch {
   id: string;
@@ -168,6 +168,8 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
   home_team?: string;
   away_team?: string;
   kickoff_time?: string;
+  league_id?: number;
+  league_name?: string | null;
 }): Promise<number> {
   const { data: predictions, error } = await supabaseAdmin
     .from('predictions')
@@ -236,6 +238,26 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
         // Skip coins/notifications/leaderboard to avoid duplicates.
         logger.debug(`[scoreUpdater] Prediction ${prediction.id} already claimed by another worker — skipping side effects`);
         continue;
+      }
+
+      // ── Chronicler: mythic saga on perfect +10 on a high-profile match ──
+      // Fully async, swallows all errors internally — never blocks resolution.
+      // Idempotent via unique (user_id, match_id) index on user_chronicles.
+      if (finalPoints >= 10 && matchResult.league_id !== undefined) {
+        void ensureChronicle({
+          userId: prediction.user_id,
+          matchId,
+          groupId: prediction.group_id,
+          pointsEarned: finalPoints,
+          predictedHome: prediction.predicted_home_score,
+          predictedAway: prediction.predicted_away_score,
+          finalHome: scoringResult.home_score,
+          finalAway: scoringResult.away_score,
+          homeTeam: matchResult.home_team ?? '',
+          awayTeam: matchResult.away_team ?? '',
+          leagueId: matchResult.league_id,
+          leagueName: matchResult.league_name ?? null,
+        });
       }
 
       // Only fetch leaderboard AFTER winning the claim — avoids stale reads.
@@ -457,6 +479,8 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
               home_team: effectiveData.home_team,
               away_team: effectiveData.away_team,
               kickoff_time: match.kickoff_time,
+              league_id: match.league_id,
+              league_name: effectiveData.league_name,
             });
             totalResolved += count;
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
@@ -509,6 +533,8 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
                 home_team: effectiveData.home_team,
                 away_team: effectiveData.away_team,
                 kickoff_time: match.kickoff_time,
+                league_id: match.league_id,
+                league_name: effectiveData.league_name,
               });
               if (count > 0) {
                 totalResolved += count;
@@ -643,12 +669,12 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
     if (stuckMatchIds.length > 0) {
       const { data: ftStuck } = await supabaseAdmin
         .from('matches')
-        .select('id, kickoff_time, home_score, away_score, corners_total, regulation_home, regulation_away, home_team, away_team')
+        .select('id, kickoff_time, home_score, away_score, corners_total, regulation_home, regulation_away, home_team, away_team, league_id, league_name')
         .eq('status', 'FT')
         .not('home_score', 'is', null)
         .in('id', stuckMatchIds);
 
-      for (const m of (ftStuck ?? []) as { id: string; kickoff_time: string; home_score: number; away_score: number; corners_total: number | null; regulation_home: number | null; regulation_away: number | null; home_team: string; away_team: string }[]) {
+      for (const m of (ftStuck ?? []) as { id: string; kickoff_time: string; home_score: number; away_score: number; corners_total: number | null; regulation_home: number | null; regulation_away: number | null; home_team: string; away_team: string; league_id: number; league_name: string | null }[]) {
         const count = await resolveMatchPredictions(m.id, {
           home_score: m.home_score,
           away_score: m.away_score,
@@ -658,6 +684,8 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
           home_team: m.home_team,
           away_team: m.away_team,
           kickoff_time: m.kickoff_time,
+          league_id: m.league_id,
+          league_name: m.league_name,
         });
         if (count > 0) {
           totalResolved += count;

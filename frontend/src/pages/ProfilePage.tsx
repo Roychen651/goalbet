@@ -14,6 +14,7 @@ import { MatchStatusBadge } from '../components/matches/MatchStatusBadge';
 import { PredictionForm, PredictionData } from '../components/matches/PredictionForm';
 import { AvatarPicker } from '../components/profile/AvatarPicker';
 import { ProfileBentoV2 } from '../components/profile/ProfileBentoV2';
+import { HallOfFameChronicles } from '../components/profile/HallOfFameChronicles';
 import { formatKickoffTime, isMatchLocked, calcBreakdown } from '../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, calcPredictionCost } from '../lib/constants';
 import { InfoTip } from '../components/ui/InfoTip';
@@ -552,6 +553,9 @@ export function ProfilePage() {
           )}
         </motion.div>
       )}
+
+      {/* ── Hall of Fame Chronicles ──────────────────────────────────────── */}
+      {user && <HallOfFameChronicles userId={user.id} />}
 
       {/* Prediction sections */}
       {loading ? (

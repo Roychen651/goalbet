@@ -2,7 +2,7 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, LEAGUE_ESPN_MAP } from './espn';
 import { DBMatch } from './sportsdb';
 import { logger } from '../lib/logger';
-import { runPreMatchBatch, runPostMatchBatch } from './aiScout';
+import { runPreMatchBatch, runPostMatchBatch, runHTInsightBatch } from './aiScout';
 
 export interface SyncResult {
   leagueId: number;
@@ -120,6 +120,7 @@ export async function syncAllActiveLeagues(): Promise<SyncResult[]> {
   // AI Scout — small batches each cycle so we never spam Groq.
   // Silent no-op if GROQ_API_KEY isn't set. Fully try/catch'd internally.
   await runPreMatchBatch(2);
+  await runHTInsightBatch(2);
   await runPostMatchBatch(3);
 
   return results;

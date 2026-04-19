@@ -13,6 +13,7 @@
 import axios from 'axios';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { logger } from './../lib/logger';
+import { fetchMatchKeyEvents, type MatchKeyEvent } from './espn';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
@@ -215,7 +216,9 @@ type InsightColumn =
   | 'ai_pre_match_insight'
   | 'ai_pre_match_insight_he'
   | 'ai_post_match_summary'
-  | 'ai_post_match_summary_he';
+  | 'ai_post_match_summary_he'
+  | 'ai_ht_insight'
+  | 'ai_ht_insight_he';
 
 async function writeInsight(matchId: string, column: InsightColumn, text: string): Promise<void> {
   const { error } = await supabaseAdmin
@@ -407,5 +410,330 @@ export async function ensurePostMatchSummary(matchId: string): Promise<void> {
     }
   } catch (err) {
     logger.warn(`[aiScout] ensurePostMatchSummary crashed for ${matchId}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// ── HT Tactical Read ────────────────────────────────────────────────────────
+//
+// Sprint 27. When a match flips to HT and ai_ht_insight IS NULL, we pull the
+// first-half key events from ESPN, compress them into a terse factual brief,
+// and ask Groq for ONE urgent tactical sentence predicting the second half.
+// Goes silent on any failure — the UI hides the ticker entirely.
+
+interface HTContext {
+  matchId: string;
+  homeTeam: string;
+  awayTeam: string;
+  leagueName: string | null;
+  halftimeHome: number | null;
+  halftimeAway: number | null;
+  firstHalfEvents: MatchKeyEvent[];
+}
+
+const HT_SYSTEM_EN = `You are a live elite tactical analyst on broadcast TV at half time.
+Given the first-half situation, output ONE urgent, tactical sentence predicting the second half (≤ 24 words).
+Sound confident, sharp, punchy — like a lower-third graphic overlay read on live air.
+Do not invent stats or player names beyond what is given. Never wrap in quotes. Output the sentence only.`;
+
+const HT_SYSTEM_HE = `אתה פרשן טקטי אליטיסטי בשידור חי בהפסקה.
+בהינתן מצב המחצית הראשונה, החזר משפט טקטי אחד דחוף שחוזה את המחצית השנייה (עד 24 מילים).
+הישמע בטוח, חד, נוקב — כמו טקסט גרפיקה תחתית בשידור חי.
+אל תמציא סטטיסטיקות או שמות שחקנים מעבר למה שניתן. לעולם אל תעטוף במרכאות. החזר את המשפט בלבד, בעברית תקנית.`;
+
+function summarizeFirstHalfEvents(events: MatchKeyEvent[], lang: 'en' | 'he'): string {
+  const firstHalf = events.filter(e => e.period === 1).slice(0, 14);
+  if (firstHalf.length === 0) {
+    return lang === 'he' ? 'ללא אירועים בולטים שנרשמו.' : 'No major events recorded.';
+  }
+  const lines: string[] = [];
+  for (const ev of firstHalf) {
+    const minute = ev.extraTime !== null ? `${ev.minute}+${ev.extraTime}'` : `${ev.minute}'`;
+    const side = ev.team === 'home' ? 'home' : 'away';
+    const sideHe = ev.team === 'home' ? 'בית' : 'חוץ';
+    if (lang === 'he') {
+      const typeHe = ev.type === 'goal' ? 'שער' :
+        ev.type === 'own_goal' ? 'שער עצמי' :
+        ev.type === 'penalty_goal' ? 'פנדל מוצלח' :
+        ev.type === 'yellow_card' ? 'כרטיס צהוב' :
+        ev.type === 'red_card' ? 'כרטיס אדום' :
+        ev.type === 'second_yellow' ? 'צהוב שני' : 'חילוף';
+      lines.push(`${minute} ${sideHe}: ${typeHe}`);
+    } else {
+      const typeEn = ev.type.replace(/_/g, ' ');
+      lines.push(`${minute} ${side}: ${typeEn}`);
+    }
+  }
+  return lines.join('; ');
+}
+
+async function generateHTInsight(ctx: HTContext, lang: 'en' | 'he'): Promise<string | null> {
+  if (lang === 'he') {
+    const league = ctx.leagueName ?? 'ליגה בכירה';
+    const score = ctx.halftimeHome !== null && ctx.halftimeAway !== null
+      ? `${ctx.halftimeHome}-${ctx.halftimeAway}`
+      : 'לא ידוע';
+    const eventsSummary = summarizeFirstHalfEvents(ctx.firstHalfEvents, 'he');
+    const user =
+      `משחק: ${ctx.homeTeam} מול ${ctx.awayTeam}\n` +
+      `תחרות: ${league}\n` +
+      `תוצאת מחצית: ${score}\n` +
+      `אירועי מחצית ראשונה: ${eventsSummary}\n\n` +
+      `קרא את המצב. כתוב משפט טקטי דחוף אחד שחוזה מה יקרה בחצי השני.`;
+    return callGroq(
+      [
+        { role: 'system', content: HT_SYSTEM_HE },
+        { role: 'user', content: user },
+      ],
+      200,
+    );
+  }
+
+  const league = ctx.leagueName ?? 'top-flight competition';
+  const score = ctx.halftimeHome !== null && ctx.halftimeAway !== null
+    ? `${ctx.halftimeHome}-${ctx.halftimeAway}`
+    : 'unknown';
+  const eventsSummary = summarizeFirstHalfEvents(ctx.firstHalfEvents, 'en');
+  const user =
+    `Match: ${ctx.homeTeam} vs ${ctx.awayTeam}\n` +
+    `Competition: ${league}\n` +
+    `Half-time score: ${score}\n` +
+    `First-half events: ${eventsSummary}\n\n` +
+    `Read the room. Write ONE urgent tactical sentence predicting what happens in the second half.`;
+
+  return callGroq(
+    [
+      { role: 'system', content: HT_SYSTEM_EN },
+      { role: 'user', content: user },
+    ],
+    140,
+  );
+}
+
+/**
+ * Fetch up to `limit` currently-HT matches missing an HT insight and populate
+ * them. Intended to be called from the sync cycle. Errors swallowed.
+ */
+export async function runHTInsightBatch(limit = 2): Promise<void> {
+  if (!getApiKey()) return;
+
+  try {
+    const { data: rows, error } = await supabaseAdmin
+      .from('matches')
+      .select('id, external_id, home_team, away_team, league_id, league_name, halftime_home, halftime_away, ai_ht_insight, ai_ht_insight_he')
+      .eq('status', 'HT')
+      .or('ai_ht_insight.is.null,ai_ht_insight_he.is.null')
+      .order('kickoff_time', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      logger.warn(`[aiScout] HT batch query failed: ${error.message}`);
+      return;
+    }
+
+    if (!rows || rows.length === 0) return;
+
+    logger.info(`[aiScout] Generating HT insight for ${rows.length} match(es)`);
+
+    for (const row of rows) {
+      const events = (await fetchMatchKeyEvents(row.external_id, row.league_id)) ?? [];
+      const ctx: HTContext = {
+        matchId: row.id,
+        homeTeam: row.home_team,
+        awayTeam: row.away_team,
+        leagueName: row.league_name,
+        halftimeHome: row.halftime_home,
+        halftimeAway: row.halftime_away,
+        firstHalfEvents: events,
+      };
+
+      if (!row.ai_ht_insight) {
+        const en = await generateHTInsight(ctx, 'en');
+        if (en) {
+          await writeInsight(row.id, 'ai_ht_insight', en);
+          logger.info(`[aiScout] HT EN insight saved for ${row.home_team} vs ${row.away_team}`);
+        }
+      }
+      if (!row.ai_ht_insight_he) {
+        const he = await generateHTInsight(ctx, 'he');
+        if (he) {
+          await writeInsight(row.id, 'ai_ht_insight_he', he);
+          logger.info(`[aiScout] HT HE insight saved for ${row.home_team} vs ${row.away_team}`);
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn(`[aiScout] runHTInsightBatch crashed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// ── Chronicler ──────────────────────────────────────────────────────────────
+//
+// Sprint 27. When a user scores a perfect +10 (result + exact score both right)
+// on a high-profile match, Groq writes a 3-sentence mythical saga and we persist
+// it to user_chronicles. Errors swallowed — zero disruption to the score
+// resolution path.
+
+// High-profile league IDs: top-5 European leagues + major UEFA/FIFA competitions.
+// Matches the prominence bar we want for "Hall of Fame" status.
+const HIGH_PROFILE_LEAGUE_IDS = new Set<number>([
+  4328, // Premier League
+  4335, // La Liga
+  4331, // Bundesliga
+  4332, // Serie A
+  4334, // Ligue 1
+  4346, // Champions League
+  4399, // Europa League
+  4877, // Conference League
+  4480, // World Cup
+  4635, // UEFA Nations League
+  5000, // World Cup Qualifiers 2026
+]);
+
+const CHRONICLER_SYSTEM_EN = `You are a mythic sports chronicler narrating an impossible feat of prediction.
+Given the user and match, write THREE dramatic, epic, slightly mythical sentences (≤ 70 words total) celebrating their perfect prediction.
+Act like an ancient saga. Use vivid imagery. Do not invent specific stats, quotes, or events you were not given.
+Output the prose only — no title, no quotes, no bullet points.`;
+
+const CHRONICLER_SYSTEM_HE = `אתה היסטוריון ספורט מיתי המספר על מעשה ניחוש בלתי אפשרי.
+בהינתן המשתמש והמשחק, כתוב שלושה משפטים דרמטיים, אפיים ומעט מיתיים (עד 70 מילים סך הכל) שחוגגים את הניחוש המושלם שלו.
+הישמע כמו סאגה עתיקה. השתמש בדימויים חזותיים חיים. אל תמציא סטטיסטיקות, ציטוטים או אירועים שלא ניתנו לך.
+החזר את הפרוזה בלבד — ללא כותרת, ללא מרכאות, ללא תבליטים. בעברית תקנית.`;
+
+interface ChronicleContext {
+  username: string;
+  homeTeam: string;
+  awayTeam: string;
+  leagueName: string | null;
+  finalHome: number;
+  finalAway: number;
+}
+
+async function generateChronicleText(ctx: ChronicleContext, lang: 'en' | 'he'): Promise<string | null> {
+  if (lang === 'he') {
+    const league = ctx.leagueName ?? 'ליגה';
+    const user =
+      `משתמש: ${ctx.username}\n` +
+      `משחק: ${ctx.homeTeam} מול ${ctx.awayTeam}\n` +
+      `תחרות: ${league}\n` +
+      `תוצאה סופית מנחשת במדויק: ${ctx.finalHome}-${ctx.finalAway}\n\n` +
+      `${ctx.username} ניחש את התוצאה המדויקת הבלתי נתפסת של המשחק הזה. כתוב סאגה מיתית בת שלושה משפטים.`;
+    return callGroq(
+      [
+        { role: 'system', content: CHRONICLER_SYSTEM_HE },
+        { role: 'user', content: user },
+      ],
+      320,
+    );
+  }
+
+  const league = ctx.leagueName ?? 'top-flight football';
+  const user =
+    `User: ${ctx.username}\n` +
+    `Match: ${ctx.homeTeam} vs ${ctx.awayTeam}\n` +
+    `Competition: ${league}\n` +
+    `Exact predicted final score: ${ctx.finalHome}-${ctx.finalAway}\n\n` +
+    `${ctx.username} just guessed the exact unbelievable score of this match. Write the three-sentence mythical saga.`;
+
+  return callGroq(
+    [
+      { role: 'system', content: CHRONICLER_SYSTEM_EN },
+      { role: 'user', content: user },
+    ],
+    220,
+  );
+}
+
+function buildChronicleTitle(ctx: ChronicleContext, lang: 'en' | 'he'): string {
+  const score = `${ctx.finalHome}-${ctx.finalAway}`;
+  if (lang === 'he') {
+    return `${ctx.homeTeam} נגד ${ctx.awayTeam} · ${score}`;
+  }
+  return `${ctx.homeTeam} vs ${ctx.awayTeam} · ${score}`;
+}
+
+export interface ChronicleSeed {
+  userId: string;
+  matchId: string;
+  groupId: string | null;
+  pointsEarned: number;
+  predictedHome: number | null;
+  predictedAway: number | null;
+  finalHome: number;
+  finalAway: number;
+  homeTeam: string;
+  awayTeam: string;
+  leagueId: number;
+  leagueName: string | null;
+}
+
+/**
+ * If the seed qualifies (perfect +10 on high-profile league), write a chronicle
+ * row with EN + HE epic text. No-op on duplicate (unique index on user+match),
+ * missing key, non-qualifying league, or Groq failure. Never throws.
+ */
+export async function ensureChronicle(seed: ChronicleSeed): Promise<void> {
+  try {
+    if (seed.pointsEarned < 10) return;
+    if (!HIGH_PROFILE_LEAGUE_IDS.has(seed.leagueId)) return;
+    if (!getApiKey()) return;
+
+    // Skip if we already wrote one (idempotent across concurrent resolvers)
+    const { data: existing } = await supabaseAdmin
+      .from('user_chronicles')
+      .select('id')
+      .eq('user_id', seed.userId)
+      .eq('match_id', seed.matchId)
+      .maybeSingle();
+    if (existing) return;
+
+    // Username for the prose
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('username')
+      .eq('id', seed.userId)
+      .single();
+    const username = profile?.username ?? 'The Oracle';
+
+    const ctx: ChronicleContext = {
+      username,
+      homeTeam: seed.homeTeam,
+      awayTeam: seed.awayTeam,
+      leagueName: seed.leagueName,
+      finalHome: seed.finalHome,
+      finalAway: seed.finalAway,
+    };
+
+    const [en, he] = await Promise.all([
+      generateChronicleText(ctx, 'en'),
+      generateChronicleText(ctx, 'he'),
+    ]);
+
+    if (!en) return; // EN is required; if Groq fails, skip the row entirely
+
+    const { error } = await supabaseAdmin.from('user_chronicles').insert({
+      user_id: seed.userId,
+      match_id: seed.matchId,
+      group_id: seed.groupId,
+      title: buildChronicleTitle(ctx, 'en'),
+      epic_text: en,
+      epic_text_he: he ?? null,
+      predicted_home: seed.predictedHome,
+      predicted_away: seed.predictedAway,
+      final_home: seed.finalHome,
+      final_away: seed.finalAway,
+      points_earned: seed.pointsEarned,
+    });
+
+    if (error) {
+      // Unique-violation = concurrent resolver beat us, which is fine
+      if (!/duplicate|unique/i.test(error.message)) {
+        logger.warn(`[aiScout] Chronicle insert failed for ${username} / ${seed.matchId}: ${error.message}`);
+      }
+      return;
+    }
+
+    logger.info(`[aiScout] Chronicle written for ${username} — ${seed.homeTeam} ${seed.finalHome}-${seed.finalAway} ${seed.awayTeam}`);
+  } catch (err) {
+    logger.warn(`[aiScout] ensureChronicle crashed for user ${seed.userId} match ${seed.matchId}: ${err instanceof Error ? err.message : String(err)}`);
   }
 }

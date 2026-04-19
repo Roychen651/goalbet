@@ -88,6 +88,27 @@ export type Database = {
           ai_pre_match_insight_he: string | null;
           ai_post_match_summary: string | null;
           ai_post_match_summary_he: string | null;
+          ai_ht_insight: string | null;
+          ai_ht_insight_he: string | null;
+        };
+        Insert: never;
+        Update: never;
+      };
+      user_chronicles: {
+        Row: {
+          id: string;
+          user_id: string;
+          match_id: string;
+          group_id: string | null;
+          title: string;
+          epic_text: string;
+          epic_text_he: string | null;
+          predicted_home: number | null;
+          predicted_away: number | null;
+          final_home: number | null;
+          final_away: number | null;
+          points_earned: number;
+          created_at: string;
         };
         Insert: never;
         Update: never;
@@ -144,6 +165,7 @@ export type GroupMember = Database['public']['Tables']['group_members']['Row'];
 export type Match = Database['public']['Tables']['matches']['Row'];
 export type Prediction = Database['public']['Tables']['predictions']['Row'];
 export type LeaderboardEntry = Database['public']['Tables']['leaderboard']['Row'];
+export type Chronicle = Database['public']['Tables']['user_chronicles']['Row'];
 
 export interface LeaderboardEntryWithProfile extends LeaderboardEntry {
   rank: number;

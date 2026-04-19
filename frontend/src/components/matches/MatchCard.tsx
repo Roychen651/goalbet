@@ -10,6 +10,7 @@ import { MatchStats } from './MatchStats';
 import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
 import { AIScoutCard } from '../ui/AIScoutCard';
+import { HTAnalystCard } from '../ui/HTAnalystCard';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown, isMatchLocked } from '../../lib/utils';
 import { CoinIcon } from '../ui/CoinIcon';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../../lib/constants';
@@ -763,6 +764,14 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
                         title="aiScoutPreMatchTitle"
                         text={(lang === 'he' && match.ai_pre_match_insight_he) || match.ai_pre_match_insight}
                         tone="pre"
+                      />
+                    </div>
+                  )}
+                  {/* HT Broadcast Ticker — live tactical read at half time */}
+                  {match.status === 'HT' && ((lang === 'he' && match.ai_ht_insight_he) || match.ai_ht_insight) && (
+                    <div className="mb-3">
+                      <HTAnalystCard
+                        text={(lang === 'he' && match.ai_ht_insight_he) || match.ai_ht_insight}
                       />
                     </div>
                   )}

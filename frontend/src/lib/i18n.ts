@@ -574,6 +574,11 @@ export const translations = {
     aiScoutLabel: 'AI Scout',
     aiScoutPreMatchTitle: 'Scout Insight',
     aiScoutPostMatchTitle: 'Match Recap',
+
+    // Sprint 27 — HT Analyst + Hall of Fame Chronicles
+    aiLiveReadLabel: 'LIVE AI READ',
+    aiHTAnalystTitle: 'Half-Time Read',
+    chroniclesTitle: 'Chronicles',
   },
 
   he: {
@@ -1146,6 +1151,11 @@ export const translations = {
     aiScoutLabel: 'סייר AI',
     aiScoutPreMatchTitle: 'תובנת הסייר',
     aiScoutPostMatchTitle: 'סיכום המשחק',
+
+    // Sprint 27 — HT Analyst + Hall of Fame Chronicles
+    aiLiveReadLabel: 'ניתוח AI חי',
+    aiHTAnalystTitle: 'ניתוח מחצית',
+    chroniclesTitle: 'כרוניקות',
   },
 } as const;
 
