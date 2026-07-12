@@ -1,14 +1,19 @@
-import { useMemo, useState, useCallback, useRef } from 'react';
+import { useMemo, useState, useCallback, useRef, createContext, useContext } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform, type Variants } from 'framer-motion';
 import {
   Trophy, Calendar, MapPin, Users, Target, CalendarDays,
   LayoutGrid, ListOrdered, GitBranch, Building2, ChevronRight,
-  Sparkles, Ticket,
+  Sparkles, Ticket, Check,
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, isMatchLocked } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
 import { useUIStore } from '../../stores/uiStore';
 import { type TranslationKey } from '../../lib/i18n';
+import type { Match } from '../../lib/supabase';
+import { useWorldCupMatches } from '../../hooks/useWorldCupMatches';
+import { usePredictions } from '../../hooks/usePredictions';
+import { PredictionModal } from '../matches/PredictionModal';
+import type { PredictionData } from '../matches/PredictionForm';
 import wcTrophyAsset from '../../assets/world-cup-trophy.svg';
 import {
   WC2026_INFO,
@@ -27,6 +32,91 @@ type T = (key: TranslationKey) => string;
 type KickoffState = { days: number; phase: 'pre' | 'live' | 'ended' };
 type TabId = 'groups' | 'fixtures' | 'knockouts' | 'venues';
 type BracketRound = 'r32' | 'r16' | 'qf' | 'sf' | 'final' | 'third';
+
+/* ═════════════════════════ LIVE OVERLAY ═════════════════════════
+   The bracket's structure (groups, FIFA match numbers, venues, knockout
+   tree) is static — the DB can't supply it. But once league 4480 syncs from
+   ESPN, real match rows (teams, kickoff, status, score) DO exist. We overlay
+   them onto the static scaffold by matching on the unordered pair of team
+   names, so fixture cards show live scores and enable real predictions.
+   ═════════════════════════════════════════════════════════════════ */
+
+// National-team name variants that differ between our static data and ESPN.
+// Keys/values are the normalised (lowercase, de-accented, alpha-only) form.
+const TEAM_ALIASES: Record<string, string> = {
+  turkiye: 'turkey',
+  korearepublic: 'southkorea',
+  iranislamicrepublicof: 'iran',
+  cotedivoire: 'ivorycoast',
+  unitedstates: 'usa',
+  unitedstatesofamerica: 'usa',
+  us: 'usa',
+  bosniaherzegovina: 'bosnia',
+  bosniaandherzegovina: 'bosnia',
+  czechia: 'czechrepublic',
+};
+
+function normTeam(name: string): string {
+  const base = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]/g, '');
+  return TEAM_ALIASES[base] ?? base;
+}
+
+// Order-independent key for a fixture (ESPN home/away may differ from ours).
+function teamPairKey(a: string, b: string): string {
+  return [normTeam(a), normTeam(b)].sort().join('|');
+}
+
+interface WCLive {
+  /** Resolve a static fixture to its live DB row, if synced. */
+  findLive: (homeName: string, awayName: string) => Match | undefined;
+  /** Match IDs the current user has already predicted (in the active group). */
+  predictedIds: Set<string>;
+  /** Open the standard prediction modal for a synced match. */
+  openPredict: (matchId: string) => void;
+}
+
+const WCLiveContext = createContext<WCLive | null>(null);
+const useWCLive = () => useContext(WCLiveContext);
+
+// Orient a DB score to a static fixture's home/away perspective.
+function orientedScore(fixtureHome: string, live: Match): { home: number | null; away: number | null } {
+  const homeIsDbHome = normTeam(fixtureHome) === normTeam(live.home_team);
+  return homeIsDbHome
+    ? { home: live.home_score, away: live.away_score }
+    : { home: live.away_score, away: live.home_score };
+}
+
+// Compact live status/score pill shown on fixture cards once a match exists.
+function LiveScorePill({ fixtureHome, live }: { fixtureHome: string; live: Match }) {
+  const { t } = useLangStore();
+  if (live.status === 'NS') return null;
+  const s = orientedScore(fixtureHome, live);
+  if (s.home == null || s.away == null) return null;
+  const isLive = ['1H', 'HT', '2H', 'ET1', 'ET2', 'PEN'].includes(live.status);
+  const isFT = live.status === 'FT';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 leading-none shrink-0 border tabular-nums',
+        isLive
+          ? 'border-accent-green/45 bg-accent-green/10 text-accent-green'
+          : 'border-[#FFC94A]/25 bg-[#FFC94A]/[0.06] text-white/85',
+      )}
+    >
+      {isLive && (
+        <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+      )}
+      <span className="font-bebas text-[13px] tracking-wide">{s.home}–{s.away}</span>
+      <span className="text-[8px] font-extrabold uppercase tracking-[0.12em] opacity-70">
+        {isFT ? t('fullTime_status') : isLive ? t('live') : live.status}
+      </span>
+    </span>
+  );
+}
 
 const tabFade: Variants = {
   enter:  { opacity: 0, y: 8 },
@@ -53,7 +143,38 @@ export function WorldCupBracket() {
   const shortDateFmt = useMemo(() => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }), [locale]);
   const dayDateFmt   = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short' }), [locale]);
 
+  // ── Live overlay: real synced WC matches hydrate the static scaffold ──────
+  const { matches: wcLive } = useWorldCupMatches();
+  const openPredictionModal = useUIStore(s => s.openPredictionModal);
+  const addToast = useUIStore(s => s.addToast);
+
+  const liveIndex = useMemo(() => {
+    const map = new Map<string, Match>();
+    for (const m of wcLive) map.set(teamPairKey(m.home_team, m.away_team), m);
+    return map;
+  }, [wcLive]);
+
+  const liveIds = useMemo(() => wcLive.map(m => m.id), [wcLive]);
+  const { predictions, saving, savePrediction } = usePredictions(liveIds);
+  const predictedIds = useMemo(() => new Set(predictions.keys()), [predictions]);
+
+  const liveCtx = useMemo<WCLive>(() => ({
+    findLive: (h, a) => liveIndex.get(teamPairKey(h, a)),
+    predictedIds,
+    openPredict: openPredictionModal,
+  }), [liveIndex, predictedIds, openPredictionModal]);
+
+  const handleSavePrediction = useCallback(async (data: PredictionData) => {
+    try {
+      await savePrediction(data);
+      addToast(t('predictionSavedToast'), 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : t('failedLoadMatches'), 'error');
+    }
+  }, [savePrediction, addToast, t]);
+
   return (
+    <WCLiveContext.Provider value={liveCtx}>
     <div ref={containerRef} className="wc-fullbleed wc-atmosphere py-6 md:py-8 space-y-5 md:space-y-6">
       {/* Tri-Host Aurora — Mexico green · USA cyan · Canada crimson, drifting */}
       <div aria-hidden className="wc-aurora">
@@ -86,7 +207,17 @@ export function WorldCupBracket() {
           {tab === 'venues'    && <VenuesTab    t={t} />}
         </motion.div>
       </AnimatePresence>
+
+      {/* Standard prediction modal — fed by synced WC matches. Opening is gated
+          to unlocked matches only (see fixture/knockout Predict buttons). */}
+      <PredictionModal
+        matches={wcLive}
+        predictions={predictions}
+        onSave={handleSavePrediction}
+        savingMatchId={saving}
+      />
     </div>
+    </WCLiveContext.Provider>
   );
 }
 
@@ -1046,6 +1177,10 @@ function GroupFixtureCard({ match, dayDateFmt, delay, t }: {
 }) {
   const stadium = WC2026_STADIUM_BY_ID[match.venueId];
   const addToast = useUIStore(s => s.addToast);
+  const wc = useWCLive();
+  const live = wc?.findLive(match.home.name, match.away.name);
+  const locked = live ? isMatchLocked(live.kickoff_time) : true;
+  const predicted = live ? wc!.predictedIds.has(live.id) : false;
 
   return (
     <motion.div
@@ -1063,9 +1198,12 @@ function GroupFixtureCard({ match, dayDateFmt, delay, t }: {
           </span>
           <span className="text-text-muted/80 font-mono">#{match.number}</span>
         </span>
-        <span className="inline-flex items-center gap-1 text-[10px] text-text-muted tabular-nums">
-          <Calendar size={10} className="wc-gold-muted" />
-          {dayDateFmt.format(new Date(match.date))}
+        <span className="inline-flex items-center gap-1.5 text-[10px] text-text-muted tabular-nums min-w-0">
+          {live && <LiveScorePill fixtureHome={match.home.name} live={live} />}
+          <span className="inline-flex items-center gap-1 shrink-0">
+            <Calendar size={10} className="wc-gold-muted" />
+            {dayDateFmt.format(new Date(match.date))}
+          </span>
         </span>
       </div>
 
@@ -1091,11 +1229,19 @@ function GroupFixtureCard({ match, dayDateFmt, delay, t }: {
         {!stadium && <span className="flex-1" />}
         <button
           type="button"
-          onClick={() => addToast(t('wcPredictSoon'), 'info')}
-          className="inline-flex items-center gap-1 ms-auto px-2 py-1 rounded-full border border-[#FFC94A]/30 bg-[#FFC94A]/8 text-[#FFC94A] text-[9px] font-bold uppercase tracking-[0.12em] hover:bg-[#FFC94A]/15 transition-colors shrink-0 min-h-[28px]"
+          onClick={() => {
+            if (live && !locked) wc!.openPredict(live.id);
+            else addToast(t('wcPredictSoon'), 'info');
+          }}
+          className={cn(
+            'inline-flex items-center gap-1 ms-auto px-2 py-1 rounded-full border text-[9px] font-bold uppercase tracking-[0.12em] transition-colors shrink-0 min-h-[28px]',
+            predicted
+              ? 'border-accent-green/45 bg-accent-green/10 text-accent-green'
+              : 'border-[#FFC94A]/30 bg-[#FFC94A]/8 text-[#FFC94A] hover:bg-[#FFC94A]/15',
+          )}
         >
-          <Ticket size={10} />
-          {t('wcPredict')}
+          {predicted ? <Check size={10} /> : <Ticket size={10} />}
+          {predicted ? t('predicted') : t('wcPredict')}
         </button>
       </div>
     </motion.div>
@@ -1730,6 +1876,12 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0, t }: {
 }) {
   const stadium = match.venueId ? WC2026_STADIUM_BY_ID[match.venueId] : undefined;
   const addToast = useUIStore(s => s.addToast);
+  const wc = useWCLive();
+  // Slots are placeholders ("W 73", "1A") until teams resolve — findLive only
+  // matches once both sides are real team names, so this degrades gracefully.
+  const live = wc?.findLive(match.home, match.away);
+  const locked = live ? isMatchLocked(live.kickoff_time) : true;
+  const predicted = live ? wc!.predictedIds.has(live.id) : false;
   if (round === 'final') return null; // handled by FinalApex
 
   const tone = ROUND_TONES[round];
@@ -1766,6 +1918,7 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0, t }: {
         <span className="text-[9.5px] font-mono tabular-nums text-text-muted/60 shrink-0 truncate">
           {shortDateFmt.format(new Date(match.date))}
         </span>
+        {live && <LiveScorePill fixtureHome={match.home} live={live} />}
         {stadium && (
           <span aria-hidden className="text-[11px] leading-none shrink-0" title={`${stadium.city} · ${stadium.name}`}>
             {stadium.countryFlag}
@@ -1796,16 +1949,21 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0, t }: {
         {t && (
           <button
             type="button"
-            onClick={() => addToast(t('wcPredictSoon'), 'info')}
+            onClick={() => {
+              if (live && !locked) wc!.openPredict(live.id);
+              else addToast(t('wcPredictSoon'), 'info');
+            }}
             className={cn(
               'inline-flex items-center gap-1 ms-auto px-2 py-1 rounded-full border text-[9px] font-bold uppercase tracking-[0.12em] transition-colors shrink-0 min-h-[26px]',
-              isHighStakes
+              predicted
+                ? 'border-accent-green/45 bg-accent-green/10 text-accent-green'
+                : isHighStakes
                 ? 'border-[#FFC94A]/40 bg-[#FFC94A]/12 text-[#FFC94A] hover:bg-[#FFC94A]/20'
                 : 'border-white/15 bg-white/[0.04] text-white/60 hover:bg-white/[0.08]',
             )}
           >
-            <Ticket size={10} />
-            {t('wcPredict')}
+            {predicted ? <Check size={10} /> : <Ticket size={10} />}
+            {predicted ? t('predicted') : t('wcPredict')}
           </button>
         )}
       </div>
