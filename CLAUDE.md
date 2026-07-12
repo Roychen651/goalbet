@@ -713,7 +713,7 @@ If a league is in `FOOTBALL_LEAGUES` (frontend) but NOT in `LEAGUE_ESPN_MAP` (ba
 
 ### Fixture window
 
-`syncLeague()` calls `fetchLeagueMatches(leagueId, 7, 90)` — **7 days back, 90 days ahead**. (Score resolution uses a tight `fetchLeagueMatches(leagueId, 3, 1)` in `scoreUpdater.ts` — imminent kickoffs only.)
+`syncLeague()` calls `fetchLeagueMatches(leagueId, daysBack, 90)` — **90 days ahead**, and `daysBack` is **45 for World Cup (4480)** so the whole tournament (group stage from mid-June onward) is captured, **7 for every other league**. (Score resolution uses a tight `fetchLeagueMatches(leagueId, 3, 1)` in `scoreUpdater.ts` — imminent kickoffs only.)
 
 **Off-season gotcha:** the frontend `useMatches` upcoming window (`INITIAL_UPCOMING_DAYS`) must stay wide enough to reach the next fixtures, or the feed shows "No matches found" even though the DB is full. In mid-summer the nearest European fixtures are ~40 days out, so the window is **60 days** (was 30, which hid the entire pre-season slate). The backend 90-day sync window is the ceiling; keep the frontend window ≤ it.
 
@@ -759,6 +759,10 @@ Old predictions have `predicted_halftime_outcome`. New predictions have `predict
 Prediction scoring always uses **regulation-time score** (`regulation_home` / `regulation_away`).
 If `regulation_home` is null, falls back to `home_score` / `away_score` (safe for non-ET matches).
 `went_to_penalties = true` → shootout happened. `penalty_home` / `penalty_away` store the shootout score.
+
+**ESPN penalty/ET capture (learn from the recurring bug):** ESPN's soccer feeds use **`STATUS_FINAL_PEN`** (not `STATUS_FINAL_PK`) for shootout finals and put the shootout score on **`competitors[].shootoutScore`** — the per-period `linescores` are often entirely empty (e.g. all of `fifa.world`). So `espn.ts` must (1) treat `STATUS_FINAL_PEN` as pens, (2) read `shootoutScore` directly from the scoreboard competitor (primary source; linescores[4] is only a fallback), and (3) when ET/PEN is detected but no per-period split exists, set `regulation_home/away = final score` so the frontend's `wentToET` badge (which keys off `regulation_home != null`) still fires. The frontend `MatchCard` already renders AET/PEN + the winning side + shootout score from these fields — the bug was always **data capture**, not display.
+
+**`went_to_penalties` must ALWAYS be sent as an explicit boolean in the upsert** — never `delete` it when false. The column is `NOT NULL`, and in a bulk PostgREST upsert the INSERT column list is the union of all row keys; if any row keeps the key (a real PEN match) the rows that omitted it are sent `NULL` → the whole batch fails the NOT-NULL constraint. This silently killed WC knockout sync.
 
 ### Corners — International Friendlies exception
 

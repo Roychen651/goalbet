@@ -98,7 +98,18 @@ function orientedScore(fixtureHome: string, live: Match): { home: number | null;
     : { home: live.away_score, away: live.home_score };
 }
 
+// Orient the penalty shootout score to the fixture's home/away perspective.
+function orientedPens(fixtureHome: string, live: Match): { home: number | null; away: number | null } {
+  const homeIsDbHome = normTeam(fixtureHome) === normTeam(live.home_team);
+  return homeIsDbHome
+    ? { home: live.penalty_home, away: live.penalty_away }
+    : { home: live.penalty_away, away: live.penalty_home };
+}
+
 // Compact live status/score pill shown on fixture cards once a match exists.
+// Handles the knockout-only cases: extra time (AET) and penalty shootouts —
+// e.g. "0–0 · AET · 4–3 P". A drawn knockout with no ET flag would be wrong,
+// so the ET/PEN badges surface the real outcome.
 function LiveScorePill({ fixtureHome, live }: { fixtureHome: string; live: Match }) {
   const { t } = useLangStore();
   if (live.status === 'NS') return null;
@@ -106,12 +117,21 @@ function LiveScorePill({ fixtureHome, live }: { fixtureHome: string; live: Match
   if (s.home == null || s.away == null) return null;
   const isLive = ['1H', 'HT', '2H', 'ET1', 'ET2', 'PEN'].includes(live.status);
   const isFT = live.status === 'FT';
+  const wentToPens = !!live.went_to_penalties;
+  // AET (no pens): regulation_home is populated only for ET/PEN finishes.
+  const wentToET = isFT && !wentToPens && live.regulation_home != null;
+  const pens = wentToPens ? orientedPens(fixtureHome, live) : null;
+
+  const label = isLive ? t('live') : wentToPens ? t('pens_status') : wentToET ? t('aet_status') : isFT ? t('fullTime_status') : live.status;
+
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 leading-none shrink-0 border tabular-nums',
         isLive
           ? 'border-accent-green/45 bg-accent-green/10 text-accent-green'
+          : wentToPens || wentToET
+          ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
           : 'border-[#FFC94A]/25 bg-[#FFC94A]/[0.06] text-white/85',
       )}
     >
@@ -119,9 +139,10 @@ function LiveScorePill({ fixtureHome, live }: { fixtureHome: string; live: Match
         <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
       )}
       <span className="font-bebas text-[13px] tracking-wide">{s.home}–{s.away}</span>
-      <span className="text-[8px] font-extrabold uppercase tracking-[0.12em] opacity-70">
-        {isFT ? t('fullTime_status') : isLive ? t('live') : live.status}
-      </span>
+      <span className="text-[8px] font-extrabold uppercase tracking-[0.12em] opacity-70">{label}</span>
+      {pens && pens.home != null && pens.away != null && (
+        <span className="text-[9px] font-bold tabular-nums">({pens.home}–{pens.away}&nbsp;P)</span>
+      )}
     </span>
   );
 }
