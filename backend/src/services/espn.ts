@@ -33,6 +33,7 @@ export const LEAGUE_ESPN_MAP: Record<number, string> = {
   4396: 'fifa.friendly',    // International Friendlies (men's)
   4635: 'uefa.nations',     // UEFA Nations League
   5000: 'uefa.worldq',      // UEFA World Cup Qualifiers 2026
+  4480: 'fifa.world',       // FIFA World Cup 2026 (ESPN league id 606)
 };
 
 function mapEspnStatus(statusName: string, period: number, state: string): string {
