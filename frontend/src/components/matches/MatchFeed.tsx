@@ -3,9 +3,11 @@ import { motion } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { MatchCard } from './MatchCard';
 import { EmptyState } from '../ui/EmptyState';
-import { PageLoader, MatchCardSkeleton } from '../ui/LoadingSpinner';
+import { PageLoader } from '../ui/LoadingSpinner';
+import { MatchCardSkeletonList } from '../ui/MatchCardSkeleton';
 import { LIVE_STATUSES, FINISHED_STATUSES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
+import { useUIStore } from '../../stores/uiStore';
 
 interface MatchFeedProps {
   matches: Match[];
@@ -36,6 +38,7 @@ export function MatchFeed({
   matches, predictions, predictorsByMatch, loading, activeTab,
 }: MatchFeedProps) {
   const { t, lang } = useLangStore();
+  const isSyncing = useUIStore(s => s.isSyncing);
 
   const groupedByDate = useMemo(() => {
     const now = Date.now();
@@ -96,16 +99,16 @@ export function MatchFeed({
   if (loading) {
     // Show skeleton cards for live/all tabs; full page loader elsewhere
     if (activeTab === 'live' || activeTab === 'all') {
-      return (
-        <div className="space-y-3 px-0 py-2">
-          {[1, 2, 3].map(i => <MatchCardSkeleton key={i} />)}
-        </div>
-      );
+      return <MatchCardSkeletonList count={4} />;
     }
     return <PageLoader />;
   }
 
   if (groupedByDate.length === 0) {
+    // Cold start: the Supabase fetch resolved empty, but the backend (Render) is
+    // still waking and syncing fixtures. Show pulsing skeletons instead of an
+    // "empty" state so the ~60s wait feels alive rather than broken.
+    if (isSyncing) return <MatchCardSkeletonList count={4} />;
     if (activeTab === 'live') return <EmptyState icon="📡" title={t('noLiveMatches')} description={t('noLiveDesc')} />;
     if (activeTab === 'upcoming') return <EmptyState icon="📅" title={t('noMatches')} description={t('noUpcomingDesc')} />;
     return <EmptyState icon="📅" title={t('noMatches')} description={t('noMatchesDesc')} />;
