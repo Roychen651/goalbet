@@ -405,6 +405,10 @@ export async function fetchLeagueMatches(
 
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=100&dates=${dateRange}`;
 
+  // TEMP DEBUG (remove once sync is confirmed): log the exact URL requested so
+  // we can see in Render logs precisely what window/slug we hit.
+  logger.info(`[ESPN][debug] GET league=${leagueId} slug=${slug} → ${url}`);
+
   try {
     const { data } = await axios.get(url, {
       timeout: 10_000,
@@ -412,8 +416,10 @@ export async function fetchLeagueMatches(
     });
 
     const events: unknown[] = data.events ?? [];
+    // TEMP DEBUG: how many events ESPN actually returned for this window.
+    logger.info(`[ESPN][debug] league=${leagueId} slug=${slug} events=${events.length} range=${dateRange}`);
     if (events.length === 0) {
-      logger.debug(`[ESPN] No events for ${slug} (${dateRange})`);
+      logger.warn(`[ESPN][debug] ZERO events for ${slug} (${dateRange}) — off-season, wrong slug, or window miss`);
       return [];
     }
 
@@ -578,7 +584,7 @@ export async function fetchLeagueMatches(
       }
     }
 
-    logger.debug(`[ESPN] ${slug}: fetched ${matches.length} matches for ${dateRange}`);
+    logger.info(`[ESPN][debug] ${slug}: parsed ${matches.length}/${events.length} events into DB rows for ${dateRange}`);
     return matches;
   } catch (err) {
     logger.error(`[ESPN] Failed to fetch ${slug}: ${err}`);

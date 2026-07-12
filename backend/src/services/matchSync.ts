@@ -40,10 +40,14 @@ async function upsertMatches(matches: DBMatch[]): Promise<{ inserted: number; up
     .select('id');
 
   if (error) {
-    logger.error('[matchSync] Upsert error:', error);
+    // TEMP DEBUG: surface the exact PostgREST error (schema/constraint issues
+    // were a suspected cause of "events fetched but nothing in the DB").
+    logger.error(`[matchSync][debug] Upsert FAILED for ${rows.length} rows: ${error.message} | details=${error.details ?? '-'} | hint=${error.hint ?? '-'}`);
     throw error;
   }
 
+  // TEMP DEBUG: rows sent vs rows the DB acknowledged.
+  logger.info(`[matchSync][debug] upsert ok: sent=${rows.length} acknowledged=${data?.length ?? 0}`);
   return { inserted: data?.length ?? 0, updated: 0 };
 }
 

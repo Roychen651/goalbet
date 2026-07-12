@@ -71,8 +71,16 @@ function teamPairKey(a: string, b: string): string {
 }
 
 interface WCLive {
-  /** Resolve a static fixture to its live DB row, if synced. */
+  /** Resolve a static fixture to its live DB row by team names, if synced. */
   findLive: (homeName: string, awayName: string) => Match | undefined;
+  /**
+   * Resolve a knockout card to its live DB row by DATE. Knockout slots are
+   * placeholders ("W 101") until teams resolve, so name-matching can't bind
+   * them — but each SF / 3rd / Final is the only WC match on its calendar day,
+   * so a unique date match is reliable. Returns undefined when the day has 0 or
+   * >1 matches (ambiguous), keeping the teaser fallback safe.
+   */
+  findLiveByDate: (dateKey: string) => Match | undefined;
   /** Match IDs the current user has already predicted (in the active group). */
   predictedIds: Set<string>;
   /** Open the standard prediction modal for a synced match. */
@@ -154,15 +162,29 @@ export function WorldCupBracket() {
     return map;
   }, [wcLive]);
 
+  // Index by calendar day (UTC) for the knockout date-fallback matcher.
+  const liveByDate = useMemo(() => {
+    const map = new Map<string, Match[]>();
+    for (const m of wcLive) {
+      const key = m.kickoff_time.slice(0, 10);
+      (map.get(key) ?? map.set(key, []).get(key)!).push(m);
+    }
+    return map;
+  }, [wcLive]);
+
   const liveIds = useMemo(() => wcLive.map(m => m.id), [wcLive]);
   const { predictions, saving, savePrediction } = usePredictions(liveIds);
   const predictedIds = useMemo(() => new Set(predictions.keys()), [predictions]);
 
   const liveCtx = useMemo<WCLive>(() => ({
     findLive: (h, a) => liveIndex.get(teamPairKey(h, a)),
+    findLiveByDate: (dateKey) => {
+      const onDay = liveByDate.get(dateKey);
+      return onDay && onDay.length === 1 ? onDay[0] : undefined;
+    },
     predictedIds,
     openPredict: openPredictionModal,
-  }), [liveIndex, predictedIds, openPredictionModal]);
+  }), [liveIndex, liveByDate, predictedIds, openPredictionModal]);
 
   const handleSavePrediction = useCallback(async (data: PredictionData) => {
     try {
@@ -1877,9 +1899,14 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0, t }: {
   const stadium = match.venueId ? WC2026_STADIUM_BY_ID[match.venueId] : undefined;
   const addToast = useUIStore(s => s.addToast);
   const wc = useWCLive();
-  // Slots are placeholders ("W 73", "1A") until teams resolve — findLive only
-  // matches once both sides are real team names, so this degrades gracefully.
-  const live = wc?.findLive(match.home, match.away);
+  // Slots are placeholders ("W 73", "1A") until teams resolve, so try a name
+  // match first (works if the slot is a real team) then fall back to a unique
+  // same-day match (reliable for SF / 3rd / Final). Only the name match has a
+  // known home/away orientation, so the score pill is gated to it; the modal
+  // itself always shows the real DB team names either way.
+  const nameLive = wc?.findLive(match.home, match.away);
+  const dateLive = nameLive ? undefined : wc?.findLiveByDate(match.date);
+  const live = nameLive ?? dateLive;
   const locked = live ? isMatchLocked(live.kickoff_time) : true;
   const predicted = live ? wc!.predictedIds.has(live.id) : false;
   if (round === 'final') return null; // handled by FinalApex
@@ -1918,7 +1945,7 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0, t }: {
         <span className="text-[9.5px] font-mono tabular-nums text-text-muted/60 shrink-0 truncate">
           {shortDateFmt.format(new Date(match.date))}
         </span>
-        {live && <LiveScorePill fixtureHome={match.home} live={live} />}
+        {nameLive && <LiveScorePill fixtureHome={match.home} live={nameLive} />}
         {stadium && (
           <span aria-hidden className="text-[11px] leading-none shrink-0" title={`${stadium.city} · ${stadium.name}`}>
             {stadium.countryFlag}

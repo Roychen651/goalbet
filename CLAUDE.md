@@ -713,7 +713,11 @@ If a league is in `FOOTBALL_LEAGUES` (frontend) but NOT in `LEAGUE_ESPN_MAP` (ba
 
 ### Fixture window
 
-`syncLeague()` calls `fetchLeagueMatches(leagueId, 7, 42)` — **7 days back, 42 days ahead**.
+`syncLeague()` calls `fetchLeagueMatches(leagueId, 7, 90)` — **7 days back, 90 days ahead**. (Score resolution uses a tight `fetchLeagueMatches(leagueId, 3, 1)` in `scoreUpdater.ts` — imminent kickoffs only.)
+
+**Off-season gotcha:** the frontend `useMatches` upcoming window (`INITIAL_UPCOMING_DAYS`) must stay wide enough to reach the next fixtures, or the feed shows "No matches found" even though the DB is full. In mid-summer the nearest European fixtures are ~40 days out, so the window is **60 days** (was 30, which hid the entire pre-season slate). The backend 90-day sync window is the ceiling; keep the frontend window ≤ it.
+
+**Force a clean pull of every mapped league** (ignores group `active_leagues`, seeds World Cup): `cd backend && npm run sync:all`, or `POST /api/sync/matches` with body `{ "all": true }`.
 
 ### The `goalbet:synced` event
 
