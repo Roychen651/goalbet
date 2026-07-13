@@ -971,7 +971,7 @@ curl "https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard"
 
 ## 14. Database & Migrations
 
-Migrations live in `supabase/migrations/`. Current sequence: **001 → 034** (024 does not exist).
+Migrations live in `supabase/migrations/`. Current sequence: **001 → 037** (024 does not exist).
 Apply via `supabase db push --linked` (auto-runs via hook on migration file write once logged in).
 
 | Migration | What it adds |
@@ -1011,6 +1011,7 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `034` | AI Scout Hebrew variants: `ai_pre_match_insight_he` + `ai_post_match_summary_he` nullable TEXT on `matches` (Sprint 26 follow-up) |
 | `035` | Sprint 27: `ai_ht_insight` + `ai_ht_insight_he` nullable TEXT on `matches`; creates `user_chronicles` table (uuid match_id FK, title, epic_text + _he, predicted/final scores, points_earned) with partial unique index `(user_id, match_id)` for idempotency + RLS (authenticated-read, service-role write) |
 | `036` | **Ironclad Sync Engine (V3 Sprint 1):** enables `pg_cron` + `pg_net` + `supabase_vault`; `public.trigger_sync_heartbeat()` (SECURITY DEFINER) reads `SYNC_API_KEY` from Vault and `net.http_post`s to `/api/sync/internal/scores` then `/internal/matches` every 5 min (scores first, fire-and-forget). Idempotent (unschedule-if-exists → reschedule). **Activation requires: (1) `select vault.create_secret('<key>','SYNC_API_KEY')`, (2) `SYNC_API_KEY` env var on Render, (3) `supabase db push`.** Until applied, the 30-min GitHub Actions fallback carries coin resolution. |
+| `037` | **Fort-Knox Privacy (V3 Sprint 2):** rewrites `predictions_read_group` so a member's row is hidden from others while the match is `status='NS'` — server-side RLS closes the pre-kickoff leak (own rows always visible; no JOIN — correlated scalar subquery on the `matches` PK, `auth.uid()` initPlan-wrapped, own-row clause short-circuits the hot path). Hardens `prevent_late_prediction()` (pins `search_path`, fails closed on missing match) keeping the 15-min lock + `is_resolved` backend bypass. Re-asserts `predictions_update_own` `WITH CHECK`. Idempotent. |
 
 ### Migration idempotency
 
@@ -1043,7 +1044,7 @@ supabase db push --linked
 
 - **profiles**: readable by all; writable by owner (`auth.uid() = id`)
 - **matches**: public read; service role writes only (backend)
-- **predictions**: readable by group members; writable by owner; NOT readable by others when `status = 'NS'` (pre-kickoff privacy)
+- **predictions**: readable by group members, but another member's row is hidden while the match is `status = 'NS'` — pre-kickoff privacy is **enforced server-side by RLS** (migration 037), not just the client 🔒. Your own rows are always visible. Writable by owner only, and the `prevent_late_prediction()` trigger rejects any insert/update within 15 min of kickoff (the backend `is_resolved=true` resolution path is exempt; clients can't set `is_resolved` — RLS `WITH CHECK` blocks it)
 - **leaderboard**: readable by all group members; service role writes
 - **group_members**: readable by group members; service role writes coins
 
