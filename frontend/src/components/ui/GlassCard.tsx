@@ -43,7 +43,7 @@ export function GlassCard({
   const base = cn(
     'rounded-2xl border backdrop-blur-glass transition-all duration-200',
     'card-base',
-    variant === 'elevated' && ['card-elevated', 'shadow-[0_4px_24px_rgba(0,0,0,0.4)]'],
+    variant === 'elevated' && 'card-elevated', // shadow now lives in .card-elevated (single source of truth, theme-aware)
     variant === 'live' && [
       'border-accent-green/30 bg-[rgba(0,255,135,0.04)]',
       'shadow-[0_0_30px_rgba(0,255,135,0.08),inset_0_1px_0_rgba(0,255,135,0.08)]',

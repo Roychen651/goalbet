@@ -15,6 +15,10 @@ const sizes = {
   xl: 'w-16 h-16 text-xl',
 };
 
+// Pixel dimensions matching each `sizes` entry — set as <img> width/height so the
+// browser reserves layout space before the avatar loads (prevents CLS, rule 4.16).
+const sizePx = { sm: 28, md: 36, lg: 48, xl: 64 } as const;
+
 const emojiFontSizes = {
   sm: 'text-sm',
   md: 'text-base',
@@ -64,6 +68,8 @@ export function Avatar({ src, name, size = 'md', className }: AvatarProps) {
       <img
         src={src}
         alt={name}
+        width={sizePx[size]}
+        height={sizePx[size]}
         className={cn('rounded-full object-cover ring-1 ring-white/10', sizes[size], className)}
         onError={() => setImgError(true)}
       />

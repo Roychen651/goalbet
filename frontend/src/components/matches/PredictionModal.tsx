@@ -43,21 +43,26 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {/* Backdrop */}
+          {/* Backdrop — a touch more blur + a gentle fade for a premium depth-of-field */}
           <motion.div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-md"
             onClick={close}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' as const }}
           />
 
-          {/* Panel */}
+          {/* Panel — slide-up sheet with a subtle scale "materialize" and a
+              slightly overdamped spring so it settles buttery-smooth, no overshoot.
+              (Chosen over a layoutId card→sheet morph: the sheet is a bottom-anchored
+              iOS pattern, and the source card stays mounted — a shared-element morph
+              would fight both. Scale/opacity is RTL-agnostic and regression-safe.) */}
           <motion.div
-            initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 340, damping: 28, mass: 0.75 }}
+            initial={{ y: '100%', opacity: 0, scale: 0.97 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: '100%', opacity: 0, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 32, mass: 0.8 }}
             className={cn(
               'relative z-10 w-full sm:max-w-[440px]',
               'rounded-t-2xl sm:rounded-2xl overflow-hidden',
@@ -67,6 +72,7 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
             style={{
               background: 'var(--color-tooltip-bg)',
               border: '1px solid var(--card-border)',
+              transformOrigin: 'bottom center',
             }}
             drag="y"
             dragConstraints={{ top: 0 }}
