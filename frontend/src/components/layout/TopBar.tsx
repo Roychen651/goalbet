@@ -9,6 +9,7 @@ import { useLangStore } from '../../stores/langStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { useCoinsStore } from '../../stores/coinsStore';
 import { CoinIcon } from '../ui/CoinIcon';
+import NumberFlow from '@number-flow/react';
 import { cn } from '../../lib/utils';
 import { NotificationCenter } from './NotificationCenter';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -47,9 +48,11 @@ export function TopBar() {
               className="flex items-center gap-1.5 px-3 border-e border-white/10 hover:bg-white/8 active:bg-white/15 transition-colors"
             >
               <CoinIcon size={13} />
-              <span className="text-amber-400 text-[11px] font-bold tabular-nums leading-none">
-                {coins}
-              </span>
+              <NumberFlow
+                value={coins}
+                className="text-amber-400 text-[11px] font-bold tabular-nums leading-none"
+                transformTiming={{ duration: 600, easing: 'cubic-bezier(0.16,1,0.3,1)' }}
+              />
             </button>
 
             {/* Bell */}
