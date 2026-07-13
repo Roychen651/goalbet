@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import Lenis from 'lenis';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -12,19 +12,24 @@ import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './pages/LoginPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { HomePage } from './pages/HomePage';
-import { LeaderboardPage } from './pages/LeaderboardPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { SettingsPage } from './pages/SettingsPage';
-import { LockerRoomPage } from './pages/LockerRoomPage';
-import { StatsPage } from './pages/StatsPage';
 import { PageLoader } from './components/ui/LoadingSpinner';
 import { ROUTES } from './lib/constants';
 import { ReAuthModal } from './components/auth-v2/ReAuthModal';
 import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { AdminLayout } from './components/admin/AdminLayout';
-import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
-import { UserManagement } from './components/admin/UserManagement';
-import { GroupManagement } from './components/admin/GroupManagement';
+
+// ── Lazy routes (code-split; off the first-paint critical path) ──────────────
+// HomePage + Login/AuthCallback stay eager (the critical path). Everything below
+// loads on demand; the Suspense fallback renders inside AnimatedOutlet (app) or
+// AdminLayout (admin), so the shell/nav never blanks.
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const LockerRoomPage = lazy(() => import('./pages/LockerRoomPage').then(m => ({ default: m.LockerRoomPage })));
+const StatsPage = lazy(() => import('./pages/StatsPage').then(m => ({ default: m.StatsPage })));
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })));
+const UserManagement = lazy(() => import('./components/admin/UserManagement').then(m => ({ default: m.UserManagement })));
+const GroupManagement = lazy(() => import('./components/admin/GroupManagement').then(m => ({ default: m.GroupManagement })));
 
 const pageVariants = {
   initial: { opacity: 0, y: 12, scale: 0.99 },
@@ -44,7 +49,9 @@ function AnimatedOutlet({ children }: { children: React.ReactNode }) {
         exit="exit"
         style={{ height: '100%' }}
       >
-        {children}
+        {/* Suspense sits INSIDE the animated container, so a lazy chunk load
+            shows the fallback while the route transition still plays seamlessly. */}
+        <Suspense fallback={<PageLoader />}>{children}</Suspense>
       </motion.div>
     </AnimatePresence>
   );

@@ -1,7 +1,9 @@
+import { Suspense } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
 import { SEO } from '../seo/SEO';
+import { PageLoader } from '../ui/LoadingSpinner';
 
 const NAV = [
   { to: '/admin',        label: 'Dashboard', icon: '⬡', exact: true },
@@ -86,7 +88,9 @@ export function AdminLayout() {
           transition={{ duration: 0.2 }}
           className="mx-auto max-w-6xl px-4 py-8 sm:px-8"
         >
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </motion.div>
       </main>
     </div>
