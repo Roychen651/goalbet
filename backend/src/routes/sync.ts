@@ -2,11 +2,12 @@ import { Router, Request, Response } from 'express';
 import { syncAllActiveLeagues, syncLeague } from '../services/matchSync';
 import { checkAndUpdateScores } from '../services/scoreUpdater';
 import { logger } from '../lib/logger';
+import { matchesSyncLimiter, scoresSyncLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
 // POST /api/sync/matches — manually trigger match sync
-router.post('/matches', async (req: Request, res: Response) => {
+router.post('/matches', matchesSyncLimiter, async (req: Request, res: Response) => {
   const { leagueIds } = req.body as { leagueIds?: number[] };
 
   try {
@@ -28,7 +29,7 @@ router.post('/matches', async (req: Request, res: Response) => {
 });
 
 // POST /api/sync/scores — manually trigger score resolution
-router.post('/scores', async (_req: Request, res: Response) => {
+router.post('/scores', scoresSyncLimiter, async (_req: Request, res: Response) => {
   try {
     logger.info('[sync] Manual score update triggered');
     const result = await checkAndUpdateScores();

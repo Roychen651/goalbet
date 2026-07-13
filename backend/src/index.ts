@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import apiRouter from './routes/index';
 import { startScheduler } from './cron/scheduler';
 import { logger } from './lib/logger';
+import { globalLimiter } from './middleware/rateLimiter';
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(globalLimiter);
 
 // Routes
 app.use('/api', apiRouter);
