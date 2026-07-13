@@ -91,7 +91,7 @@ export function AvatarPicker({ onClose }: AvatarPickerProps) {
                     : 'border-white/10 bg-white/5 hover:bg-white/10'
                 )}
               >
-                <img src={googlePhoto} alt="Google" className="w-9 h-9 rounded-full object-cover" />
+                <img src={googlePhoto} alt="Google" width={36} height={36} className="w-9 h-9 rounded-full object-cover" />
                 <span className="text-white text-sm">Use Google photo</span>
                 {selected === googlePhoto && (
                   <span className="ms-auto text-accent-green text-sm">✓</span>
