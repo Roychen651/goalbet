@@ -243,6 +243,7 @@ function EmailChip({ email }: { email: string }) {
 function EmailView({
   email,
   setEmail,
+  onSendMagicLink,
   onContinue,
   onGoogle,
   loading,
@@ -250,6 +251,7 @@ function EmailView({
 }: {
   email: string;
   setEmail: (v: string) => void;
+  onSendMagicLink: () => void;
   onContinue: () => void;
   onGoogle: () => void;
   loading: boolean;
@@ -262,7 +264,7 @@ function EmailView({
     <div className="space-y-4">
       <div>
         <h2 className="font-bebas text-3xl tracking-wider text-white mb-1">Welcome to GoalBet</h2>
-        <p className="text-white/45 text-sm">Enter your email to get started</p>
+        <p className="text-white/45 text-sm">{t('magicLinkSubtitle')}</p>
       </div>
 
       <div className="space-y-3">
@@ -271,13 +273,14 @@ function EmailView({
           placeholder={t('emailPlaceholder')}
           value={email}
           onChange={setEmail}
-          onEnter={valid ? onContinue : undefined}
+          onEnter={valid ? onSendMagicLink : undefined}
           autoFocus
           hasError={!!error}
         />
         <AnimatePresence>{error && <ErrorBanner message={error} />}</AnimatePresence>
-        <PrimaryButton onClick={onContinue} loading={false} disabled={!valid}>
-          Continue →
+        {/* Passwordless-first: the magic link is the prominent primary action. */}
+        <PrimaryButton onClick={onSendMagicLink} loading={loading} disabled={!valid}>
+          ✉️ {t('magicLinkButton')}
         </PrimaryButton>
       </div>
 
@@ -285,9 +288,74 @@ function EmailView({
 
       <GoogleButton onClick={onGoogle} loading={loading} />
 
+      {/* Password path preserved, demoted to a secondary link (rule: fallback must exist). */}
+      <button
+        onClick={onContinue}
+        disabled={!valid}
+        className="w-full text-center text-white/50 hover:text-white/80 disabled:opacity-40 text-[13px] transition-colors pt-1"
+      >
+        {t('usePasswordInstead')} →
+      </button>
+
       <p className="text-white/20 text-[11px] text-center leading-relaxed">
         By continuing you agree to compete fairly and not ruin the fun.
       </p>
+    </div>
+  );
+}
+
+// ─── VIEW: OTP sent (passwordless) ────────────────────────────────────────────
+
+function OtpSentView({
+  email,
+  onVerify,
+  onResend,
+  onBack,
+  loading,
+  error,
+}: {
+  email: string;
+  onVerify: (code: string) => void;
+  onResend: () => void;
+  onBack: () => void;
+  loading: boolean;
+  error: string | null;
+}) {
+  const { t } = useLangStore();
+  const [code, setCode] = useState('');
+  const valid = /^\d{6}$/.test(code.trim());
+
+  return (
+    <div className="space-y-4">
+      <BackButton onClick={onBack} />
+      <div>
+        <h2 className="font-bebas text-3xl tracking-wider text-white mb-1">{t('otpSentTitle')}</h2>
+        <p className="text-white/45 text-sm">{t('otpSentSubtitle').replace('{0}', email)}</p>
+      </div>
+
+      <div className="space-y-3">
+        <AuthInput
+          type="text"
+          placeholder={t('otpCodePlaceholder')}
+          value={code}
+          onChange={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
+          onEnter={valid ? () => onVerify(code) : undefined}
+          autoFocus
+          hasError={!!error}
+        />
+        <AnimatePresence>{error && <ErrorBanner message={error} />}</AnimatePresence>
+        <PrimaryButton onClick={() => onVerify(code)} loading={loading} disabled={!valid}>
+          {t('verifyCodeBtn')}
+        </PrimaryButton>
+      </div>
+
+      <button
+        onClick={onResend}
+        disabled={loading}
+        className="w-full text-center text-white/50 hover:text-white/80 disabled:opacity-40 text-[13px] transition-colors"
+      >
+        {t('resendMagicLink')}
+      </button>
     </div>
   );
 }
@@ -1017,7 +1085,7 @@ export function AuthContainer() {
   const {
     view, direction, email, loading, error, checkEmailContext,
     setEmail, navigateTo,
-    handleContinue, handleSignIn, handleSignUp,
+    handleContinue, handleSendMagicLink, handleVerifyOtp, handleSignIn, handleSignUp,
     handleForgotPassword, handleGoogleSignIn,
     handleSetPassword, handleSendGooglePasswordReset,
     goBack,
@@ -1122,8 +1190,19 @@ export function AuthContainer() {
                   <EmailView
                     email={email}
                     setEmail={setEmail}
+                    onSendMagicLink={handleSendMagicLink}
                     onContinue={handleContinue}
                     onGoogle={handleGoogleSignIn}
+                    loading={loading}
+                    error={error}
+                  />
+                )}
+                {view === 'otp-sent' && (
+                  <OtpSentView
+                    email={email}
+                    onVerify={handleVerifyOtp}
+                    onResend={handleSendMagicLink}
+                    onBack={() => navigateTo('email', -1)}
                     loading={loading}
                     error={error}
                   />
