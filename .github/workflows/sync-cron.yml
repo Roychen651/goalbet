@@ -1,19 +1,23 @@
-name: Sync Cron
+name: Sync Cron (fallback)
 
-# Runs every 5 minutes, 24/7.
-# Permanently keeps scores, predictions, and fixtures current even on free-tier hosts.
+# FALLBACK heartbeat — runs every 30 minutes.
+# The PRIMARY 5-minute heartbeat now lives in Supabase pg_cron (migration 036,
+# public.trigger_sync_heartbeat). This workflow exists only so a pg_net/Supabase
+# outage can't let the Render free-tier dyno enter a deep freeze, and to keep
+# scores/fixtures moving if pg_cron is ever paused.
 #
-# CRITICAL DESIGN RULE:
-#   Score resolution (step 3) MUST always run, even if fixture sync (step 2) fails.
-#   Coins are awarded during score resolution. A failed ESPN fixture call must never
-#   prevent users from receiving their earned coins.
+# CRITICAL DESIGN RULE (unchanged):
+#   Score resolution (scores step) MUST always run, even if fixture sync fails.
+#   Coins are awarded during score resolution. A failed ESPN fixture call must
+#   never prevent users from receiving their earned coins.
 #
-# Required GitHub Secret:
-#   BACKEND_URL — e.g. https://goalbet-api.onrender.com
+# Required GitHub Secrets:
+#   BACKEND_URL  — e.g. https://goalbet.onrender.com
+#   SYNC_API_KEY — must equal the backend's SYNC_API_KEY env var and the Vault secret
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # every 5 minutes, 24/7
+    - cron: '*/30 * * * *'  # every 30 minutes — fallback only (pg_cron is primary)
   workflow_dispatch:          # allow manual trigger from GitHub Actions UI
 
 jobs:
@@ -57,21 +61,25 @@ jobs:
 
       # 2. Resolve scores & award coins — ALWAYS runs, even if step 3 fails.
       #    This is the most important step: awards coins and resolves predictions.
-      #    continue-on-error: true ensures step 3 (fixture sync) never blocks coin payouts.
+      #    Hits the authenticated internal route with X-Sync-Key.
       - name: Sync scores & resolve predictions
         if: steps.secrets.outputs.ok == 'true'
         continue-on-error: false
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SYNC_API_KEY: ${{ secrets.SYNC_API_KEY }}
         run: |
           echo "⚽ Syncing scores..."
           STATUS=$(curl -s -o /tmp/scores_response.json -w "%{http_code}" \
             --max-time 75 \
-            -X POST "$BACKEND_URL/api/sync/scores" \
-            -H "Content-Type: application/json")
+            -X POST "$BACKEND_URL/api/sync/internal/scores" \
+            -H "Content-Type: application/json" \
+            -H "X-Sync-Key: $SYNC_API_KEY")
           echo "HTTP $STATUS"
           cat /tmp/scores_response.json
-          if [ "$STATUS" != "200" ]; then
+          if [ "$STATUS" = "403" ]; then
+            echo "::warning::Score sync returned 403 — check SYNC_API_KEY secret matches the backend"
+          elif [ "$STATUS" != "200" ]; then
             echo "::warning::Score sync returned HTTP $STATUS (coins may be delayed)"
           fi
 
@@ -82,12 +90,14 @@ jobs:
         continue-on-error: true
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SYNC_API_KEY: ${{ secrets.SYNC_API_KEY }}
         run: |
           echo "📅 Syncing fixtures..."
           STATUS=$(curl -s -o /tmp/matches_response.json -w "%{http_code}" \
             --max-time 75 \
-            -X POST "$BACKEND_URL/api/sync/matches" \
-            -H "Content-Type: application/json")
+            -X POST "$BACKEND_URL/api/sync/internal/matches" \
+            -H "Content-Type: application/json" \
+            -H "X-Sync-Key: $SYNC_API_KEY")
           echo "HTTP $STATUS"
           cat /tmp/matches_response.json
           if [ "$STATUS" != "200" ]; then
