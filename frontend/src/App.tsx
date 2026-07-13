@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import Lenis from 'lenis';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { queryClient } from './lib/queryClient';
 import { useAuthStore } from './stores/authStore';
 import { useGroupStore } from './stores/groupStore';
 import { useCoinsStore } from './stores/coinsStore';
@@ -157,48 +160,51 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppInitializer>
-        <Routes>
-          {/* Public routes */}
-          <Route path={ROUTES.LOGIN} element={<LoginPage />} />
-          <Route path={ROUTES.AUTH_CALLBACK} element={<AuthCallbackPage />} />
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AppInitializer>
+          <Routes>
+            {/* Public routes */}
+            <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+            <Route path={ROUTES.AUTH_CALLBACK} element={<AuthCallbackPage />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/"
-            element={
-              <AuthGuard>
-                <AppShell />
-              </AuthGuard>
-            }
-          >
-            <Route index element={<AnimatedOutlet><HomePage /></AnimatedOutlet>} />
-            <Route path="leaderboard" element={<AnimatedOutlet><LeaderboardPage /></AnimatedOutlet>} />
-            <Route path="locker-room" element={<AnimatedOutlet><LockerRoomPage /></AnimatedOutlet>} />
-            <Route path="stats" element={<AnimatedOutlet><StatsPage /></AnimatedOutlet>} />
-            <Route path="profile" element={<AnimatedOutlet><ProfilePage /></AnimatedOutlet>} />
-            <Route path="settings" element={<AnimatedOutlet><SettingsPage /></AnimatedOutlet>} />
-          </Route>
+            {/* Protected routes */}
+            <Route
+              path="/"
+              element={
+                <AuthGuard>
+                  <AppShell />
+                </AuthGuard>
+              }
+            >
+              <Route index element={<AnimatedOutlet><HomePage /></AnimatedOutlet>} />
+              <Route path="leaderboard" element={<AnimatedOutlet><LeaderboardPage /></AnimatedOutlet>} />
+              <Route path="locker-room" element={<AnimatedOutlet><LockerRoomPage /></AnimatedOutlet>} />
+              <Route path="stats" element={<AnimatedOutlet><StatsPage /></AnimatedOutlet>} />
+              <Route path="profile" element={<AnimatedOutlet><ProfilePage /></AnimatedOutlet>} />
+              <Route path="settings" element={<AnimatedOutlet><SettingsPage /></AnimatedOutlet>} />
+            </Route>
 
-          {/* Admin console */}
-          <Route
-            path="/admin"
-            element={
-              <AdminProtectedRoute>
-                <AdminLayout />
-              </AdminProtectedRoute>
-            }
-          >
-            <Route index element={<AdminDashboardPage />} />
-            <Route path="users"  element={<UserManagement />} />
-            <Route path="groups" element={<GroupManagement />} />
-          </Route>
+            {/* Admin console */}
+            <Route
+              path="/admin"
+              element={
+                <AdminProtectedRoute>
+                  <AdminLayout />
+                </AdminProtectedRoute>
+              }
+            >
+              <Route index element={<AdminDashboardPage />} />
+              <Route path="users"  element={<UserManagement />} />
+              <Route path="groups" element={<GroupManagement />} />
+            </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
-        </Routes>
-      </AppInitializer>
-    </BrowserRouter>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
+          </Routes>
+        </AppInitializer>
+      </BrowserRouter>
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+    </QueryClientProvider>
   );
 }
