@@ -38,7 +38,13 @@ function mergeMatches(prev: Match[], next: Match[]): Match[] {
   });
 }
 
-const INITIAL_UPCOMING_DAYS = 30; // show 30 days ahead by default (covers international breaks)
+// Show 60 days ahead by default. The old 30-day window silently hid the entire
+// upcoming slate during the summer off-season — e.g. on 2026-07-12 the nearest
+// Premier League fixture is 2026-08-21 (40 days out), so a 30-day window
+// rendered "No matches found" even though the backend had synced all 60 PL
+// fixtures. 60 days catches pre-season + the start of the European season while
+// staying under the backend's 90-day sync window. "Load More" extends further.
+const INITIAL_UPCOMING_DAYS = 60;
 const LOAD_MORE_DAYS = 14;        // each "Load More" click adds 14 more days
 const COMPLETED_DAYS = 14;        // show results from last 14 days
 

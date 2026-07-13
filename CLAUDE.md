@@ -401,6 +401,7 @@ goalbet/
 │       │       ├── LangToggle.tsx
 │       │       ├── LoadingSpinner.tsx
 │       │       ├── MagneticButtonV2.tsx   # Magnetic pull button; variants: volt / ghost / purple
+│       │       ├── MatchCardSkeleton.tsx  # Premium cold-start loader (pulse + shimmer). Exports MatchCardSkeleton + MatchCardSkeletonList
 │       │       ├── NeonButton.tsx         # Variants: green / ghost / danger
 │       │       ├── PolicyModal.tsx
 │       │       ├── ScoringGuide.tsx       # Bottom sheet — swipe-to-close enabled
@@ -423,6 +424,7 @@ goalbet/
 │       │   ├── useNewPointsAlert.ts       # Toast on newly earned points since last visit
 │       │   ├── useNotifications.ts        # Persistent notifications feed subscriber
 │       │   ├── usePredictions.ts
+│       │   ├── useWorldCupMatches.ts       # Fetches all synced league-4480 rows (+ realtime) for the WC bracket live overlay
 │       │   └── useRTLDirection.ts         # Sets document.dir from active language
 │       ├── lib/
 │       │   ├── authSchema.ts              # Password validation: strength, requirements, error mapping
@@ -711,7 +713,11 @@ If a league is in `FOOTBALL_LEAGUES` (frontend) but NOT in `LEAGUE_ESPN_MAP` (ba
 
 ### Fixture window
 
-`syncLeague()` calls `fetchLeagueMatches(leagueId, 7, 42)` — **7 days back, 42 days ahead**.
+`syncLeague()` calls `fetchLeagueMatches(leagueId, daysBack, 90)` — **90 days ahead**, and `daysBack` is **45 for World Cup (4480)** so the whole tournament (group stage from mid-June onward) is captured, **7 for every other league**. (Score resolution uses a tight `fetchLeagueMatches(leagueId, 3, 1)` in `scoreUpdater.ts` — imminent kickoffs only.)
+
+**Off-season gotcha:** the frontend `useMatches` upcoming window (`INITIAL_UPCOMING_DAYS`) must stay wide enough to reach the next fixtures, or the feed shows "No matches found" even though the DB is full. In mid-summer the nearest European fixtures are ~40 days out, so the window is **60 days** (was 30, which hid the entire pre-season slate). The backend 90-day sync window is the ceiling; keep the frontend window ≤ it.
+
+**Force a clean pull of every mapped league** (ignores group `active_leagues`, seeds World Cup): `cd backend && npm run sync:all`, or `POST /api/sync/matches` with body `{ "all": true }`.
 
 ### The `goalbet:synced` event
 
@@ -753,6 +759,10 @@ Old predictions have `predicted_halftime_outcome`. New predictions have `predict
 Prediction scoring always uses **regulation-time score** (`regulation_home` / `regulation_away`).
 If `regulation_home` is null, falls back to `home_score` / `away_score` (safe for non-ET matches).
 `went_to_penalties = true` → shootout happened. `penalty_home` / `penalty_away` store the shootout score.
+
+**ESPN penalty/ET capture (learn from the recurring bug):** ESPN's soccer feeds use **`STATUS_FINAL_PEN`** (not `STATUS_FINAL_PK`) for shootout finals and put the shootout score on **`competitors[].shootoutScore`** — the per-period `linescores` are often entirely empty (e.g. all of `fifa.world`). So `espn.ts` must (1) treat `STATUS_FINAL_PEN` as pens, (2) read `shootoutScore` directly from the scoreboard competitor (primary source; linescores[4] is only a fallback), and (3) when ET/PEN is detected but no per-period split exists, set `regulation_home/away = final score` so the frontend's `wentToET` badge (which keys off `regulation_home != null`) still fires. The frontend `MatchCard` already renders AET/PEN + the winning side + shootout score from these fields — the bug was always **data capture**, not display.
+
+**`went_to_penalties` must ALWAYS be sent as an explicit boolean in the upsert** — never `delete` it when false. The column is `NOT NULL`, and in a bulk PostgREST upsert the INSERT column list is the union of all row keys; if any row keeps the key (a real PEN match) the rows that omitted it are sent `NULL` → the whole batch fails the NOT-NULL constraint. This silently killed WC knockout sync.
 
 ### Corners — International Friendlies exception
 
@@ -915,10 +925,21 @@ Must be kept in sync between **both** files:
 | International Friendlies | 4396 | `fifa.friendly` |
 | UEFA Nations League | 4635 | `uefa.nations` |
 | World Cup Qualifiers 2026 | 5000 | `uefa.worldq` |
+| World Cup 2026 | 4480 | `fifa.world` |
 
-### Leagues with NO ESPN coverage
+### World Cup 2026 (4480) — live ESPN data + custom bracket view
 
-- **World Cup** (4480) — no ESPN standings/leaders feed, but surfaces in the Stats Hub through a **custom view**: `StatsPage.tsx` keeps a `CUSTOM_VIEW_LEAGUES` set (`{ 4480 }`) that bypasses the ESPN-slug filter on `FOOTBALL_LEAGUES`, and renders `<WorldCupBracket />` instead of `<StandingsTable>` + `<LeagueLeaders>`. `useLeagueStats` is passed `null` when `isCustomView` is true so the hook doesn't fire. Tournament data is static in `lib/worldCup2026.ts` (groups, knockout schedule with FIFA match numbers 73–104, 16 host stadia, phases). The component has 4 tabs (groups / fixtures / knockouts / venues) — the `overview` tab was removed. The knockout bracket uses two card types: `BracketTreeCard` (ultra-compact, desktop 9-column grid) and `BracketMatchCard` (full-detail, mobile stacked view). Trophy SVG is in `assets/world-cup-trophy.svg` (4-layer: gold body gradient + specular highlight + green malachite bands + outline stroke). Add future tournaments without an ESPN feed by dropping their league id into `CUSTOM_VIEW_LEAGUES` and shipping a matching component.
+**As of the 2026 tournament, World Cup 4480 has a live ESPN feed** (slug `fifa.world`, ESPN league id 606) in **both** `LEAGUE_ESPN_MAP` (backend) and `LEAGUE_ESPN_SLUG` (frontend). Once a group activates World Cup, `syncAllActiveLeagues()` pulls real WC fixtures into the `matches` table like any other league, and they appear in the normal HomePage feed with full prediction support.
+
+It is **still rendered by the custom `<WorldCupBracket />` view** in the Stats Hub — `StatsPage.tsx` keeps a `CUSTOM_VIEW_LEAGUES` set (`{ 4480 }`) and the explicit `leagueId === WORLD_CUP_ID` check both still route to the bracket rather than `<StandingsTable>`/`<LeagueLeaders>` (ESPN has no WC standings/leaders feed). `useLeagueStats` is still passed `null` for the custom view.
+
+**Live overlay (do not "replace" the static data with live rows):** the bracket's structure — groups, FIFA match numbers 73–104, 16 stadia, the knockout tree, TBD slots — is static in `lib/worldCup2026.ts` and the DB cannot supply it. `WorldCupBracket.tsx` therefore *hydrates* the static scaffold with live data instead of replacing it:
+- `hooks/useWorldCupMatches.ts` fetches all synced league-4480 rows (+ realtime, + `goalbet:synced`).
+- A `WCLiveContext` + normalised **team-pair matcher** (`teamPairKey` / `normTeam`, with a `TEAM_ALIASES` table for Türkiye→Turkey, South Korea↔Korea Republic, Ivory Coast↔Côte d'Ivoire, USA, Bosnia, Czechia) maps each static fixture to its live DB row order-independently.
+- `LiveScorePill` shows the FT/live score (oriented to the fixture's home side) on group-fixture and knockout cards once a match exists.
+- Predict buttons open the **standard `PredictionModal`** (mounted inside the bracket, fed by synced WC matches) for unlocked matches and show a `predicted` state; they gracefully fall back to the `wcPredictSoon` teaser when no synced/unlocked match matches (e.g. placeholder knockout slots like "W 73"). Predictions flow through the existing `place_prediction_bet` RPC + kickoff lock + `scoreUpdater` atomic claim — WC is fully in the core economy.
+- `BracketTreeCard` (ultra-compact, desktop 9-column grid) and `BracketMatchCard` (full-detail, mobile stacked) remain distinct. 4 tabs (groups / fixtures / knockouts / venues); the `overview` tab was removed. Trophy SVG is in `assets/world-cup-trophy.svg`.
+
 - **Euro Championship** (4467) — silently skipped (no custom view yet; only relevant every 4 years).
 
 ### Removed leagues
@@ -1079,11 +1100,16 @@ Use semantic CSS classes — never hardcode rgba in bento components:
 | `bento-card-default` | white/3 | white/90 |
 | `bento-hero-card` | volt border | navy border |
 
+### Glass surfaces (frosted, Apple-like)
+
+Dark-mode card glass is tuned for a sharp, saturated frost — `.card-base` uses `backdrop-filter: blur(20px) saturate(150%)` + an inset top-edge highlight; `.card-elevated` uses `blur(28px) saturate(160%)`; `.glass` (nav surfaces) uses `blur(20px) saturate(140%)`. The Tailwind `backdrop-blur-glass` token is `16px` (used by standalone glass: Toast, TacticalPitch, StandingsTable, LeagueLeaders, `MatchCardSkeleton`). **Light mode overrides these with `backdrop-filter: none !important` + solid white** — never remove those `!important` overrides. Don't hardcode blur on cards; use the semantic classes so both themes stay correct.
+
 ### Hover effects
 
 - **Match cards** (`MatchCard`): diagonal shimmer sweep on hover entry. No tilt — preserves prediction form UX.
-- **Profile bento** (`TiltCardV2`): 3° tilt with spring physics. No glare overlay.
+- **Profile bento** (`TiltCardV2`): 3° tilt on a slightly overdamped spring (`stiffness 300, damping 32, mass 0.5, restDelta 0.001`) — responsive tracking, buttery settle, no overshoot. No glare overlay.
 - **Buttons** (`MagneticButtonV2`): magnetic pull within 80px radius. Variants: `volt`, `ghost`, `purple`.
+- **Cold-start loading** (`MatchCardSkeleton` / `MatchCardSkeletonList`): breathing pulse + diagonal shimmer sweep. `MatchFeed` renders these while `loading` on the all/live tabs AND when the list is empty but `isSyncing` is true (Render cold start), instead of the empty state.
 
 ### Light mode contrast overrides
 

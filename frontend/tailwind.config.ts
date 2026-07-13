@@ -134,7 +134,7 @@ const config: Config = {
         },
       },
       backdropBlur: {
-        glass: '12px',
+        glass: '16px',
       },
     },
   },
