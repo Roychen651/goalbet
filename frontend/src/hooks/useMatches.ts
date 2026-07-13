@@ -1,42 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, Match } from '../lib/supabase';
 import { useGroupStore } from '../stores/groupStore';
 
 type StatusFilter = 'all' | 'upcoming' | 'live' | 'completed';
 
-// ─── Smart merge ──────────────────────────────────────────────────────────────
-// Preserves object identity for matches that haven't changed.
-// React's reconciler compares by reference — if the object is the same reference,
-// the entire MatchCard + PredictionForm subtree is skipped during diffing.
-// Only records whose score/status/clock actually changed get new references.
-function mergeMatches(prev: Match[], next: Match[]): Match[] {
-  const prevMap = new Map(prev.map(m => [m.id, m]));
-  return next.map(m => {
-    const p = prevMap.get(m.id);
-    if (!p) return m; // new match — use incoming
-    if (
-      p.status         === m.status         &&
-      p.home_score     === m.home_score     &&
-      p.away_score     === m.away_score     &&
-      p.display_clock  === m.display_clock  &&
-      p.regulation_home === m.regulation_home &&
-      p.regulation_away === m.regulation_away &&
-      p.penalty_home   === m.penalty_home   &&
-      p.penalty_away   === m.penalty_away   &&
-      p.halftime_home  === m.halftime_home  &&
-      p.halftime_away  === m.halftime_away  &&
-      p.ai_pre_match_insight     === m.ai_pre_match_insight     &&
-      p.ai_pre_match_insight_he  === m.ai_pre_match_insight_he  &&
-      p.ai_post_match_summary    === m.ai_post_match_summary    &&
-      p.ai_post_match_summary_he === m.ai_post_match_summary_he &&
-      p.ai_ht_insight            === m.ai_ht_insight            &&
-      p.ai_ht_insight_he         === m.ai_ht_insight_he
-    ) {
-      return p; // nothing changed — same reference, React bails out of subtree
-    }
-    return { ...p, ...m }; // surgical update of changed fields
-  });
-}
+// Stable empty reference so consumers don't re-render when the list is empty.
+const EMPTY: Match[] = [];
 
 // Show 60 days ahead by default. The old 30-day window silently hid the entire
 // upcoming slate during the summer off-season — e.g. on 2026-07-12 the nearest
@@ -175,19 +145,24 @@ async function queryMatches(
   return all;
 }
 
+// ─── useMatches — TanStack Query edition (Sprint 3, Step 2) ────────────────────
+// Same public return shape as the previous bespoke useState/useEffect version —
+// HomePage requires zero changes.
+//
+// mergeMatches() is gone: React Query's built-in structural sharing preserves
+// object identity for unchanged rows across refetches (the reconciler-bailout the
+// hand-rolled merge existed to provide, AI columns included).
+//
+// upcomingDays is deliberately NOT part of the query key. It lives in a ref, and
+// "Load More" bumps the ref then calls refetch() — so widening the window keeps
+// the current list on screen (no skeleton, no scroll reset). A group/tab switch
+// DOES change the key, so it correctly shows skeletons and fetches fresh.
 export function useMatches(statusFilter: StatusFilter = 'all') {
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [upcomingDays, setUpcomingDays] = useState(INITIAL_UPCOMING_DAYS);
   const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-
-  // Ref mirrors upcomingDays so full/background fetch callbacks don't need it
-  // in their deps. Including it would rebuild the callbacks on every loadMore,
-  // re-fire the subscribe effect, and flip loading=true — which swaps the match
-  // list for skeletons mid-click, collapsing page height and resetting scroll.
   const upcomingDaysRef = useRef(INITIAL_UPCOMING_DAYS);
 
   const { activeGroupId, groups, loading: groupsLoading } = useGroupStore();
@@ -195,122 +170,66 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
   const activeLeagues = activeGroup?.active_leagues ?? [];
   const leaguesKey = [...activeLeagues].sort().join(',');
 
-  // ── Full fetch (shows loading spinner) ────────────────────────────────────
-  // Use ONLY for: initial mount, group/league changes, manual "Sync Now".
-  // Never call this from background sync paths — it sets loading=true which
-  // unmounts the match list and destroys all PredictionForm state.
-  const fetchMatches = useCallback(async (days?: number) => {
-    if (!activeGroupId) {
-      setMatches([]);
-      setLoading(false);
-      return;
-    }
-    if (groupsLoading) {
-      setLoading(true);
-      return;
-    }
-    if (activeLeagues.length === 0) {
-      setMatches([]);
-      setLoading(false);
-      return;
-    }
+  const enabled = !!activeGroupId && !groupsLoading && activeLeagues.length > 0;
 
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await queryMatches(activeLeagues, statusFilter, days ?? upcomingDaysRef.current);
-      setMatches(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load matches');
-    } finally {
-      setLoading(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGroupId, leaguesKey, statusFilter, groupsLoading]);
+  const query = useQuery({
+    queryKey: ['matches', activeGroupId ?? null, leaguesKey, statusFilter],
+    queryFn: () => queryMatches(activeLeagues, statusFilter, upcomingDaysRef.current),
+    enabled,
+    // Freshness comes from Realtime (setQueryData patches) + the goalbet:synced
+    // invalidation, never from a stale-timer refetch that would fight AppShell's
+    // sole ownership of automatic sync (CLAUDE.md rule 4.3).
+    staleTime: Infinity,
+  });
 
-  // ── Background fetch (zero UI disruption) ─────────────────────────────────
-  // Called by: goalbet:synced event, tab restore after inactivity.
-  // Never sets loading=true — the match list stays mounted, PredictionForm
-  // state (user's in-progress selections) is fully preserved.
-  // Uses mergeMatches to keep object identity stable for unchanged records,
-  // so React's reconciler skips subtrees that haven't actually changed.
-  const backgroundFetch = useCallback(async () => {
-    if (!activeGroupId || groupsLoading || activeLeagues.length === 0) return;
-    try {
-      const data = await queryMatches(activeLeagues, statusFilter, upcomingDaysRef.current);
-      setMatches(prev => mergeMatches(prev, data));
-    } catch {
-      // Silent — existing data stays, user is not disrupted
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGroupId, leaguesKey, statusFilter, groupsLoading]);
+  const { refetch: rqRefetch } = query;
 
-  // Load more fixtures: extend window without resetting scroll or showing full spinner.
-  // If a bump returns the same match count (or fewer), we've hit the backend sync
-  // ceiling — ESPN has no more scheduled fixtures. Flip hasMore so the UI can
-  // swap the button for a "no more fixtures" note instead of lying to the user.
-  const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
-    const newDays = upcomingDays + LOAD_MORE_DAYS;
-    const prevCount = matches.length;
-    setLoadingMore(true);
-    try {
-      const data = await queryMatches(activeLeagues, statusFilter, newDays);
-      setMatches(data);
-      upcomingDaysRef.current = newDays;
-      setUpcomingDays(newDays);
-      if (data.length <= prevCount) setHasMore(false);
-    } catch {
-      // silent — existing matches stay
-    } finally {
-      setLoadingMore(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upcomingDays, loadingMore, hasMore, matches.length, activeLeagues, statusFilter]);
-
-  // Reset the "hit the ceiling" flag whenever the underlying data scope changes.
-  useEffect(() => {
-    setHasMore(true);
-    upcomingDaysRef.current = INITIAL_UPCOMING_DAYS;
-    setUpcomingDays(INITIAL_UPCOMING_DAYS);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leaguesKey, statusFilter, activeGroupId]);
-
+  // ── Realtime: two-path model (see CLAUDE.md rule 4.4) ─────────────────────
+  //  • UPDATE → surgical setQueryData merge patch. Instant live score/status/clock
+  //    with zero network. Merge (never replace) so a partial payload can only
+  //    overlay changed fields, never drop an existing one.
+  //  • INSERT → invalidate (need the full row + re-sort).
+  // The authoritative reconcile for anything a partial UPDATE payload dropped
+  // (e.g. a JSONB/AI column) is the goalbet:synced invalidation below.
   const subscribeToMatches = useCallback(() => {
     channelRef.current?.unsubscribe();
     channelRef.current = supabase
       .channel(`matches-${leaguesKey}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches' }, (payload) => {
         const updated = payload.new as Match;
-        setMatches(prev =>
-          prev.map(m => m.id === updated.id ? { ...m, ...updated } as Match : m)
-        );
+        queryClient.setQueriesData<Match[]>({ queryKey: ['matches'] }, (old) => {
+          if (!old) return old;
+          let changed = false;
+          const next = old.map(m => {
+            if (m.id === updated.id) { changed = true; return { ...m, ...updated }; }
+            return m;
+          });
+          return changed ? next : old; // unchanged lists keep their reference
+        });
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'matches' }, () => {
-        // New match inserted (e.g. after sync) — refresh the list
-        fetchMatches();
+        queryClient.invalidateQueries({ queryKey: ['matches'] });
       })
       .subscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaguesKey]);
 
   useEffect(() => {
-    fetchMatches();       // initial load — spinner is appropriate here
     subscribeToMatches();
 
-    // Tab restore: re-subscribe in case the Realtime connection dropped,
-    // then silently refresh data without a loading spinner.
+    // Tab restore: re-subscribe in case the Realtime socket dropped, then
+    // silently revalidate (background refetch — never a skeleton).
     const onVisible = () => {
       if (!document.hidden) {
         subscribeToMatches();
-        backgroundFetch(); // ← never sets loading=true
+        queryClient.invalidateQueries({ queryKey: ['matches'] });
       }
     };
 
-    // Background sync completed — merge new data without destroying form state.
-    // Previously this called fetchMatches() which set loading=true, unmounted
-    // the match list, and wiped all PredictionForm useState selections.
-    const onSynced = () => backgroundFetch();
+    // Background sync finished → authoritative silent refetch of the active
+    // query. isLoading stays false (data is present), so the list is never
+    // unmounted and PredictionForm state is preserved.
+    const onSynced = () => queryClient.invalidateQueries({ queryKey: ['matches'] });
 
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('goalbet:synced', onSynced);
@@ -320,7 +239,49 @@ export function useMatches(statusFilter: StatusFilter = 'all') {
       window.removeEventListener('goalbet:synced', onSynced);
       channelRef.current?.unsubscribe();
     };
-  }, [fetchMatches, subscribeToMatches, backgroundFetch]);
+  }, [subscribeToMatches, queryClient]);
 
-  return { matches, loading, loadingMore, error, refetch: fetchMatches, loadMore, upcomingDays, hasMore };
+  // Reset the day window + "hit the ceiling" flag whenever the data scope changes.
+  useEffect(() => {
+    setHasMore(true);
+    upcomingDaysRef.current = INITIAL_UPCOMING_DAYS;
+    setUpcomingDays(INITIAL_UPCOMING_DAYS);
+  }, [leaguesKey, statusFilter, activeGroupId]);
+
+  // Load more fixtures: widen the window and refetch the SAME key, so the current
+  // list stays on screen (no spinner, no scroll reset). If the wider window
+  // returns the same count (or fewer), we've hit the backend's sync ceiling.
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    const prevCount = query.data?.length ?? 0;
+    const newDays = upcomingDaysRef.current + LOAD_MORE_DAYS;
+    setLoadingMore(true);
+    upcomingDaysRef.current = newDays;
+    try {
+      const res = await rqRefetch();
+      setUpcomingDays(newDays);
+      if ((res.data?.length ?? 0) <= prevCount) setHasMore(false);
+    } catch {
+      // silent — existing matches stay
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, query.data, rqRefetch]);
+
+  // Preserved for return-shape compatibility (no current consumer calls it).
+  const refetch = useCallback(async (days?: number) => {
+    if (typeof days === 'number') {
+      upcomingDaysRef.current = days;
+      setUpcomingDays(days);
+    }
+    await rqRefetch();
+  }, [rqRefetch]);
+
+  const matches = query.data ?? EMPTY;
+  const loading = !!activeGroupId && (groupsLoading || (activeLeagues.length > 0 && query.isLoading));
+  const error = query.error
+    ? (query.error instanceof Error ? query.error.message : 'Failed to load matches')
+    : null;
+
+  return { matches, loading, loadingMore, error, refetch, loadMore, upcomingDays, hasMore };
 }
