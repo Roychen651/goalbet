@@ -31,6 +31,7 @@ export type AuthView =
   | 'forgot'
   | 'check-email'
   | 'set-password'
+  | 'otp-sent'      // passwordless: magic link + 6-digit code emailed, awaiting code entry
   | 'success';
 
 export type CheckEmailContext = 'signup' | 'reset' | 'google-set-password';
@@ -47,6 +48,8 @@ export interface UseAuthV2Return {
   setEmail: (v: string) => void;
   navigateTo: (v: AuthView, dir?: 1 | -1) => void;
   handleContinue: () => void;
+  handleSendMagicLink: () => Promise<void>;
+  handleVerifyOtp: (code: string) => Promise<void>;
   handleSignIn: (password: string) => Promise<void>;
   handleSignUp: (username: string, password: string) => Promise<void>;
   handleForgotPassword: () => Promise<void>;
@@ -102,6 +105,53 @@ export function useAuthV2(): UseAuthV2Return {
   const handleContinue = useCallback(() => {
     if (!email.trim()) return;
     navigateTo('signin', 1);
+  }, [email, navigateTo]);
+
+  // ── Passwordless: send magic link + email OTP ─────────────────────────────
+  // signInWithOtp emails BOTH a magic link and a 6-digit code. The user can
+  // click the link (→ /auth/callback → onAuthStateChange) OR type the code
+  // here. shouldCreateUser:true makes this double as passwordless sign-up.
+  const handleSendMagicLink = useCallback(async () => {
+    if (!email.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: err } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (err) {
+        setError(mapAuthError(err.message));
+        return;
+      }
+      navigateTo('otp-sent', 1);
+    } finally {
+      setLoading(false);
+    }
+  }, [email, navigateTo]);
+
+  // ── Passwordless: verify the 6-digit code typed in-app ────────────────────
+  const handleVerifyOtp = useCallback(async (code: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: err } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code.trim(),
+        type: 'email',
+      });
+      if (err) {
+        setError(mapAuthError(err.message));
+        return;
+      }
+      // onAuthStateChange handles the redirect via LoginPage's useEffect
+      navigateTo('success', 1);
+    } finally {
+      setLoading(false);
+    }
   }, [email, navigateTo]);
 
   // ── Sign in with password ─────────────────────────────────────────────────
@@ -247,6 +297,8 @@ export function useAuthV2(): UseAuthV2Return {
     setEmail,
     navigateTo,
     handleContinue,
+    handleSendMagicLink,
+    handleVerifyOtp,
     handleSignIn,
     handleSignUp,
     handleForgotPassword,

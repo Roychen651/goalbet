@@ -20,6 +20,8 @@ interface PredictionFormProps {
   saving: boolean;
   /** Normalised implied probabilities from ESPN odds (0–1 each, sum ≈ 1) */
   odds?: { homeWin: number; draw: number; awayWin: number } | null;
+  /** First-timer → lock advanced tiers (2–5) behind a frosted overlay */
+  isNewUser?: boolean;
 }
 
 export interface PredictionData {
@@ -51,7 +53,28 @@ function deriveOutcomeFromScore(home: string, away: string): OutcomeOption | nul
   return 'D';
 }
 
-export const PredictionForm = memo(function PredictionForm({ match, existingPrediction, onSave, saving, odds }: PredictionFormProps) {
+// Progressive disclosure: wraps an advanced tier for a first-timer — the tier
+// stays visible (so they know the depth exists) but is blurred + non-interactive
+// under a frosted overlay with a centered lock and an unlock hint.
+function LockedTier({ locked = true, children }: { locked?: boolean; children: React.ReactNode }) {
+  const { t } = useLangStore();
+  if (!locked) return <>{children}</>;
+  return (
+    <div className="relative">
+      <div aria-hidden className="pointer-events-none select-none opacity-40 blur-[1.5px]">
+        {children}
+      </div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl bg-black/25 backdrop-blur-[3px]">
+        <span className="text-2xl leading-none" aria-hidden>🔒</span>
+        <span className="px-4 text-center text-[11px] font-semibold leading-snug text-white/85">
+          {t('unlockTierHint')}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export const PredictionForm = memo(function PredictionForm({ match, existingPrediction, onSave, saving, odds, isNewUser }: PredictionFormProps) {
   const { t } = useLangStore();
   const locked = isMatchLocked(match.kickoff_time) || match.status !== 'NS';
   const resolved = existingPrediction?.is_resolved ?? false;
@@ -217,36 +240,40 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
             active={tier.active}
             color={TIER_COLORS[i]}
           >
-            {tier.content}
+            <LockedTier locked={!!isNewUser && tier.key !== 'tier1'}>{tier.content}</LockedTier>
           </TierRow>
         </motion.div>
       ))}
 
       {/* BTTS + O/U as compact single-line rows */}
-      <InlineBoolTier
-        label={t('bothTeamsToScore')}
-        pts={POINTS.TIER5_BTTS}
-        active={btts !== null}
-        color={TIER_COLORS[tiers.length]}
-        value={btts}
-        onChange={(v) => { haptic('selection'); setBtts(v); setSaved(false); }}
-        yesLabel={t('yes')}
-        noLabel={t('no')}
-        impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
-        delay={tiers.length * 0.05}
-      />
-      <InlineBoolTier
-        label={t('totalGoals')}
-        pts={POINTS.TIER6_OVER_UNDER}
-        active={overUnder !== null}
-        color={TIER_COLORS[tiers.length + 1]}
-        value={overUnder === null ? null : overUnder === 'over'}
-        onChange={(v) => { haptic('selection'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
-        yesLabel="O 2.5"
-        noLabel="U 2.5"
-        impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
-        delay={(tiers.length + 1) * 0.05}
-      />
+      <LockedTier locked={!!isNewUser}>
+        <InlineBoolTier
+          label={t('bothTeamsToScore')}
+          pts={POINTS.TIER5_BTTS}
+          active={btts !== null}
+          color={TIER_COLORS[tiers.length]}
+          value={btts}
+          onChange={(v) => { haptic('selection'); setBtts(v); setSaved(false); }}
+          yesLabel={t('yes')}
+          noLabel={t('no')}
+          impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
+          delay={tiers.length * 0.05}
+        />
+      </LockedTier>
+      <LockedTier locked={!!isNewUser}>
+        <InlineBoolTier
+          label={t('totalGoals')}
+          pts={POINTS.TIER6_OVER_UNDER}
+          active={overUnder !== null}
+          color={TIER_COLORS[tiers.length + 1]}
+          value={overUnder === null ? null : overUnder === 'over'}
+          onChange={(v) => { haptic('selection'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
+          yesLabel="O 2.5"
+          noLabel="U 2.5"
+          impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
+          delay={(tiers.length + 1) * 0.05}
+        />
+      </LockedTier>
 
       {/* Coin cost bar + submit */}
       <AnimatePresence>
