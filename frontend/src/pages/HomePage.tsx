@@ -14,6 +14,8 @@ import { ScoringGuide } from '../components/ui/ScoringGuide';
 import { CoinGuide } from '../components/ui/CoinGuide';
 import { CoinIcon } from '../components/ui/CoinIcon';
 import { cn } from '../lib/utils';
+import { haptic } from '../lib/haptics';
+import { celebratePrediction } from '../lib/celebrate';
 import type { PredictionData } from '../components/matches/PredictionForm';
 
 type Tab = 'all' | 'upcoming' | 'live' | 'completed';
@@ -46,8 +48,11 @@ export function HomePage() {
   const handleSavePrediction = async (data: PredictionData) => {
     try {
       await savePrediction(data);
+      haptic('success');
+      celebratePrediction();
       addToast(t('predictionSavedToast'), 'success');
     } catch (err) {
+      haptic('error');
       addToast(err instanceof Error ? err.message : t('failedLoadMatches'), 'error');
     }
   };

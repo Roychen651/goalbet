@@ -1,19 +1,20 @@
 /**
- * PredictionModal — Bottom sheet overlay for the PredictionForm.
+ * PredictionModal — native-feel bottom sheet for the PredictionForm, powered by
+ * Vaul (iOS-grade drag physics, velocity dismiss, inner-scroll aware).
  *
  * Reads `activePredictionMatchId` from uiStore.
  * Match/prediction data passed in from HomePage (where the hooks live).
  *
- * CLAUDE.md 4.13: drag="y", dragConstraints={{ top: 0 }}, scroll containers
- * have onPointerDown={e => e.stopPropagation()}.
+ * Vaul handles the drag-to-close + inner scroll natively, so the old
+ * CLAUDE.md 4.13 Framer drag hack (onPointerDown stopPropagation) is no longer
+ * needed — Vaul detects scroll position and only drags from the top / handle.
  */
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { Drawer } from 'vaul';
 import { X } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 import { useLangStore } from '../../stores/langStore';
 import { PredictionForm, PredictionData } from './PredictionForm';
-import { cn } from '../../lib/utils';
 import type { Match, Prediction } from '../../lib/supabase';
 
 interface PredictionModalProps {
@@ -35,83 +36,54 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
   const prediction = matchId ? predictions.get(matchId) : undefined;
 
   return (
-    <AnimatePresence>
-      {match && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+    <Drawer.Root
+      open={!!match}
+      onOpenChange={(open) => { if (!open) close(); }}
+      shouldScaleBackground
+      setBackgroundColorOnScale={false}
+    >
+      <Drawer.Portal>
+        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md" />
+        <Drawer.Content
+          className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[88vh] flex-col rounded-t-2xl outline-none sm:max-w-[460px]"
+          style={{
+            background: 'var(--color-tooltip-bg)',
+            border: '1px solid var(--card-border)',
+            borderBottom: 'none',
+            boxShadow: '0 -8px 60px rgba(0,0,0,0.5)',
+          }}
         >
-          {/* Backdrop — a touch more blur + a gentle fade for a premium depth-of-field */}
-          <motion.div
-            className="absolute inset-0 bg-black/60 backdrop-blur-md"
-            onClick={close}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' as const }}
-          />
+          {/* Grabber handle */}
+          <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-text-muted/40" />
 
-          {/* Panel — slide-up sheet with a subtle scale "materialize" and a
-              slightly overdamped spring so it settles buttery-smooth, no overshoot.
-              (Chosen over a layoutId card→sheet morph: the sheet is a bottom-anchored
-              iOS pattern, and the source card stays mounted — a shared-element morph
-              would fight both. Scale/opacity is RTL-agnostic and regression-safe.) */}
-          <motion.div
-            initial={{ y: '100%', opacity: 0, scale: 0.97 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: '100%', opacity: 0, scale: 0.98 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 32, mass: 0.8 }}
-            className={cn(
-              'relative z-10 w-full sm:max-w-[440px]',
-              'rounded-t-2xl sm:rounded-2xl overflow-hidden',
-              'shadow-[0_20px_60px_rgba(0,0,0,0.5)]',
-              'max-h-[85vh] sm:max-h-[75vh] flex flex-col',
-            )}
-            style={{
-              background: 'var(--color-tooltip-bg)',
-              border: '1px solid var(--card-border)',
-              transformOrigin: 'bottom center',
-            }}
-            drag="y"
-            dragConstraints={{ top: 0 }}
-            dragElastic={0.15}
-            dragMomentum={false}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 100 && info.velocity.y > 20) close();
-            }}
-          >
-            {/* Mobile drag handle */}
-            <div className="flex justify-center pt-3 pb-0 sm:hidden">
-              <div className="w-12 h-1.5 rounded-full bg-text-muted/30" />
-            </div>
-
-            {/* Header */}
-            <div className="px-4 pt-3 pb-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--card-border)' }}>
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-text-primary truncate">
+          {/* Header */}
+          {match && (
+            <div
+              className="flex items-center justify-between px-4 pt-3 pb-2.5"
+              style={{ borderBottom: '1px solid var(--card-border)' }}
+            >
+              <div className="flex min-w-0 flex-col">
+                <Drawer.Title className="truncate text-sm font-bold text-text-primary">
                   {match.home_team} vs {match.away_team}
-                </span>
-                <span className="text-[10px] text-text-muted opacity-60 truncate">
+                </Drawer.Title>
+                <span className="truncate text-[10px] text-text-muted opacity-60">
                   {match.league_name}
                   {match.round ? ` · R${match.round}` : ''}
                 </span>
               </div>
               <button
                 onClick={close}
-                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/8 transition-colors shrink-0 ms-2"
+                aria-label={t('close')}
+                className="ms-2 shrink-0 rounded-lg p-1.5 text-text-muted transition-colors hover:bg-white/8 hover:text-text-primary"
               >
                 <X size={16} />
               </button>
             </div>
+          )}
 
-            {/* Scrollable prediction form */}
-            <div
-              className="flex-1 overflow-y-auto overscroll-contain px-3.5 py-3"
-              onWheel={e => e.stopPropagation()}
-              onPointerDown={e => e.stopPropagation()}
-            >
+          {/* Scrollable prediction form — Vaul is scroll-aware, no drag hack needed */}
+          <div className="flex-1 overflow-y-auto overscroll-contain px-3.5 py-3" data-vaul-no-drag>
+            {match && (
               <PredictionForm
                 match={match}
                 existingPrediction={prediction}
@@ -122,10 +94,10 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
                 saving={savingMatchId === match.id}
                 odds={espnOdds?.get(match.id) ?? undefined}
               />
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            )}
+          </div>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
   );
 }

@@ -10,6 +10,7 @@ import { useCoinsStore } from '../../stores/coinsStore';
 import { LangToggle } from '../ui/LangToggle';
 import { PolicyModal } from '../ui/PolicyModal';
 import { CoinIcon } from '../ui/CoinIcon';
+import NumberFlow from '@number-flow/react';
 import { NotificationBell, NotificationCenter } from './NotificationCenter';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useUIStore } from '../../stores/uiStore';
@@ -124,7 +125,9 @@ export function Sidebar() {
           <div className="flex items-center gap-2.5">
             <CoinIcon size={22} />
             <div>
-              <div className="text-amber-400 font-bold text-base tabular-nums leading-none">{coins}</div>
+              <div className="text-amber-400 font-bold text-base tabular-nums leading-none">
+                <NumberFlow value={coins} transformTiming={{ duration: 600, easing: 'cubic-bezier(0.16,1,0.3,1)' }} />
+              </div>
               <div className="text-amber-500/50 text-[10px] mt-0.5 uppercase tracking-widest">{t('coinsLabel2')}</div>
             </div>
           </div>
