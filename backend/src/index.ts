@@ -20,12 +20,17 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
     ].filter(Boolean) as string[]
   : ['http://localhost:5173', 'http://localhost:3000'];
 
+// Scoped to this project's actual Vercel preview URL shape — verified against
+// real deployments, e.g. https://goalbet-pcjmhlfsu-roychen651s-projects.vercel.app
+// (the dashboard project name "goalbet-io" is NOT the URL slug — it's "goalbet").
+const VERCEL_PREVIEW_ORIGIN = /^https:\/\/goalbet-[a-z0-9]+-roychen651s-projects\.vercel\.app$/;
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (GitHub Actions, curl, server-to-server)
+    // Allow requests with no origin (GitHub Actions, pg_net, curl, server-to-server —
+    // CORS is a browser-only mechanism and is structurally irrelevant to these)
     if (!origin) return callback(null, true);
-    // Allow any *.vercel.app preview URL
-    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    if (VERCEL_PREVIEW_ORIGIN.test(origin)) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
