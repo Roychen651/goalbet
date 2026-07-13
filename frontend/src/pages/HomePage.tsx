@@ -150,9 +150,9 @@ export function HomePage() {
           {TABS.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { haptic('light'); setActiveTab(tab.id); }}
               className={cn(
-                'relative flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all duration-200',
+                'relative flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all duration-200 active:scale-[0.97]',
                 activeTab === tab.id
                   ? 'bg-accent-green text-bg-base shadow-[0_0_12px_rgba(0,255,135,0.35)]'
                   : 'text-text-muted hover:text-text-primary bg-white/5 hover:bg-white/10'

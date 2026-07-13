@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { useUIStore } from './uiStore';
+import { haptic } from '../lib/haptics';
 
 interface CoinsState {
   coins: number;
@@ -32,6 +33,7 @@ export const useCoinsStore = create<CoinsState>((set) => ({
         const result = bonusData as { awarded: boolean; amount: number; balance: number };
         set({ coins: result.balance, loading: false });
         if (result.awarded) {
+          haptic('coin_drop');
           useUIStore.getState().addToast(`+${result.amount} coins — daily bonus!`, 'success');
         }
         return;

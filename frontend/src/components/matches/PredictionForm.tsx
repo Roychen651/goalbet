@@ -11,6 +11,7 @@ import { LIVE_STATUSES, POINTS, calcPredictionCost } from '../../lib/constants';
 const LEAGUES_WITHOUT_CORNERS = new Set([4396]);
 import { useLangStore } from '../../stores/langStore';
 import { useCoinsStore } from '../../stores/coinsStore';
+import { haptic } from '../../lib/haptics';
 
 interface PredictionFormProps {
   match: Match;
@@ -153,7 +154,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       content: (
         <OutcomePicker
           value={outcome}
-          onChange={(v) => { setOutcome(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); setOutcome(v); setSaved(false); }}
           homeTeam={match.home_team}
           awayTeam={match.away_team}
           color={TIER_COLORS[0]}
@@ -185,7 +186,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       content: (
         <CornersPicker
           value={cornersValue}
-          onChange={(v) => { setCornersValue(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); setCornersValue(v); setSaved(false); }}
           color={TIER_COLORS[2]}
         />
       ),
@@ -228,7 +229,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         active={btts !== null}
         color={TIER_COLORS[tiers.length]}
         value={btts}
-        onChange={(v) => { setBtts(v); setSaved(false); }}
+        onChange={(v) => { haptic('selection'); setBtts(v); setSaved(false); }}
         yesLabel={t('yes')}
         noLabel={t('no')}
         impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
@@ -240,7 +241,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         active={overUnder !== null}
         color={TIER_COLORS[tiers.length + 1]}
         value={overUnder === null ? null : overUnder === 'over'}
-        onChange={(v) => { setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
+        onChange={(v) => { haptic('selection'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
         yesLabel="O 2.5"
         noLabel="U 2.5"
         impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
@@ -375,7 +376,7 @@ function InlineBoolTier({
               onClick={() => { if (!isImpossible) onChange(isSelected ? null : v); }}
               disabled={isImpossible}
               className={cn(
-                'px-2.5 py-1 rounded-lg text-[11px] font-display font-semibold transition-all duration-150 border whitespace-nowrap',
+                'px-2.5 py-1 rounded-lg text-[11px] font-display font-semibold transition-all duration-150 border whitespace-nowrap active:scale-95',
                 isSelected && !isImpossible
                   ? cn('border-current text-current bg-current/10', color.pts)
                   : isImpossible
@@ -422,7 +423,7 @@ function OutcomePicker({
           onClick={() => { if (!lockedByScore) onChange(val); }}
           disabled={lockedByScore}
           className={cn(
-            'py-1.5 rounded-lg transition-all duration-150 border',
+            'py-1.5 rounded-lg transition-all duration-150 border active:scale-95',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
@@ -499,7 +500,7 @@ function BoolPicker({
             disabled={isImpossible}
             title={isImpossible ? 'Not possible with your score' : undefined}
             className={cn(
-              'py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border relative',
+              'py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 border relative active:scale-95',
               isSelected && !isImpossible
                 ? cn('border-current text-current bg-current/10', color.pts, color.glow)
                 : isImpossible
@@ -749,7 +750,7 @@ function CornersPicker({
           key={val}
           onClick={() => onChange(value === val ? null : val)}
           className={cn(
-            'py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-150 border',
+            'py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-150 border active:scale-95',
             value === val
               ? cn('border-current text-current bg-current/10', color.pts, color.glow)
               : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
