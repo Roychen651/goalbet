@@ -101,6 +101,7 @@ export const LEAGUE_ESPN_SLUG: Record<number, string> = {
   4396: 'fifa.friendly',    // International Friendlies
   4635: 'uefa.nations',     // UEFA Nations League
   5000: 'uefa.worldq',      // UEFA World Cup Qualifiers
+  4480: 'fifa.world',       // FIFA World Cup 2026 — live now (still custom-view in Stats Hub)
 };
 
 // App routes

@@ -31,8 +31,12 @@ export function TiltCardV2({
   const rawRotateX = useTransform(mouseY, [-0.5, 0.5], [maxRotate, -maxRotate]);
   const rawRotateY = useTransform(mouseX, [-0.5, 0.5], [-maxRotate, maxRotate]);
 
-  const rotateX = useSpring(rawRotateX, { stiffness: 380, damping: 38, mass: 0.4 });
-  const rotateY = useSpring(rawRotateY, { stiffness: 380, damping: 38, mass: 0.4 });
+  // Slightly overdamped spring (damping ratio ~1.1): tracks the cursor quickly
+  // yet settles with a buttery glide and zero overshoot. restDelta trims the
+  // long micro-tail so the transform thread goes idle cleanly on mouse-leave.
+  const springConfig = { stiffness: 300, damping: 32, mass: 0.5, restDelta: 0.001 };
+  const rotateX = useSpring(rawRotateX, springConfig);
+  const rotateY = useSpring(rawRotateY, springConfig);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

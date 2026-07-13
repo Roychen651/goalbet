@@ -25,9 +25,13 @@ async function upsertMatches(matches: DBMatch[]): Promise<{ inserted: number; up
     if (row.penalty_away === null) delete row.penalty_away;
     if (row.red_cards_home === null) delete row.red_cards_home;
     if (row.red_cards_away === null) delete row.red_cards_away;
-    // went_to_penalties: only send true — never overwrite a confirmed true with false.
-    // ESPN sometimes returns STATUS_FINAL (false) briefly after a PEN match on the next poll.
-    if (!row.went_to_penalties) delete (row as Record<string, unknown>).went_to_penalties;
+    // went_to_penalties is NOT NULL. It MUST always be sent as an explicit boolean:
+    // in a bulk upsert PostgREST builds one INSERT from the union of all row keys,
+    // so if ANY row in the batch keeps this key (a real PEN match) the false rows
+    // that omitted it get sent as NULL → NOT-NULL violation → the whole batch dies.
+    // Detection is now shootoutScore-based (stable for finished matches), so a
+    // transient re-sync flip is effectively impossible and self-heals next cycle.
+    (row as Record<string, unknown>).went_to_penalties = row.went_to_penalties === true;
     return row;
   });
 
@@ -40,10 +44,14 @@ async function upsertMatches(matches: DBMatch[]): Promise<{ inserted: number; up
     .select('id');
 
   if (error) {
-    logger.error('[matchSync] Upsert error:', error);
+    // TEMP DEBUG: surface the exact PostgREST error (schema/constraint issues
+    // were a suspected cause of "events fetched but nothing in the DB").
+    logger.error(`[matchSync][debug] Upsert FAILED for ${rows.length} rows: ${error.message} | details=${error.details ?? '-'} | hint=${error.hint ?? '-'}`);
     throw error;
   }
 
+  // TEMP DEBUG: rows sent vs rows the DB acknowledged.
+  logger.info(`[matchSync][debug] upsert ok: sent=${rows.length} acknowledged=${data?.length ?? 0}`);
   return { inserted: data?.length ?? 0, updated: 0 };
 }
 
@@ -53,7 +61,12 @@ export async function syncLeague(leagueId: number): Promise<SyncResult> {
   let errors = 0;
 
   try {
-    const matches = await fetchLeagueMatches(leagueId, 7, 90);
+    // World Cup 4480: use a wide back-window so the whole tournament (group stage
+    // from mid-June through the final) is captured, not just the last week. Other
+    // leagues keep the tight 7-day back-window (results older than that already
+    // resolved). 90 days forward is the ceiling for all leagues.
+    const daysBack = leagueId === 4480 ? 45 : 7;
+    const matches = await fetchLeagueMatches(leagueId, daysBack, 90);
 
     if (matches.length > 0) {
       const result = await upsertMatches(matches);

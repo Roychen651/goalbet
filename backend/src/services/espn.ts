@@ -33,6 +33,7 @@ export const LEAGUE_ESPN_MAP: Record<number, string> = {
   4396: 'fifa.friendly',    // International Friendlies (men's)
   4635: 'uefa.nations',     // UEFA Nations League
   5000: 'uefa.worldq',      // UEFA World Cup Qualifiers 2026
+  4480: 'fifa.world',       // FIFA World Cup 2026 (ESPN league id 606)
 };
 
 function mapEspnStatus(statusName: string, period: number, state: string): string {
@@ -43,6 +44,7 @@ function mapEspnStatus(statusName: string, period: number, state: string): strin
     case 'STATUS_FULL_ET':
     case 'STATUS_FINAL_AET':
     case 'STATUS_FINAL_PK':
+    case 'STATUS_FINAL_PEN':   // soccer penalty-shootout final (ESPN uses _PEN, not _PK)
     case 'STATUS_RESULT_OF_LEG':
       return 'FT';
     case 'STATUS_HALFTIME':
@@ -172,8 +174,17 @@ async function fetchMatchLinescoreDetails(
     const h2Away = getIdx(away, 1);
     const et1Home = getIdx(home, 2);  // ET1 goals (null if no ET)
     const et1Away = getIdx(away, 2);
-    const pkHome = getIdx(home, 4);   // shootout (null if no pens)
-    const pkAway = getIdx(away, 4);
+    // Shootout: prefer the explicit competitor.shootoutScore, fall back to linescores[4].
+    const shootoutOf = (c: Record<string, unknown> | undefined): number | null => {
+      const v = c?.shootoutScore;
+      if (v === undefined || v === null) return null;
+      const n = parseInt(String(v), 10);
+      return isNaN(n) ? null : n;
+    };
+    const pkHome = shootoutOf(home) ?? getIdx(home, 4);   // shootout (null if no pens)
+    const pkAway = shootoutOf(away) ?? getIdx(away, 4);
+    const statusNamePK = String((comp?.status as Record<string, unknown>)?.type &&
+      ((comp?.status as Record<string, unknown>).type as Record<string, unknown>).name || '');
 
     // Check total linescore count — ESPN omits 0-goal ET periods in some responses,
     // so we can't rely solely on et1Home/et1Away being non-null to detect ET.
@@ -181,9 +192,11 @@ async function fetchMatchLinescoreDetails(
     const awayLsCount = (away?.linescores as unknown[] | undefined)?.length ?? 0;
     const lsCount = Math.max(homeLsCount, awayLsCount);
 
-    const hasPK = pkHome !== null || pkAway !== null;
+    const hasPK = pkHome !== null || pkAway !== null ||
+      statusNamePK === 'STATUS_FINAL_PEN' || statusNamePK === 'STATUS_FINAL_PK' || statusNamePK === 'STATUS_FULL_PEN';
     // ET happened if: ET linescore present, OR 3+ periods in linescore, OR penalties (pens always follow ET)
-    const hasET = et1Home !== null || et1Away !== null || lsCount >= 3 || hasPK;
+    const hasET = et1Home !== null || et1Away !== null || lsCount >= 3 || hasPK ||
+      statusNamePK === 'STATUS_FINAL_AET';
 
     let regulationHome: number | null = null;
     let regulationAway: number | null = null;
@@ -404,6 +417,10 @@ export async function fetchLeagueMatches(
 
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=100&dates=${dateRange}`;
 
+  // TEMP DEBUG (remove once sync is confirmed): log the exact URL requested so
+  // we can see in Render logs precisely what window/slug we hit.
+  logger.info(`[ESPN][debug] GET league=${leagueId} slug=${slug} → ${url}`);
+
   try {
     const { data } = await axios.get(url, {
       timeout: 10_000,
@@ -411,8 +428,10 @@ export async function fetchLeagueMatches(
     });
 
     const events: unknown[] = data.events ?? [];
+    // TEMP DEBUG: how many events ESPN actually returned for this window.
+    logger.info(`[ESPN][debug] league=${leagueId} slug=${slug} events=${events.length} range=${dateRange}`);
     if (events.length === 0) {
-      logger.debug(`[ESPN] No events for ${slug} (${dateRange})`);
+      logger.warn(`[ESPN][debug] ZERO events for ${slug} (${dateRange}) — off-season, wrong slug, or window miss`);
       return [];
     }
 
@@ -471,23 +490,46 @@ export async function fetchLeagueMatches(
           parsePeriodScore(homeLinescores, 4) !== null ||
           parsePeriodScore(awayLinescores, 4) !== null;
 
+        // Final (post-ET) score as parsed from the scoreboard.
+        const homeScoreVal = parseScore(home.score as string, state);
+        const awayScoreVal = parseScore(away.score as string, state);
+
+        // Penalty shootout score lives directly on the scoreboard competitor as
+        // `shootoutScore` (e.g. Switzerland 4 – Colombia 3). This is the PRIMARY
+        // source — ESPN's fifa.world omits per-period linescores entirely, so the
+        // old linescores[4] read always came back null and penalties were lost.
+        const shootoutOf = (c: Record<string, unknown>): number | null => {
+          const v = c.shootoutScore;
+          if (v === undefined || v === null) return null;
+          const n = parseInt(String(v), 10);
+          return isNaN(n) ? null : n;
+        };
+        const homeShootout = shootoutOf(home);
+        const awayShootout = shootoutOf(away);
+
         // Regulation score = 1H + 2H goals (only relevant for ET/PEN matches)
         // Stored so predictions can be scored on the 90-minute result, not the ET/penalty result.
+        // NOTE: ESPN uses STATUS_FINAL_PEN (not STATUS_FINAL_PK) for soccer shootouts.
         let wentToPenalties =
           statusName === 'STATUS_FINAL_PK' ||
+          statusName === 'STATUS_FINAL_PEN' ||
           statusName === 'STATUS_FULL_PEN' ||
+          statusName === 'STATUS_SHOOTOUT' ||
           matchStatus === 'PEN' ||
-          hasShootoutLinescore; // detect from linescores for STATUS_RESULT_OF_LEG finishes
+          hasShootoutLinescore ||
+          homeShootout !== null || awayShootout !== null; // shootoutScore present → pens
 
         let isExtraTime =
           ['ET1', 'ET2', 'AET', 'PEN'].includes(matchStatus) ||
-          ['STATUS_FINAL_AET', 'STATUS_FINAL_PK', 'STATUS_FULL_ET', 'STATUS_FULL_PEN'].includes(statusName) ||
-          hasET1Linescore; // detect from linescores for STATUS_RESULT_OF_LEG finishes
+          ['STATUS_FINAL_AET', 'STATUS_FINAL_PK', 'STATUS_FINAL_PEN', 'STATUS_FULL_ET', 'STATUS_FULL_PEN'].includes(statusName) ||
+          hasET1Linescore ||
+          wentToPenalties; // a shootout always follows extra time
 
         let regulationHome: number | null = null;
         let regulationAway: number | null = null;
-        let penHome: number | null = parsePeriodScore(homeLinescores, 4); // shootout score from scoreboard
-        let penAway: number | null = parsePeriodScore(awayLinescores, 4);
+        // Prefer the explicit shootoutScore; fall back to any linescores[4] value.
+        let penHome: number | null = homeShootout ?? parsePeriodScore(homeLinescores, 4);
+        let penAway: number | null = awayShootout ?? parsePeriodScore(awayLinescores, 4);
 
         if (isExtraTime) {
           const h2Home = parsePeriodScore(homeLinescores, 1); // 2H goals
@@ -495,6 +537,15 @@ export async function fetchLeagueMatches(
           if (htHome !== null && h2Home !== null && htAway !== null && h2Away !== null) {
             regulationHome = htHome + h2Home;
             regulationAway = htAway + h2Away;
+          } else {
+            // ESPN (esp. fifa.world) frequently omits per-period linescores, so we
+            // can't split out the true 90' score. Fall back to the final ES/ET
+            // score so the FRONTEND still flags the match as AET/PEN — it keys the
+            // "went to extra time" badge off `regulation_home != null`. Scoring
+            // already falls back to home/away_score per rule 4.7, so points are
+            // unchanged by this (regulation == final score here).
+            regulationHome = homeScoreVal;
+            regulationAway = awayScoreVal;
           }
         }
 
@@ -556,8 +607,8 @@ export async function fetchLeagueMatches(
           away_team_badge: (awayTeam.logo as string) ?? null,
           kickoff_time: new Date(comp.date as string).toISOString(),
           status: matchStatus,
-          home_score: parseScore(home.score as string, state),
-          away_score: parseScore(away.score as string, state),
+          home_score: homeScoreVal,
+          away_score: awayScoreVal,
           halftime_home: htAvailable ? htHome : null,
           halftime_away: htAvailable ? htAway : null,
           season: (data.leagues?.[0]?.season?.displayName as string) ?? null,
@@ -577,7 +628,7 @@ export async function fetchLeagueMatches(
       }
     }
 
-    logger.debug(`[ESPN] ${slug}: fetched ${matches.length} matches for ${dateRange}`);
+    logger.info(`[ESPN][debug] ${slug}: parsed ${matches.length}/${events.length} events into DB rows for ${dateRange}`);
     return matches;
   } catch (err) {
     logger.error(`[ESPN] Failed to fetch ${slug}: ${err}`);
