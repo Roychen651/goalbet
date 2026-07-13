@@ -39,11 +39,11 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
     <Drawer.Root
       open={!!match}
       onOpenChange={(open) => { if (!open) close(); }}
-      shouldScaleBackground
-      setBackgroundColorOnScale={false}
     >
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md" />
+        {/* Light blur only — heavy blur re-composites every frame during the slide
+            and caused the lower rows to flicker on open. */}
+        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
         <Drawer.Content
           className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[88vh] flex-col rounded-t-2xl outline-none sm:max-w-[460px]"
           style={{
@@ -81,8 +81,13 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
             </div>
           )}
 
-          {/* Scrollable prediction form — Vaul is scroll-aware, no drag hack needed */}
-          <div className="flex-1 overflow-y-auto overscroll-contain px-3.5 py-3" data-vaul-no-drag>
+          {/* Scrollable prediction form — Vaul is scroll-aware, no drag hack needed.
+              Generous bottom padding (+ iOS safe area) lifts the CTA off the screen
+              edge so it's comfortably tappable, not jammed against the home bar. */}
+          <div
+            className="flex-1 overflow-y-auto overscroll-contain px-3.5 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+1.75rem)]"
+            data-vaul-no-drag
+          >
             {match && (
               <PredictionForm
                 match={match}
