@@ -60,8 +60,10 @@ Users sign up with email/password or Google, join private groups via invite code
 | Backend/DB | Supabase JS | ^2.39 |
 | Icons | Lucide React | ^0.577 |
 | Backend runtime | Node.js + Express | ^4.18 |
-| Backend cron | node-cron | ^3.0 |
+| Backend cron | node-cron | ^3.0 (in-process live poller) + Supabase `pg_cron` (5-min heartbeat) |
 | Backend HTTP client | axios | ^1.6 |
+| Backend rate limiting | express-rate-limit | ^8.5 |
+| Data fetching (frontend) | TanStack Query (React Query) | ^5.101 — provider wired, hook migration pending |
 
 **No** Redux, MUI, Chakra, styled-components, class-based components, or TheSportsDB (replaced by ESPN).
 
@@ -431,6 +433,7 @@ goalbet/
 │       │   ├── constants.ts               # FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG, POINTS, COIN_COSTS, ROUTES
 │       │   ├── featureFlags.ts            # Feature flag registry (currently no active flags)
 │       │   ├── i18n.ts                    # EN + HE translations, TranslationKey type
+│       │   ├── queryClient.ts             # TanStack Query client (refetchOnWindowFocus off — AppShell owns sync)
 │       │   ├── supabase.ts                # Supabase client (anon key) + all TypeScript table types
 │       │   ├── utils.ts                   # calcBreakdown() (client-side scoring mirror), cn()
 │       │   └── worldCup2026.ts            # Static FIFA WC 2026 data: 12 groups, R32/R16/QF/SF/3rd/Final with dates + FIFA match numbers + venueId, 16 host stadiums, tournament phases. Consumed by WorldCupBracket
@@ -459,10 +462,13 @@ goalbet/
 │       │   └── scheduler.ts               # Startup catch-up + 30s score poller + daily/weekly crons
 │       ├── lib/
 │       │   └── supabaseAdmin.ts           # Supabase client with service-role key (bypasses RLS)
+│       ├── middleware/
+│       │   ├── rateLimiter.ts             # express-rate-limit: global 60/min + per-route scores 20/min, matches 10/min
+│       │   └── syncAuth.ts                # X-Sync-Key guard for internal cron routes; 403 + fail-closed + constant-time compare
 │       ├── routes/
 │       │   ├── admin.ts                   # DELETE /api/admin/users/:id · POST /api/admin/reset-password
 │       │   ├── health.ts                  # GET /api/health → { status: 'ok' }
-│       │   └── sync.ts                    # POST /api/sync/matches · POST /api/sync/scores
+│       │   └── sync.ts                    # Public (browser, rate-limited): POST /api/sync/matches · /scores. Internal (X-Sync-Key): POST /api/sync/internal/matches · /internal/scores. Handlers shared
 │       ├── scripts/
 │       │   ├── manualSync.ts              # npm run sync — dev helper
 │       │   └── seed.ts                    # npm run seed — populates dev data
@@ -539,8 +545,10 @@ Browser
   ├─ Supabase Realtime     → pushes match UPDATE/INSERT to subscribed clients
   │
   └─ Render (Express API — free tier, sleeps after ~15 min)
-       ├─ POST /api/sync/matches  → syncAllActiveLeagues() pulls fixtures from ESPN
-       ├─ POST /api/sync/scores   → checkAndUpdateScores() resolves finished predictions + awards coins
+       ├─ POST /api/sync/matches           → (public, rate-limited) syncAllActiveLeagues() — browser callers
+       ├─ POST /api/sync/scores            → (public, rate-limited) checkAndUpdateScores() — browser callers
+       ├─ POST /api/sync/internal/matches  → (X-Sync-Key) same handler — pg_cron / GH Actions fallback
+       ├─ POST /api/sync/internal/scores   → (X-Sync-Key) same handler — pg_cron / GH Actions fallback
        ├─ GET  /api/health        → { status: 'ok' }
        ├─ DELETE /api/admin/users/:id     → hard-delete from auth.users (service role, admin only)
        ├─ POST  /api/admin/reset-password → send password reset email (service role, admin only)
@@ -1002,6 +1010,7 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `033` | Cleanup of duplicate `group_events` WON_COINS rows + duplicate `notifications` prediction_result rows + matching partial unique indexes (`group_events_won_coins_unique`, `notifications_prediction_result_unique`) as DB-level backstops |
 | `034` | AI Scout Hebrew variants: `ai_pre_match_insight_he` + `ai_post_match_summary_he` nullable TEXT on `matches` (Sprint 26 follow-up) |
 | `035` | Sprint 27: `ai_ht_insight` + `ai_ht_insight_he` nullable TEXT on `matches`; creates `user_chronicles` table (uuid match_id FK, title, epic_text + _he, predicted/final scores, points_earned) with partial unique index `(user_id, match_id)` for idempotency + RLS (authenticated-read, service-role write) |
+| `036` | **Ironclad Sync Engine (V3 Sprint 1):** enables `pg_cron` + `pg_net` + `supabase_vault`; `public.trigger_sync_heartbeat()` (SECURITY DEFINER) reads `SYNC_API_KEY` from Vault and `net.http_post`s to `/api/sync/internal/scores` then `/internal/matches` every 5 min (scores first, fire-and-forget). Idempotent (unschedule-if-exists → reschedule). **Activation requires: (1) `select vault.create_secret('<key>','SYNC_API_KEY')`, (2) `SYNC_API_KEY` env var on Render, (3) `supabase db push`.** Until applied, the 30-min GitHub Actions fallback carries coin resolution. |
 
 ### Migration idempotency
 
@@ -1272,18 +1281,34 @@ All stores use Zustand. Persistence uses `localStorage` where noted.
 
 ## 19. CI / GitHub Actions
 
-### `sync-cron.yml` — every 5 minutes, 24/7
+### Sync heartbeat: `pg_cron` (primary) + `sync-cron.yml` (fallback)
+
+Since V3 Sprint 1 the automated sync heartbeat is **two-tier**:
+
+**Primary — Supabase `pg_cron`, every 5 min** (migration 036, `public.trigger_sync_heartbeat`).
+Reads `SYNC_API_KEY` from Vault and `net.http_post`s to the **authenticated internal** routes:
+```
+POST /api/sync/internal/scores    → resolve predictions + award coins (fired first)
+POST /api/sync/internal/matches   → pull ESPN fixtures
+```
+`net.http_post` is async/fire-and-forget, so the two are independent — a slow/failed fixture sync can never block or delay score resolution (coins). Runs inside Supabase, no external dependency.
+
+**Fallback — `sync-cron.yml`, every 30 min.** Only guards against a `pg_net`/Supabase outage freezing the Render free-tier dyno. Same scores-before-fixtures ordering, `continue-on-error: true` on the fixture step. Now targets the **internal** routes with the `X-Sync-Key: ${{ secrets.SYNC_API_KEY }}` header.
 
 ```
 1. Check BACKEND_URL secret is set
-2. GET  /api/health         → wake Render, retry 3× with 10s delays (30s per attempt)
-3. POST /api/sync/scores    → resolve predictions + award coins (75s curl timeout) ← ALWAYS runs
-4. POST /api/sync/matches   → pull ESPN fixtures (75s curl timeout, continue-on-error: true)
+2. GET  /api/health                  → wake Render, retry 3× with 10s delays
+3. POST /api/sync/internal/scores    → resolve + award coins (X-Sync-Key)  ← ALWAYS runs
+4. POST /api/sync/internal/matches   → pull ESPN fixtures (X-Sync-Key, continue-on-error: true)
 ```
 
-**Critical design invariant:** Score resolution (step 3) runs **before** fixture sync (step 4), and step 4 has `continue-on-error: true`. This guarantees coin payouts are never blocked by an ESPN fixture timeout. An ESPN outage delays fixture updates but never delays coin awards.
+**Public vs internal routes (the split model — never collapse them):**
+- **Public** `POST /api/sync/{matches,scores}` — called from the **browser** (`AppShell` cold-start, `useMatchSync` "Sync Now", `AdminDashboardPage` force-sync). No auth: a browser can't hold a real secret. Bounded by `express-rate-limit` (see `rateLimiter.ts`).
+- **Internal** `POST /api/sync/internal/{matches,scores}` — called only by machine schedulers (`pg_cron`, GitHub Actions fallback) with `X-Sync-Key`. `syncAuth.ts` returns **403** (not 401 — 401 trips the frontend's session-expiry re-auth flow), fails closed if `SYNC_API_KEY` is unset, uses a constant-time compare.
 
-**No auth required** — sync endpoints are intentionally public. Do not add `SYNC_SECRET` back.
+Both route pairs reuse the **same handlers** — zero behavior difference in sync logic, only the gate differs.
+
+> **Why this is not the old `SYNC_SECRET` mistake.** The earlier `SYNC_SECRET` returned **401** and was applied to the routes the browser calls, which broke GitHub Actions and the frontend alike — so it was removed and the routes made public. The V3 model keeps the browser-facing routes public (rate-limited) and puts the key **only** on the separate internal routes, returning **403**. Never add auth back to the public `/api/sync/*` routes — it will 403 the live app's cold-start sync, manual sync, and admin sync (all call them header-less).
 
 ### `ci.yml` — every push / PR to main
 
@@ -1295,11 +1320,12 @@ All stores use Zustand. Persistence uses `localStorage` where noted.
 
 | Secret | Used by | Purpose |
 |--------|---------|---------|
-| `BACKEND_URL` | `sync-cron.yml` | Production Render URL |
+| `BACKEND_URL` | `sync-cron.yml` | Production Render URL (`https://goalbet.onrender.com`) |
+| `SYNC_API_KEY` | `sync-cron.yml` | X-Sync-Key for the internal sync routes. **Must equal** the Render env var of the same name **and** the Supabase Vault secret `SYNC_API_KEY` |
 | `SUPABASE_ACCESS_TOKEN` | `ci.yml` | Supabase CLI auth for migration repair |
 | `SUPABASE_PROJECT_REF` | `ci.yml` | Supabase project ID |
 
-`SYNC_SECRET` must **not exist** — it was removed because it caused 401s in GitHub Actions.
+`SYNC_SECRET` must **not exist** — the legacy 401-returning secret. The V3 `SYNC_API_KEY` is a different mechanism (403, internal routes only) and must never be applied to the public routes.
 
 ---
 
