@@ -16,6 +16,7 @@ import { CoinIcon } from '../components/ui/CoinIcon';
 import { cn } from '../lib/utils';
 import { haptic } from '../lib/haptics';
 import { celebratePrediction } from '../lib/celebrate';
+import { useNeverPredicted } from '../hooks/useIsNewUser';
 import type { PredictionData } from '../components/matches/PredictionForm';
 
 type Tab = 'all' | 'upcoming' | 'live' | 'completed';
@@ -26,6 +27,11 @@ export function HomePage() {
   const [showCoinGuide, setShowCoinGuide] = useState(false);
   const { matches, loading, loadingMore, error, loadMore, upcomingDays, hasMore } = useMatches(activeTab);
   const { predictions, saving, savePrediction } = usePredictions(matches.map(m => m.id));
+  // Progressive disclosure: lock advanced tiers only for a genuine first-timer.
+  // Combine the authoritative leaderboard signal with the in-session predictions
+  // Map so tiers unlock the instant the very first pick is placed (optimistic).
+  const neverPredicted = useNeverPredicted();
+  const isNewUser = neverPredicted && predictions.size === 0;
   const { groups, activeGroupId, loading: groupsLoading, setActiveGroup } = useGroupStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const predictorsByMatch = useGroupMatchPredictions(matches.map(m => m.id), activeGroupId);
@@ -222,6 +228,7 @@ export function HomePage() {
         predictions={predictions}
         onSave={handleSavePrediction}
         savingMatchId={saving}
+        isNewUser={isNewUser}
       />
     </div>
   );

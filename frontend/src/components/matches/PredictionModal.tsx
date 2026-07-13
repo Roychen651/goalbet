@@ -26,9 +26,11 @@ interface PredictionModalProps {
   savingMatchId: string | null;
   /** ESPN odds keyed by match ID */
   espnOdds?: Map<string, { homeWin: number; draw: number; awayWin: number }>;
+  /** First-timer → lock advanced tiers behind the frosted overlay */
+  isNewUser?: boolean;
 }
 
-export function PredictionModal({ matches, predictions, onSave, savingMatchId, espnOdds }: PredictionModalProps) {
+export function PredictionModal({ matches, predictions, onSave, savingMatchId, espnOdds, isNewUser }: PredictionModalProps) {
   const matchId = useUIStore(s => s.activePredictionMatchId);
   const close = useUIStore(s => s.closePredictionModal);
   const { t } = useLangStore();
@@ -99,6 +101,7 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
                 }}
                 saving={savingMatchId === match.id}
                 odds={espnOdds?.get(match.id) ?? undefined}
+                isNewUser={isNewUser}
               />
             )}
           </div>
