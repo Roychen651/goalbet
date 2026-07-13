@@ -12,6 +12,7 @@ import { Avatar } from '../ui/Avatar';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import { HTAnalystCard } from '../ui/HTAnalystCard';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown, isMatchLocked } from '../../lib/utils';
+import { haptic } from '../../lib/haptics';
 import { CoinIcon } from '../ui/CoinIcon';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
@@ -788,7 +789,7 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
                     <LockedPrediction match={match} prediction={prediction} resolved={prediction?.is_resolved ?? false} />
                   ) : (
                     <button
-                      onClick={() => openPredictionModal(match.id)}
+                      onClick={() => { haptic('light'); openPredictionModal(match.id); }}
                       className={cn(
                         'w-full py-2 rounded-xl text-sm font-display font-semibold transition-all duration-200 border',
                         hasPrediction

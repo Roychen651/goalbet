@@ -11,6 +11,7 @@ import { LIVE_STATUSES, POINTS, calcPredictionCost } from '../../lib/constants';
 const LEAGUES_WITHOUT_CORNERS = new Set([4396]);
 import { useLangStore } from '../../stores/langStore';
 import { useCoinsStore } from '../../stores/coinsStore';
+import { haptic } from '../../lib/haptics';
 
 interface PredictionFormProps {
   match: Match;
@@ -153,7 +154,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       content: (
         <OutcomePicker
           value={outcome}
-          onChange={(v) => { setOutcome(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); setOutcome(v); setSaved(false); }}
           homeTeam={match.home_team}
           awayTeam={match.away_team}
           color={TIER_COLORS[0]}
@@ -185,7 +186,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       content: (
         <CornersPicker
           value={cornersValue}
-          onChange={(v) => { setCornersValue(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); setCornersValue(v); setSaved(false); }}
           color={TIER_COLORS[2]}
         />
       ),
@@ -228,7 +229,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         active={btts !== null}
         color={TIER_COLORS[tiers.length]}
         value={btts}
-        onChange={(v) => { setBtts(v); setSaved(false); }}
+        onChange={(v) => { haptic('selection'); setBtts(v); setSaved(false); }}
         yesLabel={t('yes')}
         noLabel={t('no')}
         impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
@@ -240,7 +241,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         active={overUnder !== null}
         color={TIER_COLORS[tiers.length + 1]}
         value={overUnder === null ? null : overUnder === 'over'}
-        onChange={(v) => { setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
+        onChange={(v) => { haptic('selection'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
         yesLabel="O 2.5"
         noLabel="U 2.5"
         impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}

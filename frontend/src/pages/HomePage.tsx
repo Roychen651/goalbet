@@ -150,7 +150,7 @@ export function HomePage() {
           {TABS.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { haptic('light'); setActiveTab(tab.id); }}
               className={cn(
                 'relative flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all duration-200',
                 activeTab === tab.id

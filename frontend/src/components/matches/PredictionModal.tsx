@@ -15,6 +15,7 @@ import { X } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 import { useLangStore } from '../../stores/langStore';
 import { PredictionForm, PredictionData } from './PredictionForm';
+import { haptic } from '../../lib/haptics';
 import type { Match, Prediction } from '../../lib/supabase';
 
 interface PredictionModalProps {
@@ -72,7 +73,7 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
                 </span>
               </div>
               <button
-                onClick={close}
+                onClick={() => { haptic('light'); close(); }}
                 aria-label={t('close')}
                 className="ms-2 shrink-0 rounded-lg p-1.5 text-text-muted transition-colors hover:bg-white/8 hover:text-text-primary"
               >
