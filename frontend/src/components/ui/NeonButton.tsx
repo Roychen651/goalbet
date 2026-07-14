@@ -1,6 +1,10 @@
+import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
 
-interface NeonButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+// Omits the gesture/animation handlers whose React DOM signature clashes with
+// Framer Motion's own (onAnimationStart, onDrag*) — motion.button below only
+// needs the plain button attributes (onClick, disabled, type, etc.).
+interface NeonButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onAnimationStart' | 'onDragStart' | 'onDragEnd' | 'onDrag'> {
   variant?: 'green' | 'orange' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
@@ -17,7 +21,8 @@ export function NeonButton({
   ...props
 }: NeonButtonProps) {
   return (
-    <button
+    <motion.button
+      whileTap={disabled || loading ? undefined : { scale: 0.95, rotate: -0.5, transition: { type: 'spring', stiffness: 500, damping: 15 } }}
       disabled={disabled || loading}
       className={cn(
         'relative inline-flex items-center justify-center gap-2 font-dm font-semibold rounded-xl',
@@ -58,7 +63,7 @@ export function NeonButton({
           <span className="opacity-70">{children}</span>
         </>
       ) : children}
-    </button>
+    </motion.button>
   );
 }
 
