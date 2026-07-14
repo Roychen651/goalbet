@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { cn } from '../lib/utils';
 import { FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../lib/constants';
 import { useLangStore } from '../stores/langStore';
 import { useGroupStore } from '../stores/groupStore';
@@ -7,6 +8,7 @@ import { StandingsTable } from '../components/stats/StandingsTable';
 import { LeagueLeaders } from '../components/stats/LeagueLeaders';
 import { LeagueDropdown } from '../components/stats/LeagueDropdown';
 import { WorldCupBracket } from '../components/stats/WorldCupBracket';
+import { BentoArena } from '../components/stats/BentoArena';
 import { PageLoader } from '../components/ui/LoadingSpinner';
 import { EmptyState } from '../components/ui/EmptyState';
 
@@ -14,10 +16,13 @@ import { EmptyState } from '../components/ui/EmptyState';
 const WORLD_CUP_ID = 4480;
 const CUSTOM_VIEW_LEAGUES = new Set<number>([WORLD_CUP_ID]);
 
+type ArenaTab = 'leagues' | 'arena';
+
 export function StatsPage() {
   const { t } = useLangStore();
   const { groups, activeGroupId } = useGroupStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
+  const [tab, setTab] = useState<ArenaTab>('leagues');
 
   // Offer leagues with ESPN data, plus tournaments we render with a custom view.
   const availableLeagues = useMemo(
@@ -56,14 +61,39 @@ export function StatsPage() {
           )}
         </div>
 
-        <LeagueDropdown
-          leagues={availableLeagues}
-          value={leagueId}
-          onChange={setLeagueId}
-        />
+        {tab === 'leagues' && (
+          <LeagueDropdown
+            leagues={availableLeagues}
+            value={leagueId}
+            onChange={setLeagueId}
+          />
+        )}
       </div>
 
-      {leagueId === WORLD_CUP_ID ? (
+      {/* Sub-tabs — same borderless pill pattern as HomePage's All/Upcoming/Live/Results */}
+      <div className="flex gap-1.5">
+        {([
+          { id: 'leagues' as ArenaTab, label: t('arenaTabLeagues') },
+          { id: 'arena' as ArenaTab, label: t('arenaTabMyArena') },
+        ]).map(sub => (
+          <button
+            key={sub.id}
+            onClick={() => setTab(sub.id)}
+            className={cn(
+              'relative flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all duration-200 active:scale-[0.97]',
+              tab === sub.id
+                ? 'bg-accent-green text-bg-base shadow-[0_0_12px_rgba(0,255,135,0.35)]'
+                : 'text-text-muted hover:text-text-primary bg-white/5 hover:bg-white/10'
+            )}
+          >
+            {sub.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'arena' ? (
+        <BentoArena />
+      ) : leagueId === WORLD_CUP_ID ? (
         <WorldCupBracket />
       ) : (
         <>

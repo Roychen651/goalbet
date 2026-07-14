@@ -15,6 +15,8 @@ interface GlassCardProps {
   interactive?: boolean;
   /** Enables a subtle CSS breathing glow for live cards (CPU-efficient) */
   breathing?: boolean;
+  /** Overlays the .glass-grain feTurbulence texture (Sprint 15 — Bento Arena) */
+  grain?: boolean;
 }
 
 export function GlassCard({
@@ -27,6 +29,7 @@ export function GlassCard({
   leagueAccent,
   interactive,
   breathing,
+  grain,
 }: GlassCardProps) {
   // Always initialize motion values — hooks must be unconditional
   const mouseX = useMotionValue(0);
@@ -54,8 +57,8 @@ export function GlassCard({
     ],
     onClick && 'cursor-pointer card-clickable',
     breathing && 'animate-live-breathing',
-    // Needed for the absolute-positioned glare overlay to be contained
-    (interactive || onClick) && 'relative overflow-hidden group',
+    // Needed for the absolute-positioned glare/grain overlay to be contained
+    (interactive || onClick || grain) && 'relative overflow-hidden group',
     className,
   );
 
@@ -82,11 +85,24 @@ export function GlassCard({
             style={{ background: glareBackground }}
           />
         )}
-        {/* z-10 keeps content above the glare overlay */}
-        <div className={cn(interactive && 'relative z-10')}>
+        {grain && <div className="glass-grain" />}
+        {/* z-10 keeps content above the glare/grain overlay */}
+        <div className={cn((interactive || grain) && 'relative z-10')}>
           {children}
         </div>
       </motion.div>
+    );
+  }
+
+  if (grain) {
+    return (
+      <Tag className={base} style={dynamicStyle}>
+        <div className="glass-grain" />
+        {/* relative z-10 keeps in-flow content painting above the absolute,
+            positive-z-index grain overlay — without it grain (a positioned
+            layer) paints over plain static children per CSS stacking order */}
+        <div className="relative z-10">{children}</div>
+      </Tag>
     );
   }
 
