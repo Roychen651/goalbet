@@ -30,6 +30,7 @@ Read this before touching any file. Everything here reflects the live codebase.
 21. [Common Pitfalls](#21-common-pitfalls)
 22. [AI Scout (Sprint 26)](#22-ai-scout-sprint-26)
 23. [AI Live Read + Chronicles (Sprint 27)](#23-ai-live-read--chronicles-sprint-27)
+24. [The Addiction Loop — Streaks + Web Push (V3 Sprint 8)](#24-the-addiction-loop--streaks--web-push-v3-sprint-8)
 
 ---
 
@@ -406,6 +407,7 @@ goalbet/
 │       │       ├── MatchCardSkeleton.tsx  # Premium cold-start loader (pulse + shimmer). Exports MatchCardSkeleton + MatchCardSkeletonList
 │       │       ├── NeonButton.tsx         # Variants: green / ghost / danger
 │       │       ├── PolicyModal.tsx
+│       │       ├── PushToggle.tsx         # Sprint 8 — self-hiding match-reminder toggle (Settings). Renders nothing when Web Push unsupported / VAPID key unset; shows "add to home screen" hint on iOS Safari; enable/disable button on installed PWA + desktop/Android
 │       │       ├── ScoringGuide.tsx       # Bottom sheet — swipe-to-close enabled
 │       │       ├── StaggerList.tsx        # Wrapper: staggered child animations
 │       │       ├── SyncProgressBar.tsx    # Fixed top bar; visible while isSyncing; z-[100]
@@ -433,6 +435,7 @@ goalbet/
 │       │   ├── constants.ts               # FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG, POINTS, COIN_COSTS, ROUTES
 │       │   ├── featureFlags.ts            # Feature flag registry (currently no active flags)
 │       │   ├── i18n.ts                    # EN + HE translations, TranslationKey type
+│       │   ├── push.ts                     # Sprint 8 — Web Push client: getPushStatus() / enablePush() / disablePush(); VAPID key gate; iOS-non-standalone detection (checked BEFORE apiSupported so iPhone Safari shows the install hint, not nothing)
 │       │   ├── queryClient.ts             # TanStack Query client (refetchOnWindowFocus off — AppShell owns sync)
 │       │   ├── supabase.ts                # Supabase client (anon key) + all TypeScript table types
 │       │   ├── utils.ts                   # calcBreakdown() (client-side scoring mirror), cn()
@@ -459,7 +462,7 @@ goalbet/
 ├── backend/
 │   └── src/
 │       ├── cron/
-│       │   └── scheduler.ts               # Startup catch-up + 30s score poller + daily/weekly crons
+│       │   └── scheduler.ts               # Startup catch-up + 30s score poller + daily/weekly crons + every-2-min match-reminder cron (Sprint 8)
 │       ├── lib/
 │       │   └── supabaseAdmin.ts           # Supabase client with service-role key (bypasses RLS)
 │       ├── middleware/
@@ -476,7 +479,8 @@ goalbet/
 │           ├── espn.ts                    # ESPN API client + LEAGUE_ESPN_MAP
 │           ├── matchSync.ts               # syncLeague(id), syncAllActiveLeagues()
 │           ├── pointsEngine.ts            # PURE scoring function — no DB calls, fully testable
-│           ├── scoreUpdater.ts            # Resolves predictions after FT, writes leaderboard + coins
+│           ├── pushSender.ts              # Sprint 8 — sendMatchReminders(): 15-min pre-kickoff Web Push to ALL opted-in members of groups where the league is active; prunes dead subs (404/410); stamps matches.reminder_sent_at. No-op unless VAPID_* env set
+│           ├── scoreUpdater.ts            # Resolves predictions after FT, writes leaderboard + coins + streak (current_streak/best_streak, Sprint 8)
 │           └── sportsdb.ts               # DBMatch type definition (legacy, kept for types)
 │
 ├── supabase/
@@ -971,7 +975,7 @@ curl "https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard"
 
 ## 14. Database & Migrations
 
-Migrations live in `supabase/migrations/`. Current sequence: **001 → 037** (024 does not exist).
+Migrations live in `supabase/migrations/`. Current sequence: **001 → 038** (024 does not exist).
 Apply via `supabase db push --linked` (auto-runs via hook on migration file write once logged in).
 
 | Migration | What it adds |
@@ -1012,6 +1016,7 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `035` | Sprint 27: `ai_ht_insight` + `ai_ht_insight_he` nullable TEXT on `matches`; creates `user_chronicles` table (uuid match_id FK, title, epic_text + _he, predicted/final scores, points_earned) with partial unique index `(user_id, match_id)` for idempotency + RLS (authenticated-read, service-role write) |
 | `036` | **Ironclad Sync Engine (V3 Sprint 1):** enables `pg_cron` + `pg_net` + `supabase_vault`; `public.trigger_sync_heartbeat()` (SECURITY DEFINER) reads `SYNC_API_KEY` from Vault and `net.http_post`s to `/api/sync/internal/scores` then `/internal/matches` every 5 min (scores first, fire-and-forget). Idempotent (unschedule-if-exists → reschedule). **Activation requires: (1) `select vault.create_secret('<key>','SYNC_API_KEY')`, (2) `SYNC_API_KEY` env var on Render, (3) `supabase db push`.** Until applied, the 30-min GitHub Actions fallback carries coin resolution. |
 | `037` | **Fort-Knox Privacy (V3 Sprint 2):** rewrites `predictions_read_group` so a member's row is hidden from others while the match is `status='NS'` — server-side RLS closes the pre-kickoff leak (own rows always visible; no JOIN — correlated scalar subquery on the `matches` PK, `auth.uid()` initPlan-wrapped, own-row clause short-circuits the hot path). Hardens `prevent_late_prediction()` (pins `search_path`, fails closed on missing match) keeping the 15-min lock + `is_resolved` backend bypass. Re-asserts `predictions_update_own` `WITH CHECK`. Idempotent. |
+| `038` | **The Addiction Loop (V3 Sprint 8):** creates `push_subscriptions` (id, `user_id` FK→profiles, `endpoint` UNIQUE, `p256dh`, `auth`, created_at) with own-row RLS (select/insert/update/delete `WHERE user_id = (select auth.uid())`) + `idx_push_subscriptions_user`; adds `matches.reminder_sent_at timestamptz` (each match reminded exactly once). Idempotent. Streaks reuse the existing `leaderboard.current_streak` / `best_streak` columns — **no schema change for streaks**. |
 
 ### Migration idempotency
 
@@ -1692,3 +1697,70 @@ Lang-aware text: `(lang === 'he' && chronicle.epic_text_he) || chronicle.epic_te
 - **Chronicle uniqueness is DB-enforced.** `user_chronicles_user_match_unique` is the source of truth. Application-level "existing row" check is an optimisation; never drop the index.
 - **HTAnalystCard and AIScoutCard are intentionally different components.** Don't merge them — the HT card is a live broadcast overlay (pure black glass, red/amber/cyan neon, urgent rotation speed), the AIScout card is a refined insight box (navy glass, navy/accent border, 7s rotation). Collapsing them destroys the "this is happening right now" signal.
 - **New i18n keys added this sprint:** `aiLiveReadLabel`, `aiHTAnalystTitle`, `chroniclesTitle`. All three exist in `en` and `he` blocks of `i18n.ts`.
+
+---
+
+## 24. The Addiction Loop — Streaks + Web Push (V3 Sprint 8)
+
+Two engagement systems shipped together (migration 038). Both are **graceful-degradation-first**: a missing key or unsupported browser silently hides the feature — the app never breaks.
+
+### 24.1 Prediction Streak System (display-only 🔥)
+
+A per-group hot-streak counter. **Reuses the existing `leaderboard.current_streak` / `best_streak` columns — no migration for streaks.**
+
+**Backend (`scoreUpdater.ts`, inside the post-atomic-claim leaderboard update):**
+
+```typescript
+const newStreak = isCorrect ? existingLB.current_streak + 1 : 0;  // isCorrect = Tier-1 FT result correct
+const newBest   = Math.max(existingLB.best_streak, newStreak);
+```
+
+- **A streak increments only on a correct Tier-1 (full-time result) pick; an incorrect Tier-1 resets it to 0.** Missing a day does NOT break the streak — only a wrong result does.
+- `isCorrect` is `breakdown.correct_prediction` from `pointsEngine.ts` (the same Tier-1 flag used for scoring).
+- The update rides inside the existing atomic-claim leaderboard upsert — no new write path, no new race surface.
+
+**Frontend:**
+- `LeaderboardRow.tsx` renders a `🔥 N` pill when `entry.current_streak >= 3` (orange, `tabular-nums`, tooltip via `t('streakTooltip')`).
+- `ProfileBentoV2` already surfaces the streak client-side via the identical `>= 3` rule.
+
+**Rules:**
+- **Streaks are strictly DISPLAY-ONLY.** They must NEVER affect points or coins (no multiplier). This was an explicit product decision.
+- **Never re-derive streaks in a separate pass.** The single source of truth is the `scoreUpdater` leaderboard update; a second writer would double-count.
+- The `>= 3` visibility threshold is intentional — a "streak" below 3 isn't worth advertising. Keep the frontend and profile thresholds identical.
+
+### 24.2 Native Web Push (zero third-party services)
+
+A self-hosted Web Push engine using VAPID + the `web-push` npm package. No OneSignal/Firebase — $0, fully owned.
+
+**Schema (migration 038):** `push_subscriptions` (own-row RLS) + `matches.reminder_sent_at`.
+
+**Client (`lib/push.ts` + `components/ui/PushToggle.tsx` + `public/sw.js`):**
+
+| Piece | Role |
+|-------|------|
+| `getPushStatus()` | Returns `'unsupported' \| 'ios-needs-install' \| 'denied' \| 'subscribed' \| 'default'`. **iOS-non-standalone is checked BEFORE `apiSupported()`** — see the critical rule below |
+| `enablePush(userId)` | Registers `/sw.js`, requests permission, `pushManager.subscribe` (VAPID key cast `as BufferSource`), upserts the subscription (onConflict `endpoint`) |
+| `disablePush()` | Deletes the row + `sub.unsubscribe()` |
+| `PushToggle.tsx` | Self-hiding Settings card. `null` when status is `null`/`'unsupported'`; shows the iOS install hint (no button) for `'ios-needs-install'`/`'denied'`; enable/disable button otherwise |
+| `public/sw.js` | Minimal service worker: `push` → `showNotification`, `notificationclick` → focus existing tab or `openWindow`. Deliberately does **not** precache app assets |
+
+**Backend (`services/pushSender.ts` + `cron/scheduler.ts`):**
+- `sendMatchReminders()` runs every 2 min (`*/2 * * * *`). Selects NS matches with kickoff in the next 15 min and `reminder_sent_at IS NULL`; audience = **ALL opted-in members** of any group where the match's league is active (drives DAU, not just re-engagement); sends *"⚽ {Home} vs {Away} kicks off in 15 mins! Lock in your prediction now."*; prunes dead subs on 404/410; stamps `reminder_sent_at` so each match fires exactly once.
+- No-op unless `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` are set on Render — `ensureVapid()` returns false and the whole sender is silent.
+
+**Env vars (never committed):**
+
+| Key | Where | Notes |
+|-----|-------|-------|
+| `VAPID_PUBLIC_KEY` | **Render** (backend) | from `npx web-push generate-vapid-keys` |
+| `VAPID_PRIVATE_KEY` | **Render** (backend) | private — Render only, NEVER Vercel |
+| `VAPID_SUBJECT` | **Render** (backend) | `mailto:…` |
+| `VITE_VAPID_PUBLIC_KEY` | **Vercel** (frontend) | **same** value as `VAPID_PUBLIC_KEY`; inlined at build time |
+
+### Rules
+
+- **iOS Safari exposes `PushManager`/`Notification` ONLY inside an installed PWA.** In a normal iOS tab those APIs are absent, so `apiSupported()` is false. `getPushStatus()` therefore checks `isIosNonStandalone()` **first** and returns `'ios-needs-install'` — otherwise iPhone-Safari users see nothing at all instead of the "add to home screen" hint. Never reorder this back. Web Push itself still only activates from the installed standalone PWA (an Apple restriction, not a bug).
+- **`VITE_VAPID_PUBLIC_KEY` is baked into the bundle at build time.** Adding it in Vercel requires a **fresh production build** to take effect — a plain "Redeploy" that reuses a stale build won't surface the toggle. Push a commit (or rebuild without cache).
+- **Push is graceful-degradation-first.** No VAPID key, unsupported browser, denied permission → the feature hides itself. It must never throw or block the app.
+- **Streaks never touch points/coins.** Display-only, forever.
+- **`reminder_sent_at` is the single dedup guard for reminders** — never send without checking/stamping it, or users get spammed on every 2-min tick.
