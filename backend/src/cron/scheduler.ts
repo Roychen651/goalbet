@@ -4,9 +4,11 @@ import { checkAndUpdateScores, resetWeeklyPoints } from '../services/scoreUpdate
 import { sendMatchReminders } from '../services/pushSender';
 import { runProvocateurBatch } from '../services/aiProvocateur';
 import { sendStreakExpiryWarnings } from '../services/streakGuardian';
+import { lockExpiredMicroQuestions } from '../services/momentumBets';
 import { logger } from '../lib/logger';
 
 let livePollerRunning = false;
+let momentumLockRunning = false;
 
 export function startScheduler(): void {
   logger.info('[scheduler] Starting cron jobs...');
@@ -56,6 +58,22 @@ export function startScheduler(): void {
       livePollerRunning = false;
     }
   }, 30_000);
+
+  // Momentum Bets lock sweep — runs every 5 seconds. A 60-second betting
+  // window can't tolerate the 30s live-poll cadence (up to half the window's
+  // precision lost); this is deliberately its own tighter, ESPN-call-free
+  // interval — it only reads/writes already-stored DB state.
+  setInterval(async () => {
+    if (momentumLockRunning) return;
+    momentumLockRunning = true;
+    try {
+      await lockExpiredMicroQuestions();
+    } catch (err) {
+      logger.error('[scheduler] Momentum lock sweep failed:', err);
+    } finally {
+      momentumLockRunning = false;
+    }
+  }, 5_000);
 
   // Weekly points reset every Sunday at 00:00 UTC (week = Sun 00:00 → Sat 23:59 UTC)
   cron.schedule('0 0 * * 0', async () => {
