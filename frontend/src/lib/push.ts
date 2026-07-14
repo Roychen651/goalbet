@@ -44,8 +44,13 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export async function getPushStatus(): Promise<PushStatus> {
-  if (!apiSupported() || !VAPID_PUBLIC_KEY) return 'unsupported';
+  if (!VAPID_PUBLIC_KEY) return 'unsupported';
+  // iOS Safari only exposes PushManager/Notification INSIDE an installed PWA — in a
+  // normal tab they're absent, so apiSupported() is false there. Detect the
+  // "needs install" case FIRST, otherwise we'd short-circuit to 'unsupported' and
+  // hide the install hint entirely (iPhone users would see nothing at all).
   if (isIosNonStandalone()) return 'ios-needs-install';
+  if (!apiSupported()) return 'unsupported';
   if (Notification.permission === 'denied') return 'denied';
   try {
     const reg = await navigator.serviceWorker.getRegistration();
