@@ -905,6 +905,49 @@ html.light .wc-grain { opacity: 0.11; mix-blend-mode: multiply; }
 }
 html.light .glass-grain { mix-blend-mode: multiply; }
 
+/* Tactile 3D tilt (Sprint 16). --tilt-x/--tilt-y/--glare-x/--glare-y are
+   written directly onto the element's style by useTactileTilt.ts on
+   pointermove — never via React state, so a hover session never triggers a
+   re-render. The CSS `transition` here is what makes the return-to-flat on
+   pointerleave feel smooth: it's a single discrete style write per leave
+   event, not a continuously-driven value, so a plain CSS transition (fully
+   compositor-side, no JS animation loop) is the *more* correct tool here,
+   not a shortcut around Framer Motion. */
+.tactile-tilt {
+  transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-style: preserve-3d;
+}
+/* Glare reuses --arena-glow (already an alpha-baked OKLCH token, Sprint 15)
+   rather than CSS Color 4 relative-color syntax (`oklch(from ...)`) — same
+   visual result, without depending on the newer subset of oklch() support.
+   Scoped to Bento Arena cards only in this commit (per the --arena- prefix);
+   generalize to a theme-neutral --glass-glare token if this ever extends to
+   non-Arena cards. */
+.tactile-tilt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 2;
+  background: radial-gradient(
+    circle at var(--glare-x, 50%) var(--glare-y, 50%),
+    var(--arena-glow) 0%,
+    transparent 55%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.tactile-tilt:hover::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tactile-tilt {
+    transition: none;
+  }
+}
+
 /* Brutalist hollow display text — absurdly large, thin-stroke outline.
    Used for the scroll-reveal "2026" behind the Hero content. */
 .wc-brutalist-hollow {
