@@ -1,6 +1,7 @@
 import { TranslationKey } from '../lib/i18n';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Share2 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useLangStore } from '../stores/langStore';
@@ -16,6 +17,7 @@ import { AvatarPicker } from '../components/profile/AvatarPicker';
 import { ProfileBentoV2 } from '../components/profile/ProfileBentoV2';
 import { FormBars } from '../components/ui/FormBars';
 import { HallOfFameChronicles } from '../components/profile/HallOfFameChronicles';
+import { ShareableRecapCard } from '../components/profile/ShareableRecapCard';
 import { formatKickoffTime, isMatchLocked, calcBreakdown } from '../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, calcPredictionCost } from '../lib/constants';
 import { InfoTip } from '../components/ui/InfoTip';
@@ -33,6 +35,7 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const toggleExpanded = (id: string) => setExpandedIds(prev => {
     const s = new Set(prev);
@@ -72,35 +75,38 @@ export function ProfilePage() {
     if (!user || !activeGroupId) return;
     setSaving(predictionId);
     try {
-      const newCost = calcPredictionCost(data);
       const existing = history.find(p => p.match_id === data.match_id);
       const oldCost = existing?.coins_bet ?? 0;
+      const optimisticCost = calcPredictionCost(data);
       const coinsStore = useCoinsStore.getState();
 
-      // Adjust coins if cost changed
-      if (newCost !== oldCost) {
-        const rpc = existing ? 'adjust_prediction_bet' : 'place_prediction_bet';
-        const args = existing
-          ? { p_user_id: user.id, p_group_id: activeGroupId, p_match_id: data.match_id, p_old_cost: oldCost, p_new_cost: newCost }
-          : { p_user_id: user.id, p_group_id: activeGroupId, p_match_id: data.match_id, p_cost: newCost };
-        coinsStore.adjustCoins(-(newCost - oldCost));
-        const { data: coinResult } = await supabase.rpc(rpc, args);
-        const result = coinResult as { success: boolean; balance?: number } | null;
-        if (result?.balance != null) coinsStore.setCoins(result.balance);
-      }
+      // Optimistic guess — instant UI feedback, corrected below by the RPC's
+      // authoritative response (mirrors the usePredictions.ts pattern).
+      coinsStore.adjustCoins(-(optimisticCost - oldCost));
 
-      await supabase.from('predictions').upsert({
-        user_id: user.id,
-        match_id: data.match_id,
-        group_id: activeGroupId,
-        predicted_outcome: data.predicted_outcome,
-        predicted_home_score: data.predicted_home_score,
-        predicted_away_score: data.predicted_away_score,
-        predicted_corners: data.predicted_corners,
-        predicted_btts: data.predicted_btts,
-        predicted_over_under: data.predicted_over_under,
-        coins_bet: newCost,
-      }, { onConflict: 'user_id,match_id,group_id' });
+      const { data: coinResult, error } = await supabase.rpc('submit_prediction', {
+        p_user_id: user.id,
+        p_group_id: activeGroupId,
+        p_match_id: data.match_id,
+        p_predicted_outcome: data.predicted_outcome,
+        p_predicted_home_score: data.predicted_home_score,
+        p_predicted_away_score: data.predicted_away_score,
+        p_predicted_corners: data.predicted_corners,
+        p_predicted_btts: data.predicted_btts,
+        p_predicted_over_under: data.predicted_over_under,
+      });
+
+      if (error) {
+        coinsStore.adjustCoins(optimisticCost - oldCost); // roll back the optimistic guess
+        throw error;
+      }
+      const result = coinResult as { success: boolean; balance?: number; error?: string } | null;
+      if (!result?.success) {
+        coinsStore.adjustCoins(optimisticCost - oldCost);
+        throw new Error(result?.error ?? 'Prediction submission failed');
+      }
+      if (result.balance != null) coinsStore.setCoins(result.balance);
+
       fetchHistory();
     } finally {
       setSaving(null);
@@ -115,14 +121,18 @@ export function ProfilePage() {
       const pred = history.find(p => p.id === predictionId);
       if (pred && user && activeGroupId && (pred.coins_bet ?? 0) > 0 && !pred.is_resolved) {
         const coinsStore = useCoinsStore.getState();
-        coinsStore.adjustCoins(pred.coins_bet);
-        await supabase.rpc('adjust_prediction_bet', {
+        coinsStore.adjustCoins(pred.coins_bet); // optimistic
+        const { data: refundResult, error } = await supabase.rpc('refund_prediction', {
           p_user_id: user.id,
           p_group_id: activeGroupId,
           p_match_id: pred.match_id,
-          p_old_cost: pred.coins_bet,
-          p_new_cost: 0,
         });
+        if (error) {
+          coinsStore.adjustCoins(-pred.coins_bet); // roll back
+          throw error;
+        }
+        const result = refundResult as { success: boolean; balance?: number } | null;
+        if (result?.balance != null) coinsStore.setCoins(result.balance);
       }
       await supabase.from('predictions').delete().eq('id', predictionId);
       setConfirmDeleteId(null);
@@ -353,6 +363,13 @@ export function ProfilePage() {
               {activeGroup && <p className="text-text-muted text-xs">{activeGroup.name}</p>}
               <button onClick={() => setShowAvatarPicker(true)} className="text-accent-green text-xs mt-0.5 hover:underline">{t('chooseAvatar')}</button>
             </div>
+            <button
+              onClick={() => setShowShareCard(true)}
+              className="w-9 h-9 rounded-full bg-white/8 border border-white/12 flex items-center justify-center text-white/60 hover:text-accent-green hover:border-accent-green/30 transition-all shrink-0"
+              title={t('shareRecapTitle')}
+            >
+              <Share2 size={16} />
+            </button>
           </div>
         </GlassCard>
       </motion.div>
@@ -634,6 +651,7 @@ export function ProfilePage() {
 
       <AnimatePresence>
         {showAvatarPicker && <AvatarPicker onClose={() => setShowAvatarPicker(false)} />}
+        {showShareCard && <ShareableRecapCard onClose={() => setShowShareCard(false)} />}
       </AnimatePresence>
     </motion.div>
   );

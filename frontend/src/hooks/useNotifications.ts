@@ -26,6 +26,9 @@ export interface AppNotification {
     away_score?: number;
     points_earned?: number;
     coins_earned?: number;
+    old_rank?: number;
+    new_rank?: number;
+    overtaker_username?: string | null;
     [key: string]: unknown;
   };
   is_read: boolean;
