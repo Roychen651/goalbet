@@ -72,7 +72,10 @@ export function GroupDistributionChart({ distribution }: GroupDistributionChartP
         preserveAspectRatio="none"
         role="img"
         aria-label={ariaLabel}
-        style={{ display: 'block', overflow: 'visible' }}
+        // No text-anchor-sensitive elements here today, but pinned defensively —
+        // see PredictionHeatmap.tsx for why inherited dir="rtl" breaks SVG
+        // text-anchor start/end otherwise.
+        style={{ display: 'block', overflow: 'visible', direction: 'ltr' }}
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
