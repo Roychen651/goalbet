@@ -4,11 +4,12 @@ import { checkAndUpdateScores, resetWeeklyPoints } from '../services/scoreUpdate
 import { sendMatchReminders } from '../services/pushSender';
 import { runProvocateurBatch } from '../services/aiProvocateur';
 import { sendStreakExpiryWarnings } from '../services/streakGuardian';
-import { lockExpiredMicroQuestions } from '../services/momentumBets';
+import { lockExpiredMicroQuestions, resolveLockedMicroQuestions } from '../services/momentumBets';
 import { logger } from '../lib/logger';
 
 let livePollerRunning = false;
 let momentumLockRunning = false;
+let momentumResolveRunning = false;
 
 export function startScheduler(): void {
   logger.info('[scheduler] Starting cron jobs...');
@@ -74,6 +75,21 @@ export function startScheduler(): void {
       momentumLockRunning = false;
     }
   }, 5_000);
+
+  // Momentum Bets resolution sweep — every 15s. Looser than the lock sweep
+  // since a resolution a few seconds late doesn't affect fairness (the
+  // outcome window is already fixed at lock time either way).
+  setInterval(async () => {
+    if (momentumResolveRunning) return;
+    momentumResolveRunning = true;
+    try {
+      await resolveLockedMicroQuestions();
+    } catch (err) {
+      logger.error('[scheduler] Momentum resolution sweep failed:', err);
+    } finally {
+      momentumResolveRunning = false;
+    }
+  }, 15_000);
 
   // Weekly points reset every Sunday at 00:00 UTC (week = Sun 00:00 → Sat 23:59 UTC)
   cron.schedule('0 0 * * 0', async () => {
