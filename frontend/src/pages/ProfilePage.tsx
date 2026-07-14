@@ -534,7 +534,7 @@ export function ProfilePage() {
                     <div className="flex flex-col flex-1 justify-between">
                       {/* Points-per-match bars — colour = outcome, height = magnitude.
                           Oldest left, newest right. */}
-                      <FormBars series={formSeries} className="mt-0.5" />
+                      <FormBars series={formSeries} className="mt-0.5" label={t('recentForm')} />
                       {/* Streak + ratio */}
                       <div>
                         <div className="flex items-baseline gap-1">

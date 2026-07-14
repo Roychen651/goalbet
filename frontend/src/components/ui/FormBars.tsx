@@ -18,17 +18,22 @@ export interface FormPoint {
 interface FormBarsProps {
   series: FormPoint[];
   className?: string;
+  /** Accessible description. When set, the chart is announced as an image. */
+  label?: string;
 }
 
 const MIN_H = 14; // floor % so zero-point misses still render a visible nub
 
-export function FormBars({ series, className }: FormBarsProps) {
+export function FormBars({ series, className, label }: FormBarsProps) {
   const reduce = useReducedMotion();
   const maxPts = Math.max(...series.map(s => s.pts), 1);
+  const a11y = label
+    ? { role: 'img' as const, 'aria-label': label }
+    : { 'aria-hidden': true as const };
 
   if (series.length === 0) {
     return (
-      <div className={cn('flex items-end gap-1 h-10', className)} aria-hidden="true">
+      <div className={cn('flex items-end gap-1 h-10', className)} {...a11y}>
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex-1 rounded-sm bg-white/8" style={{ height: '35%' }} />
         ))}
@@ -37,7 +42,7 @@ export function FormBars({ series, className }: FormBarsProps) {
   }
 
   return (
-    <div className={cn('flex items-end gap-1 h-10', className)} aria-hidden="true">
+    <div className={cn('flex items-end gap-1 h-10', className)} {...a11y}>
       {series.map((s, i) => {
         const h = MIN_H + (s.pts / maxPts) * (100 - MIN_H);
         return (

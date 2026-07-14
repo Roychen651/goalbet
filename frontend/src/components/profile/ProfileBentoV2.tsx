@@ -150,7 +150,7 @@ export function ProfileBentoV2({
 
             {/* Live points trajectory — real cumulative curve (replaces the old
                 placeholder bars). Themed via CSS vars, draws on with Framer Motion. */}
-            <Sparkline data={trajectory} tone="accent" height={32} className="mt-3" />
+            <Sparkline data={trajectory} tone="accent" height={32} className="mt-3" label={t('trajectoryLabel')} />
           </div>
         </TiltCardV2>
       </motion.div>

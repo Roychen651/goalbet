@@ -20,6 +20,8 @@ interface SparklineProps {
   height?: number;
   tone?: SparkTone;
   className?: string;
+  /** Accessible description. When set, the chart is announced as an image. */
+  label?: string;
 }
 
 // Internal SVG coordinate space. preserveAspectRatio="none" stretches X to the
@@ -51,7 +53,7 @@ function smoothPath(pts: { x: number; y: number }[]): string {
   return d;
 }
 
-export function Sparkline({ data, height = 32, tone = 'accent', className }: SparklineProps) {
+export function Sparkline({ data, height = 32, tone = 'accent', className, label }: SparklineProps) {
   const gradientId = useId();
   const reduce = useReducedMotion();
   const color = TONE_VAR[tone];
@@ -78,7 +80,9 @@ export function Sparkline({ data, height = 32, tone = 'accent', className }: Spa
     <div
       className={cn('w-full overflow-hidden', className)}
       style={{ height }}
-      aria-hidden="true"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
     >
       <svg
         width="100%"
