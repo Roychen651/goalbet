@@ -624,6 +624,23 @@ export const translations = {
     aiLiveReadLabel: 'LIVE AI READ',
     aiHTAnalystTitle: 'Half-Time Read',
     chroniclesTitle: 'Chronicles',
+
+    // Sprint 15 — The Bento Arena
+    arenaTabLeagues: 'Leagues',
+    arenaTabMyArena: 'My Arena',
+    arenaHeroTitle: 'Top League',
+    arenaHeroSubtitle: 'Best win rate this season',
+    arenaHeatmapTitle: 'Prediction Heatmap',
+    arenaHeatmapSubtitle: '{0} cells across {1} leagues — visuals landing next commit',
+    arenaDistributionTitle: 'Group Distribution',
+    arenaDistributionSubtitle: 'Your avg stake vs. group avg',
+    arenaH2HTitle: 'Head-to-Head',
+    arenaH2HSubtitle: '{0} rivals with shared history',
+    arenaStreakTile: 'Current Streak',
+    arenaRiskTile: 'Risk Score',
+    arenaNoGroup: 'Join a group to see your Arena stats',
+    arenaNoData: 'No resolved predictions yet — play a few matches to populate your Arena',
+    arenaLoadFailed: 'Could not load Arena stats',
   },
 
   he: {
@@ -1246,6 +1263,23 @@ export const translations = {
     aiLiveReadLabel: 'ניתוח AI חי',
     aiHTAnalystTitle: 'ניתוח מחצית',
     chroniclesTitle: 'כרוניקות',
+
+    // ספרינט 15 — זירת הבנטו
+    arenaTabLeagues: 'ליגות',
+    arenaTabMyArena: 'הזירה שלי',
+    arenaHeroTitle: 'הליגה המובילה',
+    arenaHeroSubtitle: 'אחוז הניצחונות הגבוה ביותר העונה',
+    arenaHeatmapTitle: 'מפת חום ניחושים',
+    arenaHeatmapSubtitle: '{0} תאים על פני {1} ליגות — התצוגה החזותית בדרך',
+    arenaDistributionTitle: 'התפלגות הקבוצה',
+    arenaDistributionSubtitle: 'ההימור הממוצע שלך מול ממוצע הקבוצה',
+    arenaH2HTitle: 'ראש בראש',
+    arenaH2HSubtitle: '{0} יריבים עם היסטוריה משותפת',
+    arenaStreakTile: 'רצף נוכחי',
+    arenaRiskTile: 'ציון סיכון',
+    arenaNoGroup: 'הצטרף לקבוצה כדי לראות את נתוני הזירה שלך',
+    arenaNoData: 'אין עדיין ניחושים שהוכרעו — שחק כמה משחקים כדי למלא את הזירה',
+    arenaLoadFailed: 'טעינת נתוני הזירה נכשלה',
   },
 } as const;
 
