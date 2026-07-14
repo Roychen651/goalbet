@@ -13,6 +13,12 @@ const MILESTONE_KEY: Record<string, TranslationKey> = {
   minute_75: 'momentumMilestoneMinute75',
 };
 
+function formatMMSS(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 /**
  * The countdown ticks via useCountdown — same isolated local-state shape as
  * useLiveClock, so the 1Hz tick re-renders only this component. LockerRoomPage
@@ -23,6 +29,10 @@ export function MomentumBanner() {
   const { t, lang } = useLangStore();
   const [sheetOpen, setSheetOpen] = useState(false);
   const remaining = useCountdown(question?.status === 'open' ? question.expires_at : null);
+  // Locked phase: the outcome window is fixed at [locked_at, locked_at+10min)
+  // (§29's arbitrage-prevention design) — resolves_at is exactly that window's
+  // end, so this counts down to the real resolution moment, not a guess.
+  const resolvingIn = useCountdown(question?.status === 'locked' ? question.resolves_at : null);
 
   if (!question) return null;
   const isHe = lang === 'he';
@@ -42,7 +52,8 @@ export function MomentumBanner() {
         disabled={isLocked}
       >
         {/* Breathing neon border — urgent rotation, red/amber/ice-blue family
-            matching HTAnalystCard's "live broadcast" vocabulary */}
+            matching HTAnalystCard's "live broadcast" vocabulary. Slower once
+            locked — the urgency was about the betting window, not the wait. */}
         <motion.span
           aria-hidden
           className="absolute inset-[-55%]"
@@ -58,7 +69,7 @@ export function MomentumBanner() {
               ' rgba(255,77,102,0.0) 100%)',
           }}
           animate={{ rotate: 360 }}
-          transition={{ duration: 3.6, ease: 'linear', repeat: Infinity }}
+          transition={{ duration: isLocked ? 7 : 3.6, ease: 'linear', repeat: Infinity }}
         />
 
         <div
@@ -71,7 +82,7 @@ export function MomentumBanner() {
           <motion.div
             className="w-9 h-9 rounded-xl bg-[#FF4D66]/15 flex items-center justify-center shrink-0"
             animate={{ scale: [1, 1.08, 1] }}
-            transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+            transition={{ duration: isLocked ? 2.4 : 1.4, repeat: Infinity, ease: 'easeInOut' }}
           >
             <Zap size={18} className="text-[#FF4D66]" fill="currentColor" />
           </motion.div>
@@ -83,13 +94,25 @@ export function MomentumBanner() {
                 <span className="truncate">· {question.home_team} vs {question.away_team}</span>
               )}
             </div>
-            <div className="text-white font-semibold text-sm truncate">{t('momentumTitle')}</div>
+            <div className="text-white font-semibold text-sm truncate">
+              {isLocked && myBet
+                ? t('momentumAlreadyBet').replace('{0}', t(myBet.choice === 'yes' ? 'yes' : 'no'))
+                : t('momentumTitle')}
+            </div>
           </div>
 
           {isLocked ? (
-            <span className="shrink-0 text-xs text-white/50 font-medium">
-              {myBet ? t('momentumAlreadyBet').replace('{0}', t(myBet.choice === 'yes' ? 'yes' : 'no')) : t('momentumLocked')}
-            </span>
+            question.resolves_at ? (
+              <div
+                className="shrink-0 font-display font-bold text-xl tabular-nums text-[#BDE8F5]"
+                style={{ textShadow: '0 0 14px rgba(189,232,245,0.35)' }}
+                aria-label={t('momentumResolvesIn').replace('{0}', formatMMSS(resolvingIn))}
+              >
+                {formatMMSS(resolvingIn)}
+              </div>
+            ) : (
+              <span className="shrink-0 text-xs text-white/50 font-medium">{t('momentumLocked')}</span>
+            )
           ) : (
             <div className="shrink-0 font-display font-bold text-2xl tabular-nums text-[#FFC94A]" style={{ textShadow: '0 0 14px rgba(255,201,74,0.4)' }}>
               {remaining}s
