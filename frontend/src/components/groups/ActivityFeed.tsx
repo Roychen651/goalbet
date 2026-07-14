@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
 import { useGroupEvents, type GroupEvent } from '../../hooks/useGroupEvents';
 import { Avatar } from '../ui/Avatar';
@@ -116,6 +117,12 @@ export function ActivityFeed() {
 function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => string }) {
   const { lang } = useLangStore();
   const isHe = lang === 'he';
+
+  // AI banter has its own premium broadcast card.
+  if (event.event_type === 'AI_BANTER') {
+    return <AiBanterCard event={event} t={t} />;
+  }
+
   const isPrediction = event.event_type === 'PREDICTION_LOCKED';
   const isWon = event.event_type === 'WON_COINS';
   const meta = event.metadata;
@@ -279,6 +286,111 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
           }
         </p>
       )}
+    </motion.div>
+  );
+}
+
+// ── AI Provocateur banter card ───────────────────────────────────────────────
+// Visually unmistakable vs human messages: rotating conic-gradient border, dark
+// glass panel, gradient "AI Scout" identity with a Sparkles avatar and an "AI"
+// pill. Lang-aware text from metadata; returns null if Groq produced nothing.
+
+function AiBanterCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => string }) {
+  const { lang } = useLangStore();
+  const isHe = lang === 'he';
+  const meta = event.metadata;
+  const text = String((isHe && meta.text_he) || meta.text_en || '').trim();
+
+  const homeTeam = event.home_team || String(meta.home_team ?? '');
+  const awayTeam = event.away_team || String(meta.away_team ?? '');
+  const homeBadge = event.home_team_badge;
+  const awayBadge = event.away_team_badge;
+  const hasMatch = !!(homeTeam && awayTeam);
+
+  if (!text) return null;
+
+  return (
+    <motion.div variants={itemVariants} className="relative ps-10">
+      {/* Timeline dot — AI gradient */}
+      <div className="absolute start-3.5 top-5 w-3 h-3 rounded-full border-2 z-10 bg-violet-400 border-violet-300/50 shadow-[0_0_10px_rgba(167,139,250,0.6)]" />
+
+      {/* Rotating conic-gradient border */}
+      <div className="relative rounded-2xl p-[1.5px] overflow-hidden" dir={isHe ? 'rtl' : 'ltr'}>
+        <motion.span
+          aria-hidden
+          className="absolute inset-[-55%]"
+          style={{
+            background:
+              'conic-gradient(from 0deg,' +
+              ' rgba(167,139,250,0.0) 0%,' +
+              ' rgba(167,139,250,0.95) 14%,' +
+              ' rgba(96,165,250,0.80) 34%,' +
+              ' rgba(189,232,245,0.85) 52%,' +
+              ' rgba(167,139,250,0.50) 70%,' +
+              ' rgba(96,165,250,0.0) 86%,' +
+              ' rgba(167,139,250,0.0) 100%)',
+          }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 6, ease: 'linear', repeat: Infinity }}
+        />
+
+        {/* Dark glass panel */}
+        <div
+          className="relative rounded-[calc(1rem-1.5px)] backdrop-blur-2xl overflow-hidden"
+          style={{
+            background: 'linear-gradient(180deg, rgba(6,10,22,0.82) 0%, rgba(12,10,26,0.80) 100%)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 42px -24px rgba(0,0,0,0.75)',
+          }}
+        >
+          <div className="relative px-3.5 pt-2.5 pb-3">
+            {/* Header: AI avatar + gradient name + AI pill + time */}
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{
+                  background: 'linear-gradient(135deg, #A78BFA 0%, #60A5FA 100%)',
+                  boxShadow: '0 0 12px rgba(167,139,250,0.5)',
+                }}
+              >
+                <Sparkles size={15} className="text-white" />
+              </div>
+              <span
+                className="text-sm font-bold"
+                style={{
+                  backgroundImage: 'linear-gradient(120deg, #A78BFA 0%, #BDE8F5 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                {t('lockerAiName')}
+              </span>
+              <span className="text-[9px] font-bold tracking-[0.18em] px-1.5 py-0.5 rounded-md border border-violet-400/40 text-violet-200 bg-violet-500/15">
+                AI
+              </span>
+              <span className="text-text-muted text-xs ms-auto">{timeAgo(event.created_at, t)}</span>
+            </div>
+
+            {/* Banter */}
+            <p className="text-[13.5px] leading-snug text-white/95 font-display">{text}</p>
+
+            {/* Match strip */}
+            {hasMatch && (
+              <div className="mt-2 flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/4 border border-white/8">
+                {homeBadge && (
+                  <img src={homeBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
+                )}
+                <span className="text-xs font-medium text-text-primary truncate">{homeTeam}</span>
+                <span className="text-text-muted text-[10px] font-barlow uppercase">vs</span>
+                <span className="text-xs font-medium text-text-primary truncate">{awayTeam}</span>
+                {awayBadge && (
+                  <img src={awayBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 }
