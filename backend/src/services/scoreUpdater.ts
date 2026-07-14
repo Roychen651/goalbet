@@ -418,6 +418,12 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
           correct_predictions: existingLB.correct_predictions + (isCorrect ? 1 : 0),
           current_streak: newStreak,
           best_streak: newBest,
+          // Any resolution here means the user was demonstrably active in this
+          // group — clear a stale day-6 warning flag so a FUTURE idle cycle
+          // (weeks from now) can warn again. Without this, streak_warning_sent_at
+          // set once during a prior idle stretch would permanently suppress all
+          // later warnings (it's an IS NULL guard, not a recency check).
+          streak_warning_sent_at: null,
         }, { onConflict: 'user_id,group_id' });
 
       resolved++;

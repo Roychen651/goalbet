@@ -5,9 +5,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
+import { supabase } from './lib/supabase';
 import { useAuthStore } from './stores/authStore';
 import { useGroupStore } from './stores/groupStore';
 import { useCoinsStore } from './stores/coinsStore';
+import { useUIStore } from './stores/uiStore';
+import { haptic } from './lib/haptics';
 import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './pages/LoginPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
@@ -99,16 +102,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Returns today's date string in Israel timezone (e.g. "2026-03-20")
-function getIsraelDate(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
-}
-
 function AppInitializer({ children }: { children: React.ReactNode }) {
   const { user, init } = useAuthStore();
   const { fetchGroups, activeGroupId } = useGroupStore();
   const initCoins = useCoinsStore(s => s.initCoins);
-  const lastInitDateRef = useRef<string>('');
 
   // Lenis smooth scrolling — exponential easing for premium liquid feel
   useEffect(() => {
@@ -140,26 +137,50 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id]);
 
-  // Init coins (+ claim daily bonus) whenever user or active group changes,
-  // and re-check on tab focus in case the user crossed midnight without refreshing.
+  // Init coins whenever user or active group changes. The daily bonus is no
+  // longer claimed here — it's deposited proactively by the pg_cron
+  // distribute_daily_allowance() sweep (V4 Sprint 12); the Realtime channel
+  // below is what picks up a midnight deposit live, so there's no
+  // midnight-crossing recheck to do on this end anymore.
   useEffect(() => {
     if (!user || !activeGroupId) return;
-
-    lastInitDateRef.current = getIsraelDate();
     initCoins(user.id, activeGroupId);
 
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        const today = getIsraelDate();
-        if (today !== lastInitDateRef.current) {
-          lastInitDateRef.current = today;
-          initCoins(user.id, activeGroupId);
-        }
-      }
-    };
+    // Best-effort activity heartbeat for the 3-day inactivity cap on the daily
+    // bonus — never blocks the UI, failure is silently ignored.
+    supabase.rpc('touch_last_active').then(({ error }) => {
+      if (error) console.warn('[AppInitializer] touch_last_active failed:', error.message);
+    });
 
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+    // Realtime: a cron-deposited balance change lands here live, without a
+    // hard refresh. Filtered by group_id (single-column filter, mirroring
+    // useGroupEvents.ts's convention) — the user_id check happens client-side
+    // since Realtime doesn't support compound filters on one subscription.
+    // Per rule 4.4, the group_members UPDATE handler always re-fetches rather
+    // than trusting the (possibly partial) payload directly.
+    const channel = supabase
+      .channel(`coins_${user.id}_${activeGroupId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'group_members', filter: `group_id=eq.${activeGroupId}` },
+        (payload) => {
+          if ((payload.new as { user_id?: string }).user_id !== user.id) return;
+          useCoinsStore.getState().fetchCoins(user.id, activeGroupId);
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'coin_transactions', filter: `group_id=eq.${activeGroupId}` },
+        (payload) => {
+          const row = payload.new as { user_id?: string; type?: string; amount?: number };
+          if (row.user_id !== user.id || row.type !== 'daily_bonus') return;
+          haptic('coin_drop');
+          useUIStore.getState().addToast(`+${row.amount} coins — daily bonus!`, 'success');
+        },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [user?.id, activeGroupId]);
 
   return <>{children}</>;
