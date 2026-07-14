@@ -19,6 +19,30 @@ export function celebratePrediction(): void {
   confetti({ ...base, particleCount: 45, angle: 120, origin: { x: 1, y: 0.9 } });
 }
 
+// Sprint 18 — a card-scoped burst for the Bento Arena's focused celebration
+// orchestrator. Reuses the same canvas-confetti engine as celebratePrediction/
+// celebrateWin (already a dependency — no new particle engine needed). The
+// origin is derived from the target element's own bounding rect converted to
+// viewport-fraction coordinates, so the burst visually originates from that
+// specific card instead of the screen edges.
+export function celebrateAt(el: HTMLElement | null): void {
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const originX = (rect.left + rect.width / 2) / window.innerWidth;
+  const originY = (rect.top + rect.height / 2) / window.innerHeight;
+  confetti({
+    particleCount: 60,
+    spread: 80,
+    startVelocity: 32,
+    gravity: 1,
+    scalar: 0.85,
+    ticks: 180,
+    colors: COLORS,
+    origin: { x: originX, y: originY },
+    disableForReducedMotion: true,
+  });
+}
+
 // A bigger, raining celebration — reserved for wins (perfect picks, coins won).
 export function celebrateWin(): void {
   const end = Date.now() + 900;
