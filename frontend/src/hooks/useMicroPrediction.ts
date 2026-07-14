@@ -96,6 +96,11 @@ export function useMicroPrediction() {
       });
       if (error) throw error;
       const result = data as { success: boolean; balance?: number; error?: string };
+      // result.error is one of the RPC's own reason codes (question_closed,
+      // already_bet, insufficient_coins, ...) — propagate it verbatim so the
+      // UI can show *why*, not just "failed". A generic message here was
+      // exactly what made a real live-match failure undiagnosable from a
+      // screenshot alone.
       if (!result.success) throw new Error(result.error ?? 'submit_failed');
 
       if (result.balance != null) coinsStore.setCoins(result.balance);
