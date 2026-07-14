@@ -11,6 +11,7 @@ import { useGroupStore } from './stores/groupStore';
 import { useCoinsStore } from './stores/coinsStore';
 import { useUIStore } from './stores/uiStore';
 import { haptic } from './lib/haptics';
+import { unlockAudio } from './lib/sensoryAudio';
 import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './pages/LoginPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
@@ -129,6 +130,19 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const cleanup = init();
     return cleanup;
+  }, []);
+
+  // Sprint 17 — unlock the synthesized-SFX AudioContext on the very first
+  // tap anywhere in the app (autoplay policies require a real user gesture;
+  // see lib/sensoryAudio.ts). Fires once, on this listener alone, then
+  // removes itself — every later playSound() call reuses the same context.
+  useEffect(() => {
+    const onFirstGesture = () => {
+      unlockAudio();
+      window.removeEventListener('pointerdown', onFirstGesture);
+    };
+    window.addEventListener('pointerdown', onFirstGesture, { passive: true });
+    return () => window.removeEventListener('pointerdown', onFirstGesture);
   }, []);
 
   useEffect(() => {
