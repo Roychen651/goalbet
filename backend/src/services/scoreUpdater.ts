@@ -263,7 +263,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
       // Only fetch leaderboard AFTER winning the claim — avoids stale reads.
       const { data: lbData } = await supabaseAdmin
         .from('leaderboard')
-        .select('total_points, weekly_points, predictions_made, correct_predictions')
+        .select('total_points, weekly_points, predictions_made, correct_predictions, current_streak, best_streak')
         .eq('user_id', prediction.user_id)
         .eq('group_id', prediction.group_id)
         .single();
@@ -356,7 +356,17 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
         weekly_points: lbData?.weekly_points ?? 0,
         predictions_made: lbData?.predictions_made ?? 0,
         correct_predictions: lbData?.correct_predictions ?? 0,
+        current_streak: lbData?.current_streak ?? 0,
+        best_streak: lbData?.best_streak ?? 0,
       };
+
+      // ── Streak (Sprint 8, display-only 🔥) ────────────────────────────────
+      // Consecutive correct Tier-1 FT results. A correct result extends it; an
+      // incorrect one resets to 0. Missing a matchday does NOT break it (only
+      // resolved predictions count). Computed inside the atomic-claim block so
+      // concurrent resolvers can't double-count. No coin/points multiplier.
+      const newStreak = isCorrect ? existingLB.current_streak + 1 : 0;
+      const newBest = Math.max(existingLB.best_streak, newStreak);
 
       await supabaseAdmin
         .from('leaderboard')
@@ -367,6 +377,8 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
           weekly_points: existingLB.weekly_points + finalPoints,
           predictions_made: existingLB.predictions_made + 1,
           correct_predictions: existingLB.correct_predictions + (isCorrect ? 1 : 0),
+          current_streak: newStreak,
+          best_streak: newBest,
         }, { onConflict: 'user_id,group_id' });
 
       resolved++;

@@ -81,6 +81,14 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
               {t('badgeSniper')} 🎯
             </span>
           )}
+          {entry.current_streak >= 3 && (
+            <span
+              title={t('streakTooltip').replace('{0}', String(entry.current_streak))}
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/25 leading-none whitespace-nowrap tabular-nums"
+            >
+              🔥 {entry.current_streak}
+            </span>
+          )}
         </div>
         <div className="text-text-muted text-xs mt-0.5">
           {picksMade} {t('picks')} · {picksMade > 0 ? `${accuracy}%` : '—'} {t('accurate')}
