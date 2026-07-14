@@ -3,6 +3,7 @@ import { syncAllActiveLeagues } from '../services/matchSync';
 import { checkAndUpdateScores, resetWeeklyPoints } from '../services/scoreUpdater';
 import { sendMatchReminders } from '../services/pushSender';
 import { runProvocateurBatch } from '../services/aiProvocateur';
+import { sendStreakExpiryWarnings } from '../services/streakGuardian';
 import { logger } from '../lib/logger';
 
 let livePollerRunning = false;
@@ -96,6 +97,19 @@ export function startScheduler(): void {
       await runProvocateurBatch();
     } catch (err) {
       logger.error('[scheduler] Provocateur batch failed:', err);
+    }
+  });
+
+  // Streak-expiry push warning — day-6 idle detection (V4 Sprint 12). The
+  // actual decay is pure SQL on pg_cron (migration 041, runs even while this
+  // dyno sleeps); this is only the push-send half, which needs the web-push
+  // client. 30 min is enough precision for a 24h warning window and keeps
+  // this off the tighter cadences used for coin/score correctness.
+  cron.schedule('*/30 * * * *', async () => {
+    try {
+      await sendStreakExpiryWarnings();
+    } catch (err) {
+      logger.error('[scheduler] Streak expiry warnings failed:', err);
     }
   });
 
