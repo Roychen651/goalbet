@@ -35,9 +35,15 @@ export function MomentumBetSheet({ question, myBet, onClose }: MomentumBetSheetP
       haptic('success');
       addToast(t('momentumSubmitToast'), 'success');
       onClose();
-    } catch {
+    } catch (err) {
       haptic('error');
-      addToast(t('momentumFailedToast'), 'error');
+      const reason = err instanceof Error ? err.message : undefined;
+      const toastKey =
+        reason === 'question_closed' ? 'momentumErrorClosed'
+        : reason === 'already_bet' ? 'momentumErrorAlreadyBet'
+        : reason === 'insufficient_coins' ? 'momentumErrorInsufficientCoins'
+        : 'momentumFailedToast';
+      addToast(t(toastKey), 'error');
       setChoice(null);
     }
   };
