@@ -31,6 +31,8 @@ Read this before touching any file. Everything here reflects the live codebase.
 22. [AI Scout (Sprint 26)](#22-ai-scout-sprint-26)
 23. [AI Live Read + Chronicles (Sprint 27)](#23-ai-live-read--chronicles-sprint-27)
 24. [The Addiction Loop — Streaks + Web Push (V3 Sprint 8)](#24-the-addiction-loop--streaks--web-push-v3-sprint-8)
+25. [Beautiful Analytics — Themed SVG Charts (V3 Sprint 9)](#25-beautiful-analytics--themed-svg-charts-v3-sprint-9)
+26. [Agentic AI — The Locker Room Provocateur (V3 Sprint 10)](#26-agentic-ai--the-locker-room-provocateur-v3-sprint-10)
 
 ---
 
@@ -358,6 +360,7 @@ goalbet/
 │       │   ├── auth/
 │       │   │   └── GoogleLoginButton.tsx  # Legacy Google button (unused in auth-v2 flow)
 │       │   ├── groups/
+│       │   │   ├── ActivityFeed.tsx       # The Locker Room feed — renders group_events. PREDICTION_LOCKED/WON_COINS/LEADERBOARD_CLIMB use the timeline-dot glass card; AI_BANTER (Sprint 10) renders via the separate AiBanterCard — rotating conic-gradient border, dark glass panel, gradient "AI Scout" identity + Sparkles avatar + "AI" pill, lang-aware text
 │       │   │   ├── CreateGroupModal.tsx
 │       │   │   ├── InviteCodeDisplay.tsx
 │       │   │   └── JoinGroupModal.tsx
@@ -375,7 +378,7 @@ goalbet/
 │       │   ├── profile/
 │       │   │   ├── AvatarPicker.tsx       # Emoji avatar chooser
 │       │   │   ├── HallOfFameChronicles.tsx # Sprint 27 — 3D-tilt gold/crimson carousel of user_chronicles (perfect +10 on high-profile matches); returns null when empty
-│       │   │   └── ProfileBentoV2.tsx     # Stats bento grid
+│       │   │   └── ProfileBentoV2.tsx     # Stats bento grid; hero card renders the live <Sparkline> points trajectory (Sprint 9) + NumberFlow-rolled total
 │       │   ├── matches/
 │       │   │   ├── MatchCard.tsx          # ACTIVE card: MatchCardCore (private) + MatchCard (public, shimmer wrapper). isPastKickoffNS, DELAYED, live clock, weather/referee/competition phase, TacticalIntelSection, dual dark/light league logos, live breathing glow, goal flash, score flip. HT broadcast ticker via HTAnalystCard
 │       │   │   ├── MatchFeed.tsx          # Date-grouped feed; imports MatchCard directly
@@ -409,6 +412,8 @@ goalbet/
 │       │       ├── PolicyModal.tsx
 │       │       ├── PushToggle.tsx         # Sprint 8 — self-hiding match-reminder toggle (Settings). Renders nothing when Web Push unsupported / VAPID key unset; shows "add to home screen" hint on iOS Safari; enable/disable button on installed PWA + desktop/Android
 │       │       ├── ScoringGuide.tsx       # Bottom sheet — swipe-to-close enabled
+│       │       ├── Sparkline.tsx          # Sprint 9 — pure-SVG area+line micro-chart, zero chart-library dependency. Catmull-Rom smoothed path, Framer Motion pathLength draw-on, colour via CSS vars (theme-fluid), useReducedMotion aware, CLS-stable fixed-height box + dashed baseline when data is insufficient
+│       │       ├── FormBars.tsx           # Sprint 9 — last-N points-per-match bars (colour = outcome, height = magnitude), spring grow-in, reduced-motion aware
 │       │       ├── StaggerList.tsx        # Wrapper: staggered child animations
 │       │       ├── SyncProgressBar.tsx    # Fixed top bar; visible while isSyncing; z-[100]
 │       │       ├── ThemeToggle.tsx
@@ -462,7 +467,7 @@ goalbet/
 ├── backend/
 │   └── src/
 │       ├── cron/
-│       │   └── scheduler.ts               # Startup catch-up + 30s score poller + daily/weekly crons + every-2-min match-reminder cron (Sprint 8)
+│       │   └── scheduler.ts               # Startup catch-up + 30s score poller + daily/weekly crons + every-2-min match-reminder cron (Sprint 8) + every-3-min AI Provocateur batch (Sprint 10)
 │       ├── lib/
 │       │   └── supabaseAdmin.ts           # Supabase client with service-role key (bypasses RLS)
 │       ├── middleware/
@@ -476,6 +481,8 @@ goalbet/
 │       │   ├── manualSync.ts              # npm run sync — dev helper
 │       │   └── seed.ts                    # npm run seed — populates dev data
 │       └── services/
+│           ├── aiProvocateur.ts           # Sprint 10 — runProvocateurBatch(): reads conflicting H2H picks on a just-kicked-off match + group standings, generates EN+HE banter via the shared Groq client (callGroq, exported from aiScout.ts), posts one AI_BANTER group_event per (group, match). Skips no-conflict matches; fires only at/after kickoff (never pre-lock — Sprint 2 privacy)
+│           ├── aiScout.ts                 # AI Scout (Sprint 26) + HT Read/Chronicles (Sprint 27) — see §22/§23. callGroq() is exported for reuse by aiProvocateur.ts
 │           ├── espn.ts                    # ESPN API client + LEAGUE_ESPN_MAP
 │           ├── matchSync.ts               # syncLeague(id), syncAllActiveLeagues()
 │           ├── pointsEngine.ts            # PURE scoring function — no DB calls, fully testable
@@ -975,7 +982,7 @@ curl "https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard"
 
 ## 14. Database & Migrations
 
-Migrations live in `supabase/migrations/`. Current sequence: **001 → 038** (024 does not exist).
+Migrations live in `supabase/migrations/`. Current sequence: **001 → 039** (024 does not exist).
 Apply via `supabase db push --linked` (auto-runs via hook on migration file write once logged in).
 
 | Migration | What it adds |
@@ -1017,6 +1024,7 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `036` | **Ironclad Sync Engine (V3 Sprint 1):** enables `pg_cron` + `pg_net` + `supabase_vault`; `public.trigger_sync_heartbeat()` (SECURITY DEFINER) reads `SYNC_API_KEY` from Vault and `net.http_post`s to `/api/sync/internal/scores` then `/internal/matches` every 5 min (scores first, fire-and-forget). Idempotent (unschedule-if-exists → reschedule). **Activation requires: (1) `select vault.create_secret('<key>','SYNC_API_KEY')`, (2) `SYNC_API_KEY` env var on Render, (3) `supabase db push`.** Until applied, the 30-min GitHub Actions fallback carries coin resolution. |
 | `037` | **Fort-Knox Privacy (V3 Sprint 2):** rewrites `predictions_read_group` so a member's row is hidden from others while the match is `status='NS'` — server-side RLS closes the pre-kickoff leak (own rows always visible; no JOIN — correlated scalar subquery on the `matches` PK, `auth.uid()` initPlan-wrapped, own-row clause short-circuits the hot path). Hardens `prevent_late_prediction()` (pins `search_path`, fails closed on missing match) keeping the 15-min lock + `is_resolved` backend bypass. Re-asserts `predictions_update_own` `WITH CHECK`. Idempotent. |
 | `038` | **The Addiction Loop (V3 Sprint 8):** creates `push_subscriptions` (id, `user_id` FK→profiles, `endpoint` UNIQUE, `p256dh`, `auth`, created_at) with own-row RLS (select/insert/update/delete `WHERE user_id = (select auth.uid())`) + `idx_push_subscriptions_user`; adds `matches.reminder_sent_at timestamptz` (each match reminded exactly once). Idempotent. Streaks reuse the existing `leaderboard.current_streak` / `best_streak` columns — **no schema change for streaks**. |
+| `039` | **AI Banter (V3 Sprint 10):** adds `AI_BANTER` to the `group_events.event_type` CHECK; makes `group_events.user_id` nullable (the AI has no owning user); partial unique index `group_events_ai_banter_unique` on `(group_id, match_id) WHERE event_type='AI_BANTER'` — one banter per match per group, the concurrency backstop against concurrent cron/Render runs (same discipline as rule 4.15). Idempotent. |
 
 ### Migration idempotency
 
@@ -1764,3 +1772,114 @@ A self-hosted Web Push engine using VAPID + the `web-push` npm package. No OneSi
 - **Push is graceful-degradation-first.** No VAPID key, unsupported browser, denied permission → the feature hides itself. It must never throw or block the app.
 - **Streaks never touch points/coins.** Display-only, forever.
 - **`reminder_sent_at` is the single dedup guard for reminders** — never send without checking/stamping it, or users get spammed on every 2-min tick.
+
+---
+
+## 25. Beautiful Analytics — Themed SVG Charts (V3 Sprint 9)
+
+Premium, fintech-grade data visualization for the Profile page. **Zero new dependencies** — no `recharts`, no `visx`, no `chart.js`. Pure hand-built SVG animated with Framer Motion, which was already the `vendor-framer` bundle chunk, so the entire sprint added ~0 KB to the bundle (verified: no new vendor chunk appears in the build output).
+
+### Components
+
+| Component | File | Role |
+|-----------|------|------|
+| `Sparkline` | `components/ui/Sparkline.tsx` | Generic area+line micro-chart. Catmull-Rom smoothed path through `data: number[]`. Framer Motion `pathLength` draw-on for the stroke, fade-in for the gradient area fill. `tone: 'accent' \| 'muted'` picks the CSS var driving colour. |
+| `FormBars` | `components/ui/FormBars.tsx` | Last-N points-per-match bars. Colour = outcome (`bg-accent-green` correct / `bg-red-500/60` miss), height = magnitude (points earned that match), spring grow-in staggered per bar. |
+
+### Data — zero new DB queries
+
+Both series are derived **client-side** in `ProfilePage.tsx` from the `history` array already fetched once by `fetchHistory()` (last 50 predictions + joined match). No new Supabase query was added for this sprint:
+
+```typescript
+// trajectory — cumulative points, chronological (feeds the hero Sparkline)
+const trajectory = resolvedChrono.reduce((run, p) => [...run, ...], [])
+
+// formSeries — last 10 result predictions as {pts, correct} (feeds FormBars)
+const formSeries = resultPreds.slice(-10).map(p => ({ pts, correct }))
+```
+
+### Where they live
+
+- **`ProfileBentoV2.tsx` hero card** — the old fake `Math.sin`-based placeholder bars are replaced by the real `<Sparkline data={trajectory} tone="accent" />`. The hero total now rolls via `@number-flow/react` (`NumberFlow`) instead of a static number, matching the odometer pattern already used in `TopBar.tsx`/`Sidebar.tsx` for coins.
+- **`ProfilePage.tsx` Recent Form card** — the flat 5-dot win/loss row is replaced by `<FormBars series={formSeries} />`, which shows both outcome *and* magnitude (a perfect +10 pick visibly towers over a lone +3).
+
+### Theme integration
+
+All stroke/fill/gradient colour comes from CSS vars (`--color-accent-green`, `--color-text-muted`, `--color-border-subtle`) — **never hardcoded hex**. This means both charts flip Navy↔Frost automatically with zero JS branching, consistent with rule "never use Tailwind `dark:` prefix" in §15.
+
+### CLS safety & accessibility
+
+- Both components render inside a **fixed-height container** — no layout shift whether data is loading, empty, or populated.
+- `Sparkline` with `< 2` data points (nothing to draw yet) renders a dashed baseline placeholder at the same height, never collapsing the box.
+- Both respect `prefers-reduced-motion` (`useReducedMotion` from Framer Motion) — the draw-on/grow-in is skipped and the final state renders immediately.
+- Both accept an optional `label` prop: when set, the SVG/bar container gets `role="img"` + a localized `aria-label` (`t('trajectoryLabel')` / `t('recentForm')`); omitted, it's `aria-hidden` (decorative, the surrounding card already has text context).
+
+### Rules
+
+- **Do not add a charting library for future data-viz work without a bundle-size justification.** The whole point of this sprint was proving pure SVG + the already-loaded Framer Motion is sufficient for sparkline-scale charts. Reach for a library only if the visualization genuinely needs scales/axes/legends beyond what a hand-built path can express.
+- **Trajectory and form series must stay derived from already-fetched data.** Do not add a new Supabase query for a chart that could be computed from `ProfilePage`'s existing `history` fetch.
+
+---
+
+## 26. Agentic AI — The Locker Room Provocateur (V3 Sprint 10)
+
+Turns the Groq AI from a passive insight generator (AI Scout, §22) into an **agentic** feature: it reads live group dynamics — conflicting head-to-head predictions on a match that just kicked off — and posts witty, provocative banter directly into The Locker Room feed. This is the capstone of the V3 Masterplan.
+
+### Privacy-first timing — the single most important design decision
+
+Predictions are hidden from other group members while a match is `status='NS'` and kickoff is in the future (migration 037, §14 RLS summary). **The Provocateur fires only at or after kickoff — never before.** Posting banter that names picks pre-kickoff would leak locked predictions around the RLS wall and undo Sprint 2's privacy hardening. Once kickoff passes, picks are already publicly visible to the group, so revealing them in banter is both legal and dramatically well-timed (predictions just locked — this is peak tension).
+
+**Never move this trigger earlier "for more hype." If a pre-match teaser is ever wanted, it must not name any user's specific pick** (e.g. "3 of you disagree on Arsenal–Chelsea" is fine pre-kickoff; "Roy picked Chelsea" is not).
+
+### Backend — `backend/src/services/aiProvocateur.ts`
+
+| Function | Purpose |
+|----------|---------|
+| `runProvocateurBatch(limit=3)` | EXPORTED. Sweeps matches that kicked off in the last 20 minutes (`status` in `NS`/live/ET/PEN — i.e. just-kicked-off through in-progress) across all groups with that league active. For each (group, match): skips if already bantered (query check; the unique index is the true backstop), fetches predictions with a non-null `predicted_outcome`, **skips if fewer than 2 distinct outcomes** (no conflict = nothing to provoke = no wasted Groq call), builds a lean context, generates EN+HE banter in parallel, inserts one `AI_BANTER` `group_events` row |
+| `generateBanter(homeTeam, awayTeam, picks, lang)` | Builds the per-language prompt and calls the shared `callGroq()` (exported from `aiScout.ts`) |
+
+**Context assembly — lean, not a DB dump.** Only the users who actually predicted a conflicting outcome are included, with just their username, group rank, total points, predicted outcome, and predicted score if given:
+
+```
+MATCH: Arsenal vs Chelsea
+PICKS:
+- Dan (#1, 142pts) → Arsenal 2-1
+- Roy (#3, 96pts) → Chelsea 0-1
+- Maya (#2, 110pts) → Draw
+```
+
+~120 input tokens, ~60 output tokens ×2 languages. One match candidate per group per run; `limit` caps total banters posted per cron tick to keep Groq bursts small (same rationale as the HT-insight `limit=2` in §23).
+
+### Prompt design
+
+Two-sentence, provocative-but-friendly sports-pundit persona. `SYSTEM_EN` / `SYSTEM_HE` constants in `aiProvocateur.ts` instruct the model to **name names**, reference rank where it lands (leader betting recklessly / underdog's bold call), stay punchy and teasing, **never cruel or profane**, and reply only in the target language. Max 45 words, ~120 max_tokens ceiling on the Groq call.
+
+### Trigger — automated cron, not a button
+
+`cron.schedule('*/3 * * * *', runProvocateurBatch)` in `scheduler.ts`. Automated was chosen deliberately over a "Generate Banter" UI button — a manual trigger would make the user do the AI's job and breaks the "agentic, feels alive" premise. No-op entirely if `GROQ_API_KEY` is unset (same silent-degradation pattern as every other AI function — §22 rule "never throw from an AI function" applies here too).
+
+### Schema — migration 039
+
+`group_events.event_type` CHECK extended with `'AI_BANTER'`; `group_events.user_id` made **nullable** (the AI has no owning user — `user_id: null` on insert); partial unique index `group_events_ai_banter_unique` on `(group_id, match_id) WHERE event_type='AI_BANTER'` is the concurrency backstop, same pattern as the coin/notification dedup indexes in rule 4.15. The insert in `aiProvocateur.ts` treats a unique-violation error as "another worker already posted" and continues silently rather than logging it as a failure.
+
+### Delivery — no new frontend fetch path
+
+`useGroupEvents.ts` already subscribes to `group_events` `INSERT` via Supabase Realtime and re-fetches on any insert (it was built for The Locker Room in migration 028). The AI's insert is delivered through that same existing pipeline — banter appears live with zero new frontend plumbing. `GroupEvent.user_id` is now typed `string | null` and `event_type` gained the `'AI_BANTER'` union member.
+
+### Frontend — `components/groups/ActivityFeed.tsx`
+
+`EventCard` branches to a dedicated `AiBanterCard` for `event_type === 'AI_BANTER'`, styled to be **unmistakably distinct** from human activity cards:
+
+- Rotating conic-gradient border (violet → blue → ice-blue), 6s linear infinite — slower/cooler than `HTAnalystCard`'s urgent 4.2s red/amber/cyan (§23), because this is witty commentary, not a live broadcast overlay
+- Dark glass panel (`rgba(6,10,22,0.82)` → `rgba(12,10,26,0.80)`), distinct from the lighter `bg-bg-card/60` human event cards
+- Gradient "AI Scout" name (`t('lockerAiName')`) with a `Sparkles` icon avatar in a gradient circle, plus a small bordered **"AI" pill** — no human `Avatar`/profile join, since `user_id` is null
+- Distinct violet timeline dot (vs. blue for predictions, accent-green for coin wins, purple for leaderboard climbs)
+- Banter text is lang-aware: `(isHe && meta.text_he) || meta.text_en`; returns `null` if both are empty (Groq failure — the card simply doesn't render, feed unaffected)
+
+### Rules
+
+- **Never fire the Provocateur before kickoff.** This is a hard privacy boundary, not a tuning knob — re-read the "Privacy-first timing" note above before touching the match-selection window in `runProvocateurBatch`.
+- **Skip matches with <2 distinct predicted outcomes.** Unanimous agreement has no comedic/provocative angle and burns a Groq call for nothing.
+- **`callGroq` is exported from `aiScout.ts` and must stay the single Groq client.** Do not create a second axios-to-Groq call site — every AI feature (Scout, HT Read, Chronicles, Provocateur) funnels through the same `getApiKey()` gate, timeout, and response-cleaning logic.
+- **One banter per (group, match) — enforced at the DB level.** The unique index is the source of truth; the pre-insert existence check in `aiProvocateur.ts` is purely a Groq-call-avoidance optimization, never rely on it alone for correctness.
+- **AI_BANTER events have `user_id = null`.** Any frontend code that assumes `GroupEvent.user_id` is always a string (e.g. joining to `profiles`) will break on this event type — always branch on `event_type` before touching `user_id`.
