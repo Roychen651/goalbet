@@ -20,6 +20,8 @@ interface GlassCardProps {
   grain?: boolean;
   /** Zero-re-render 3D pointer tilt + OKLCH glare (Sprint 16). See useTactileTilt.ts */
   tactile?: boolean;
+  /** On touch devices, falls back to opted-in gyroscope tilt instead of doing nothing (Sprint 16 Commit 3). Use sparingly — one focused card, never a whole grid. */
+  allowGyroscope?: boolean;
 }
 
 export function GlassCard({
@@ -34,6 +36,7 @@ export function GlassCard({
   breathing,
   grain,
   tactile,
+  allowGyroscope,
 }: GlassCardProps) {
   // Always initialize motion values — hooks must be unconditional
   const mouseX = useMotionValue(0);
@@ -42,7 +45,7 @@ export function GlassCard({
   const glareBackground = useMotionTemplate`radial-gradient(600px circle at ${mouseX}px ${mouseY}px, rgba(189, 232, 245, 0.08), transparent 80%)`;
   // Hook is always called (rules of hooks) — enabled:false makes it a no-op,
   // attaching zero listeners, not a scaled-down effect.
-  const tiltRef = useTactileTilt<HTMLDivElement>({ enabled: !!tactile });
+  const tiltRef = useTactileTilt<HTMLDivElement>({ enabled: !!tactile, allowGyroscope: !!allowGyroscope });
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const { left, top } = e.currentTarget.getBoundingClientRect();

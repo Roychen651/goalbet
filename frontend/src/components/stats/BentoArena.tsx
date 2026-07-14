@@ -3,6 +3,7 @@ import NumberFlow from '@number-flow/react';
 import { Flame, Gauge, Grid3x3, TrendingDown, TrendingUp, Users, type LucideIcon } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
 import { useGroupStore } from '../../stores/groupStore';
+import { useTiltStore } from '../../stores/tiltStore';
 import { useStatsArena } from '../../hooks/useStatsArena';
 import { GlassCard } from '../ui/GlassCard';
 import { EmptyState } from '../ui/EmptyState';
@@ -78,6 +79,7 @@ const cardHover = { y: -3, transition: { duration: 0.18, ease: 'easeOut' as cons
 export function BentoArena() {
   const { t, lang } = useLangStore();
   const { activeGroupId } = useGroupStore();
+  const { gyroscopeEnabled } = useTiltStore();
   const reduceMotion = useReducedMotion();
   const { data, isLoading, isError } = useStatsArena();
 
@@ -125,6 +127,7 @@ export function BentoArena() {
           grain
           interactive
           tactile
+          allowGyroscope={gyroscopeEnabled}
           className="h-full p-5 flex flex-col justify-between relative overflow-hidden"
         >
           {!reduceMotion && (
