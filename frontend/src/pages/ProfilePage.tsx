@@ -1,6 +1,7 @@
 import { TranslationKey } from '../lib/i18n';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Share2 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useLangStore } from '../stores/langStore';
@@ -16,6 +17,7 @@ import { AvatarPicker } from '../components/profile/AvatarPicker';
 import { ProfileBentoV2 } from '../components/profile/ProfileBentoV2';
 import { FormBars } from '../components/ui/FormBars';
 import { HallOfFameChronicles } from '../components/profile/HallOfFameChronicles';
+import { ShareableRecapCard } from '../components/profile/ShareableRecapCard';
 import { formatKickoffTime, isMatchLocked, calcBreakdown } from '../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, calcPredictionCost } from '../lib/constants';
 import { InfoTip } from '../components/ui/InfoTip';
@@ -33,6 +35,7 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const toggleExpanded = (id: string) => setExpandedIds(prev => {
     const s = new Set(prev);
@@ -360,6 +363,13 @@ export function ProfilePage() {
               {activeGroup && <p className="text-text-muted text-xs">{activeGroup.name}</p>}
               <button onClick={() => setShowAvatarPicker(true)} className="text-accent-green text-xs mt-0.5 hover:underline">{t('chooseAvatar')}</button>
             </div>
+            <button
+              onClick={() => setShowShareCard(true)}
+              className="w-9 h-9 rounded-full bg-white/8 border border-white/12 flex items-center justify-center text-white/60 hover:text-accent-green hover:border-accent-green/30 transition-all shrink-0"
+              title={t('shareRecapTitle')}
+            >
+              <Share2 size={16} />
+            </button>
           </div>
         </GlassCard>
       </motion.div>
@@ -641,6 +651,7 @@ export function ProfilePage() {
 
       <AnimatePresence>
         {showAvatarPicker && <AvatarPicker onClose={() => setShowAvatarPicker(false)} />}
+        {showShareCard && <ShareableRecapCard onClose={() => setShowShareCard(false)} />}
       </AnimatePresence>
     </motion.div>
   );
