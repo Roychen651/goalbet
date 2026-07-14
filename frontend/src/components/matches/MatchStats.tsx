@@ -7,11 +7,11 @@
  * Gracefully hidden when no boxscore data is available.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart3, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { LEAGUE_ESPN_SLUG } from '../../lib/constants';
+import { LEAGUE_ESPN_SLUG, LIVE_STATUSES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import type { TranslationKey } from '../../lib/i18n';
 import type { Match } from '../../lib/supabase';
@@ -182,23 +182,45 @@ export function MatchStats({ match }: { match: Match }) {
   const [open, setOpen] = useState(false);
   const [stats, setStats] = useState<StatRow[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const fetchedRef = useRef(false);
 
+  // Live matches: ESPN's boxscore stats keep changing while the match is in
+  // progress. A fetch-once-on-open guard (the previous behavior) froze
+  // possession/corners/shots at whatever ESPN returned the instant the panel
+  // was first expanded — often 0%/0 near kickoff, before ESPN's boxscore has
+  // populated — and never updated again for the rest of the match, even
+  // though the score kept moving. Re-fetch every 30s (matching the app's
+  // existing live-poll cadence, e.g. AppShell's score sync) while the panel
+  // is open and the match is actually live; a finished match still fetches
+  // exactly once.
   useEffect(() => {
-    if (!open || fetchedRef.current) return;
+    if (!open) return;
     if (!LEAGUE_ESPN_SLUG[match.league_id]) return;
-    fetchedRef.current = true;
 
     let cancelled = false;
-    setLoading(true);
+    // Only the initial fetch shows the skeleton — a background refresh on a
+    // live match swaps the numbers in place. Flashing the skeleton every 30s
+    // over stats that are already on screen would be worse than the stale
+    // data it replaces.
+    const load = (isInitial: boolean) => {
+      if (isInitial) setLoading(true);
+      fetchMatchStats(match.external_id, match.league_id)
+        .then(rows => { if (!cancelled) setStats(rows); })
+        .catch(() => { if (!cancelled) setStats([]); })
+        .finally(() => { if (!cancelled && isInitial) setLoading(false); });
+    };
 
-    fetchMatchStats(match.external_id, match.league_id)
-      .then(rows => { if (!cancelled) setStats(rows); })
-      .catch(() => { if (!cancelled) setStats([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    load(true);
 
-    return () => { cancelled = true; };
-  }, [open, match.external_id, match.league_id]);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    if (LIVE_STATUSES.includes(match.status)) {
+      interval = setInterval(() => load(false), 30_000);
+    }
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+    };
+  }, [open, match.external_id, match.league_id, match.status]);
 
   const hasSummary = !!postMatchSummary && match.status === 'FT';
   const hasEspn = !!LEAGUE_ESPN_SLUG[match.league_id];
