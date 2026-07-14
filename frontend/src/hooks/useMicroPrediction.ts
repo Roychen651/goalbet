@@ -3,6 +3,9 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useCoinsStore } from '../stores/coinsStore';
+import { useUIStore } from '../stores/uiStore';
+import { useLangStore } from '../stores/langStore';
+import { haptic } from '../lib/haptics';
 
 export interface MicroQuestion {
   id: string;
@@ -12,6 +15,7 @@ export interface MicroQuestion {
   question_type: string;
   status: 'open' | 'locked' | 'resolved' | 'canceled';
   expires_at: string;
+  resolves_at: string | null;
   home_team?: string;
   away_team?: string;
 }
@@ -38,7 +42,7 @@ export function useMicroPrediction() {
     if (!activeGroupId) { setQuestion(null); return; }
     const { data } = await supabase
       .from('micro_prediction_questions')
-      .select('id, match_id, group_id, milestone, question_type, status, expires_at, matches(home_team, away_team)')
+      .select('id, match_id, group_id, milestone, question_type, status, expires_at, resolves_at, matches(home_team, away_team)')
       .eq('group_id', activeGroupId)
       .in('status', ['open', 'locked'])
       .order('created_at', { ascending: false })
@@ -50,7 +54,7 @@ export function useMicroPrediction() {
     setQuestion({
       id: data.id, match_id: data.match_id, group_id: data.group_id,
       milestone: data.milestone, question_type: data.question_type,
-      status: data.status, expires_at: data.expires_at,
+      status: data.status, expires_at: data.expires_at, resolves_at: data.resolves_at,
       home_team: match?.home_team, away_team: match?.away_team,
     });
   }, [activeGroupId]);
@@ -81,6 +85,44 @@ export function useMicroPrediction() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [activeGroupId, fetchActive]);
+
+  // Resolution reveal — the question disappears the instant it flips to
+  // 'resolved'/'canceled' (fetchActive only ever selects open/locked), so
+  // without this the only sign a bet resolved is the top-bar coin count
+  // silently changing. settleBets (backend) sets settled_at exactly once per
+  // bet via its own atomic claim, so this row only ever receives ONE UPDATE
+  // in its lifetime — no transition-detection against payload.old needed
+  // (Realtime's `old` is PK-only anyway without REPLICA IDENTITY FULL, which
+  // this table doesn't have). Silent on a genuine loss (is_winner === false)
+  // — a loss toast every 10 minutes for every micro-bet would be noise, not
+  // feedback, the same restraint the main prediction economy already applies.
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`micro-bet-results-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'micro_prediction_bets', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as { settled_at?: string | null; is_winner?: boolean | null; coins_staked?: number };
+          if (!row.settled_at) return;
+          // Read current language/toast-store state at fire time, not
+          // subscription time — a stale closure here would show the toast in
+          // whatever language was active minutes ago when the bet was placed.
+          const { t } = useLangStore.getState();
+          const { addToast } = useUIStore.getState();
+          const stake = row.coins_staked ?? 2;
+          if (row.is_winner === true) {
+            haptic('success');
+            addToast(t('momentumWonToast').replace('{0}', String(stake * 2)), 'success');
+          } else if (row.is_winner === null) {
+            addToast(t('momentumRefundToast').replace('{0}', String(stake)), 'info');
+          }
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   const submitBet = useCallback(async (choice: 'yes' | 'no') => {
     if (!user || !activeGroupId || !question) return;
