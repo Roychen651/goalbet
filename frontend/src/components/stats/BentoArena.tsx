@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { motion, useReducedMotion, type Variants } from 'framer-motion';
 import NumberFlow from '@number-flow/react';
 import { Flame, Gauge, Grid3x3, TrendingDown, TrendingUp, Users, type LucideIcon } from 'lucide-react';
@@ -10,6 +11,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { PredictionHeatmap } from './PredictionHeatmap';
 import { GroupDistributionChart } from './GroupDistributionChart';
 import { H2HMatrix } from './H2HMatrix';
+import { CelebrationManager } from './CelebrationManager';
 
 // Sprint 15 complete — all four card slots render real, hand-built
 // visualizations from the single get_stats_arena_payload RPC. No fake data,
@@ -82,6 +84,7 @@ export function BentoArena() {
   const { gyroscopeEnabled } = useTiltStore();
   const reduceMotion = useReducedMotion();
   const { data, isLoading, isError } = useStatsArena();
+  const streakCardRef = useRef<HTMLDivElement>(null);
 
   if (!activeGroupId) {
     return <EmptyState icon="🏟️" title={t('arenaNoGroup')} />;
@@ -197,15 +200,18 @@ export function BentoArena() {
         </GlassCard>
       </motion.div>
 
-      {/* Streak tile */}
-      <motion.div variants={reduceMotion ? undefined : cardVariants} whileHover={reduceMotion ? undefined : cardHover}>
+      {/* Streak tile — the one tile whose value literally increments on a
+          win, so it's the anchor for the Sprint 18 celebration burst. */}
+      <motion.div ref={streakCardRef} variants={reduceMotion ? undefined : cardVariants} whileHover={reduceMotion ? undefined : cardHover}>
         <GlassCard variant="elevated" grain interactive tactile className="h-full p-4 flex flex-col justify-between">
           <CardHeader icon={Flame} title={t('arenaStreakTile')} />
           {isLoading || !distribution ? (
             <CardSkeleton />
           ) : (
             <div className="font-mono font-bold text-3xl text-text-primary tabular-nums tracking-tight">
-              <NumberFlow value={distribution.current_streak} />
+              <CelebrationManager streak={distribution.current_streak} cardRef={streakCardRef}>
+                {(displayStreak) => <NumberFlow value={displayStreak} />}
+              </CelebrationManager>
             </div>
           )}
         </GlassCard>
