@@ -9,6 +9,7 @@
  */
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { logger } from '../lib/logger';
+import { triggerMicroBanter } from './microBanter';
 
 const OUTCOME_WINDOW_MS = 10 * 60 * 1000;
 
@@ -66,6 +67,12 @@ export async function lockExpiredMicroQuestions(): Promise<number> {
         continue;
       }
       if (!claimed || claimed.length === 0) continue; // another tick already locked it
+
+      // Fire-and-forget, same pattern as ensureChronicle — bets on this
+      // question are already finalized (submit_micro_prediction rejects any
+      // attempt once status is no longer 'open'), so the roast can safely
+      // read them right now. Never blocks the lock sweep on a Groq call.
+      void triggerMicroBanter(q.id);
 
       locked++;
     } catch (err) {
