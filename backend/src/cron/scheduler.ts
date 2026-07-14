@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { syncAllActiveLeagues } from '../services/matchSync';
 import { checkAndUpdateScores, resetWeeklyPoints } from '../services/scoreUpdater';
+import { sendMatchReminders } from '../services/pushSender';
 import { logger } from '../lib/logger';
 
 let livePollerRunning = false;
@@ -71,6 +72,17 @@ export function startScheduler(): void {
       await syncAllActiveLeagues();
     } catch (err) {
       logger.error('[scheduler] Midday sync failed:', err);
+    }
+  });
+
+  // Match reminders — every 2 min so a match entering the 15-min pre-kickoff
+  // window is caught promptly. No-op unless VAPID keys are set. Each match is
+  // reminded exactly once (matches.reminder_sent_at).
+  cron.schedule('*/2 * * * *', async () => {
+    try {
+      await sendMatchReminders();
+    } catch (err) {
+      logger.error('[scheduler] Match reminders failed:', err);
     }
   });
 
