@@ -132,58 +132,46 @@ export function usePredictions(matchIds?: string[]) {
       return { previousMap, previousCoins };
     },
 
-    // ── The real work: coin RPC then prediction upsert (unchanged logic) ────
+    // ── The real work: ONE authoritative RPC — cost, balance, and the
+    // prediction row are all computed/written server-side in a single
+    // transaction (migration 040). The client no longer writes to
+    // `predictions` directly, and never supplies a cost the server trusts. ──
     mutationFn: async (vars) => {
       const coinsStore = useCoinsStore.getState();
 
-      if (vars.newCost > 0 || vars.oldCost > 0) {
-        const rpcName = vars.isEdit ? 'adjust_prediction_bet' : 'place_prediction_bet';
-        const rpcArgs = vars.isEdit
-          ? { p_user_id: vars.userId, p_group_id: vars.groupId, p_match_id: vars.input.match_id, p_old_cost: vars.oldCost, p_new_cost: vars.newCost }
-          : { p_user_id: vars.userId, p_group_id: vars.groupId, p_match_id: vars.input.match_id, p_cost: vars.newCost };
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_prediction', {
+        p_user_id: vars.userId,
+        p_group_id: vars.groupId,
+        p_match_id: vars.input.match_id,
+        p_predicted_outcome: vars.input.predicted_outcome ?? null,
+        p_predicted_home_score: vars.input.predicted_home_score ?? null,
+        p_predicted_away_score: vars.input.predicted_away_score ?? null,
+        p_predicted_corners: vars.input.predicted_corners ?? null,
+        p_predicted_btts: vars.input.predicted_btts ?? null,
+        p_predicted_over_under: vars.input.predicted_over_under ?? null,
+      });
 
-        const { data: coinResult } = await supabase.rpc(rpcName, rpcArgs);
-        const result = coinResult as { success: boolean; balance?: number; error?: string } | null;
-
-        if (result && !result.success) {
-          if (result.error === 'insufficient_coins') {
-            throw new Error('Not enough coins to place this prediction');
-          }
-          throw new Error(result.error ?? 'Coin deduction failed');
-        }
-        // Authoritative balance from the server overwrites the optimistic guess.
-        if (result?.balance != null) coinsStore.setCoins(result.balance);
-      }
-
-      const payload = {
-        user_id: vars.userId,
-        match_id: vars.input.match_id,
-        group_id: vars.groupId,
-        predicted_outcome: vars.input.predicted_outcome ?? null,
-        predicted_home_score: vars.input.predicted_home_score ?? null,
-        predicted_away_score: vars.input.predicted_away_score ?? null,
-        predicted_halftime_outcome: vars.input.predicted_halftime_outcome ?? null,
-        predicted_halftime_home: vars.input.predicted_halftime_home ?? null,
-        predicted_halftime_away: vars.input.predicted_halftime_away ?? null,
-        predicted_corners: vars.input.predicted_corners ?? null,
-        predicted_btts: vars.input.predicted_btts ?? null,
-        predicted_over_under: vars.input.predicted_over_under ?? null,
-        coins_bet: vars.newCost,
-      };
-
-      const { data, error } = await supabase
-        .from('predictions')
-        .upsert(payload, { onConflict: 'user_id,match_id,group_id' })
-        .select()
-        .single();
-
-      if (error) {
-        if (error.message?.includes('locked after kickoff') || error.message?.includes('locked 15 minutes')) {
+      if (rpcError) {
+        if (rpcError.message?.includes('locked 15 minutes')) {
           throw new Error('Predictions are locked once the match starts');
         }
-        throw error;
+        throw rpcError;
       }
-      return data as Prediction;
+
+      const result = rpcResult as { success: boolean; balance?: number; error?: string; prediction?: Prediction } | null;
+
+      if (!result?.success) {
+        if (result?.error === 'insufficient_coins') {
+          throw new Error('Not enough coins to place this prediction');
+        }
+        throw new Error(result?.error ?? 'Prediction submission failed');
+      }
+
+      // Authoritative balance from the server overwrites the optimistic guess.
+      if (result.balance != null) coinsStore.setCoins(result.balance);
+
+      if (!result.prediction) throw new Error('Prediction submission returned no row');
+      return result.prediction;
     },
 
     // ── Rollback: restore both the cache snapshot and the coin balance ──────
@@ -216,7 +204,7 @@ export function usePredictions(matchIds?: string[]) {
             predicted_btts: vars.input.predicted_btts ?? null,
             predicted_over_under: vars.input.predicted_over_under ?? null,
             predicted_corners: vars.input.predicted_corners ?? null,
-            coins_bet: vars.newCost,
+            coins_bet: data.coins_bet, // authoritative — from the RPC's own row, not the optimistic guess
             tiers_count: [
               vars.input.predicted_outcome,
               (vars.input.predicted_home_score != null && vars.input.predicted_away_score != null) ? true : null,
