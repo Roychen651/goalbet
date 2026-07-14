@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
+import NumberFlow from '@number-flow/react';
 import { TiltCardV2 } from '../ui/TiltCardV2';
 import { InfoTip } from '../ui/InfoTip';
+import { Sparkline } from '../ui/Sparkline';
 import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
 
@@ -13,6 +15,8 @@ interface ProfileBentoV2Props {
   currentStreak:  number;
   avgGoalsDiff:   number | null;
   exactScoreCount: number;
+  /** Cumulative points over resolved predictions (chronological) — hero sparkline. */
+  trajectory:     number[];
 }
 
 const STAGGER = {
@@ -100,6 +104,7 @@ export function ProfileBentoV2({
   currentStreak,
   avgGoalsDiff,
   exactScoreCount,
+  trajectory,
 }: ProfileBentoV2Props) {
   const { t } = useLangStore();
 
@@ -130,10 +135,12 @@ export function ProfileBentoV2({
             <Label>{t('totalPoints')}</Label>
 
             <div>
-              <HeroNumber
-                value={totalPoints}
-                className="text-5xl sm:text-6xl text-accent-green"
-              />
+              <span className="font-display font-bold leading-none tabular-nums text-5xl sm:text-6xl text-accent-green">
+                <NumberFlow
+                  value={totalPoints}
+                  transformTiming={{ duration: 700, easing: 'cubic-bezier(0.16,1,0.3,1)' }}
+                />
+              </span>
               {avgPts && (
                 <p className="text-white/35 text-xs font-sans mt-1.5 bento-sub">
                   {avgPts} {t('avgLabel')} · {resolved} {t('resolvedLabel')}
@@ -141,16 +148,9 @@ export function ProfileBentoV2({
               )}
             </div>
 
-            {/* Micro-sparkline */}
-            <div className="flex items-end gap-1 h-8 mt-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-sm bg-accent-green/20"
-                  style={{ height: `${30 + Math.sin(i * 1.4) * 50}%` }}
-                />
-              ))}
-            </div>
+            {/* Live points trajectory — real cumulative curve (replaces the old
+                placeholder bars). Themed via CSS vars, draws on with Framer Motion. */}
+            <Sparkline data={trajectory} tone="accent" height={32} className="mt-3" />
           </div>
         </TiltCardV2>
       </motion.div>

@@ -275,6 +275,18 @@ export function ProfilePage() {
   const last5Correct = last5.filter(Boolean).length;
 
   const hasAnalytics = ftResolved.length >= 3;
+
+  // ── Points Trajectory ─────────────────────────────────────────────────────
+  // Running cumulative points across resolved predictions, oldest→newest by
+  // kickoff. Feeds the hero-card Sparkline. Pure client-side derivation from the
+  // already-fetched history — zero extra DB queries.
+  const trajectory = (() => {
+    const chrono = [...resolved].sort(
+      (a, b) => new Date(a.match.kickoff_time).getTime() - new Date(b.match.kickoff_time).getTime(),
+    );
+    let run = 0;
+    return chrono.map(p => (run += p.points_earned));
+  })();
   // ─────────────────────────────────────────────────────────────────────────
 
   const now = Date.now();
@@ -346,6 +358,7 @@ export function ProfilePage() {
           currentStreak={currentStreak}
           avgGoalsDiff={avgGoalsDiff}
           exactScoreCount={exactScoreCount}
+          trajectory={trajectory}
         />
       ) : (
       <motion.div className="grid grid-cols-3 gap-3" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } }}>
