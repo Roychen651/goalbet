@@ -7,7 +7,7 @@ export interface GroupEvent {
   id: string;
   group_id: string;
   user_id: string | null;
-  event_type: 'PREDICTION_LOCKED' | 'WON_COINS' | 'LEADERBOARD_CLIMB' | 'AI_BANTER';
+  event_type: 'PREDICTION_LOCKED' | 'WON_COINS' | 'LEADERBOARD_CLIMB' | 'AI_BANTER' | 'MICRO_BANTER';
   match_id: string | null;
   metadata: Record<string, unknown>;
   created_at: string;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Sun, Trophy, Target, Gift, Wrench } from 'lucide-react';
+import { X, Sun, Trophy, Target, Gift, Wrench, Zap } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useGroupStore } from '../../stores/groupStore';
@@ -14,7 +14,8 @@ import type { TranslationKey } from '../../lib/i18n';
 
 interface CoinTransaction {
   id: string;
-  type: 'join_bonus' | 'daily_bonus' | 'bet_placed' | 'bet_won';
+  type: 'join_bonus' | 'daily_bonus' | 'bet_placed' | 'bet_won'
+      | 'micro_prediction' | 'micro_prediction_won' | 'micro_prediction_refund';
   amount: number;
   balance_after: number;
   description: string | null;
@@ -54,6 +55,24 @@ const TYPE_CONFIG: Record<CoinTransaction['type'], {
     labelKey: 'joinBonusRow',
     iconBg: 'bg-purple-500/15',
     iconColor: 'text-purple-400',
+  },
+  micro_prediction: {
+    Icon: Zap,
+    labelKey: 'microPredictionRow',
+    iconBg: 'bg-[#FF4D66]/15',
+    iconColor: 'text-[#FF4D66]',
+  },
+  micro_prediction_won: {
+    Icon: Zap,
+    labelKey: 'microPredictionWonRow',
+    iconBg: 'bg-emerald-500/15',
+    iconColor: 'text-emerald-400',
+  },
+  micro_prediction_refund: {
+    Icon: Zap,
+    labelKey: 'microPredictionRefundRow',
+    iconBg: 'bg-white/10',
+    iconColor: 'text-text-muted',
   },
 };
 
