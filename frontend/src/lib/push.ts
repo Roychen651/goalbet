@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 
+// Note: VITE_VAPID_PUBLIC_KEY is inlined at build time, so provisioning the key
+// requires a fresh production build (not just a Vercel env-var save + redeploy).
 // Public VAPID key (safe to ship). Until this is set on Vercel the whole feature
 // reports 'unsupported' and the UI hides itself — graceful, no dead buttons.
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
