@@ -6,8 +6,8 @@ import { useGroupStore } from '../stores/groupStore';
 export interface GroupEvent {
   id: string;
   group_id: string;
-  user_id: string;
-  event_type: 'PREDICTION_LOCKED' | 'WON_COINS' | 'LEADERBOARD_CLIMB';
+  user_id: string | null;
+  event_type: 'PREDICTION_LOCKED' | 'WON_COINS' | 'LEADERBOARD_CLIMB' | 'AI_BANTER';
   match_id: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
@@ -54,7 +54,7 @@ export function useGroupEvents() {
         return {
           id: row.id as string,
           group_id: row.group_id as string,
-          user_id: row.user_id as string,
+          user_id: row.user_id as string | null,
           event_type: row.event_type as GroupEvent['event_type'],
           match_id: row.match_id as string | null,
           metadata: (row.metadata ?? {}) as Record<string, unknown>,

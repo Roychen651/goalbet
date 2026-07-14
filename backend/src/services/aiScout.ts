@@ -29,7 +29,7 @@ interface GroqMessage {
   content: string;
 }
 
-async function callGroq(messages: GroqMessage[], maxTokens: number): Promise<string | null> {
+export async function callGroq(messages: GroqMessage[], maxTokens: number): Promise<string | null> {
   const key = getApiKey();
   if (!key) {
     // No key configured — silent no-op (intentional: lets the backend run without Groq locally).
