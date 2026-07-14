@@ -12,6 +12,7 @@ import { useLangStore } from '../stores/langStore';
 import { useThemeStore } from '../stores/themeStore';
 import { useMatchSync } from '../hooks/useMatchSync';
 import { GlassCard } from '../components/ui/GlassCard';
+import { PushToggle } from '../components/ui/PushToggle';
 import { NeonButton } from '../components/ui/NeonButton';
 import { GroupMembersList } from '../components/groups/GroupMembersList';
 import { PolicyModal } from '../components/ui/PolicyModal';
@@ -312,6 +313,9 @@ export function SettingsPage() {
           changingPassword={changingPassword} onChangePassword={handleChangePassword}
         />
       </div>
+
+      {/* ── Match reminders (full width; self-hides where Web Push unsupported) ── */}
+      <PushToggle />
 
       {/* ── Group Hub (full width) ─────────────────────────────────────── */}
       <div>
