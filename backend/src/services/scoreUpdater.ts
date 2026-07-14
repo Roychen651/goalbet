@@ -37,6 +37,40 @@ interface Prediction {
   predicted_over_under: 'over' | 'under' | null;
 }
 
+// ── Rank-drop tracking (V4 Sprint 11) ────────────────────────────────────────
+// Captures each user's total_points the FIRST time it changes within a single
+// checkAndUpdateScores() run, so multiple resolutions landing in the same tick
+// (main FT loop + corners re-score + catch-up) collapse into ONE before->after
+// comparison per user instead of firing a notification per write.
+//
+// Deliberately a per-call instance, never module-level: checkAndUpdateScores()
+// is invoked concurrently from multiple entry points (the 30s live poller AND
+// the public/internal HTTP sync routes), and a shared module-level tracker
+// would let concurrent invocations clobber each other's before-snapshots.
+// Because a tracker only ever records users THIS invocation actually won the
+// atomic claim for (see resolveMatchPredictions / corners re-score below), an
+// invocation that loses every claim ends up with an empty tracker and
+// correctly sends zero notifications — no separate dedup table is needed here,
+// the existing atomic-claim guard (rule 4.14) already provides it.
+interface RankTracker {
+  priorPoints: Map<string, Map<string, number>>; // groupId -> userId -> points before first touch this run
+  touchedGroups: Set<string>;
+}
+
+function newRankTracker(): RankTracker {
+  return { priorPoints: new Map(), touchedGroups: new Set() };
+}
+
+function recordPriorPoints(tracker: RankTracker, groupId: string, userId: string, pointsBeforeChange: number): void {
+  tracker.touchedGroups.add(groupId);
+  let group = tracker.priorPoints.get(groupId);
+  if (!group) {
+    group = new Map();
+    tracker.priorPoints.set(groupId, group);
+  }
+  if (!group.has(userId)) group.set(userId, pointsBeforeChange); // only the first touch this run counts as "before"
+}
+
 // Find all matches that need processing:
 // 1. In-progress matches (1H, HT, 2H, NS past kickoff) — need score update
 // 2. FT matches that still have unresolved predictions — backend was down when match ended
@@ -170,7 +204,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
   kickoff_time?: string;
   league_id?: number;
   league_name?: string | null;
-}): Promise<number> {
+}, tracker: RankTracker): Promise<number> {
   const { data: predictions, error } = await supabaseAdmin
     .from('predictions')
     .select('*')
@@ -360,6 +394,10 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
         best_streak: lbData?.best_streak ?? 0,
       };
 
+      // Capture the pre-update total for rank-drop detection (before this
+      // prediction's points are added below).
+      recordPriorPoints(tracker, prediction.group_id, prediction.user_id, existingLB.total_points);
+
       // ── Streak (Sprint 8, display-only 🔥) ────────────────────────────────
       // Consecutive correct Tier-1 FT results. A correct result extends it; an
       // incorrect one resets to 0. Missing a matchday does NOT break it (only
@@ -400,6 +438,10 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
   }
 
   logger.info(`[scoreUpdater] Checking ${pendingMatches.length} pending matches`);
+
+  // One tracker for this entire invocation — see the RankTracker doc comment
+  // for why this must not be module-level.
+  const tracker = newRankTracker();
 
   // Group by league to minimize API calls
   const byLeague = new Map<number, PendingMatch[]>();
@@ -493,7 +535,7 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
               kickoff_time: match.kickoff_time,
               league_id: match.league_id,
               league_name: effectiveData.league_name,
-            });
+            }, tracker);
             totalResolved += count;
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
 
@@ -547,7 +589,7 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
                 kickoff_time: match.kickoff_time,
                 league_id: match.league_id,
                 league_name: effectiveData.league_name,
-              });
+              }, tracker);
               if (count > 0) {
                 totalResolved += count;
                 logger.info(`[scoreUpdater] ET match ${match.id}: resolved ${count} predictions at 90-min score ${regulationHome}-${regulationAway}`);
@@ -635,6 +677,7 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
           .single();
 
         if (lbData) {
+          recordPriorPoints(tracker, pred.group_id, pred.user_id, (lbData as { total_points: number }).total_points);
           await supabaseAdmin
             .from('leaderboard')
             .update({
@@ -698,7 +741,7 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
           kickoff_time: m.kickoff_time,
           league_id: m.league_id,
           league_name: m.league_name,
-        });
+        }, tracker);
         if (count > 0) {
           totalResolved += count;
           logger.info(`[scoreUpdater] Catch-up resolved ${count} stuck predictions for FT match ${m.id}`);
@@ -709,7 +752,88 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
     logger.error('[scoreUpdater] Catch-up resolution error:', err);
   }
 
+  await flushRankDropNotifications(tracker);
+
   return { checked: pendingMatches.length, resolved: totalResolved };
+}
+
+// ── Rank-drop notification flush (V4 Sprint 11) ──────────────────────────────
+// Runs ONCE at the end of the whole checkAndUpdateScores() invocation — after
+// every match/loop in this tick has finished writing — so a user whose rank
+// shuffled multiple times in one run (e.g. two of their group's matches both
+// resolved in the same tick) gets exactly one notification showing the net
+// movement, never one per write.
+async function flushRankDropNotifications(tracker: RankTracker): Promise<void> {
+  for (const groupId of tracker.touchedGroups) {
+    try {
+      const { data: rows } = await supabaseAdmin
+        .from('leaderboard')
+        .select('user_id, total_points')
+        .eq('group_id', groupId);
+
+      if (!rows || rows.length < 2) continue; // rank is meaningless with <2 members
+
+      const priorMap = tracker.priorPoints.get(groupId) ?? new Map<string, number>();
+
+      // "After" — current, authoritative state (reflects everything this run wrote).
+      const afterSorted = [...rows].sort((a, b) => b.total_points - a.total_points);
+      const afterRank = new Map<string, number>();
+      afterSorted.forEach((r, i) => afterRank.set(r.user_id, i + 1));
+
+      // "Before" — reconstruct by substituting each touched user's captured
+      // pre-run total back in; untouched users keep their current value for
+      // both snapshots since they didn't change this run.
+      // Known accepted edge case: if a DIFFERENT concurrent worker updates an
+      // untouched user in this same group between this worker's captures and
+      // this flush, that user's "before" position uses their post-concurrent-
+      // update value rather than a true pre-run snapshot. Worst case is a
+      // slightly-off old-rank number in a notification body, never a duplicate
+      // or incorrect coin/points effect — accepted rather than adding a
+      // dedicated snapshot table for a cosmetic-only, rare race.
+      const beforeRows = rows.map(r => ({
+        user_id: r.user_id,
+        total_points: priorMap.has(r.user_id) ? priorMap.get(r.user_id)! : r.total_points,
+      }));
+      const beforeSorted = [...beforeRows].sort((a, b) => b.total_points - a.total_points);
+      const beforeRank = new Map<string, number>();
+      beforeSorted.forEach((r, i) => beforeRank.set(r.user_id, i + 1));
+
+      for (const userId of priorMap.keys()) {
+        const before = beforeRank.get(userId);
+        const after = afterRank.get(userId);
+        if (before == null || after == null || after <= before) continue; // no drop
+
+        const overtaker = afterSorted[before - 1]; // whoever now sits at this user's old rank
+        if (!overtaker || overtaker.user_id === userId) continue;
+
+        const { data: overtakerProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('username')
+          .eq('id', overtaker.user_id)
+          .single();
+
+        const { error: notifError } = await supabaseAdmin.from('notifications').insert({
+          user_id: userId,
+          group_id: groupId,
+          type: 'rank_drop',
+          title_key: 'notifRankDrop',
+          body_key: 'notifRankDropBody',
+          metadata: {
+            old_rank: before,
+            new_rank: after,
+            overtaker_username: overtakerProfile?.username ?? null,
+          },
+        });
+        if (notifError) {
+          logger.warn(`[scoreUpdater] rank_drop notification insert failed: ${notifError.message}`);
+        } else {
+          logger.info(`[scoreUpdater] Rank drop: user ${userId} #${before}->#${after} in group ${groupId}`);
+        }
+      }
+    } catch (err) {
+      logger.warn(`[scoreUpdater] Rank-drop flush failed for group ${groupId}: ${(err as Error).message}`);
+    }
+  }
 }
 
 export async function resetWeeklyPoints(): Promise<void> {
