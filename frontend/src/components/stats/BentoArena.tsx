@@ -6,13 +6,12 @@ import { useGroupStore } from '../../stores/groupStore';
 import { useStatsArena } from '../../hooks/useStatsArena';
 import { GlassCard } from '../ui/GlassCard';
 import { EmptyState } from '../ui/EmptyState';
+import { PredictionHeatmap } from './PredictionHeatmap';
+import { GroupDistributionChart } from './GroupDistributionChart';
 
-// Sprint 15 Commit 2 — the Bento shell + data layer. The Heatmap, Distribution
-// and H2H cards render real aggregate numbers from get_stats_arena_payload
-// already (no fake data), but their SVG visualization engines are Commit 3/4
-// — those cards show a plain-number summary today and swap to
-// PredictionHeatmap / GroupDistributionChart / the interactive picker once
-// those components land, same card slot, same data, no re-fetch.
+// Sprint 15 Commit 3 — zero-dependency SVG visualization engines land in the
+// Heatmap and Distribution card slots. The H2H card still shows the numeric
+// summary from Commit 2; its interactive opponent picker is Commit 4.
 
 const containerVariants: Variants = {
   hidden: {},
@@ -115,19 +114,11 @@ export function BentoArena() {
               {t('arenaHeatmapTitle')}
             </h3>
           </div>
-          {isLoading ? (
-            <CardSkeleton />
-          ) : (
-            <p className="font-mono text-sm text-text-muted">
-              {t('arenaHeatmapSubtitle')
-                .replace('{0}', String(data?.heatmap.length ?? 0))
-                .replace('{1}', String(new Set(data?.heatmap.map(c => c.league_id)).size))}
-            </p>
-          )}
+          {isLoading ? <CardSkeleton /> : <PredictionHeatmap cells={data?.heatmap ?? []} />}
         </GlassCard>
       </motion.div>
 
-      {/* Distribution — numeric summary today, GroupDistributionChart SVG in Commit 3 */}
+      {/* Distribution — Gaussian emphasis curve + glowing user-position marker */}
       <motion.div variants={reduceMotion ? undefined : cardVariants} className="sm:col-span-2">
         <GlassCard variant="elevated" grain className="h-full p-5 flex flex-col gap-3">
           <div className="flex items-center gap-2">
@@ -139,10 +130,7 @@ export function BentoArena() {
           {isLoading || !distribution ? (
             <CardSkeleton />
           ) : (
-            <p className="font-mono text-sm text-text-muted">
-              <NumberFlow value={distribution.avg_stake} /> {t('arenaDistributionSubtitle')}{' '}
-              <NumberFlow value={distribution.group_avg_stake} />
-            </p>
+            <GroupDistributionChart distribution={distribution} />
           )}
         </GlassCard>
       </motion.div>

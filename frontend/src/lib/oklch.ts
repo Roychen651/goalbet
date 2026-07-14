@@ -1,0 +1,92 @@
+// Hand-crafted OKLCH interpolation for the Bento Arena diverging heatmap
+// (Sprint 15). Deliberately not CSS color-mix() — a discrete color must be
+// computed per cell from a continuous ratio at render time (some cells need
+// their exact color for contrast-aware label ink too), and this keeps full
+// control over hue interpolation direction and clamping.
+//
+// Anchors are read from the live --arena-cold/mid/hot custom properties via
+// getComputedStyle, the same "resolve CSS vars at draw time" precedent
+// shareCard.ts established in Sprint 11 — one source of truth in index.css,
+// never a second hardcoded copy of the same three colors in JS.
+
+interface Oklch {
+  l: number; // 0-100
+  c: number;
+  h: number; // degrees
+}
+
+function parseOklch(raw: string): Oklch {
+  const m = raw.trim().match(/oklch\(\s*([\d.]+)%\s+([\d.]+)\s+([\d.]+)/i);
+  if (!m) return { l: 55, c: 0, h: 0 };
+  return { l: parseFloat(m[1]), c: parseFloat(m[2]), h: parseFloat(m[3]) };
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+// Shortest-path hue interpolation so a 218deg -> 13deg lerp doesn't sweep the
+// long way around the wheel through green/yellow.
+function lerpHue(a: number, b: number, t: number): number {
+  const diff = ((b - a + 540) % 360) - 180;
+  return (a + diff * t + 360) % 360;
+}
+
+let cachedAnchors: { cold: Oklch; mid: Oklch; hot: Oklch } | null = null;
+let cachedForTheme: string | null = null;
+
+function getArenaAnchors() {
+  const isLight = document.documentElement.classList.contains('light');
+  const themeKey = isLight ? 'light' : 'dark';
+  if (cachedAnchors && cachedForTheme === themeKey) return cachedAnchors;
+
+  const styles = getComputedStyle(document.documentElement);
+  cachedAnchors = {
+    cold: parseOklch(styles.getPropertyValue('--arena-cold')),
+    mid: parseOklch(styles.getPropertyValue('--arena-mid')),
+    hot: parseOklch(styles.getPropertyValue('--arena-hot')),
+  };
+  cachedForTheme = themeKey;
+  return cachedAnchors;
+}
+
+/** Drop the memoized anchors — call after a theme toggle if colors look stale. */
+export function resetOklchCache(): void {
+  cachedAnchors = null;
+  cachedForTheme = null;
+}
+
+export interface DivergingColor {
+  color: string; // ready-to-use oklch() CSS string
+  l: number; // resolved lightness, 0-100 — for contrast-aware label ink
+}
+
+/**
+ * ratio: 0 (worst) .. 1 (best), diverging around 0.5 (the neutral midpoint).
+ */
+export function interpolateDiverging(ratio: number): DivergingColor {
+  const { cold, mid, hot } = getArenaAnchors();
+  const clamped = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0.5));
+
+  let from: Oklch;
+  let to: Oklch;
+  let t: number;
+  if (clamped >= 0.5) {
+    from = mid;
+    to = cold;
+    t = (clamped - 0.5) / 0.5;
+  } else {
+    from = mid;
+    to = hot;
+    t = (0.5 - clamped) / 0.5;
+  }
+
+  const l = lerp(from.l, to.l, t);
+  const c = lerp(from.c, to.c, t);
+  const h = lerpHue(from.h, to.h, t);
+
+  return {
+    color: `oklch(${l.toFixed(1)}% ${c.toFixed(3)} ${h.toFixed(1)})`,
+    l,
+  };
+}
