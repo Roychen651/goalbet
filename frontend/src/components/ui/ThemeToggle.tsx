@@ -1,12 +1,14 @@
 import { useThemeStore } from '../../stores/themeStore';
 import { cn } from '../../lib/utils';
+import { haptic } from '../../lib/haptics';
+import { playSound } from '../../lib/sensoryAudio';
 
 export function ThemeToggle({ inline = false }: { inline?: boolean }) {
   const { theme, toggle } = useThemeStore();
 
   return (
     <button
-      onClick={toggle}
+      onClick={() => { haptic('toggle_click'); playSound('toggle_click'); toggle(); }}
       title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       className={cn(
         'flex items-center justify-center text-lg rounded-full',
