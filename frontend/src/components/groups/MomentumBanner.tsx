@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap } from 'lucide-react';
+import { Lock, Zap } from 'lucide-react';
 import { useMicroPrediction } from '../../hooks/useMicroPrediction';
 import { useCountdown } from '../../hooks/useCountdown';
 import { useLangStore } from '../../stores/langStore';
+import { cn } from '../../lib/utils';
 import type { TranslationKey } from '../../lib/i18n';
 import { MomentumBetSheet } from './MomentumBetSheet';
 
@@ -47,7 +48,16 @@ export function MomentumBanner() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -12 }}
         transition={{ type: 'spring' as const, stiffness: 260, damping: 24 }}
-        className="relative w-full rounded-2xl p-[1.5px] overflow-hidden mb-4 text-start"
+        className={cn(
+          'relative w-full rounded-2xl p-[1.5px] overflow-hidden mb-4 text-start',
+          // Betting is structurally closed once locked (§29 — the outcome
+          // window only starts after the tap-target closes, so a late tap
+          // can never be honored). Without a visual cue the card kept its
+          // full-brightness "urgent, tappable" look even while inert —
+          // dimming + a not-allowed cursor makes the disabled state legible
+          // instead of looking like a broken button.
+          isLocked && 'opacity-70 cursor-default',
+        )}
         dir={isHe ? 'rtl' : 'ltr'}
         disabled={isLocked}
       >
@@ -84,7 +94,11 @@ export function MomentumBanner() {
             animate={{ scale: [1, 1.08, 1] }}
             transition={{ duration: isLocked ? 2.4 : 1.4, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <Zap size={18} className="text-[#FF4D66]" fill="currentColor" />
+            {isLocked ? (
+              <Lock size={16} className="text-[#FF4D66]" />
+            ) : (
+              <Zap size={18} className="text-[#FF4D66]" fill="currentColor" />
+            )}
           </motion.div>
 
           <div className="flex-1 min-w-0">
