@@ -23,6 +23,62 @@ async function stampReminder(matchId: string): Promise<void> {
     .eq('id', matchId);
 }
 
+interface Subscription {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+/**
+ * Send a payload to a list of subscriptions, pruning dead ones (404/410) as
+ * they're discovered. Shared by sendMatchReminders and sendPushToUser so the
+ * send+prune logic exists in exactly one place.
+ */
+async function sendToSubscriptions(subs: Subscription[], payload: string): Promise<number> {
+  let sent = 0;
+  const seen = new Set<string>();
+  for (const s of subs) {
+    if (seen.has(s.endpoint)) continue;
+    seen.add(s.endpoint);
+    try {
+      await webpush.sendNotification(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        payload,
+      );
+      sent++;
+    } catch (err) {
+      const code = (err as { statusCode?: number }).statusCode;
+      if (code === 404 || code === 410) {
+        await supabaseAdmin.from('push_subscriptions').delete().eq('endpoint', s.endpoint);
+      } else {
+        logger.warn(`[push] send failed (${code}): ${(err as Error).message}`);
+      }
+    }
+  }
+  return sent;
+}
+
+/**
+ * Send a push to every subscription a single user has (multiple devices).
+ * No-op (returns 0) if VAPID isn't configured or the user has no subscriptions.
+ * Used by scoreUpdater's rank-drop notifications (V4 Sprint 11).
+ */
+export async function sendPushToUser(
+  userId: string,
+  payload: { title: string; body: string; url?: string; tag?: string },
+): Promise<number> {
+  if (!ensureVapid()) return 0;
+
+  const { data: subs } = await supabaseAdmin
+    .from('push_subscriptions')
+    .select('endpoint, p256dh, auth')
+    .eq('user_id', userId);
+
+  if (!subs || subs.length === 0) return 0;
+
+  return sendToSubscriptions(subs as Subscription[], JSON.stringify(payload));
+}
+
 /**
  * Send "kicks off in 15 min" reminders. Audience = ALL opted-in members of any
  * group where the match's league is active (drives DAU, not just re-engaging
@@ -80,26 +136,7 @@ export async function sendMatchReminders(): Promise<number> {
         tag: `match-${m.id}`,
       });
 
-      const seen = new Set<string>();
-      for (const s of subs ?? []) {
-        if (seen.has(s.endpoint)) continue;
-        seen.add(s.endpoint);
-        try {
-          await webpush.sendNotification(
-            { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-            payload,
-          );
-          sent++;
-        } catch (err) {
-          const code = (err as { statusCode?: number }).statusCode;
-          if (code === 404 || code === 410) {
-            // Subscription is dead — prune it.
-            await supabaseAdmin.from('push_subscriptions').delete().eq('endpoint', s.endpoint);
-          } else {
-            logger.warn(`[push] send failed (${code}): ${(err as Error).message}`);
-          }
-        }
-      }
+      sent += await sendToSubscriptions((subs ?? []) as Subscription[], payload);
 
       await stampReminder(m.id);
     } catch (err) {

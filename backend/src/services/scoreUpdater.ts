@@ -3,6 +3,7 @@ import { fetchLeagueMatches, fetchMatchHalftimeScore, fetchMatchLinescoreRepair,
 import { calculatePoints } from './pointsEngine';
 import { logger } from '../lib/logger';
 import { ensurePostMatchSummary, ensureChronicle } from './aiScout';
+import { sendPushToUser } from './pushSender';
 
 interface PendingMatch {
   id: string;
@@ -829,6 +830,17 @@ async function flushRankDropNotifications(tracker: RankTracker): Promise<void> {
         } else {
           logger.info(`[scoreUpdater] Rank drop: user ${userId} #${before}->#${after} in group ${groupId}`);
         }
+
+        // Push is best-effort — no-op if VAPID unset or the user has no
+        // subscriptions. English-only, matching the existing match-reminder
+        // push (no per-user language preference exists to localize against yet).
+        const overtakerName = overtakerProfile?.username ?? 'Someone';
+        void sendPushToUser(userId, {
+          title: 'GoalBet ⚽',
+          body: `${overtakerName} just overtook you — you're now #${after} in the group!`,
+          url: '/leaderboard',
+          tag: `rank-drop-${groupId}`,
+        });
       }
     } catch (err) {
       logger.warn(`[scoreUpdater] Rank-drop flush failed for group ${groupId}: ${(err as Error).message}`);

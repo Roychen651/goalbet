@@ -51,6 +51,18 @@ function buildContent(notif: AppNotification, t: (key: TranslationKey) => string
       positive: points_earned > 0,
     };
   }
+  if (notif.type === 'rank_drop') {
+    const { old_rank, new_rank, overtaker_username } = notif.metadata;
+    return {
+      title: t('notifRankDropTitle'),
+      body: overtaker_username
+        ? t('notifRankDropBody').replace('{0}', overtaker_username).replace('{1}', String(new_rank ?? '?'))
+        : t('notifRankDropBodyGeneric').replace('{0}', String(new_rank ?? '?')),
+      badge: old_rank != null && new_rank != null ? `#${old_rank} → #${new_rank}` : null,
+      positive: false,
+    };
+  }
+
   return { title: notif.title_key, body: notif.body_key, badge: null, positive: false };
 }
 
