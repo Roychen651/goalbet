@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 interface CoinsState {
   coins: number;
   loading: boolean;
-  /** Fetch balance + claim daily bonus. Shows toast if bonus was awarded. */
+  /** Fetch the current balance. */
   initCoins: (userId: string, groupId: string) => Promise<void>;
   /** Silently refresh balance from DB. */
   fetchCoins: (userId: string, groupId: string) => Promise<void>;
