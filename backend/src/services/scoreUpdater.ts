@@ -72,6 +72,82 @@ function recordPriorPoints(tracker: RankTracker, groupId: string, userId: string
   if (!group.has(userId)) group.set(userId, pointsBeforeChange); // only the first touch this run counts as "before"
 }
 
+// ── Momentum Bets: milestone question generation (V4 Sprint 14) ─────────────
+type Milestone = 'kickoff' | 'halftime' | 'minute_75';
+
+const MINUTE_75_THRESHOLD = 75;
+
+function parseClockMinute(displayClock: string | null | undefined): number | null {
+  if (!displayClock) return null;
+  const m = displayClock.match(/^(\d+)/);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return isNaN(n) ? null : n;
+}
+
+/**
+ * Detects a kickoff/halftime/minute-75 transition for this poll and, if one
+ * just happened, generates an 'open' micro-prediction question (60s betting
+ * window) for every group tracking this match's league. Idempotent via the
+ * UNIQUE (match_id, group_id, milestone) constraint + upsert-ignore — safe to
+ * call on every tick; only the first successful attempt per milestone
+ * actually creates a row.
+ *
+ * `match.status` is the DB value as of the START of this batch (last tick's
+ * write); `fresh.status` is this tick's ESPN read. Comparing them detects a
+ * genuine first-time transition, same idiom already used for ET detection
+ * elsewhere in this file — never fires repeatedly for the same milestone.
+ */
+async function generateMilestoneQuestions(
+  match: { id: string; league_id: number; status: string },
+  fresh: { status: string; display_clock?: string | null },
+): Promise<void> {
+  let milestone: Milestone | null = null;
+
+  if (match.status === 'NS' && fresh.status === '1H') {
+    milestone = 'kickoff';
+  } else if (fresh.status === 'HT' && match.status !== 'HT') {
+    milestone = 'halftime';
+  } else if (fresh.status === '2H') {
+    const minute = parseClockMinute(fresh.display_clock);
+    if (minute !== null && minute >= MINUTE_75_THRESHOLD) milestone = 'minute_75';
+  }
+
+  if (!milestone) return;
+
+  try {
+    const { data: groups } = await supabaseAdmin
+      .from('groups')
+      .select('id')
+      .contains('active_leagues', [match.league_id]);
+
+    if (!groups || groups.length === 0) return;
+
+    const now = new Date();
+    const rows = groups.map(g => ({
+      match_id: match.id,
+      group_id: g.id,
+      milestone,
+      question_type: 'goal_next_10',
+      status: 'open',
+      opens_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + 60_000).toISOString(),
+    }));
+
+    const { error } = await supabaseAdmin
+      .from('micro_prediction_questions')
+      .upsert(rows, { onConflict: 'match_id,group_id,milestone', ignoreDuplicates: true });
+
+    if (error) {
+      logger.warn(`[scoreUpdater] micro-question generation failed for match ${match.id}: ${error.message}`);
+    } else {
+      logger.info(`[scoreUpdater] Generated '${milestone}' micro-question for match ${match.id} across ${rows.length} group(s)`);
+    }
+  } catch (err) {
+    logger.warn(`[scoreUpdater] micro-question generation error for match ${match.id}: ${(err as Error).message}`);
+  }
+}
+
 // Find all matches that need processing:
 // 1. In-progress matches (1H, HT, 2H, NS past kickoff) — need score update
 // 2. FT matches that still have unresolved predictions — backend was down when match ended
@@ -521,6 +597,10 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
             // summary fetch failed — continue without red card data
           }
         }
+
+        // Momentum Bets milestone check — before the FT/ET/live branching below,
+        // since kickoff/halftime/minute-75 are all "still in progress" moments.
+        await generateMilestoneQuestions(match, effectiveData);
 
         if (effectiveData.status === 'FT' || effectiveData.status === 'PST' || effectiveData.status === 'CANC') {
           await updateMatchScore(match.id, effectiveData);
