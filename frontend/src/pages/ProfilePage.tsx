@@ -14,6 +14,7 @@ import { MatchStatusBadge } from '../components/matches/MatchStatusBadge';
 import { PredictionForm, PredictionData } from '../components/matches/PredictionForm';
 import { AvatarPicker } from '../components/profile/AvatarPicker';
 import { ProfileBentoV2 } from '../components/profile/ProfileBentoV2';
+import { FormBars } from '../components/ui/FormBars';
 import { HallOfFameChronicles } from '../components/profile/HallOfFameChronicles';
 import { formatKickoffTime, isMatchLocked, calcBreakdown } from '../lib/utils';
 import { LIVE_STATUSES, FINISHED_STATUSES, calcPredictionCost } from '../lib/constants';
@@ -274,7 +275,28 @@ export function ProfilePage() {
   }
   const last5Correct = last5.filter(Boolean).length;
 
+  // Form series — last 10 result predictions as {pts, correct} for FormBars
+  // (magnitude + outcome). Reuses resultPreds (already chronological).
+  const formSeries = resultPreds.slice(-10).map(p => {
+    const sH = (p.match as unknown as { regulation_home: number | null }).regulation_home ?? p.match.home_score!;
+    const sA = (p.match as unknown as { regulation_away: number | null }).regulation_away ?? p.match.away_score!;
+    const actual = sH > sA ? 'H' : sH < sA ? 'A' : 'D';
+    return { pts: p.points_earned, correct: p.predicted_outcome === actual };
+  });
+
   const hasAnalytics = ftResolved.length >= 3;
+
+  // ── Points Trajectory ─────────────────────────────────────────────────────
+  // Running cumulative points across resolved predictions, oldest→newest by
+  // kickoff. Feeds the hero-card Sparkline. Pure client-side derivation from the
+  // already-fetched history — zero extra DB queries.
+  const trajectory = (() => {
+    const chrono = [...resolved].sort(
+      (a, b) => new Date(a.match.kickoff_time).getTime() - new Date(b.match.kickoff_time).getTime(),
+    );
+    let run = 0;
+    return chrono.map(p => (run += p.points_earned));
+  })();
   // ─────────────────────────────────────────────────────────────────────────
 
   const now = Date.now();
@@ -346,6 +368,7 @@ export function ProfilePage() {
           currentStreak={currentStreak}
           avgGoalsDiff={avgGoalsDiff}
           exactScoreCount={exactScoreCount}
+          trajectory={trajectory}
         />
       ) : (
       <motion.div className="grid grid-cols-3 gap-3" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } }}>
@@ -509,22 +532,9 @@ export function ProfilePage() {
 
                   {last5.length > 0 ? (
                     <div className="flex flex-col flex-1 justify-between">
-                      {/* Animated dots — oldest left, newest right */}
-                      <div className="flex items-center gap-1 mt-0.5">
-                        {last5.map((correct, i) => (
-                          <motion.span
-                            key={i}
-                            className={`w-4 h-4 rounded-full flex-shrink-0 ${correct ? 'bg-accent-green shadow-[0_0_6px_rgba(0,255,135,0.7)]' : 'bg-red-500/70'}`}
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ type: 'spring', stiffness: 300, damping: 16, delay: 0.35 + i * 0.08 }}
-                          />
-                        ))}
-                        {/* Ghost dots for < 5 predictions */}
-                        {Array.from({ length: 5 - last5.length }).map((_, i) => (
-                          <span key={`ghost-${i}`} className="w-4 h-4 rounded-full bg-white/8 flex-shrink-0" />
-                        ))}
-                      </div>
+                      {/* Points-per-match bars — colour = outcome, height = magnitude.
+                          Oldest left, newest right. */}
+                      <FormBars series={formSeries} className="mt-0.5" label={t('recentForm')} />
                       {/* Streak + ratio */}
                       <div>
                         <div className="flex items-baseline gap-1">
