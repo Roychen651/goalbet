@@ -118,8 +118,10 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
   const { lang } = useLangStore();
   const isHe = lang === 'he';
 
-  // AI banter has its own premium broadcast card.
-  if (event.event_type === 'AI_BANTER') {
+  // AI banter has its own premium broadcast card — MICRO_BANTER (Sprint 14)
+  // reuses it verbatim: same metadata shape (text_en/text_he/home_team/
+  // away_team), same "AI Scout" visual identity, no reason for a second card.
+  if (event.event_type === 'AI_BANTER' || event.event_type === 'MICRO_BANTER') {
     return <AiBanterCard event={event} t={t} />;
   }
 

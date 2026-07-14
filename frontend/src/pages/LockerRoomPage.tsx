@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useLangStore } from '../stores/langStore';
 import { ActivityFeed } from '../components/groups/ActivityFeed';
+import { MomentumBanner } from '../components/groups/MomentumBanner';
 
 export function LockerRoomPage() {
   const { t } = useLangStore();
@@ -24,6 +25,8 @@ export function LockerRoomPage() {
           }}
         />
       </motion.div>
+
+      <MomentumBanner />
 
       {/* Feed */}
       <ActivityFeed />
