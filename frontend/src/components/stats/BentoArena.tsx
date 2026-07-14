@@ -8,10 +8,11 @@ import { GlassCard } from '../ui/GlassCard';
 import { EmptyState } from '../ui/EmptyState';
 import { PredictionHeatmap } from './PredictionHeatmap';
 import { GroupDistributionChart } from './GroupDistributionChart';
+import { H2HMatrix } from './H2HMatrix';
 
-// Sprint 15 Commit 3 — zero-dependency SVG visualization engines land in the
-// Heatmap and Distribution card slots. The H2H card still shows the numeric
-// summary from Commit 2; its interactive opponent picker is Commit 4.
+// Sprint 15 complete — all four card slots render real, hand-built
+// visualizations from the single get_stats_arena_payload RPC. No fake data,
+// no charting library, no additional network round trip anywhere in this tab.
 
 const containerVariants: Variants = {
   hidden: {},
@@ -62,7 +63,6 @@ export function BentoArena() {
   const heroRatio = heroCell?.win_ratio ?? 0;
 
   const distribution = data?.distribution;
-  const opponentCount = data?.h2h_matrix.length ?? 0;
 
   return (
     <motion.div
@@ -173,7 +173,7 @@ export function BentoArena() {
         </GlassCard>
       </motion.div>
 
-      {/* H2H — opponent count today, interactive matrix picker in Commit 4 */}
+      {/* H2H — interactive opponent picker, zero new network calls per switch */}
       <motion.div variants={reduceMotion ? undefined : cardVariants} className="sm:col-span-4">
         <GlassCard variant="elevated" grain className="h-full p-5 flex flex-col gap-2">
           <div className="flex items-center gap-2">
@@ -182,13 +182,7 @@ export function BentoArena() {
               {t('arenaH2HTitle')}
             </h3>
           </div>
-          {isLoading ? (
-            <CardSkeleton />
-          ) : (
-            <p className="font-mono text-sm text-text-muted">
-              {t('arenaH2HSubtitle').replace('{0}', String(opponentCount))}
-            </p>
-          )}
+          {isLoading ? <CardSkeleton /> : <H2HMatrix matrix={data?.h2h_matrix ?? []} />}
         </GlassCard>
       </motion.div>
     </motion.div>

@@ -651,6 +651,10 @@ export const translations = {
     arenaHeatmapColSample: 'Sample',
     arenaDistributionEmpty: 'Place a few bets to see your position',
     arenaDistributionAvgStakeAria: 'Your average stake is {0} coins, the group average is {1} coins',
+    arenaH2HPoints: 'Points',
+    arenaH2HShared: 'Shared Matches',
+    arenaH2HRecord: 'Record',
+    arenaH2HEmpty: 'No shared match history yet',
   },
 
   he: {
@@ -1300,6 +1304,10 @@ export const translations = {
     arenaHeatmapColSample: 'מדגם',
     arenaDistributionEmpty: 'בצע כמה הימורים כדי לראות את מיקומך',
     arenaDistributionAvgStakeAria: 'ההימור הממוצע שלך הוא {0} מטבעות, ממוצע הקבוצה הוא {1} מטבעות',
+    arenaH2HPoints: 'נקודות',
+    arenaH2HShared: 'משחקים משותפים',
+    arenaH2HRecord: 'מאזן',
+    arenaH2HEmpty: 'אין עדיין היסטוריה משותפת',
   },
 } as const;
 
