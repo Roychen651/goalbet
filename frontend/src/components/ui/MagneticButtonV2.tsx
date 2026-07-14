@@ -87,7 +87,7 @@ export function MagneticButtonV2({
       onMouseEnter={attachListeners}
       onMouseLeave={detachListeners}
       onClick={onClick}
-      whileTap={{ scale: 0.96 }}
+      whileTap={{ scale: 0.95, rotate: -0.5, transition: { type: 'spring', stiffness: 500, damping: 15 } }}
       className={cn(
         'relative inline-flex items-center justify-center gap-2',
         'font-sans font-semibold rounded-xl select-none',

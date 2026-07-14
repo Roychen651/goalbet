@@ -138,14 +138,15 @@ export function ShareableRecapCard({ onClose }: ShareableRecapCardProps) {
           </div>
 
           <div className="px-4 py-3 border-t border-white/8">
-            <button
+            <motion.button
               onClick={handleShare}
               disabled={sharing || loading || !mine}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-accent-green text-bg-base font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-50"
+              whileTap={sharing || loading || !mine ? undefined : { scale: 0.95, rotate: -0.5, transition: { type: 'spring', stiffness: 500, damping: 15 } }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-accent-green text-bg-base font-semibold text-sm disabled:opacity-50"
             >
               <Share2 size={16} />
               {sharing ? '···' : t('shareRecapButton')}
-            </button>
+            </motion.button>
           </div>
         </div>
       </motion.div>

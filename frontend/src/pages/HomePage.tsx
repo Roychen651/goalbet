@@ -154,11 +154,12 @@ export function HomePage() {
       <div className="match-tabs-sticky sticky top-[56px] sm:top-0 z-20 -mx-4 px-4 pt-2 pb-3">
         <div className="flex gap-1.5">
           {TABS.map(tab => (
-            <button
+            <motion.button
               key={tab.id}
               onClick={() => { haptic('light'); setActiveTab(tab.id); }}
+              whileTap={{ scale: 0.95, rotate: -0.5, transition: { type: 'spring', stiffness: 500, damping: 15 } }}
               className={cn(
-                'relative flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all duration-200 active:scale-[0.97]',
+                'relative flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all duration-200',
                 activeTab === tab.id
                   ? 'bg-accent-green text-bg-base shadow-[0_0_12px_rgba(0,255,135,0.35)]'
                   : 'text-text-muted hover:text-text-primary bg-white/5 hover:bg-white/10'
@@ -173,7 +174,7 @@ export function HomePage() {
                   {tab.badge}
                 </span>
               )}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
