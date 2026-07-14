@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import NumberFlow from '@number-flow/react';
 import { useLangStore } from '../../stores/langStore';
 import { cn } from '../../lib/utils';
+import { haptic } from '../../lib/haptics';
 import { Avatar } from '../ui/Avatar';
 import type { ArenaH2HRow } from '../../hooks/useStatsArena';
 
@@ -26,6 +28,8 @@ export function H2HMatrix({ matrix }: H2HMatrixProps) {
   const tiePct = (selected.ties / total) * 100;
   const lossPct = (selected.opponent_wins / total) * 100;
 
+  const barSpring = { type: 'spring' as const, stiffness: 180, damping: 24 };
+
   return (
     <div className="flex flex-col gap-3">
       <p className="font-mono text-xs text-text-muted">
@@ -41,7 +45,7 @@ export function H2HMatrix({ matrix }: H2HMatrixProps) {
           <button
             key={row.opponent_id}
             type="button"
-            onClick={() => setSelectedId(row.opponent_id)}
+            onClick={() => { if (row.opponent_id !== selectedId) haptic('selection'); setSelectedId(row.opponent_id); }}
             className={cn(
               'snap-start shrink-0 flex flex-col items-center gap-1 px-2 py-1.5 rounded-xl border transition-colors duration-150',
               row.opponent_id === selectedId
@@ -85,10 +89,12 @@ export function H2HMatrix({ matrix }: H2HMatrixProps) {
           <p className="font-barlow text-[10px] uppercase tracking-widest text-text-muted mb-1">
             {t('arenaH2HRecord')}
           </p>
+          {/* Segments animate their width on opponent switch instead of
+              snapping — the bar visibly redistributes rather than jump-cutting. */}
           <div className="flex h-2 w-full overflow-hidden rounded-full bg-white/10">
-            {winPct > 0 && <div style={{ width: `${winPct}%` }} className="bg-accent-green" />}
-            {tiePct > 0 && <div style={{ width: `${tiePct}%` }} className="bg-white/30" />}
-            {lossPct > 0 && <div style={{ width: `${lossPct}%` }} className="bg-accent-orange" />}
+            <motion.div animate={{ width: `${winPct}%` }} transition={barSpring} className="bg-accent-green" />
+            <motion.div animate={{ width: `${tiePct}%` }} transition={barSpring} className="bg-white/30" />
+            <motion.div animate={{ width: `${lossPct}%` }} transition={barSpring} className="bg-accent-orange" />
           </div>
           <div className="mt-1 flex justify-between font-mono text-[11px] text-text-muted tabular-nums">
             <span>

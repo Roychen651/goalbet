@@ -116,15 +116,22 @@ export function GroupDistributionChart({ distribution }: GroupDistributionChartP
           transition={{ duration: 0.9, ease: 'easeOut' as const }}
         />
 
-        {/* The point — user's own position, glowing accent marker */}
+        {/* The point — user's own position, glowing accent marker. The halo
+            keeps a slow continuous breathing pulse after settling in, so the
+            "this is you, live" signal doesn't go inert once the entrance
+            spring finishes. */}
         <motion.circle
           cx={markerX}
           cy={markerY}
           r={7}
           fill="var(--arena-glow)"
           initial={reduce ? false : { opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring' as const, stiffness: 100, damping: 15, delay: 0.3 }}
+          animate={reduce ? { opacity: 1, scale: 1 } : { opacity: [1, 0.55, 1], scale: [1, 1.4, 1] }}
+          transition={
+            reduce
+              ? { type: 'spring' as const, stiffness: 100, damping: 15 }
+              : { duration: 2.6, repeat: Infinity, ease: 'easeInOut' as const, delay: 0.3 }
+          }
           style={{ transformOrigin: `${markerX}px ${markerY}px` }}
         />
         <motion.circle

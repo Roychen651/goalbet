@@ -1,6 +1,8 @@
 import { useId, useMemo, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useLangStore } from '../../stores/langStore';
 import { interpolateDiverging } from '../../lib/oklch';
+import { haptic } from '../../lib/haptics';
 import type { ArenaHeatmapCell } from '../../hooks/useStatsArena';
 
 interface PredictionHeatmapProps {
@@ -36,6 +38,7 @@ export function PredictionHeatmap({ cells }: PredictionHeatmapProps) {
   const { t, lang } = useLangStore();
   const isRTL = lang === 'he';
   const patternId = useId();
+  const reduce = useReducedMotion();
   const [active, setActive] = useState<ArenaHeatmapCell | null>(null);
   const [showTable, setShowTable] = useState(false);
 
@@ -159,9 +162,11 @@ export function PredictionHeatmap({ cells }: PredictionHeatmapProps) {
                 const insufficient = cell.insufficient_data || cell.win_ratio === null;
                 const { color, l } = insufficient ? { color: '', l: 0 } : interpolateDiverging(cell.win_ratio!);
                 const ink = inkFor(l);
+                const cx = x + w / 2;
+                const cy = y + h / 2;
 
                 return (
-                  <g
+                  <motion.g
                     key={bt}
                     tabIndex={0}
                     role="button"
@@ -174,7 +179,13 @@ export function PredictionHeatmap({ cells }: PredictionHeatmapProps) {
                     onMouseLeave={() => setActive(null)}
                     onFocus={() => setActive(cell)}
                     onBlur={() => setActive(null)}
-                    style={{ cursor: 'pointer', outline: 'none' }}
+                    onPointerDown={() => haptic('selection')}
+                    style={{ cursor: 'pointer', outline: 'none', transformOrigin: `${cx}px ${cy}px` }}
+                    initial={reduce ? undefined : { opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={reduce ? undefined : { delay: i * 0.035 + j * 0.05, type: 'spring', stiffness: 220, damping: 18 }}
+                    whileHover={reduce ? undefined : { scale: 1.06 }}
+                    whileTap={reduce ? undefined : { scale: 0.94 }}
                   >
                     <title>
                       {lg.league_name} — {betTypeLabel(bt)}:{' '}
@@ -202,7 +213,7 @@ export function PredictionHeatmap({ cells }: PredictionHeatmapProps) {
                     >
                       {insufficient ? '–' : `${Math.round(cell.win_ratio! * 100)}%`}
                     </text>
-                  </g>
+                  </motion.g>
                 );
               })}
             </g>
@@ -253,7 +264,7 @@ export function PredictionHeatmap({ cells }: PredictionHeatmapProps) {
 
       <button
         type="button"
-        onClick={() => setShowTable(s => !s)}
+        onClick={() => { haptic('selection'); setShowTable(s => !s); }}
         className="mt-1 text-[11px] font-barlow uppercase tracking-wide text-accent-green hover:underline"
       >
         {showTable ? t('arenaViewAsChart') : t('arenaViewAsTable')}
