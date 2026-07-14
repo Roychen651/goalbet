@@ -36,6 +36,7 @@ Read this before touching any file. Everything here reflects the live codebase.
 27. [The Integrity & Viral Loop (V4 Sprint 11)](#27-the-integrity--viral-loop-v4-sprint-11)
 28. [The Autonomous Economy (V4 Sprint 12)](#28-the-autonomous-economy-v4-sprint-12)
 29. [In-Play Micro-Predictions — Momentum Bets (V4 Sprint 14)](#29-in-play-micro-predictions--momentum-bets-v4-sprint-14)
+30. [The Bento Arena — My Arena Stats Dashboard (V4 Sprint 15)](#30-the-bento-arena--my-arena-stats-dashboard-v4-sprint-15)
 
 ---
 
@@ -395,8 +396,12 @@ goalbet/
 │       │   │   ├── TacticalPitch.tsx      # Glass tactical formation view for Starting XI; horizontal pitch with percentage-based positioning
 │       │   │   └── PredictionForm.tsx     # 5-tier prediction input; corners hidden for league 4396
 │       │   ├── stats/
+│       │   │   ├── BentoArena.tsx         # V4 Sprint 15 — "My Arena" tab root. Responsive Bento Grid (1-col mobile, 4-col sm+), Framer Motion staggered spring entrance (staggerChildren 0.06, stiffness 100/damping 15), useReducedMotion short-circuit. Fed by useStatsArena (single RPC, no per-card fetch); hero/streak/risk tiles are NumberFlow-animated numbers, Heatmap/Distribution/H2H slots render PredictionHeatmap/GroupDistributionChart/H2HMatrix
+│       │   │   ├── GroupDistributionChart.tsx # V4 Sprint 15 — "emphasis" chart: one muted-gray Gaussian curve modeling the group (RPC only exposes mean/stddev, never individual stakes — the curve is a modeled normal distribution, not a fake empirical one) + one glowing accent marker at the caller's own z-score position. Reuses lib/svgPath.ts's smoothPath
+│       │   │   ├── H2HMatrix.tsx          # V4 Sprint 15 — scroll-snap opponent-picker rail (data-lenis-prevent) that re-indexes into the already-fetched h2h_matrix array — zero network calls per switch. NumberFlow-animated points/shared-matches/record comparison + a 3-segment win/tie/loss bar
 │       │   │   ├── LeagueDropdown.tsx     # Custom animated dropdown; dual dark/light ESPN league logos; data-lenis-prevent so inner wheel-scroll works inside Lenis; layoutId-backed active bar
 │       │   │   ├── LeagueLeaders.tsx      # Top scorers / assists tables sourced from ESPN leaders feed
+│       │   │   ├── PredictionHeatmap.tsx  # V4 Sprint 15 — hand-built inline SVG League x Bet-Type grid. Diverging OKLCH color per cell via lib/oklch.ts (not CSS color-mix), every cell direct-labeled with its %, contrast-aware label ink, diagonal-hatch + "n/a" for sample_size < 3, RTL-aware column/label mirroring + clipPath guard on long league names, "view as table" accessible fallback, hover/focus detail line
 │       │   │   ├── StandingsTable.tsx     # League standings table (rank, team, P/W/D/L, GF/GA/GD, pts)
 │       │   │   └── WorldCupBracket.tsx    # Custom "Route to the Trophy" view for World Cup (league 4480). Tri-Host Aurora (Mexico #00FF87 + USA #00E5FF + Canada #FF004D blurred blobs, mix-blend: screen) + broadcast grain overlay on the root wrapper. Parallax hero (useScroll/useTransform on confetti, halo, trophy watermark) with brutalist hollow "2026" behind content — aurora-gradient fill reveals on scroll. Floating glass pill navigation (sticky, rounded-full, dark glass backdrop-blur-xl). 4 tabs: groups/fixtures/knockouts/venues. Groups: FIFA rank + seed pot indicators, GroupCard enters with 3D rotateX perspective. Fixtures: gold "Predict" button with toast teaser. Knockouts: Framer Motion accordion on mobile, 9-column symmetric bracket on desktop (BracketTreeCard compact grid / BracketMatchCard full-detail mobile). FinalApex: rotating sunburst, floating particles, gradient champion text. Venues: mobile scroll-snap carousel, desktop masonry grid (marquee venues span 2 cols), StadiumCard enters with 3D rotateX perspective + backdrop-blur glass. Pure Framer Motion + useScroll
 │       │   └── ui/
@@ -406,7 +411,7 @@ goalbet/
 │       │       ├── CoinIcon.tsx           # Animated coin SVG icon with configurable size
 │       │       ├── EmptyState.tsx         # Reusable empty-state placeholder
 │       │       ├── FadeInView.tsx         # Wrapper: fade-in on mount via Framer Motion
-│       │       ├── GlassCard.tsx
+│       │       ├── GlassCard.tsx         # V4 Sprint 15 added an optional `grain` prop — overlays the .glass-grain feTurbulence texture (generalized from World Cup's .wc-grain). Only wraps children in an extra `relative z-10` div when grain is on, so every other call site is untouched
 │       │       ├── HelpGuideModal.tsx     # Bottom sheet — swipe-to-close enabled
 │       │       ├── HTAnalystCard.tsx      # Sprint 27 — broadcast-TV lower-third for live HT tactical read; rotating red/amber/cyan conic border + pulsing red LIVE badge + word-by-word typewriter reveal. Returns null when text is empty
 │       │       ├── InfoTip.tsx            # Tooltip using CSS vars (works in both themes)
@@ -418,7 +423,7 @@ goalbet/
 │       │       ├── PolicyModal.tsx
 │       │       ├── PushToggle.tsx         # Sprint 8 — self-hiding match-reminder toggle (Settings). Renders nothing when Web Push unsupported / VAPID key unset; shows "add to home screen" hint on iOS Safari; enable/disable button on installed PWA + desktop/Android
 │       │       ├── ScoringGuide.tsx       # Bottom sheet — swipe-to-close enabled
-│       │       ├── Sparkline.tsx          # Sprint 9 — pure-SVG area+line micro-chart, zero chart-library dependency. Catmull-Rom smoothed path, Framer Motion pathLength draw-on, colour via CSS vars (theme-fluid), useReducedMotion aware, CLS-stable fixed-height box + dashed baseline when data is insufficient
+│       │       ├── Sparkline.tsx          # Sprint 9 — pure-SVG area+line micro-chart, zero chart-library dependency. Catmull-Rom smoothed path (smoothPath extracted to lib/svgPath.ts in Sprint 15 so GroupDistributionChart shares the same spline math), Framer Motion pathLength draw-on, colour via CSS vars (theme-fluid), useReducedMotion aware, CLS-stable fixed-height box + dashed baseline when data is insufficient
 │       │       ├── FormBars.tsx           # Sprint 9 — last-N points-per-match bars (colour = outcome, height = magnitude), spring grow-in, reduced-motion aware
 │       │       ├── StaggerList.tsx        # Wrapper: staggered child animations
 │       │       ├── SyncProgressBar.tsx    # Fixed top bar; visible while isSyncing; z-[100]
@@ -441,6 +446,7 @@ goalbet/
 │       │   ├── useNewPointsAlert.ts       # Toast on newly earned points since last visit
 │       │   ├── useNotifications.ts        # Persistent notifications feed subscriber
 │       │   ├── usePredictions.ts          # TanStack Query mutation wrapping submit_prediction (V4 Sprint 11) — single RPC call, no separate client upsert to predictions
+│       │   ├── useStatsArena.ts           # V4 Sprint 15 — TanStack Query wrapper around get_stats_arena_payload (migration 044). staleTime ~2min, deliberately outside AppShell's auto-sync (rule 4.3) since this data moves at the pace of match resolutions, not live scores
 │       │   ├── useWorldCupMatches.ts       # Fetches all synced league-4480 rows (+ realtime) for the WC bracket live overlay
 │       │   └── useRTLDirection.ts         # Sets document.dir from active language
 │       ├── lib/
@@ -448,10 +454,12 @@ goalbet/
 │       │   ├── constants.ts               # FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG, POINTS, COIN_COSTS, ROUTES
 │       │   ├── featureFlags.ts            # Feature flag registry (currently no active flags)
 │       │   ├── i18n.ts                    # EN + HE translations, TranslationKey type
+│       │   ├── oklch.ts                    # V4 Sprint 15 — hand-crafted OKLCH interpolation for the heatmap's diverging scale. interpolateDiverging(ratio) linearly lerps L/C/H (shortest-path hue lerp) between the --arena-cold/mid/hot anchors, read live via getComputedStyle at call time — the tokens in index.css stay the single source of truth, never duplicated as hardcoded numbers here. Deliberately not CSS color-mix(): a discrete color + its resolved lightness (for contrast-aware label ink) are both needed per cell
 │       │   ├── push.ts                     # Sprint 8 — Web Push client: getPushStatus() / enablePush() / disablePush(); VAPID key gate; iOS-non-standalone detection (checked BEFORE apiSupported so iPhone Safari shows the install hint, not nothing)
 │       │   ├── queryClient.ts             # TanStack Query client (refetchOnWindowFocus off — AppShell owns sync)
 │       │   ├── shareCard.ts                # V4 Sprint 11 — zero-dependency shareable recap card. drawRecapCard() hand-draws rank/points/streak to an offscreen Canvas (same philosophy as Sparkline.tsx — no html2canvas/html-to-image); colors resolved from live CSS custom properties via getComputedStyle at draw time so the PNG matches the active theme; RTL handled explicitly (ctx.direction + right-anchored text). shareRecapCard() is the 3-tier fallback: navigator.share with a file → navigator.share text-only → clipboard copy + explicit PNG download
 │       │   ├── supabase.ts                # Supabase client (anon key) + all TypeScript table types
+│       │   ├── svgPath.ts                  # V4 Sprint 15 — smoothPath() (Catmull-Rom → cubic Bézier) extracted from Sparkline.tsx so every hand-built SVG chart shares one spline implementation. Sparkline.tsx and GroupDistributionChart.tsx both import it
 │       │   ├── utils.ts                   # calcBreakdown() (client-side scoring mirror), cn()
 │       │   └── worldCup2026.ts            # Static FIFA WC 2026 data: 12 groups, R32/R16/QF/SF/3rd/Final with dates + FIFA match numbers + venueId, 16 host stadiums, tournament phases. Consumed by WorldCupBracket
 │       ├── pages/
@@ -464,7 +472,7 @@ goalbet/
 │       │   ├── LoginPage.tsx              # Thin wrapper — redirect if logged in, render AuthContainer
 │       │   ├── ProfilePage.tsx            # Stats, prediction history, sign-out button
 │       │   ├── SettingsPage.tsx           # Group mgmt, leagues, admin tools, Account section
-│       │   └── StatsPage.tsx              # Stats Hub — LeagueDropdown + StandingsTable + LeagueLeaders for ESPN-backed leagues; WorldCupBracket for custom-view tournaments (CUSTOM_VIEW_LEAGUES set, currently World Cup 4480)
+│       │   └── StatsPage.tsx              # Two sub-tabs (V4 Sprint 15): "Leagues" — LeagueDropdown + StandingsTable + LeagueLeaders for ESPN-backed leagues, WorldCupBracket for custom-view tournaments (CUSTOM_VIEW_LEAGUES set, currently World Cup 4480); "My Arena" — BentoArena, the personal/group stats dashboard (§30)
 │       └── stores/
 │           ├── authStore.ts               # user, profile, session; signInWithGoogle, signOut
 │           ├── coinsStore.ts              # coins; synced from DB. V4 Sprint 12 — initCoins() is a plain balance fetch (no longer claims the daily bonus, which pg_cron deposits proactively). App.tsx's AppInitializer effect pairs it with a group_id-filtered Realtime subscription (group_members UPDATE → re-fetch; coin_transactions INSERT with type='daily_bonus' → coin_drop haptic + toast) so an online user sees a midnight deposit live
@@ -1033,7 +1041,7 @@ curl "https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard"
 
 ## 14. Database & Migrations
 
-Migrations live in `supabase/migrations/`. Current sequence: **001 → 043** (024 does not exist).
+Migrations live in `supabase/migrations/`. Current sequence: **001 → 044** (024 does not exist).
 Apply via `supabase db push --linked` (auto-runs via hook on migration file write once logged in).
 
 | Migration | What it adds |
@@ -1080,6 +1088,7 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `041` | **The Autonomous Economy (V4 Sprint 12):** adds `profiles.last_active_at`; `distribute_daily_allowance()` (pg_cron, every 15 min, DST-proof by design — see §28) replaces client-triggered `claim_daily_bonus`, which is **dropped**; `decay_idle_streaks()` zeroes `leaderboard.current_streak` after 7 days with no prediction in that group; `touch_last_active()` is the one client-callable function in this migration. Idempotent. |
 | `042` | **In-Play Micro-Predictions "Momentum Bets" (V4 Sprint 14):** creates `micro_prediction_questions` + `micro_prediction_bets` (group-scoped like every other economy table, zero client-writable columns — every write goes through `submit_micro_prediction()`); RLS on bets mirrors migration 037's privacy shape (own row visible, others hidden until the question locks); adds `MICRO_BANTER` to `group_events.event_type` with its **own** dedup index `(group_id, question_id)` — deliberately not reusing migration 039's `(group_id, match_id)` index, which allows only one `AI_BANTER` row per match per group and would silently drop the 2nd/3rd roast on a match with multiple milestone questions. See §29. Idempotent. |
 | `043` | **Momentum Bets settlement primitives (V4 Sprint 14):** adds `micro_prediction_bets.settled_at` (a completion guard deliberately separate from `is_winner` — a canceled/refunded bet has no winner/loser) and `credit_group_coins()`, a minimal atomic balance-increment RPC (service-role-only, never `GRANT`ed to `authenticated`) used because the Supabase JS client can't express `coins = coins + N` atomically without either a race-prone read-then-write or an RPC. Idempotent. |
+| `044` | **The Bento Arena (V4 Sprint 15):** adds `get_stats_arena_payload(p_user_id, p_group_id) RETURNS JSONB` — one `SECURITY DEFINER` RPC assembling the entire "My Arena" stats tab (League x Bet-Type heatmap, stake/streak/risk distribution vs. the group, precomputed H2H matrix against every other member) in a single self-join, zero N+1. `auth.uid()` + group-membership guards first, mirroring the coin-RPC discipline even though nothing here spends coins. Every aggregate filters on `predictions.is_resolved = true`, not a literal `matches.status = 'FT'` — see §30 for why that distinction matters for WC2026 knockout matches. Adds supporting index `idx_predictions_group_user_resolved`. Idempotent (`CREATE OR REPLACE`, `CREATE INDEX IF NOT EXISTS`). |
 
 ### Migration idempotency
 
@@ -1159,6 +1168,24 @@ Body background: navy `#0F2854` ellipse from top + steel blue blooms at bottom c
 
 Body background: white ellipse bloom from top + ice-blue corner.
 `body::after`: navy dot matrix (`rgba(15,40,84,0.05)`), same grid/mask as dark.
+
+### Arena tokens — OKLCH diverging scale (V4 Sprint 15)
+
+```css
+/* :root (dark) */
+--arena-cold: oklch(78% 0.11 218);   /* win_ratio ≈ 100% */
+--arena-mid: oklch(55% 0.015 240);   /* win_ratio ≈ 50%, neutral gray midpoint */
+--arena-hot: oklch(65% 0.22 13);     /* win_ratio ≈ 0% */
+--arena-glow: oklch(78% 0.11 218 / 0.35);
+
+/* html.light — same hue anchors (218 cold / 13 hot), darker + more saturated for contrast on white */
+--arena-cold: oklch(55% 0.14 218);
+--arena-mid: oklch(62% 0.015 240);
+--arena-hot: oklch(56% 0.20 13);
+--arena-glow: oklch(55% 0.14 218 / 0.22);
+```
+
+These are **deliberately independent** of `--color-accent-green`/`--color-accent-orange` — those two swap hue between themes (ice-blue ↔ deep navy, red-pink ↔ burnt orange; see the two token tables above), which would make "cold = good performance" mean a different color after a theme toggle. The arena scale keeps the same hue anchor in both modes and only shifts lightness/chroma for contrast. Values were computed from an actual sRGB→OKLab→OKLCH conversion of the brand ice-blue (`#BDE8F5`) and red-pink (`#FF3366`), not hand-guessed. `lib/oklch.ts`'s `interpolateDiverging()` reads these live via `getComputedStyle` and linearly interpolates between them (shortest-path hue lerp) to produce a discrete color per heatmap cell — see §30.
 
 ### Fonts
 
@@ -2081,3 +2108,52 @@ The danger in a "goal in the next N minutes" proposition is specific to this cod
 - **Settlement of a batch of financial records (bets, payouts, refunds) must claim each record individually (`settled_at`-style), never gate the whole batch behind a single parent-row status flip.** A crash mid-batch must leave unprocessed records safely retryable — see the design note above for exactly why this matters.
 - **`MICRO_BANTER` and `AI_BANTER` are visually identical but must never share a dedup index.** They key on different granularities (per-question vs. per-match) for a structural reason, not a stylistic one.
 - **AI never generates the question or determines its resolution — only the commentary after the outcome is already mechanically known.** This applies to every future in-play mechanic, not just this one: an LLM must never touch anything that moves coins.
+
+---
+
+## 30. The Bento Arena — My Arena Stats Dashboard (V4 Sprint 15)
+
+A premium personal + group analytics dashboard, added as a new "My Arena" sub-tab inside `StatsPage.tsx` alongside the pre-existing league browser (now a "Leagues" sub-tab, unchanged). Built to three explicit constraints: no charting library, no N+1 query pattern, and OKLCH color science for the diverging heatmap — all three verified in the implementation, not just claimed in a plan.
+
+### One RPC, not one query per widget
+
+`get_stats_arena_payload(p_user_id, p_group_id) RETURNS JSONB` (migration 044) assembles the entire tab's data in a single round trip: a League x Bet-Type win-ratio heatmap, the caller's stake/streak/risk position against the group, and a precomputed head-to-head matrix against every other group member. The H2H matrix is the actual N+1 kill — it's built from **one self-join** of `predictions p1 JOIN predictions p2 ON p1.match_id = p2.match_id AND p1.group_id = p2.group_id AND p2.user_id != p1.user_id`, grouped by opponent, producing every rival's comparison row in one pass. The frontend opponent-picker (`H2HMatrix.tsx`) then just re-indexes into that already-fetched array — selecting a different rival fires **zero additional network requests**.
+
+Guards, first actions before any aggregation: `p_user_id = auth.uid()`, then group membership. This is read-only — no coins move — but the H2H matrix exposes cross-user comparison data, so it gets the same discipline as every coin-spending RPC in this codebase (rule in §11) rather than being treated as exempt because nothing is being spent.
+
+### The `is_resolved` vs. literal `status = 'FT'` correctness point
+
+Every aggregate filters on `predictions.is_resolved = true`, not a literal `matches.status = 'FT'` string match. `is_resolved` is the authoritative "settled and safe to expose cross-user" flag everywhere else in this codebase (rule 4.14 — it's exactly what gates coin payout, notification emission, and the migration-037 privacy RLS boundary). A knockout match that went to extra time or penalties resolves with `is_resolved = true` while `matches.status` is `'AET'`/`'PEN'`, not `'FT'`. Filtering on the literal string would have silently dropped every World Cup 2026 knockout match — including any match that went to extra time or a shootout — from both the heatmap and the H2H matrix, at the exact time this feature shipped during the live WC2026 knockout stage. `is_resolved` is a strict superset of `status = 'FT'`, so it's not a looser check, just the correct one — this bit was caught before shipping, not after.
+
+### Diverging OKLCH heatmap, not a rainbow
+
+The heatmap encodes win-ratio magnitude with polarity around a 50% baseline (coin-flip breakeven), so it's a genuine **diverging** scale, not a sequential one — and never a literal red↔green gradient, which is the single most common colorblind-accessibility failure (protanopia/deuteranopia can't distinguish red from green). GoalBet's existing brand tokens are already CVD-safe for this: `--color-accent-green` is actually ice-blue and `--color-accent-orange` is red-pink — a blue-family/red-family pair, not green/red. New arena-scoped tokens (`--arena-cold/mid/hot/glow`, §15) hold the same hue anchors in both themes and only shift lightness/chroma for contrast, computed from an actual sRGB→OKLab→OKLCH conversion of the brand hex values, not hand-guessed.
+
+`lib/oklch.ts`'s `interpolateDiverging(ratio)` hand-interpolates L/C/H between those anchors (shortest-path hue lerp, so a 218°→13° sweep goes the short way, not through green/yellow), reading the anchors live via `getComputedStyle` so `index.css` stays the single source of truth — never a second hardcoded copy of the same three colors in JS (the exact dual-source-of-truth trap CLAUDE.md already warns about elsewhere, e.g. `COIN_COSTS`/migration 040). This is deliberately not CSS `color-mix()` — a discrete color *and* its resolved lightness (for contrast-aware label ink) are both needed per cell, and hand-rolled interpolation keeps full control over hue direction and clamping.
+
+**Accessibility is not optional on this chart:** every cell is direct-labeled with its percentage — color is never the only signal. Cells with `sample_size < 3` render a diagonal hatch pattern and "n/a" instead of a misleadingly confident color at a tiny sample. A "view as table" toggle renders the identical data as a real `<table>` with scoped headers. Label ink (white vs. near-black) is chosen per-cell from that cell's own resolved OKLCH lightness for contrast — not from the app theme, and not the series hue itself.
+
+### `GroupDistributionChart` — an emphasis chart, honestly scoped to what the RPC can privacy-safely expose
+
+This is an "emphasis" chart, not a generic distribution plot: one muted-gray curve is context, the caller's own position is the one glowing accent marker breaking through it. The RPC deliberately only exposes the group's mean and standard deviation of average stake — never any individual member's row-level amount — so the curve is a **modeled normal distribution** from those two numbers (a Gaussian PDF sampled and splined), not a true empirical density. This is an honest, privacy-preserving simplification stated plainly in the code, not a fake dataset dressed up as real. The marker sits at the caller's own z-score, clipped to ±3, spring-animated in with the same stiffness/damping as the grid's entrance.
+
+### `.glass-grain` — generalized, not duplicated
+
+The World Cup bracket already had exactly the texture this sprint needed: `.wc-grain`, a `feTurbulence`-based noise overlay. Rather than build a second one, `.glass-grain` (index.css) generalizes it into a reusable utility (tuned quieter via `--arena-grain-opacity` so it reads as glass texture on data-dense cards, not a broadcast backdrop), and `GlassCard.tsx` gained an optional `grain` prop. One real bug was caught and fixed before it shipped: the positioned grain layer (`z-index: 1`) would have painted over plain, non-positioned children in `GlassCard`'s non-interactive render branch per normal CSS stacking order (positioned elements with a positive z-index paint after static in-flow content). Content is now explicitly wrapped in `relative z-10` whenever `grain` is on; every other `GlassCard` call site is untouched (no extra wrapper div when `grain` is unset).
+
+### RTL
+
+`BentoArena.tsx`'s grid root sets `dir={lang === 'he' ? 'rtl' : 'ltr'}` explicitly, the same manual-`dir` pattern already used by `HTAnalystCard`/`AiBanterCard`. `PredictionHeatmap.tsx` mirrors column order and row-label anchor/position via an `isRTL` branch (never a CSS-only flip, since the grid's internal coordinate math needs to know), plus a defensive `clipPath` on row labels so a long name like "Champions League" clips instead of bleeding into the grid cells in either direction.
+
+### Data flow — outside AppShell's auto-sync, on purpose
+
+`useStatsArena.ts` (TanStack Query, `staleTime` ~2 minutes) is deliberately **not** wired into `AppShell`'s automatic sync (rule 4.3) — this data moves at the pace of match resolutions, not live scores, so a 30-second poll would be wasted load for data that only changes a few times a day per group.
+
+### Rules
+
+- **Any future dashboard aggregating data across multiple group members must go through one set-based RPC, never one query per widget or per row.** The H2H matrix's single self-join is the reference pattern — precompute every row the frontend could plausibly need in one pass, and let the frontend index into an already-fetched payload instead of re-fetching per interaction.
+- **Never filter a resolution-gated query on a literal `matches.status = 'FT'` string.** Use `predictions.is_resolved = true` (or the equivalent resolution flag on the table in question) — it is the actual authoritative boundary this codebase already trusts everywhere else, and `'FT'` alone silently excludes AET/PEN matches.
+- **A diverging color scale must never be a literal red↔green gradient.** Check whether the codebase's existing "green" and "orange"/"red" tokens are already a CVD-safe hue pair (as GoalBet's ice-blue/red-pink accents are) before reaching for a generic traffic-light palette.
+- **Every heatmap-style chart cell must be direct-labeled.** Color alone is never a legal encoding of the value on this project — a WARN-band cell (low sample size, low contrast at a ramp's pale end) obligates a visible label or a table-view fallback, not a color-only cell.
+- **New OKLCH design tokens read live via `getComputedStyle`, never hardcoded as a second copy of the same numbers in JS.** `lib/oklch.ts` is the pattern to follow for any future hand-rolled color interpolation.
+- **A chart may only model data it wasn't given (e.g. a Gaussian from mean/stddev instead of raw samples) when the underlying RPC deliberately withheld the raw data for a real reason (here: privacy).** State the modeling choice in a code comment where it happens — never let a modeled curve look indistinguishable from a real empirical one without saying so.

@@ -23,6 +23,15 @@ function inkFor(l: number): string {
   return l > 62 ? '#0a1733' : '#ffffff';
 }
 
+// League names come straight from ESPN ("English Premier League", "UEFA
+// Conference League") and can run long. Plain character-count truncation —
+// deterministic, zero browser-support risk, unlike the clip-path this
+// replaced (see the direction:ltr note below for why that approach broke).
+const MAX_LABEL_CHARS = 16;
+function truncateLabel(name: string): string {
+  return name.length > MAX_LABEL_CHARS ? `${name.slice(0, MAX_LABEL_CHARS - 1)}…` : name;
+}
+
 export function PredictionHeatmap({ cells }: PredictionHeatmapProps) {
   const { t, lang } = useLangStore();
   const isRTL = lang === 'he';
@@ -71,7 +80,15 @@ export function PredictionHeatmap({ cells }: PredictionHeatmapProps) {
         viewBox={`0 0 ${VW} ${totalH}`}
         role="img"
         aria-label={t('arenaHeatmapTitle')}
-        style={{ display: showTable ? 'none' : 'block' }}
+        // Force physical (non-bidi) text-anchor resolution. BentoArena sets
+        // dir="rtl" on an ancestor for Hebrew, and per spec SVG's
+        // text-anchor start/end are relative to that inherited direction —
+        // combined with the isRTL ? 'end' : 'start' mirroring below (which
+        // assumes *physical* start/end), the two flips canceled out wrong,
+        // pushing every row label almost entirely off the visible canvas.
+        // Pinning direction:ltr here makes this component's own coordinate
+        // math the sole source of RTL-awareness, same as intended.
+        style={{ display: showTable ? 'none' : 'block', direction: 'ltr' }}
       >
         <defs>
           <pattern id={patternId} width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
@@ -82,11 +99,6 @@ export function PredictionHeatmap({ cells }: PredictionHeatmapProps) {
             <stop offset="50%" stopColor={legendStops[1]} />
             <stop offset="100%" stopColor={legendStops[2]} />
           </linearGradient>
-          {/* Clips long league names (e.g. "Champions League") so they never
-              bleed into the grid cells instead of silently overlapping them */}
-          <clipPath id={`${patternId}-label-clip`}>
-            <rect x={isRTL ? VW - LABEL_W : 0} y={0} width={LABEL_W - 6} height={totalH} />
-          </clipPath>
         </defs>
 
         {/* Column headers */}
@@ -117,9 +129,9 @@ export function PredictionHeatmap({ cells }: PredictionHeatmapProps) {
                 className="font-barlow"
                 fontSize={8}
                 fill="var(--color-text-primary)"
-                clipPath={`url(#${patternId}-label-clip)`}
               >
-                {lg.league_name}
+                <title>{lg.league_name}</title>
+                {truncateLabel(lg.league_name)}
               </text>
 
               {BET_TYPES.map((bt, j) => {
