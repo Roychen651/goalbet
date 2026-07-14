@@ -33,6 +33,9 @@ Read this before touching any file. Everything here reflects the live codebase.
 24. [The Addiction Loop — Streaks + Web Push (V3 Sprint 8)](#24-the-addiction-loop--streaks--web-push-v3-sprint-8)
 25. [Beautiful Analytics — Themed SVG Charts (V3 Sprint 9)](#25-beautiful-analytics--themed-svg-charts-v3-sprint-9)
 26. [Agentic AI — The Locker Room Provocateur (V3 Sprint 10)](#26-agentic-ai--the-locker-room-provocateur-v3-sprint-10)
+27. [The Integrity & Viral Loop (V4 Sprint 11)](#27-the-integrity--viral-loop-v4-sprint-11)
+28. [The Autonomous Economy (V4 Sprint 12)](#28-the-autonomous-economy-v4-sprint-12)
+29. [In-Play Micro-Predictions — Momentum Bets (V4 Sprint 14)](#29-in-play-micro-predictions--momentum-bets-v4-sprint-14)
 
 ---
 
@@ -327,8 +330,8 @@ This applies to team badges, league logos, and avatars loaded from remote URLs.
 
 The authoritative coin balance for a user in a group is `group_members.coins`.
 `user_coins` is a legacy/supplementary table (created in migration 020) but the
-primary balance used by `increment_coins`, `claim_daily_bonus`, and all admin RPCs
-is `group_members.coins`.
+primary balance used by `increment_coins`, `submit_prediction`, `distribute_daily_allowance`,
+and all admin RPCs is `group_members.coins`.
 
 ```sql
 -- ✅ Correct — read/write coins from group_members
@@ -360,10 +363,12 @@ goalbet/
 │       │   ├── auth/
 │       │   │   └── GoogleLoginButton.tsx  # Legacy Google button (unused in auth-v2 flow)
 │       │   ├── groups/
-│       │   │   ├── ActivityFeed.tsx       # The Locker Room feed — renders group_events. PREDICTION_LOCKED/WON_COINS/LEADERBOARD_CLIMB use the timeline-dot glass card; AI_BANTER (Sprint 10) renders via the separate AiBanterCard — rotating conic-gradient border, dark glass panel, gradient "AI Scout" identity + Sparkles avatar + "AI" pill, lang-aware text
+│       │   │   ├── ActivityFeed.tsx       # The Locker Room feed — renders group_events. PREDICTION_LOCKED/WON_COINS/LEADERBOARD_CLIMB use the timeline-dot glass card; AI_BANTER (Sprint 10) AND MICRO_BANTER (V4 Sprint 14) both render via the same AiBanterCard — rotating conic-gradient border, dark glass panel, gradient "AI Scout" identity + Sparkles avatar + "AI" pill, lang-aware text
 │       │   │   ├── CreateGroupModal.tsx
 │       │   │   ├── InviteCodeDisplay.tsx
-│       │   │   └── JoinGroupModal.tsx
+│       │   │   ├── JoinGroupModal.tsx
+│       │   │   ├── MomentumBanner.tsx      # V4 Sprint 14 — breathing conic-gradient banner in LockerRoomPage when the active group has a live open/locked micro-prediction question. Countdown via useCountdown (useLiveClock-shaped isolated re-render — never touches LockerRoomPage/ActivityFeed). Tap opens MomentumBetSheet
+│       │   │   └── MomentumBetSheet.tsx    # V4 Sprint 14 — swipe-to-close bottom sheet (rule 4.13), Yes/No choice buttons, haptic('selection') on tap + haptic('success') on confirmed submission
 │       │   ├── layout/
 │       │   │   ├── AppShell.tsx           # Root layout + ONLY place for auto-sync + cold-start isSyncing flag
 │       │   │   ├── BottomNav.tsx          # Mobile bottom navigation
@@ -378,7 +383,8 @@ goalbet/
 │       │   ├── profile/
 │       │   │   ├── AvatarPicker.tsx       # Emoji avatar chooser
 │       │   │   ├── HallOfFameChronicles.tsx # Sprint 27 — 3D-tilt gold/crimson carousel of user_chronicles (perfect +10 on high-profile matches); returns null when empty
-│       │   │   └── ProfileBentoV2.tsx     # Stats bento grid; hero card renders the live <Sparkline> points trajectory (Sprint 9) + NumberFlow-rolled total
+│       │   │   ├── ProfileBentoV2.tsx     # Stats bento grid; hero card renders the live <Sparkline> points trajectory (Sprint 9) + NumberFlow-rolled total
+│       │   │   └── ShareableRecapCard.tsx # V4 Sprint 11 — swipe-to-close bottom sheet showing rank/points/streak preview (reuses useLeaderboard, zero new query); Share button draws the actual shareable asset via lib/shareCard.ts's Canvas primitive, then the 3-tier share fallback (file-share → text-share → clipboard+download)
 │       │   ├── matches/
 │       │   │   ├── MatchCard.tsx          # ACTIVE card: MatchCardCore (private) + MatchCard (public, shimmer wrapper). isPastKickoffNS, DELAYED, live clock, weather/referee/competition phase, TacticalIntelSection, dual dark/light league logos, live breathing glow, goal flash, score flip. HT broadcast ticker via HTAnalystCard
 │       │   │   ├── MatchFeed.tsx          # Date-grouped feed; imports MatchCard directly
@@ -396,7 +402,7 @@ goalbet/
 │       │   └── ui/
 │       │       ├── Avatar.tsx             # Expects emoji:🏆 prefix
 │       │       ├── CoinGuide.tsx          # Bottom sheet — swipe-to-close enabled
-│       │       ├── CoinHistoryModal.tsx   # Bottom sheet — swipe-to-close enabled
+│       │       ├── CoinHistoryModal.tsx   # Bottom sheet — swipe-to-close enabled. TYPE_CONFIG renders by coin_transactions.type (not raw description text) — join_bonus/daily_bonus/bet_placed/bet_won plus V4 Sprint 14's micro_prediction/micro_prediction_won/micro_prediction_refund, each own icon+label
 │       │       ├── CoinIcon.tsx           # Animated coin SVG icon with configurable size
 │       │       ├── EmptyState.tsx         # Reusable empty-state placeholder
 │       │       ├── FadeInView.tsx         # Wrapper: fade-in on mount via Framer Motion
@@ -423,16 +429,18 @@ goalbet/
 │       ├── hooks/
 │       │   ├── useAuth.ts                 # Legacy Google OAuth (kept for backward compat)
 │       │   ├── useAuthV2.ts               # Auth-v2 state machine (8 views)
-│       │   ├── useGroupEvents.ts          # Locker Room activity feed subscriber
+│       │   ├── useCountdown.ts            # V4 Sprint 14 — same isolated local-state/setInterval shape as useLiveClock, ticks whole seconds remaining until an expiry timestamp; drives MomentumBanner without re-rendering LockerRoomPage
+│       │   ├── useGroupEvents.ts          # Locker Room activity feed subscriber. event_type union includes MICRO_BANTER (V4 Sprint 14) alongside AI_BANTER; user_id is string | null (both AI event types have no owning user)
 │       │   ├── useGroupMatchPredictions.ts
 │       │   ├── useLeaderboard.ts
 │       │   ├── useLeagueStats.ts          # Fetches ESPN standings + leaders for Stats Hub; pass null to skip (used for custom-view leagues like World Cup)
 │       │   ├── useLiveClock.ts            # Ticking clock for live matches
 │       │   ├── useMatches.ts              # Fetches + Realtime + goalbet:synced listener
 │       │   ├── useMatchSync.ts            # Manual sync ONLY (Settings button) — 60s timeout
+│       │   ├── useMicroPrediction.ts      # V4 Sprint 14 — active group's live open/locked micro-prediction question + caller's own bet, group_id-filtered Realtime, submitBet() mirrors usePredictions.ts's optimistic-then-authoritative-reconcile shape
 │       │   ├── useNewPointsAlert.ts       # Toast on newly earned points since last visit
 │       │   ├── useNotifications.ts        # Persistent notifications feed subscriber
-│       │   ├── usePredictions.ts
+│       │   ├── usePredictions.ts          # TanStack Query mutation wrapping submit_prediction (V4 Sprint 11) — single RPC call, no separate client upsert to predictions
 │       │   ├── useWorldCupMatches.ts       # Fetches all synced league-4480 rows (+ realtime) for the WC bracket live overlay
 │       │   └── useRTLDirection.ts         # Sets document.dir from active language
 │       ├── lib/
@@ -442,6 +450,7 @@ goalbet/
 │       │   ├── i18n.ts                    # EN + HE translations, TranslationKey type
 │       │   ├── push.ts                     # Sprint 8 — Web Push client: getPushStatus() / enablePush() / disablePush(); VAPID key gate; iOS-non-standalone detection (checked BEFORE apiSupported so iPhone Safari shows the install hint, not nothing)
 │       │   ├── queryClient.ts             # TanStack Query client (refetchOnWindowFocus off — AppShell owns sync)
+│       │   ├── shareCard.ts                # V4 Sprint 11 — zero-dependency shareable recap card. drawRecapCard() hand-draws rank/points/streak to an offscreen Canvas (same philosophy as Sparkline.tsx — no html2canvas/html-to-image); colors resolved from live CSS custom properties via getComputedStyle at draw time so the PNG matches the active theme; RTL handled explicitly (ctx.direction + right-anchored text). shareRecapCard() is the 3-tier fallback: navigator.share with a file → navigator.share text-only → clipboard copy + explicit PNG download
 │       │   ├── supabase.ts                # Supabase client (anon key) + all TypeScript table types
 │       │   ├── utils.ts                   # calcBreakdown() (client-side scoring mirror), cn()
 │       │   └── worldCup2026.ts            # Static FIFA WC 2026 data: 12 groups, R32/R16/QF/SF/3rd/Final with dates + FIFA match numbers + venueId, 16 host stadiums, tournament phases. Consumed by WorldCupBracket
@@ -458,7 +467,7 @@ goalbet/
 │       │   └── StatsPage.tsx              # Stats Hub — LeagueDropdown + StandingsTable + LeagueLeaders for ESPN-backed leagues; WorldCupBracket for custom-view tournaments (CUSTOM_VIEW_LEAGUES set, currently World Cup 4480)
 │       └── stores/
 │           ├── authStore.ts               # user, profile, session; signInWithGoogle, signOut
-│           ├── coinsStore.ts              # coins, lastDailyBonus; synced from DB
+│           ├── coinsStore.ts              # coins; synced from DB. V4 Sprint 12 — initCoins() is a plain balance fetch (no longer claims the daily bonus, which pg_cron deposits proactively). App.tsx's AppInitializer effect pairs it with a group_id-filtered Realtime subscription (group_members UPDATE → re-fetch; coin_transactions INSERT with type='daily_bonus' → coin_drop haptic + toast) so an online user sees a midnight deposit live
 │           ├── groupStore.ts              # groups[], activeGroupId; persisted to localStorage
 │           ├── langStore.ts               # lang ('en'|'he'); persisted to localStorage
 │           ├── themeStore.ts              # theme ('dark'|'light'); persisted to localStorage
@@ -467,7 +476,7 @@ goalbet/
 ├── backend/
 │   └── src/
 │       ├── cron/
-│       │   └── scheduler.ts               # Startup catch-up + 30s score poller + daily/weekly crons + every-2-min match-reminder cron (Sprint 8) + every-3-min AI Provocateur batch (Sprint 10)
+│       │   └── scheduler.ts               # Startup catch-up + 30s score poller + daily/weekly crons + every-2-min match-reminder cron (Sprint 8) + every-3-min AI Provocateur batch (Sprint 10) + every-30-min streak-expiry warning (V4 Sprint 12) + every-5s Momentum Bets lock sweep + every-15s resolution sweep (V4 Sprint 14) — each interval-guarded against overlap the same way as the original 30s live poller (livePollerRunning-style booleans)
 │       ├── lib/
 │       │   └── supabaseAdmin.ts           # Supabase client with service-role key (bypasses RLS)
 │       ├── middleware/
@@ -482,18 +491,22 @@ goalbet/
 │       │   └── seed.ts                    # npm run seed — populates dev data
 │       └── services/
 │           ├── aiProvocateur.ts           # Sprint 10 — runProvocateurBatch(): reads conflicting H2H picks on a just-kicked-off match + group standings, generates EN+HE banter via the shared Groq client (callGroq, exported from aiScout.ts), posts one AI_BANTER group_event per (group, match). Skips no-conflict matches; fires only at/after kickoff (never pre-lock — Sprint 2 privacy)
-│           ├── aiScout.ts                 # AI Scout (Sprint 26) + HT Read/Chronicles (Sprint 27) — see §22/§23. callGroq() is exported for reuse by aiProvocateur.ts
+│           ├── aiScout.ts                 # AI Scout (Sprint 26) + HT Read/Chronicles (Sprint 27) — see §22/§23. callGroq() is exported for reuse by aiProvocateur.ts AND microBanter.ts (V4 Sprint 14) — the single Groq client every AI feature funnels through
 │           ├── espn.ts                    # ESPN API client + LEAGUE_ESPN_MAP
 │           ├── matchSync.ts               # syncLeague(id), syncAllActiveLeagues()
+│           ├── microBanter.ts              # V4 Sprint 14 — triggerMicroBanter(): fires the instant a Momentum Bets question locks (called from momentumBets.ts, fire-and-forget). Reuses callGroq; posts MICRO_BANTER group_events (own dedup index, NOT aiProvocateur's AI_BANTER one — see migration 042). AI generates commentary only, never the question or its resolution
+│           ├── momentumBets.ts             # V4 Sprint 14 — In-Play Micro-Predictions lifecycle, separate from scoreUpdater.ts (pure DB-state sweeps, no ESPN calls). lockExpiredMicroQuestions() (5s cadence): atomic per-question claim, stamps locked_at + a score baseline — this is what makes the arbitrage fix real, not just a comment. resolveLockedMicroQuestions() (15s cadence): score-delta resolution against the baseline, or cancel+refund if match data is unavailable. settleBets() claims each bet via settled_at IS NULL — same atomic-claim shape as resolveMatchPredictions — so a crash mid-loop is safely retried regardless of the question's own status
 │           ├── pointsEngine.ts            # PURE scoring function — no DB calls, fully testable
-│           ├── pushSender.ts              # Sprint 8 — sendMatchReminders(): 15-min pre-kickoff Web Push to ALL opted-in members of groups where the league is active; prunes dead subs (404/410); stamps matches.reminder_sent_at. No-op unless VAPID_* env set
-│           ├── scoreUpdater.ts            # Resolves predictions after FT, writes leaderboard + coins + streak (current_streak/best_streak, Sprint 8)
-│           └── sportsdb.ts               # DBMatch type definition (legacy, kept for types)
+│           ├── pushSender.ts              # Sprint 8 — sendMatchReminders(): 15-min pre-kickoff Web Push to ALL opted-in members of groups where the league is active; prunes dead subs (404/410); stamps matches.reminder_sent_at. No-op unless VAPID_* env set. sendPushToUser() (V4 Sprint 11) is the general single-user send, extracted from the same send+prune logic — reused by scoreUpdater's rank-drop notifications and streakGuardian.ts
+│           ├── scoreUpdater.ts            # Resolves predictions after FT, writes leaderboard + coins + streak (current_streak/best_streak, Sprint 8). V4 Sprint 11 adds a per-invocation RankTracker + flushRankDropNotifications() (batch before/after rank diff, one push per user per run — see §27). V4 Sprint 14 adds generateMilestoneQuestions() (kickoff/halftime/minute-75 detection, hooked in right before the FT/ET/live branching)
+│           ├── sportsdb.ts               # DBMatch type definition (legacy, kept for types)
+│           └── streakGuardian.ts          # V4 Sprint 12 — sendStreakExpiryWarnings(): pushes a day-6 "your streak is about to expire" warning via sendPushToUser, gated by leaderboard.streak_warning_sent_at (cleared back to null by scoreUpdater on any resolution, so a saved streak can be warned again on a future idle cycle). The actual decay is pure SQL on pg_cron (decay_idle_streaks(), migration 041) — this file is only the push-send half
 │
 ├── supabase/
 │   ├── email-templates/
 │   │   ├── confirm-signup.html            # Green-theme onboarding email (paste into Supabase dashboard)
 │   │   └── reset-password.html            # Orange-theme recovery email (paste into Supabase dashboard)
+│   ├── functions/                         # Currently EMPTY. The dead TheSportsDB-era sync-matches function was deleted (V4 Sprint 13, first commit) before ESPN was even live. "Data Engine 2.0" (moving score resolution to a Supabase Edge Function) is a SHELVED, not-yet-executed plan — see the note at the end of §21 Common Pitfalls before assuming any Edge Function exists here
 │   └── migrations/                        # 001 → 023 — auto-deployed via PostToolUse hook on write
 │
 ├── .claude/
@@ -802,9 +815,12 @@ const LEAGUES_WITHOUT_CORNERS = new Set([4396])
 | Event | Coins |
 |-------|-------|
 | Join bonus (one-time) | **+120** |
-| Daily login bonus | **+30** |
-| Stake a prediction | **−(sum of tiers played)** |
+| Daily login bonus (autonomous, V4 Sprint 12) | **+30** |
+| Stake a prediction | **−(sum of tiers played)** — computed **server-side**, see below |
 | Tier resolved correctly | **+(points_earned × 2)** |
+| Momentum (micro-prediction) bet (V4 Sprint 14) | **−2** fixed stake |
+| Momentum bet won | **+4** (2× stake) |
+| Momentum bet — question canceled | **+2** refund (full stake back) |
 
 ### Coin costs per tier (`constants.ts → COIN_COSTS`)
 
@@ -819,15 +835,27 @@ DAILY_BONUS: 30,
 MAX_PER_MATCH: 19,
 ```
 
+`COIN_COSTS` still exists in the frontend for the **optimistic UI guess only** (`calcPredictionCost()` in `usePredictions.ts`/`ProfilePage.tsx`, shown instantly on tap). It is **not** the source of truth for what gets charged — see the `submit_prediction` rule immediately below. If `COIN_COSTS` and the RPC's hardcoded per-tier values (migration 040) are ever changed, they must be changed together or the optimistic guess will visibly "correct itself" on every bet (harmless — `NumberFlow` animates the correction — but confusing to leave mismatched for long).
+
+### ⚠️ Never trust a client-computed cost for a coin-spending RPC (V4 Sprint 11 lesson)
+
+`place_prediction_bet` / `adjust_prediction_bet` / `claim_daily_bonus` **no longer exist** — dropped in migration 040/041. They took a client-supplied `p_cost` and a client-user-supplied `p_user_id` with **no `auth.uid()` check**, meaning any authenticated caller could move another user's coins by passing a different UUID, and any client could bet a full 5-tier prediction while claiming it cost 1 coin. Found and fixed once (§27); the fix is now the mandatory pattern for every new coin-spending RPC:
+
+1. `IF p_user_id IS DISTINCT FROM auth.uid() THEN RAISE EXCEPTION` — **first action**, no exceptions (same discipline as `is_super_admin()` being first in admin RPCs, rule 4.11).
+2. Compute the cost/amount **inside the RPC** from data the RPC itself reads (the actual tier columns, the actual bet row) — never from a parameter the client provides.
+3. The RPC performs the **entire** write (balance debit/credit + ledger insert + the domain row itself) in one atomic function — the client never writes the spending-adjacent table directly.
+
+`submit_prediction` (predictions) and `submit_micro_prediction` (Momentum Bets) both follow this shape. Any future coin-spending RPC must too.
+
 ### UX rules — never violate
 
 - **Never show negative coin balance.** Clamp at 0.
 - **Always show `+coinsBack`** — `coinsBack = pointsEarned × 2`. Always ≥ 0.
 - **Only show a "profit" line** when `coinsBack > coinsBet`.
 
-### Daily bonus timezone
+### Daily bonus — autonomous, not client-triggered (V4 Sprint 12)
 
-`claim_daily_bonus` DB function uses `(NOW() AT TIME ZONE 'Asia/Jerusalem')::DATE`, not `CURRENT_DATE`. The daily window resets at midnight Israel time.
+The daily +30 bonus is no longer claimed by the client on app load. `pg_cron` runs `distribute_daily_allowance()` every 15 minutes (not at a fixed midnight timestamp — see the DST note in §28) and proactively deposits it into every eligible `group_members` row. `(NOW() AT TIME ZONE 'Asia/Jerusalem')::DATE`, not `CURRENT_DATE`, is still the correct "today" expression — inherited directly from the old `claim_daily_bonus`, just evaluated server-side on a timer instead of on request. Eligibility requires `profiles.last_active_at` within the last 3 days — a fully abandoned account accrues a maximum of 90 coins and then stops. See §28 for the full design.
 
 ### Key DB functions
 
@@ -849,7 +877,30 @@ increment_coins(
   p_created_at  TIMESTAMPTZ DEFAULT NULL  -- when omitted, falls back to NOW()
 ) RETURNS INTEGER  -- new (or unchanged) balance
 
-claim_daily_bonus(user_id UUID) → BOOLEAN  -- true = claimed, false = already claimed today
+-- V4 Sprint 11 (migration 040) — the sole write path for placing/editing a
+-- prediction. Computes cost server-side from the tier params it receives
+-- (never a client-supplied cost), checks auth.uid() first, upserts the
+-- predictions row itself inside the same transaction. See §27.
+submit_prediction(
+  p_user_id, p_group_id, p_match_id,
+  p_predicted_outcome, p_predicted_home_score, p_predicted_away_score,
+  p_predicted_corners, p_predicted_btts, p_predicted_over_under
+) RETURNS JSONB  -- { success, balance, coins_bet, prediction }
+
+-- V4 Sprint 11 (migration 040) — coin-side of prediction deletion. Reads
+-- coins_bet from the row itself (never a client-supplied amount) and
+-- re-checks is_resolved server-side so an already-paid-out prediction can
+-- never be refunded twice.
+refund_prediction(p_user_id, p_group_id, p_match_id) RETURNS JSONB  -- { success, balance }
+
+-- V4 Sprint 12 (migration 041) — pg_cron only, no client GRANT. See §28.
+distribute_daily_allowance() RETURNS VOID
+decay_idle_streaks() RETURNS VOID
+touch_last_active() RETURNS VOID  -- client-callable; the ONLY client-facing function in this group
+
+-- V4 Sprint 14 (migrations 042/043) — Momentum Bets. See §29.
+submit_micro_prediction(p_user_id, p_group_id, p_question_id, p_choice) RETURNS JSONB
+credit_group_coins(p_user_id, p_group_id, p_amount) RETURNS INTEGER  -- service-role-only atomic increment primitive, never GRANTed to authenticated
 ```
 
 ### Coin transaction created_at — "the times are sacred"
@@ -956,7 +1007,7 @@ It is **still rendered by the custom `<WorldCupBracket />` view** in the Stats H
 - `hooks/useWorldCupMatches.ts` fetches all synced league-4480 rows (+ realtime, + `goalbet:synced`).
 - A `WCLiveContext` + normalised **team-pair matcher** (`teamPairKey` / `normTeam`, with a `TEAM_ALIASES` table for Türkiye→Turkey, South Korea↔Korea Republic, Ivory Coast↔Côte d'Ivoire, USA, Bosnia, Czechia) maps each static fixture to its live DB row order-independently.
 - `LiveScorePill` shows the FT/live score (oriented to the fixture's home side) on group-fixture and knockout cards once a match exists.
-- Predict buttons open the **standard `PredictionModal`** (mounted inside the bracket, fed by synced WC matches) for unlocked matches and show a `predicted` state; they gracefully fall back to the `wcPredictSoon` teaser when no synced/unlocked match matches (e.g. placeholder knockout slots like "W 73"). Predictions flow through the existing `place_prediction_bet` RPC + kickoff lock + `scoreUpdater` atomic claim — WC is fully in the core economy.
+- Predict buttons open the **standard `PredictionModal`** (mounted inside the bracket, fed by synced WC matches) for unlocked matches and show a `predicted` state; they gracefully fall back to the `wcPredictSoon` teaser when no synced/unlocked match matches (e.g. placeholder knockout slots like "W 73"). Predictions flow through the existing `submit_prediction` RPC (V4 Sprint 11 — §27) + kickoff lock + `scoreUpdater` atomic claim — WC is fully in the core economy.
 - `BracketTreeCard` (ultra-compact, desktop 9-column grid) and `BracketMatchCard` (full-detail, mobile stacked) remain distinct. 4 tabs (groups / fixtures / knockouts / venues); the `overview` tab was removed. Trophy SVG is in `assets/world-cup-trophy.svg`.
 
 - **Euro Championship** (4467) — silently skipped (no custom view yet; only relevant every 4 years).
@@ -982,7 +1033,7 @@ curl "https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard"
 
 ## 14. Database & Migrations
 
-Migrations live in `supabase/migrations/`. Current sequence: **001 → 039** (024 does not exist).
+Migrations live in `supabase/migrations/`. Current sequence: **001 → 043** (024 does not exist).
 Apply via `supabase db push --linked` (auto-runs via hook on migration file write once logged in).
 
 | Migration | What it adds |
@@ -1025,6 +1076,10 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `037` | **Fort-Knox Privacy (V3 Sprint 2):** rewrites `predictions_read_group` so a member's row is hidden from others while the match is `status='NS'` — server-side RLS closes the pre-kickoff leak (own rows always visible; no JOIN — correlated scalar subquery on the `matches` PK, `auth.uid()` initPlan-wrapped, own-row clause short-circuits the hot path). Hardens `prevent_late_prediction()` (pins `search_path`, fails closed on missing match) keeping the 15-min lock + `is_resolved` backend bypass. Re-asserts `predictions_update_own` `WITH CHECK`. Idempotent. |
 | `038` | **The Addiction Loop (V3 Sprint 8):** creates `push_subscriptions` (id, `user_id` FK→profiles, `endpoint` UNIQUE, `p256dh`, `auth`, created_at) with own-row RLS (select/insert/update/delete `WHERE user_id = (select auth.uid())`) + `idx_push_subscriptions_user`; adds `matches.reminder_sent_at timestamptz` (each match reminded exactly once). Idempotent. Streaks reuse the existing `leaderboard.current_streak` / `best_streak` columns — **no schema change for streaks**. |
 | `039` | **AI Banter (V3 Sprint 10):** adds `AI_BANTER` to the `group_events.event_type` CHECK; makes `group_events.user_id` nullable (the AI has no owning user); partial unique index `group_events_ai_banter_unique` on `(group_id, match_id) WHERE event_type='AI_BANTER'` — one banter per match per group, the concurrency backstop against concurrent cron/Render runs (same discipline as rule 4.15). Idempotent. |
+| `040` | **Secure Prediction Cost (V4 Sprint 11):** replaces `place_prediction_bet` + `adjust_prediction_bet` (client-trusted cost) with `submit_prediction()` — computes cost server-side from the actual tier params, checks `auth.uid()` first, upserts the `predictions` row itself in the same transaction. Also validates the league-4396 no-corners rule server-side (previously frontend-only). Adds `refund_prediction()` for the delete-refund path, closing the same client-trusted-amount gap plus a server-side `is_resolved` guard against double-refunding. **Drops both replaced RPCs outright.** Idempotent. |
+| `041` | **The Autonomous Economy (V4 Sprint 12):** adds `profiles.last_active_at`; `distribute_daily_allowance()` (pg_cron, every 15 min, DST-proof by design — see §28) replaces client-triggered `claim_daily_bonus`, which is **dropped**; `decay_idle_streaks()` zeroes `leaderboard.current_streak` after 7 days with no prediction in that group; `touch_last_active()` is the one client-callable function in this migration. Idempotent. |
+| `042` | **In-Play Micro-Predictions "Momentum Bets" (V4 Sprint 14):** creates `micro_prediction_questions` + `micro_prediction_bets` (group-scoped like every other economy table, zero client-writable columns — every write goes through `submit_micro_prediction()`); RLS on bets mirrors migration 037's privacy shape (own row visible, others hidden until the question locks); adds `MICRO_BANTER` to `group_events.event_type` with its **own** dedup index `(group_id, question_id)` — deliberately not reusing migration 039's `(group_id, match_id)` index, which allows only one `AI_BANTER` row per match per group and would silently drop the 2nd/3rd roast on a match with multiple milestone questions. See §29. Idempotent. |
+| `043` | **Momentum Bets settlement primitives (V4 Sprint 14):** adds `micro_prediction_bets.settled_at` (a completion guard deliberately separate from `is_winner` — a canceled/refunded bet has no winner/loser) and `credit_group_coins()`, a minimal atomic balance-increment RPC (service-role-only, never `GRANT`ed to `authenticated`) used because the Supabase JS client can't express `coins = coins + N` atomically without either a race-prone read-then-write or an RPC. Idempotent. |
 
 ### Migration idempotency
 
@@ -1516,6 +1571,11 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **`DangerModal` requires typing `"DELETE"` exactly.** Do not pre-fill or bypass the input check for "convenience".
 - **Migrations that already exist in the remote history** can be force-reapplied with `supabase migration repair --linked --status reverted <version>` then `supabase db push --linked`.
 
+### Data Engine 2.0 — shelved, not shipped (V4 Sprint 13)
+
+- **`supabase/functions/` is currently empty.** A plan exists (moving `checkAndUpdateScores()`'s score-critical path to a Supabase Edge Function, off Render entirely, with a `live-scores` Realtime Broadcast channel as a third client reconciliation tier) but execution was paused after Commit 1 (deleting the dead pre-ESPN `sync-matches` function) specifically because this environment has no Deno runtime and no reachable Docker daemon — meaning Edge Function code cannot be compiled or tested before shipping, unlike every other commit in this codebase, which is gated on `tsc --noEmit` + `npm run build` actually passing. **Do not assume an Edge Function exists or that score resolution has moved off Render** until this sprint is explicitly resumed and completed.
+- If resuming: the plan calls for a canary/coexistence period (Edge Function wired to `pg_cron` in parallel with the existing Render heartbeat, not a hard cutover) specifically because this is the score/coin-payout critical path — verify a handful of resolved matches against Render's own output before retiring the Render path.
+
 ---
 
 ## 22. AI Scout (Sprint 26)
@@ -1883,3 +1943,141 @@ Two-sentence, provocative-but-friendly sports-pundit persona. `SYSTEM_EN` / `SYS
 - **`callGroq` is exported from `aiScout.ts` and must stay the single Groq client.** Do not create a second axios-to-Groq call site — every AI feature (Scout, HT Read, Chronicles, Provocateur) funnels through the same `getApiKey()` gate, timeout, and response-cleaning logic.
 - **One banter per (group, match) — enforced at the DB level.** The unique index is the source of truth; the pre-insert existence check in `aiProvocateur.ts` is purely a Groq-call-avoidance optimization, never rely on it alone for correctness.
 - **AI_BANTER events have `user_id = null`.** Any frontend code that assumes `GroupEvent.user_id` is always a string (e.g. joining to `profiles`) will break on this event type — always branch on `event_type` before touching `user_id`.
+
+---
+
+## 27. The Integrity & Viral Loop (V4 Sprint 11)
+
+Two unrelated workstreams shipped together: closing a real client-trust vulnerability in the coin economy, and the first viral-growth mechanic (a shareable recap card).
+
+### The integrity fix — two vulnerabilities, not one
+
+`place_prediction_bet(p_user_id, p_group_id, p_match_id, p_cost)` and `adjust_prediction_bet(..., p_old_cost, p_new_cost)` (migration 020/021) trusted **client-supplied cost values** with no server-side recomputation. A modified client could submit a full 5-tier prediction while claiming `p_cost = 1`. Separately, `ProfilePage.tsx`/`usePredictions.ts` wrote `predictions.coins_bet` directly via a client `.upsert()` — a **second**, independent trust gap, since the value written there didn't have to match what the RPC actually charged, and it's what the delete-refund path (`pred.coins_bet`) later trusts.
+
+**Also found while auditing:** neither RPC checked `p_user_id = auth.uid()`. Any authenticated caller could pass a different UUID and move another user's coins or place a prediction on their behalf.
+
+**Fix — `submit_prediction()` (migration 040):** a single `SECURITY DEFINER` RPC that (1) checks `p_user_id = auth.uid()` first, (2) computes cost natively from the tier params it receives — mirrors `calcPredictionCost()` in `constants.ts` exactly, keep both in sync if `COIN_COSTS` ever changes, (3) validates the league-4396 no-corners rule server-side (previously frontend-only), (4) upserts the `predictions` row itself in the same transaction, so the client never writes `coins_bet` independently again. `refund_prediction()` closes the same gap on the delete path, plus a server-side `is_resolved` check so an already-paid-out prediction can never be refunded twice.
+
+**Both `place_prediction_bet` and `adjust_prediction_bet` were dropped, not just abandoned by the frontend.** Leaving a vulnerable RPC reachable via a direct `supabase.rpc()` call preserves the exact hole being fixed, even after every UI caller stops using it. This is now the mandatory pattern for any future coin-spending RPC — see the new rule in §11.
+
+**Optimistic UI note:** `usePredictions.ts`'s existing optimistic-write + authoritative-reconcile pattern (`onMutate` guesses, `onSuccess` overwrites with the RPC's real response) needed no structural change — it was already correct, just reconciling to a value that used to be untrustworthy. `coinsStore.coins` already renders through `NumberFlow` in the top bar, so any optimistic-guess correction animates smoothly for free.
+
+### Loss-aversion push — batch, not per-write
+
+`scoreUpdater.ts`'s prediction-resolution loop can touch dozens of leaderboard rows in one `checkAndUpdateScores()` tick (multiple matches, multiple users each). A naive per-write push would notify a user multiple times in seconds as their rank bounces around mid-batch.
+
+**`RankTracker`** — a **per-invocation, not module-level** object (`checkAndUpdateScores()` can run concurrently from the 30s poller AND HTTP sync routes; a shared tracker would let them clobber each other's before-snapshots). It captures each user's `total_points` on the **first** touch this run, across every resolution path (main FT loop, ET-transition loop, corners re-score loop, catch-up loop all feed the same tracker instance). At the very end of the invocation, `flushRankDropNotifications()` does **one** before/after rank comparison per touched group and fires at most one `rank_drop` notification per user per invocation, regardless of how many times their points changed in that tick.
+
+Correctness under concurrent workers is inherited from the existing atomic-claim guard (rule 4.14) — a tracker only ever contains users **this specific invocation** actually won claims for, so a worker that loses every claim has an empty tracker and sends nothing. No new dedup table needed.
+
+Delivery is dual-channel, matching the existing `prediction_result` pattern: a persistent `notifications` row (`type='rank_drop'`, `notifications.type` has no CHECK constraint — no migration needed) plus a best-effort push via `sendPushToUser()` — a new, general single-user send extracted from `sendMatchReminders()`'s send+prune logic (`pushSender.ts`), so there's one send+prune implementation, not two. Push copy is English-only, matching the existing match-reminder push — no `profiles.lang` column exists yet to localize against.
+
+### Shareable Recap Card — zero new dependencies
+
+`ShareableRecapCard.tsx` (bottom sheet, swipe-to-close per rule 4.13) + `lib/shareCard.ts` (the actual Canvas draw + share logic) follow the exact zero-dependency precedent Sprint 9 set for `Sparkline.tsx` — a hand-drawn `<canvas>`, not `html2canvas`/`html-to-image`. Colors are resolved from live CSS custom properties via `getComputedStyle(document.documentElement)` **at draw time**, so the exported PNG matches whichever theme is active with zero hardcoded hex. Canvas has no concept of CSS logical properties, so RTL is handled explicitly (`ctx.direction` + right-anchored text placement), mirroring the manual `dir={isRTL ? 'rtl' : 'ltr'}` pattern already used in `HTAnalystCard`/`AiBanterCard`.
+
+Three-tier share fallback in `shareRecapCard()`: `navigator.share` with a file (rich image into WhatsApp/iMessage) → `navigator.share` text-only (some browsers support share without file support) → clipboard copy + explicit PNG download (desktop, unsupported webviews). `AbortError` (user canceled the native share sheet) is a normal outcome, not a retry trigger.
+
+**Rank/points/streak data reuses `useLeaderboard('total')` directly — zero new query**, the same hook `LeaderboardPage` already uses to compute rank client-side (rank is not a stored column anywhere in this schema).
+
+**Privacy-conscious default:** the share text promotes the app generally, never the group's invite code. A recap card is exactly the kind of asset that gets forwarded past its original audience, and invite codes are private by design — leaking one into a widely-shared image would be an accidental foot-gun, not a feature.
+
+### Rules
+
+- **Never let a coin-spending RPC trust a client-supplied cost, and always check `auth.uid()` first.** See the new rule in §11 — this applies to every future coin-spending function, not just the two that got fixed.
+- **A deprecated RPC must be dropped, not just stopped-being-called.** Leaving it reachable preserves whatever vulnerability motivated replacing it.
+- **`RankTracker` must stay per-invocation, never module-level.** `checkAndUpdateScores()` is genuinely invoked concurrently from multiple entry points; a shared tracker would silently reintroduce the exact class of race this codebase has scar tissue from elsewhere (rule 4.14/4.15).
+- **`sendPushToUser()` is the single-user push primitive — reuse it, don't duplicate the send+prune loop.** `streakGuardian.ts` (§28) and `microBanter.ts`'s downstream push needs (§29 doesn't push, but future features will) should call it, not reimplement `webpush.sendNotification` + dead-subscription pruning a third time.
+- **Recap-card share text never includes the group's invite code by default.** If a future group-targeted invite flow is added, it must be an explicit opt-in toggle, not a default.
+
+---
+
+## 28. The Autonomous Economy (V4 Sprint 12)
+
+Moves the daily +30 coin bonus from a client-triggered RPC to a proactive `pg_cron` sweep, adds a 3-day inactivity cap, and decays abandoned prediction streaks after 7 days of silence.
+
+### The DST bug the naive design would have shipped
+
+"Run at exactly 00:00 Israel time" sounds simple, but `pg_cron` schedules run against the Postgres server's UTC clock, and Israel alternates between UTC+2 (IST, winter) and UTC+3 (IDT, summer DST). A **fixed** UTC cron expression tuned for one offset drifts a full hour off true midnight for roughly 7 months a year — silently, twice a year, at each DST transition, invisible in manual testing done in a single season.
+
+**The fix:** `distribute_daily_allowance()` doesn't chase a precise instant. It's scheduled every **15 minutes** and is DST-proof by construction — it derives "today" via `(NOW() AT TIME ZONE 'Asia/Jerusalem')::DATE` (the same expression already proven correct in the old `claim_daily_bonus`), and is a cheap no-op outside its real trigger window (the `WHERE` clause matches nothing for 99% of ticks). A missed tick self-heals on the next one; no catch-up logic needed.
+
+### The bonus was always per-group, not per-user
+
+`group_members.last_daily_bonus_date` (not `profiles`) is what the old RPC checked — a user in 3 groups gets +30 **three separate times**, once per group's coin balance, matching the fact that coins themselves are per-group (rule 4.12). `distribute_daily_allowance()` iterates `group_members` rows, not users, for exactly this reason.
+
+### Inactivity cap — matches the "90 coins then stop" spec precisely
+
+`profiles.last_active_at` (new column) is touched **once per app-open** via `touch_last_active()` — piggybacked onto `AppInitializer`'s existing per-user/group-change effect in `App.tsx`, not a new effect, not per-request. Eligibility requires `last_active_at >= today - 3 days`. A user who goes offline has a **frozen** `last_active_at` — days 1-3 after that freeze are still within the 3-day window (measured from the stale timestamp) and accrue; day 4 onward falls outside it and stops. A fully abandoned account accumulates exactly 90 coins (3 × 30) and then plateaus until the user returns and `touch_last_active()` resets the clock.
+
+### Concurrency — `FOR UPDATE OF gm SKIP LOCKED`
+
+The bulk-SQL equivalent of the atomic-claim pattern already governing coin payouts (rule 4.14): the eligible-rows CTE locks candidate `group_members` rows and **skips** any already locked by an overlapping tick rather than blocking or double-crediting them. Combined with the `last_daily_bonus_date IS DISTINCT FROM` idempotency check, this closes the race from both the locking side and the idempotency side.
+
+### Streak decay + day-6 warning — split across SQL and Node on purpose
+
+`decay_idle_streaks()` (pure SQL, `pg_cron`, same 15-min cadence) zeroes `leaderboard.current_streak` per `(user_id, group_id)` — scoped the same way the streak columns themselves are — after 7 days with no `predictions` row in that group. No calendar boundary, safe to run frequently.
+
+The **day-6 warning push** can't live in `pg_cron` — it needs the `web-push` client, which only exists in Node. `streakGuardian.ts`'s `sendStreakExpiryWarnings()` (backend `scheduler.ts`, 30-min cadence — looser than the SQL sweeps since day-scale warnings don't need tight precision) queries active-streak users not yet warned this idle cycle (`leaderboard.streak_warning_sent_at IS NULL`), finds their most recent prediction in that group, and pushes via `sendPushToUser()` (§27) when they're 6-7 days idle. **`streak_warning_sent_at` is cleared back to `null` by `scoreUpdater.ts` on ANY resolution for that `(user, group)`** — without this, a user who saves their streak once and later goes idle again would never be warned a second time, since the guard is an `IS NULL` check, not a recency check.
+
+**Known, accepted limitation:** this push, like the existing 15-min match reminders, depends on Render being awake — not a new regression, but worth naming rather than implying it's as reliable as the pure-SQL decay it's paired with.
+
+### Client cleanup — smaller than expected
+
+There was **no localStorage flag** to remove (a wrong assumption worth correcting for the record) — the old client-side idempotency relied entirely on the server-side `last_daily_bonus_date` check plus an in-memory `useRef` in `App.tsx` that only decided *when* to re-fire the (now-deleted) claim RPC. Removed entirely: `getIsraelDate()`, the `lastInitDateRef` visibility-change midnight-recheck block, and `coinsStore.initCoins`'s RPC call (now a plain balance fetch). `claim_daily_bonus` **dropped outright** (migration 041) — not a security fix like §27's drops, purely a cleanliness call; the RPC was always idempotent and user-scoped, just obsolete once the cron owns this.
+
+**What actually replaces the removed client trigger for the "online at midnight" UX:** a Realtime subscription (new, added in this sprint) — `group_members` UPDATE → re-fetch balance (rule 4.4: never trust a partial payload); `coin_transactions` INSERT with `type='daily_bonus'` → the `coin_drop` haptic + toast that used to come from the RPC's response, now sourced from the cron's deposit. Both channels filter by `group_id` only (Realtime doesn't support compound filters on one subscription) and check `user_id` client-side.
+
+### Rules
+
+- **Any new autonomous `pg_cron` job that needs to land "at midnight Israel time" must use the frequent-sweep + date-comparison pattern, never a fixed UTC cron time.** The DST drift is real and silent.
+- **`streak_warning_sent_at` must be cleared on any resolution, not just left to expire.** It's a completion guard, not a cooldown timer — a stale non-null value permanently suppresses future warnings for that user.
+- **`touch_last_active()` is the only client-callable function among the Sprint 12 RPCs.** `distribute_daily_allowance()` and `decay_idle_streaks()` are `pg_cron`-only — never `GRANT` them to `authenticated`.
+
+---
+
+## 29. In-Play Micro-Predictions — Momentum Bets (V4 Sprint 14)
+
+Short-fuse (60-second), low-stake (2 coin) in-play propositions — "Goal in the next 10 minutes?" — fired at three milestones (kickoff, half-time, minute 75) to give the 90 minutes of a live match something other than passive waiting.
+
+### The arbitrage fix is structural, not a timing race
+
+The danger in a "goal in the next N minutes" proposition is specific to this codebase: the app is *fast* at delivering live score deltas, so a client could in principle see a goal via Realtime a few seconds before a naive server-side lock takes effect, and bet on a still-open window with the outcome already known. Tightening the server-side clock check narrows this but never eliminates it — it's still a race against network speed.
+
+**The actual fix: the outcome window is always `[locked_at, locked_at + 10 minutes)`, never `[opens_at, opens_at + 10 min)`.** Betting only happens during `[opens_at, locked_at)` — a period that, by construction, ends **before** the outcome window begins. There is no client speed at which the outcome of a window that hasn't started yet can be known. Resolution reads `baseline_home_score`/`baseline_away_score` captured **at lock time** (stamped by the lock sweep, migration 042) — never at question-open time. Any future time-windowed proposition in this codebase must follow this same shape: measure the outcome window from the moment betting closes, not the moment it opened.
+
+### Schema & RLS — Sprint 11's lesson applied from day one
+
+`micro_prediction_questions` / `micro_prediction_bets` (migration 042) have **no client INSERT/UPDATE policy at all** — every write goes through `submit_micro_prediction()`. This isn't a fix, it's §27's lesson (never trust a client-computed cost, never let the client write a bet row directly) built in from the start instead of retrofitted after a vulnerability is found. Bets RLS mirrors migration 037's predictions-privacy shape exactly: own row always visible, another member's bet hidden until the question's `status` leaves `'open'`.
+
+`submit_micro_prediction()` FOR UPDATEs the question row itself (closing the race between a concurrent lock-sweep and a last-second bet) and — critically — does **not** wrap the bet `INSERT` in `ON CONFLICT DO NOTHING`. A pre-check gives a friendly `'already_bet'` error in the common case, but the real backstop is letting a genuine `UNIQUE(question_id, user_id)` violation raise a real exception, which Postgres rolls back automatically — including the coin deduction. Suppressing that error with `ON CONFLICT DO NOTHING` would have been a real double-charge bug: the coins would debit, the conflicting insert would silently no-op, and no bet row would exist to show for it.
+
+### Three cadences, three purposes
+
+- **Milestone generation** stays inside the existing 30s `scoreUpdater.ts` live-poll loop (it needs the fresh ESPN read already happening there) — kickoff/halftime/minute-75 detected by comparing the DB's pre-batch status against the fresh ESPN read, same transition-detection idiom already used for ET capture. Idempotent via `UNIQUE(match_id, group_id, milestone)` + upsert-ignore.
+- **Locking** is a new, separate, ESPN-call-free 5-second sweep (`momentumBets.ts`, `lockExpiredMicroQuestions()`) — a 60-second betting window can't tolerate losing up to half its precision to the 30s cadence.
+- **Resolution** is a 15-second sweep (`resolveLockedMicroQuestions()`) — looser, since a few seconds' delay after lock doesn't affect fairness (the outcome window is already fixed at lock time regardless).
+
+`goal_next_10` resolves via a **plain score-delta comparison** (current total goals vs. the locked-time baseline) — deliberately not timestamped-event parsing, sidestepping the exact ESPN data-granularity gap that got "next team to win a corner" cut from v1 (corners need per-minute timestamped data this codebase can't reliably get). If match data is unavailable or stale at resolution time (PST/CANC, missing scores), the question is **canceled** and every bet refunded rather than resolved on a guess or left stuck open forever.
+
+### Settlement — a crash-safe primitive worth reusing
+
+`settleBets()` claims each individual bet via `.is('settled_at', null)` — the same atomic-claim shape as `resolveMatchPredictions`'s `is_resolved=false` guard (rule 4.14) — **not** a single all-or-nothing flip on the question. This matters: if a question-level flip alone gated payout, a crash mid-loop through several winning bets would leave the question already `'resolved'` and the remaining winners permanently unpaid on the next sweep (since the outer query no longer matches a `'resolved'` question). Per-bet claiming means a crash leaves unprocessed bets exactly as they were, safely retried regardless of the question's own status.
+
+`settled_at` is **deliberately a separate column from `is_winner`** — a canceled/refunded bet has no winner or loser, so `is_winner` can't double as the "already processed" marker without being either ambiguous or wrong. `credit_group_coins()` (migration 043) is a minimal atomic balance-increment RPC, added because the Supabase JS client can't express `coins = coins + N` without either a race-prone read-then-write or an RPC — it does nothing else (no ledger insert, no dedup index; the caller's own `settled_at` claim is the idempotency guarantee) and is **never `GRANT`ed to `authenticated`**. The ledger row (`type='micro_prediction_won'`/`'micro_prediction_refund'`) is inserted in application code specifically so these payouts render distinctly from real prediction wins in `CoinHistoryModal` — reusing `increment_coins` would have hardcoded `type='bet_won'`, making a 2-coin momentum win indistinguishable from a real prediction payout in coin history.
+
+### AI roast — a new dedup index, deliberately not reusing Sprint 10's
+
+`microBanter.ts`'s `triggerMicroBanter()` fires the instant a question locks (called fire-and-forget from `lockExpiredMicroQuestions()`, `void`-prefixed like `ensureChronicle`), reusing `callGroq` — the same single Groq client every AI feature in this codebase funnels through. **It posts to a new `MICRO_BANTER` event type with its own `(group_id, question_id)` dedup index, not `AI_BANTER`'s `(group_id, match_id)` one.** A match can generate up to 3 milestone questions; migration 039's index allows only one `AI_BANTER` row per match per group total, and reusing it would have silently dropped the 2nd and 3rd roast (`aiProvocateur.ts`'s existing catch block treats a unique-violation as "another worker already posted" and swallows it without logging — a real, easy-to-miss failure mode). `ActivityFeed.tsx`'s `AiBanterCard` renders both event types verbatim — same metadata shape (`text_en`/`text_he`/`home_team`/`away_team`), no reason for a second card component.
+
+### Frontend — isolated countdown, reused patterns throughout
+
+`useCountdown.ts` is a new hook with the **exact same isolated local-state/`setInterval` shape as `useLiveClock`** — a 1Hz tick re-renders only the component that calls it. `MomentumBanner` uses it so the countdown never cascades into `LockerRoomPage` or the `ActivityFeed` list beside it. `MomentumBetSheet` is a standard swipe-to-close bottom sheet (rule 4.13) with `haptic('selection')` on choice tap and `haptic('success')` on confirmed submission; the coin balance update flows through `coinsStore`, which has rendered through `NumberFlow` in the top bar since Sprint 12 — no new animation code needed.
+
+### Rules
+
+- **Any future time-windowed betting mechanic must measure its outcome window from lock time, never open time.** This is the structural arbitrage fix — re-derive it from first principles before assuming a tighter server clock check is sufficient.
+- **A coin-spending RPC never wraps its uniqueness-guarding INSERT in `ON CONFLICT DO NOTHING` if a prior step already moved money.** Let the constraint violation raise and roll back the whole transaction; suppressing it silently strands the side effect.
+- **Settlement of a batch of financial records (bets, payouts, refunds) must claim each record individually (`settled_at`-style), never gate the whole batch behind a single parent-row status flip.** A crash mid-batch must leave unprocessed records safely retryable — see the design note above for exactly why this matters.
+- **`MICRO_BANTER` and `AI_BANTER` are visually identical but must never share a dedup index.** They key on different granularities (per-question vs. per-match) for a structural reason, not a stylistic one.
+- **AI never generates the question or determines its resolution — only the commentary after the outcome is already mechanically known.** This applies to every future in-play mechanic, not just this one: an LLM must never touch anything that moves coins.
