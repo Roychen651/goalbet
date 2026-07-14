@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { syncAllActiveLeagues } from '../services/matchSync';
 import { checkAndUpdateScores, resetWeeklyPoints } from '../services/scoreUpdater';
 import { sendMatchReminders } from '../services/pushSender';
+import { runProvocateurBatch } from '../services/aiProvocateur';
 import { logger } from '../lib/logger';
 
 let livePollerRunning = false;
@@ -83,6 +84,18 @@ export function startScheduler(): void {
       await sendMatchReminders();
     } catch (err) {
       logger.error('[scheduler] Match reminders failed:', err);
+    }
+  });
+
+  // AI Locker Room Provocateur — every 3 min so a match that just kicked off is
+  // caught promptly. Fires banter at T-0 only (picks are public once kickoff
+  // passes — never before, to honour prediction privacy). No-op without a Groq
+  // key. Each (group, match) bantered exactly once (partial unique index).
+  cron.schedule('*/3 * * * *', async () => {
+    try {
+      await runProvocateurBatch();
+    } catch (err) {
+      logger.error('[scheduler] Provocateur batch failed:', err);
     }
   });
 
