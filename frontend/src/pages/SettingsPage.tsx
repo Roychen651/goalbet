@@ -13,6 +13,7 @@ import { useThemeStore } from '../stores/themeStore';
 import { useMatchSync } from '../hooks/useMatchSync';
 import { GlassCard } from '../components/ui/GlassCard';
 import { PushToggle } from '../components/ui/PushToggle';
+import { TiltModeToggle } from '../components/ui/TiltModeToggle';
 import { NeonButton } from '../components/ui/NeonButton';
 import { GroupMembersList } from '../components/groups/GroupMembersList';
 import { PolicyModal } from '../components/ui/PolicyModal';
@@ -316,6 +317,9 @@ export function SettingsPage() {
 
       {/* ── Match reminders (full width; self-hides where Web Push unsupported) ── */}
       <PushToggle />
+
+      {/* ── Gyroscope card tilt (full width; self-hides where unsupported) ── */}
+      <TiltModeToggle />
 
       {/* ── Group Hub (full width) ─────────────────────────────────────── */}
       <div>

@@ -25,6 +25,11 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Sprint 16 — morphing layoutId portals (e.g. ExpandedH2HView) mount here
+         via createPortal, escaping any ancestor's overflow-hidden/transform
+         containment (GlassCard's own tactile-tilt transform would otherwise
+         create a new containing block that clips position:fixed children). -->
+    <div id="portal-root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

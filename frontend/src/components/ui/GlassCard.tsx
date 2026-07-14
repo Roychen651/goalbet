@@ -1,5 +1,6 @@
 import { motion, useMotionValue, useMotionTemplate } from 'framer-motion';
 import { cn } from '../../lib/utils';
+import { useTactileTilt } from '../../hooks/useTactileTilt';
 
 type Variant = 'default' | 'elevated' | 'live' | 'live-predicted';
 
@@ -17,6 +18,10 @@ interface GlassCardProps {
   breathing?: boolean;
   /** Overlays the .glass-grain feTurbulence texture (Sprint 15 — Bento Arena) */
   grain?: boolean;
+  /** Zero-re-render 3D pointer tilt + OKLCH glare (Sprint 16). See useTactileTilt.ts */
+  tactile?: boolean;
+  /** On touch devices, falls back to opted-in gyroscope tilt instead of doing nothing (Sprint 16 Commit 3). Use sparingly — one focused card, never a whole grid. */
+  allowGyroscope?: boolean;
 }
 
 export function GlassCard({
@@ -30,12 +35,17 @@ export function GlassCard({
   interactive,
   breathing,
   grain,
+  tactile,
+  allowGyroscope,
 }: GlassCardProps) {
   // Always initialize motion values — hooks must be unconditional
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   // Precompute the radial gradient template — used only when interactive
   const glareBackground = useMotionTemplate`radial-gradient(600px circle at ${mouseX}px ${mouseY}px, rgba(189, 232, 245, 0.08), transparent 80%)`;
+  // Hook is always called (rules of hooks) — enabled:false makes it a no-op,
+  // attaching zero listeners, not a scaled-down effect.
+  const tiltRef = useTactileTilt<HTMLDivElement>({ enabled: !!tactile, allowGyroscope: !!allowGyroscope });
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const { left, top } = e.currentTarget.getBoundingClientRect();
@@ -58,7 +68,8 @@ export function GlassCard({
     onClick && 'cursor-pointer card-clickable',
     breathing && 'animate-live-breathing',
     // Needed for the absolute-positioned glare/grain overlay to be contained
-    (interactive || onClick || grain) && 'relative overflow-hidden group',
+    (interactive || onClick || grain || tactile) && 'relative overflow-hidden group',
+    tactile && 'tactile-tilt',
     className,
   );
 
@@ -70,6 +81,7 @@ export function GlassCard({
   if (interactive || onClick) {
     return (
       <motion.div
+        ref={tactile ? tiltRef : undefined}
         whileHover={onClick ? { scale: 1.003, y: -2 } : undefined}
         whileTap={onClick ? { scale: 0.997, y: 0 } : undefined}
         transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
@@ -86,8 +98,12 @@ export function GlassCard({
           />
         )}
         {grain && <div className="glass-grain" />}
-        {/* z-10 keeps content above the glare/grain overlay */}
-        <div className={cn((interactive || grain) && 'relative z-10')}>
+        {/* z-10 keeps content above the glare/grain/tactile-glare overlays —
+            all three are absolute-positioned with a positive z-index, which
+            paints over plain static children per CSS stacking order unless
+            content is explicitly promoted too (bit us once already for
+            grain alone, Sprint 15) */}
+        <div className={cn((interactive || grain || tactile) && 'relative z-10')}>
           {children}
         </div>
       </motion.div>
@@ -96,11 +112,19 @@ export function GlassCard({
 
   if (grain) {
     return (
-      <Tag className={base} style={dynamicStyle}>
+      <Tag ref={tactile ? tiltRef : undefined} className={base} style={dynamicStyle}>
         <div className="glass-grain" />
         {/* relative z-10 keeps in-flow content painting above the absolute,
             positive-z-index grain overlay — without it grain (a positioned
             layer) paints over plain static children per CSS stacking order */}
+        <div className="relative z-10">{children}</div>
+      </Tag>
+    );
+  }
+
+  if (tactile) {
+    return (
+      <Tag ref={tiltRef} className={base} style={dynamicStyle}>
         <div className="relative z-10">{children}</div>
       </Tag>
     );

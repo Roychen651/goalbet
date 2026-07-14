@@ -3,6 +3,7 @@ import NumberFlow from '@number-flow/react';
 import { Flame, Gauge, Grid3x3, TrendingDown, TrendingUp, Users, type LucideIcon } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
 import { useGroupStore } from '../../stores/groupStore';
+import { useTiltStore } from '../../stores/tiltStore';
 import { useStatsArena } from '../../hooks/useStatsArena';
 import { GlassCard } from '../ui/GlassCard';
 import { EmptyState } from '../ui/EmptyState';
@@ -78,6 +79,7 @@ const cardHover = { y: -3, transition: { duration: 0.18, ease: 'easeOut' as cons
 export function BentoArena() {
   const { t, lang } = useLangStore();
   const { activeGroupId } = useGroupStore();
+  const { gyroscopeEnabled } = useTiltStore();
   const reduceMotion = useReducedMotion();
   const { data, isLoading, isError } = useStatsArena();
 
@@ -124,6 +126,8 @@ export function BentoArena() {
           variant="elevated"
           grain
           interactive
+          tactile
+          allowGyroscope={gyroscopeEnabled}
           className="h-full p-5 flex flex-col justify-between relative overflow-hidden"
         >
           {!reduceMotion && (
@@ -159,7 +163,7 @@ export function BentoArena() {
         whileHover={reduceMotion ? undefined : cardHover}
         className="sm:col-span-2 sm:row-span-2"
       >
-        <GlassCard variant="elevated" grain interactive className="h-full p-5 flex flex-col gap-3">
+        <GlassCard variant="elevated" grain interactive tactile className="h-full p-5 flex flex-col gap-3">
           <CardHeader icon={Grid3x3} title={t('arenaHeatmapTitle')} />
           {isLoading ? <CardSkeleton /> : <PredictionHeatmap cells={data?.heatmap ?? []} />}
         </GlassCard>
@@ -171,7 +175,7 @@ export function BentoArena() {
         whileHover={reduceMotion ? undefined : cardHover}
         className="sm:col-span-2"
       >
-        <GlassCard variant="elevated" grain interactive className="h-full p-5 flex flex-col gap-3">
+        <GlassCard variant="elevated" grain interactive tactile className="h-full p-5 flex flex-col gap-3">
           <CardHeader icon={Gauge} title={t('arenaDistributionTitle')} />
           {isLoading || !distribution ? (
             <CardSkeleton />
@@ -195,7 +199,7 @@ export function BentoArena() {
 
       {/* Streak tile */}
       <motion.div variants={reduceMotion ? undefined : cardVariants} whileHover={reduceMotion ? undefined : cardHover}>
-        <GlassCard variant="elevated" grain interactive className="h-full p-4 flex flex-col justify-between">
+        <GlassCard variant="elevated" grain interactive tactile className="h-full p-4 flex flex-col justify-between">
           <CardHeader icon={Flame} title={t('arenaStreakTile')} />
           {isLoading || !distribution ? (
             <CardSkeleton />
@@ -209,7 +213,7 @@ export function BentoArena() {
 
       {/* Risk score tile */}
       <motion.div variants={reduceMotion ? undefined : cardVariants} whileHover={reduceMotion ? undefined : cardHover}>
-        <GlassCard variant="elevated" grain interactive className="h-full p-4 flex flex-col justify-between">
+        <GlassCard variant="elevated" grain interactive tactile className="h-full p-4 flex flex-col justify-between">
           <CardHeader icon={Gauge} title={t('arenaRiskTile')} />
           {isLoading || !distribution ? (
             <CardSkeleton />
@@ -223,7 +227,7 @@ export function BentoArena() {
 
       {/* H2H — interactive opponent picker, zero new network calls per switch */}
       <motion.div variants={reduceMotion ? undefined : cardVariants} whileHover={reduceMotion ? undefined : cardHover} className="sm:col-span-4">
-        <GlassCard variant="elevated" grain interactive className="h-full p-5 flex flex-col gap-2">
+        <GlassCard variant="elevated" grain interactive tactile className="h-full p-5 flex flex-col gap-2">
           <CardHeader icon={Users} title={t('arenaH2HTitle')} />
           {isLoading ? <CardSkeleton /> : <H2HMatrix matrix={data?.h2h_matrix ?? []} />}
         </GlassCard>
