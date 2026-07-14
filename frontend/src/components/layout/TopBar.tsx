@@ -13,6 +13,7 @@ import NumberFlow from '@number-flow/react';
 import { cn } from '../../lib/utils';
 import { NotificationCenter } from './NotificationCenter';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useCoinRollFeedback } from '../../hooks/useCoinRollFeedback';
 
 export function TopBar() {
   const [showGroupMenu, setShowGroupMenu] = useState(false);
@@ -26,6 +27,11 @@ export function TopBar() {
   const coins                                     = useCoinsStore(s => s.coins);
   const { unreadCount, notifications, loading, markAllRead, markRead } = useNotifications();
   const activeGroup = groups.find(g => g.id === activeGroupId);
+  // Wired here only, not Sidebar.tsx — both are mounted simultaneously
+  // (CSS-toggled by breakpoint, not conditionally rendered), so wiring it
+  // into both would fire the cascading roll twice per coin increase. Haptics
+  // are meaningless on the desktop viewport Sidebar occupies anyway.
+  useCoinRollFeedback(coins);
 
   return (
     <header className="sticky top-0 z-30 sm:hidden">

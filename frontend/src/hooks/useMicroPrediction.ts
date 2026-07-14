@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
@@ -6,6 +6,7 @@ import { useCoinsStore } from '../stores/coinsStore';
 import { useUIStore } from '../stores/uiStore';
 import { useLangStore } from '../stores/langStore';
 import { haptic } from '../lib/haptics';
+import { playSound } from '../lib/sensoryAudio';
 
 export interface MicroQuestion {
   id: string;
@@ -72,6 +73,23 @@ export function useMicroPrediction() {
 
   useEffect(() => { fetchActive(); }, [fetchActive]);
   useEffect(() => { if (question) fetchMyBet(question.id); else setMyBet(null); }, [question?.id, fetchMyBet]);
+
+  // Sprint 17 — the "bet locking" snap. question.id doesn't change when the
+  // same row flips open -> locked, so the fetchMyBet effect above never
+  // re-fires here — myBet already correctly reflects whether the caller bet
+  // on *this* question (fetched while it was still open). Only fires for a
+  // question the caller actually has a stake in — a lock the user has no
+  // bet on isn't "their" moment.
+  const prevStatusRef = useRef<MicroQuestion['status'] | null>(null);
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    const curr = question?.status ?? null;
+    if (prev === 'open' && curr === 'locked' && myBet) {
+      haptic('bet_lock');
+      playSound('lock_thud');
+    }
+    prevStatusRef.current = curr;
+  }, [question?.status, myBet]);
 
   useEffect(() => {
     if (!activeGroupId) return;

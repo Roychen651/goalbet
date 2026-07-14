@@ -11,7 +11,8 @@ import { useGroupStore } from './stores/groupStore';
 import { useCoinsStore } from './stores/coinsStore';
 import { useUIStore } from './stores/uiStore';
 import { haptic } from './lib/haptics';
-import { unlockAudio } from './lib/sensoryAudio';
+import { unlockAudio, playSound } from './lib/sensoryAudio';
+import { useLangStore } from './stores/langStore';
 import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './pages/LoginPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
@@ -107,6 +108,14 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   const { user, init } = useAuthStore();
   const { fetchGroups, activeGroupId } = useGroupStore();
   const initCoins = useCoinsStore(s => s.initCoins);
+  // Sprint 17 — coin-deposit sensory coalescing state. A coalescing window,
+  // not a naive trailing debounce: sound/haptic fire on the leading edge (the
+  // first deposit in a burst feels instant), the toast waits for the
+  // trailing edge so it reports one true combined total instead of several
+  // "+X coins" toasts stacking on top of each other when e.g. one match-sync
+  // tick resolves three predictions in the same few hundred ms.
+  const pendingCoinDeltaRef = useRef(0);
+  const coinCoalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Lenis smooth scrolling — exponential easing for premium liquid feel
   useEffect(() => {
@@ -187,9 +196,26 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
         { event: 'INSERT', schema: 'public', table: 'coin_transactions', filter: `group_id=eq.${activeGroupId}` },
         (payload) => {
           const row = payload.new as { user_id?: string; type?: string; amount?: number };
-          if (row.user_id !== user.id || row.type !== 'daily_bonus') return;
+          if (row.user_id !== user.id || !row.amount || row.amount <= 0) return;
+
+          pendingCoinDeltaRef.current += row.amount;
+          if (coinCoalesceTimerRef.current) return; // a window is already open — just accumulate
+
+          // Leading edge — fires immediately so the first deposit in a burst
+          // feels instant, not delayed behind a debounce waiting to see if
+          // more arrive.
           haptic('coin_drop');
-          useUIStore.getState().addToast(`+${row.amount} coins — daily bonus!`, 'success');
+          playSound('coin_chime');
+
+          coinCoalesceTimerRef.current = setTimeout(() => {
+            const total = pendingCoinDeltaRef.current;
+            pendingCoinDeltaRef.current = 0;
+            coinCoalesceTimerRef.current = null;
+            if (total > 0) {
+              const { t } = useLangStore.getState();
+              useUIStore.getState().addToast(t('coinsDepositToast').replace('{0}', String(total)), 'success');
+            }
+          }, 500);
         },
       )
       .subscribe();

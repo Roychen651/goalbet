@@ -1,5 +1,7 @@
 import { useLangStore } from '../../stores/langStore';
 import { cn } from '../../lib/utils';
+import { haptic } from '../../lib/haptics';
+import { playSound } from '../../lib/sensoryAudio';
 
 interface LangToggleProps {
   className?: string;
@@ -12,7 +14,7 @@ export function LangToggle({ className, compact = false }: LangToggleProps) {
 
   return (
     <button
-      onClick={() => setLang(lang === 'en' ? 'he' : 'en')}
+      onClick={() => { haptic('toggle_click'); playSound('toggle_click'); setLang(lang === 'en' ? 'he' : 'en'); }}
       className={cn(
         'flex items-center rounded-xl select-none transition-all duration-150',
         'bg-white/8 border border-white/10 hover:bg-white/12 hover:border-white/20',
