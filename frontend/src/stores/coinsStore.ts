@@ -1,7 +1,5 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { useUIStore } from './uiStore';
-import { haptic } from '../lib/haptics';
 
 interface CoinsState {
   coins: number;
@@ -20,26 +18,13 @@ export const useCoinsStore = create<CoinsState>((set) => ({
   coins: 0,
   loading: false,
 
+  // The daily bonus is deposited server-side by pg_cron (V4 Sprint 12) — this
+  // is now a plain balance fetch. The realtime subscription wired up alongside
+  // this store's consumer (see the group_members/coin_transactions channels)
+  // is what picks up a midnight deposit live, not this function re-running.
   initCoins: async (userId, groupId) => {
     set({ loading: true });
     try {
-      // Claim daily bonus first (idempotent — safe to call every app load)
-      const { data: bonusData, error: bonusErr } = await supabase.rpc('claim_daily_bonus', {
-        p_user_id: userId,
-        p_group_id: groupId,
-      });
-
-      if (!bonusErr && bonusData) {
-        const result = bonusData as { awarded: boolean; amount: number; balance: number };
-        set({ coins: result.balance, loading: false });
-        if (result.awarded) {
-          haptic('coin_drop');
-          useUIStore.getState().addToast(`+${result.amount} coins — daily bonus!`, 'success');
-        }
-        return;
-      }
-
-      // Fallback: just fetch the balance directly
       const { data, error } = await supabase
         .from('group_members')
         .select('coins')

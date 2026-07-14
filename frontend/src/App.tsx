@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
+import { supabase } from './lib/supabase';
 import { useAuthStore } from './stores/authStore';
 import { useGroupStore } from './stores/groupStore';
 import { useCoinsStore } from './stores/coinsStore';
@@ -99,16 +100,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Returns today's date string in Israel timezone (e.g. "2026-03-20")
-function getIsraelDate(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
-}
-
 function AppInitializer({ children }: { children: React.ReactNode }) {
   const { user, init } = useAuthStore();
   const { fetchGroups, activeGroupId } = useGroupStore();
   const initCoins = useCoinsStore(s => s.initCoins);
-  const lastInitDateRef = useRef<string>('');
 
   // Lenis smooth scrolling — exponential easing for premium liquid feel
   useEffect(() => {
@@ -140,26 +135,20 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id]);
 
-  // Init coins (+ claim daily bonus) whenever user or active group changes,
-  // and re-check on tab focus in case the user crossed midnight without refreshing.
+  // Init coins whenever user or active group changes. The daily bonus is no
+  // longer claimed here — it's deposited proactively by the pg_cron
+  // distribute_daily_allowance() sweep (V4 Sprint 12); coinsStore picks up the
+  // deposit live via a Realtime subscription, so there's no midnight-crossing
+  // recheck to do on this end anymore.
   useEffect(() => {
     if (!user || !activeGroupId) return;
-
-    lastInitDateRef.current = getIsraelDate();
     initCoins(user.id, activeGroupId);
 
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        const today = getIsraelDate();
-        if (today !== lastInitDateRef.current) {
-          lastInitDateRef.current = today;
-          initCoins(user.id, activeGroupId);
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+    // Best-effort activity heartbeat for the 3-day inactivity cap on the daily
+    // bonus — never blocks the UI, failure is silently ignored.
+    supabase.rpc('touch_last_active').then(({ error }) => {
+      if (error) console.warn('[AppInitializer] touch_last_active failed:', error.message);
+    });
   }, [user?.id, activeGroupId]);
 
   return <>{children}</>;
