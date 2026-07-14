@@ -21,6 +21,22 @@ export interface ArenaDistribution {
   risk_score: number;
 }
 
+export interface ArenaH2HMatchDetail {
+  match_id: string;
+  kickoff_time: string;
+  league_name: string;
+  home_team: string;
+  away_team: string;
+  home_score: number | null;
+  away_score: number | null;
+  user_predicted_home: number | null;
+  user_predicted_away: number | null;
+  opponent_predicted_home: number | null;
+  opponent_predicted_away: number | null;
+  user_points: number;
+  opponent_points: number;
+}
+
 export interface ArenaH2HRow {
   opponent_id: string;
   username: string;
@@ -31,6 +47,7 @@ export interface ArenaH2HRow {
   user_wins: number;
   opponent_wins: number;
   ties: number;
+  match_details: ArenaH2HMatchDetail[];
 }
 
 export interface StatsArenaPayload {

@@ -661,6 +661,9 @@ export const translations = {
     arenaH2HShared: 'Shared Matches',
     arenaH2HRecord: 'Record',
     arenaH2HEmpty: 'No shared match history yet',
+    arenaH2HExpandAria: 'View full match history',
+    arenaH2HMatchHistoryTitle: 'Match History',
+    arenaH2HFinal: 'Final',
   },
 
   he: {
@@ -1320,6 +1323,9 @@ export const translations = {
     arenaH2HShared: 'משחקים משותפים',
     arenaH2HRecord: 'מאזן',
     arenaH2HEmpty: 'אין עדיין היסטוריה משותפת',
+    arenaH2HExpandAria: 'הצג היסטוריית משחקים מלאה',
+    arenaH2HMatchHistoryTitle: 'היסטוריית משחקים',
+    arenaH2HFinal: 'תוצאה סופית',
   },
 } as const;
 
