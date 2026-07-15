@@ -5,6 +5,7 @@ import { sendMatchReminders } from '../services/pushSender';
 import { runProvocateurBatch } from '../services/aiProvocateur';
 import { sendStreakExpiryWarnings } from '../services/streakGuardian';
 import { lockExpiredMicroQuestions, resolveLockedMicroQuestions } from '../services/momentumBets';
+import { refreshCornersSupportFlags } from '../services/leagueStatCapability';
 import { logger } from '../lib/logger';
 
 let livePollerRunning = false;
@@ -131,6 +132,18 @@ export function startScheduler(): void {
       await runProvocateurBatch();
     } catch (err) {
       logger.error('[scheduler] Provocateur batch failed:', err);
+    }
+  });
+
+  // Corners stat-capability refresh — daily, 30 min after the midnight sync
+  // so that day's newly-resolved matches have already landed. This signal
+  // (V4 Sprint 26) only moves as leagues accumulate FT matches over days,
+  // never seconds — no reason to run it on a tighter cadence.
+  cron.schedule('35 0 * * *', async () => {
+    try {
+      await refreshCornersSupportFlags();
+    } catch (err) {
+      logger.error('[scheduler] Corners support refresh failed:', err);
     }
   });
 

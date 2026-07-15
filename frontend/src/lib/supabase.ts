@@ -84,6 +84,7 @@ export type Database = {
           penalty_away: number | null;
           red_cards_home: number | null;
           red_cards_away: number | null;
+          corners_supported: boolean | null;
           season: string | null;
           round: string | null;
           updated_at: string;
