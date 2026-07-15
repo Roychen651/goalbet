@@ -32,6 +32,7 @@ export interface AppNotification {
     [key: string]: unknown;
   };
   is_read: boolean;
+  dismissed_at: string | null;
   created_at: string;
 }
 
@@ -41,6 +42,7 @@ interface UseNotificationsReturn {
   loading: boolean;
   markAllRead: () => Promise<void>;
   markRead: (id: string) => Promise<void>;
+  dismiss: (id: string) => Promise<void>;
 }
 
 const MAX_NOTIFICATIONS = 50;
@@ -63,6 +65,7 @@ export function useNotifications(): UseNotificationsReturn {
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
+        .is('dismissed_at', null)
         .order('created_at', { ascending: false })
         .limit(MAX_NOTIFICATIONS);
 
@@ -151,7 +154,18 @@ export function useNotifications(): UseNotificationsReturn {
       .eq('id', id);
   }, []);
 
+  const dismiss = useCallback(async (id: string) => {
+    // Optimistic removal — a swiped-away card must not reappear on the next
+    // render, and dismissed_at is set server-side so it never reappears on
+    // the next fetch either.
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    await supabase
+      .from('notifications')
+      .update({ dismissed_at: new Date().toISOString(), is_read: true })
+      .eq('id', id);
+  }, []);
+
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  return { notifications, unreadCount, loading, markAllRead, markRead };
+  return { notifications, unreadCount, loading, markAllRead, markRead, dismiss };
 }

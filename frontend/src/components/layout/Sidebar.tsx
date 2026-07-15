@@ -22,7 +22,7 @@ export function Sidebar() {
   const { openModal } = useUIStore();
   const [showPolicy, setShowPolicy] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
-  const { unreadCount, notifications, loading, markAllRead, markRead } = useNotifications();
+  const { unreadCount, notifications, loading, markAllRead, markRead, dismiss } = useNotifications();
   const activeGroup = groups.find(g => g.id === activeGroupId);
 
   const NAV_ITEMS = [
@@ -113,6 +113,7 @@ export function Sidebar() {
           loading={loading}
           markAllRead={markAllRead}
           markRead={markRead}
+          dismiss={dismiss}
         />
       </div>
 
