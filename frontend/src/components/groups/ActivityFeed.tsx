@@ -4,24 +4,10 @@ import { useLangStore } from '../../stores/langStore';
 import { useGroupEvents, type GroupEvent } from '../../hooks/useGroupEvents';
 import { Avatar } from '../ui/Avatar';
 import { EmptyState } from '../ui/EmptyState';
-import { cn } from '../../lib/utils';
+import { cn, timeAgo } from '../../lib/utils';
 import { CoinIcon } from '../ui/CoinIcon';
 import { tg, type TranslationKey } from '../../lib/i18n';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
-
-// ── Time formatting ──────────────────────────────────────────────────────────
-
-function timeAgo(iso: string, t: (k: TranslationKey) => string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const secs = Math.floor(diff / 1000);
-  if (secs < 60) return t('justNow');
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return t('minsAgo').replace('{0}', String(mins));
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return t('hoursAgo').replace('{0}', String(hours));
-  const days = Math.floor(hours / 24);
-  return t('daysAgo').replace('{0}', String(days));
-}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

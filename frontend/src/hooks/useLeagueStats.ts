@@ -76,6 +76,23 @@ export interface TeamFormResponse {
   cachedAt: string;
 }
 
+// V4 Sprint 27 — The Pulse Feed
+export interface NewsArticle {
+  id: string;
+  headline: string;
+  description: string | null;
+  imageUrl: string | null;
+  link: string | null;
+  publishedAt: string | null;
+}
+
+export interface LeagueNewsResponse {
+  leagueId: number;
+  slug: string;
+  cachedAt: string;
+  articles: NewsArticle[];
+}
+
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? '';
 
 export function useLeagueStats(leagueId: number | null) {
@@ -203,6 +220,75 @@ export function useTeamForm(leagueId: number | null, teamId: string | null) {
       clearTimeout(timeout);
     };
   }, [leagueId, teamId]);
+
+  return { data, loading, error };
+}
+
+// V4 Sprint 27 — The Pulse Feed. Lazy: enabled only decides whether this hook
+// actually fetches, so a caller can mount it unconditionally and simply pass
+// `enabled={newsCardsScrolledIntoView}` (or similar) without restructuring
+// around conditional hook calls. 15-min cache, same shape as useTeamForm.
+const NEWS_CACHE_TTL_MS = 15 * 60 * 1000;
+const newsCache = new Map<number, { data: LeagueNewsResponse; expiresAt: number }>();
+
+export function useLeagueNews(leagueId: number | null, enabled: boolean) {
+  const [data, setData] = useState<LeagueNewsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (leagueId == null || !enabled) {
+      return;
+    }
+    if (!BACKEND_URL) {
+      setError('Backend URL not configured');
+      return;
+    }
+
+    const cached = newsCache.get(leagueId);
+    if (cached && cached.expiresAt > Date.now()) {
+      setData(cached.data);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20_000);
+
+    fetch(`${BACKEND_URL}/api/stats/${leagueId}/news`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          if (res.status === 404) return null;
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return (await res.json()) as LeagueNewsResponse;
+      })
+      .then((json) => {
+        if (cancelled) return;
+        setData(json);
+        if (json) newsCache.set(leagueId, { data: json, expiresAt: Date.now() + NEWS_CACHE_TTL_MS });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if ((err as Error).name === 'AbortError') return;
+        setError((err as Error).message);
+        setData(null);
+      })
+      .finally(() => {
+        clearTimeout(timeout);
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [leagueId, enabled]);
 
   return { data, loading, error };
 }

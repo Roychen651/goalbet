@@ -1,9 +1,26 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { Prediction, Match } from './supabase';
+import type { TranslationKey } from './i18n';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+// V4 Sprint 27 — extracted out of ActivityFeed.tsx the moment a second
+// consumer (PulseFeed.tsx's news timestamps) needed the identical relative-
+// time formatting. Same precedent as lib/espnEvents.ts (Sprint 19) and
+// lib/teamNameUtils.ts (Sprint 24): extract on the second real consumer.
+export function timeAgo(iso: string, t: (k: TranslationKey) => string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const secs = Math.floor(diff / 1000);
+  if (secs < 60) return t('justNow');
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return t('minsAgo').replace('{0}', String(mins));
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return t('hoursAgo').replace('{0}', String(hours));
+  const days = Math.floor(hours / 24);
+  return t('daysAgo').replace('{0}', String(days));
 }
 
 export function formatKickoffTime(kickoffTime: string, lang: 'en' | 'he' = 'en'): {
