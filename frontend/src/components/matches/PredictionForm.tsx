@@ -592,10 +592,20 @@ function ScoreStepper({ value, onChange }: { value: string; onChange: (v: string
             transition={{ type: 'spring', stiffness: 300, damping: 22, mass: 0.7 }}
             className={cn(
               'inline-block text-lg font-mono font-bold tabular-nums',
-              numValue === null ? 'text-text-muted/50' : 'text-yellow-400',
+              numValue === null ? 'text-text-muted/40' : 'text-yellow-400',
             )}
           >
-            {numValue ?? 0}
+            {/* Deliberately NOT "0" for the unset state — a real committed
+                0 and a dimmed placeholder "0" read as the exact same glyph
+                at a glance, so the first tap (unset -> 0) looked like
+                nothing had happened, even though it had just silently
+                committed a real, coin-costing prediction (and, via the
+                score->outcome auto-derivation below, locked Full Time
+                Result too). An em-dash placeholder makes "you have not
+                picked a value yet" vs. "you picked 0" two unmistakably
+                different glyphs — first tap has to visibly *replace* the
+                dash with a digit. */}
+            {numValue === null ? '—' : numValue}
           </motion.span>
         </AnimatePresence>
       </div>

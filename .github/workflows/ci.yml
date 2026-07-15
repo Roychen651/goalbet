@@ -97,16 +97,21 @@ jobs:
       - name: Setup Supabase CLI
         if: steps.secrets.outputs.ok == 'true'
         uses: supabase/setup-cli@v1
-        env:
-          # supabase/setup-cli resolves "latest" via GitHub's releases API.
-          # Unauthenticated Actions-runner calls to that API share a 60/hr
-          # rate limit across everyone hitting it from the same egress IP
-          # range, which this run just tripped. Passing the auto-provided
-          # GITHUB_TOKEN authenticates those calls (5000/hr instead), same
-          # fix GitHub recommends for any setup-* action that calls their API.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          version: latest
+          # Pinned instead of "latest" — this alone removes the GitHub
+          # releases API call (and its 60/hr unauthenticated rate limit)
+          # from the critical path entirely; "latest" has to resolve a
+          # version first, a pinned number doesn't. Bump this number
+          # periodically rather than reverting to "latest".
+          version: 2.34.4
+          # Kept as defense in depth: the `v1` action.yml declares its own
+          # `github-token` INPUT (read via `with:`, not a plain GITHUB_TOKEN
+          # env var — the previous fix set the env var, which this action
+          # never reads, so it silently did nothing and the rate limit hit
+          # again on the very next run). Passing it here authenticates any
+          # release-metadata call the action still makes (5000/hr instead
+          # of 60/hr), in case a future bump back to "latest" is ever made.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # Mark all known migrations as applied (idempotent — safe to re-run).
       # New migrations are applied manually in Supabase SQL Editor.
