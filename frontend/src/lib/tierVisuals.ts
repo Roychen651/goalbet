@@ -5,13 +5,13 @@
 // don't duplicate a second hardcoded copy of the same values.
 //
 // Index order is the CANONICAL 5-tier order (Result / Score / Corners /
-// BTTS / Over-Under) — always fixed here, unlike PredictionForm.tsx's own
-// per-match `tiers` array, whose length (and therefore which index maps to
-// which tier) shifts when a league has corners disabled
-// (LEAGUES_WITHOUT_CORNERS). Consumers that need the canonical ledger
-// (the Almanac) should index this array directly by tier number; consumers
-// that build a per-match tier list (PredictionForm.tsx) keep computing
-// their own positional index against this same array.
+// BTTS / Over-Under). V4 Sprint 26 — PredictionForm.tsx's own per-match
+// `tiers` array now matches this same fixed order too: the Corners tier
+// used to be conditionally spread OUT of the array entirely for
+// LEAGUES_WITHOUT_CORNERS leagues (shifting every later index), but it's
+// now always present — just conditionally `disabled` with an explanatory
+// tooltip instead of silently missing. Both consumers can index this array
+// positionally with no special-casing.
 
 // Sprint 20 — `emboss` replaces `glow` as the selected-chip shadow: an inner
 // light-catch (reads as raised/lit from above) plus an outward glow in the
