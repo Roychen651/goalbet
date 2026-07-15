@@ -975,8 +975,41 @@ html.light .glass-grain { mix-blend-mode: multiply; }
   opacity: 0;
   transition: opacity 0.3s ease;
 }
-.tactile-tilt:hover::after {
-  opacity: 1;
+/* Gated to the same (hover: hover) and (pointer: fine) capability check
+   useTactileTilt.ts already applies in JS before attaching any listeners —
+   a bare `:hover` here (no media gate) was the actual bug: mobile Safari
+   fires `:hover` on tap and, with no real mouse to ever leave the element,
+   it can stay "stuck" applied until a different element is tapped. That
+   left whichever tactile card a touch user tapped last glowing statically
+   (centered, since --glare-x/-y are never written on a device the JS hook
+   correctly determined has no hover capability) — reported live, visible
+   in a screenshot as an unexplained glow on an otherwise-locked Trophy
+   Cabinet card. Scoping the CSS trigger to the same media query the JS
+   already uses makes the glare structurally impossible to trigger via tap
+   at all, not just less likely to stick. */
+@media (hover: hover) and (pointer: fine) {
+  .tactile-tilt:hover::after {
+    opacity: 1;
+  }
+}
+
+/* GlassCard's `interactive` cursor-tracking spotlight (a separate glare
+   implementation from .tactile-tilt above, GlassCard.tsx's motion.div
+   branch) had the identical bug via a bare `group-hover:opacity-100`
+   Tailwind utility — same fix, same reason: gate the CSS trigger to the
+   same capability check the tilt hook already applies in JS. */
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .glass-spotlight {
+    opacity: 1;
+  }
+}
+
+/* ProfilePage's avatar edit-pencil overlay — same sticky-:hover-on-touch
+   bug as the two rules above, different component. */
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .avatar-edit-overlay {
+    opacity: 1;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .tactile-tilt {

@@ -96,10 +96,13 @@ export function GlassCard({
         onMouseMove={interactive ? handleMouseMove : undefined}
         className={cn(base, onClick && 'cursor-pointer')}
       >
-        {/* Dynamic cursor-tracking spotlight — pointer-events-none so it never blocks clicks */}
+        {/* Dynamic cursor-tracking spotlight — pointer-events-none so it never blocks clicks.
+            Visibility trigger lives in index.css's .glass-spotlight rule, gated to
+            (hover: hover) and (pointer: fine) — a bare `group-hover:` here would fire
+            (and stick, since touch has no real "unhover") on every tap on a touchscreen. */}
         {interactive && (
           <motion.div
-            className="pointer-events-none absolute -inset-px rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            className="glass-spotlight pointer-events-none absolute -inset-px rounded-xl opacity-0 transition-opacity duration-300"
             style={{ background: glareBackground }}
           />
         )}
