@@ -20,6 +20,7 @@ type Outcome = 'H' | 'D' | 'A';
 
 interface PickRow {
   username: string;
+  gender: 'male' | 'female' | 'unspecified';
   rank: number | null;
   points: number | null;
   outcome: Outcome;
@@ -33,13 +34,27 @@ const LIVE_OR_KICKED = ['NS', '1H', 'HT', '2H', 'ET1', 'ET2', 'AET', 'PEN'];
 
 const SYSTEM_EN = `You are the GoalBet "Locker Room Provocateur" — a witty, sharp football pundit who stirs friendly rivalry between friends in a prediction league. Given their conflicting picks and league standings, write EXACTLY TWO short sentences of playful, provocative banter. Name names. Reference their rank where it lands (the leader betting recklessly, an underdog's bold call). Punchy and teasing, never cruel, never profane. Reply ONLY in English. Max 45 words. Output the banter only, no quotes.`;
 
-const SYSTEM_HE = `אתה ה"מתגרה" של GoalBet — פרשן כדורגל חד ושנון שמלבה יריבות ידידותית בין חברים בליגת ניחושים. בהינתן הניחושים המנוגדים והדירוג, כתוב בדיוק שני משפטים קצרים של התגרות משועשעת ופרובוקטיבית. נקוב בשמות. התייחס לדירוג (המוביל שמהמר בפזיזות, ניחוש נועז של מי שמאחור). חד ומתגרה, לעולם לא אכזרי ולא גס. השב אך ורק בעברית. עד 45 מילים. החזר את ההתגרות בלבד, בלי מרכאות.`;
+// V4 Sprint 24 — each pick line below carries a [זכר]/[נקבה]/[לא ידוע]
+// gender tag (see pickLine()) since a single banter can name MULTIPLE
+// users with different genders — a single blanket "address in gender X"
+// instruction would be wrong here, unlike a 1:1 notification. The tag is
+// bracketed, all-caps-equivalent, and explicitly labeled as metadata (not
+// part of anyone's name) so the model treats it as a grammar instruction,
+// not text to quote back.
+const SYSTEM_HE = `אתה ה"מתגרה" של GoalBet — פרשן כדורגל חד ושנון שמלבה יריבות ידידותית בין חברים בליגת ניחושים. בהינתן הניחושים המנוגדים והדירוג, כתוב בדיוק שני משפטים קצרים של התגרות משועשעת ופרובוקטיבית. נקוב בשמות. התייחס לדירוג (המוביל שמהמר בפזיזות, ניחוש נועז של מי שמאחור). כל שחקן מתויג בסוגריים לפי מגדר דקדוקי ([זכר]/[נקבה]/[לא ידוע]) — הטיה את הפעלים המתארים כל שחקן לפי התיוג שלו (למשל "הימר"/"הימרה"), והתיוג עצמו לעולם לא חלק מהטקסט שאתה כותב. כשהמגדר [לא ידוע], נסח בלי לחשוף מגדר (למשל בגוף שם עצם, לא פועל מוטה). חד ומתגרה, לעולם לא אכזרי ולא גס. השב אך ורק בעברית. עד 45 מילים. החזר את ההתגרות בלבד, בלי מרכאות.`;
+
+const GENDER_TAG_HE: Record<PickRow['gender'], string> = {
+  male: 'זכר',
+  female: 'נקבה',
+  unspecified: 'לא ידוע',
+};
 
 function pickLine(p: PickRow, homeTeam: string, awayTeam: string, isHe: boolean): string {
   const call = p.outcome === 'H' ? homeTeam : p.outcome === 'A' ? awayTeam : isHe ? 'תיקו' : 'Draw';
   const score = p.homeScore != null && p.awayScore != null ? ` ${p.homeScore}-${p.awayScore}` : '';
   const rank = p.rank != null ? ` (#${p.rank}, ${p.points}${isHe ? ' נק׳' : 'pts'})` : '';
-  return `- ${p.username}${rank} → ${call}${score}`;
+  const genderTag = isHe ? ` [${GENDER_TAG_HE[p.gender]}]` : '';
+  return `- ${p.username}${genderTag}${rank} → ${call}${score}`;
 }
 
 async function generateBanter(
@@ -121,7 +136,10 @@ export async function runProvocateurBatch(limit = 3): Promise<void> {
 
         const userIds = [...new Set(preds.map(p => p.user_id))];
         const [{ data: profiles }, { data: lb }] = await Promise.all([
-          supabaseAdmin.from('profiles').select('id, username').in('id', userIds),
+          // V4 Sprint 24 — gender selected alongside username so each pick
+          // line can carry its own [male]/[female]/[unknown] tag; a single
+          // banter can name several users with different genders.
+          supabaseAdmin.from('profiles').select('id, username, gender').in('id', userIds),
           supabaseAdmin.from('leaderboard').select('user_id, total_points').eq('group_id', g.id),
         ]);
 
@@ -129,9 +147,11 @@ export async function runProvocateurBatch(limit = 3): Promise<void> {
         const rankMap = new Map<string, { rank: number; points: number }>();
         ranked.forEach((r, i) => rankMap.set(r.user_id, { rank: i + 1, points: r.total_points }));
         const nameMap = new Map((profiles ?? []).map(p => [p.id, p.username]));
+        const genderMap = new Map((profiles ?? []).map(p => [p.id, (p.gender ?? 'unspecified') as PickRow['gender']]));
 
         const picks: PickRow[] = preds.map(p => ({
           username: nameMap.get(p.user_id) ?? 'Someone',
+          gender: genderMap.get(p.user_id) ?? 'unspecified',
           rank: rankMap.get(p.user_id)?.rank ?? null,
           points: rankMap.get(p.user_id)?.points ?? null,
           outcome: p.predicted_outcome as Outcome,
