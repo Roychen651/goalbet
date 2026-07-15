@@ -1070,6 +1070,26 @@ html.light .glass-grain { mix-blend-mode: multiply; }
   }
 }
 
+/* Bento Almanac — Game Loop connector line (Sprint 25). A single shared
+   @keyframes rule, not a per-instance Framer Motion loop — same reasoning
+   as .live-clock-pulse-* above and the World Cup aurora blobs: this is an
+   ambient, always-on loop with zero interaction state, so it belongs on
+   the compositor, not React's render cycle. background-size:200% + a
+   sweeping background-position reads as "energy flowing along the path"
+   with zero per-frame JS. */
+@keyframes flowConnector {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: -200% 0%; }
+}
+.help-connector-line {
+  background-image: linear-gradient(90deg, var(--color-accent-green) 0%, transparent 25%, var(--color-accent-green) 50%, transparent 75%, var(--color-accent-green) 100%);
+  background-size: 200% 100%;
+  animation: flowConnector 3s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .help-connector-line { animation: none; background-position: 0% 0%; }
+}
+
 /* Brutalist hollow display text — absurdly large, thin-stroke outline.
    Used for the scroll-reveal "2026" behind the Hero content. */
 .wc-brutalist-hollow {
