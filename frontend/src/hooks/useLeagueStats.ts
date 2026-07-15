@@ -26,9 +26,19 @@ export interface LeaderRow {
   shortName: string;
   teamName: string | null;
   teamLogo: string | null;
+  // V4 Sprint 27 — best-effort ESPN athlete headshot URL, may be null.
+  // EntityBadge's built-in gradient-initials fallback covers a missing/broken
+  // photo, so this is never a hard requirement on the render side.
+  photo: string | null;
   value: number;
   matches: number | null;
   displayValue: string;
+}
+
+export interface LeagueLeaders {
+  scorers: LeaderRow[];
+  assists: LeaderRow[];
+  discipline: LeaderRow[];
 }
 
 export interface StatsResponse {
@@ -37,7 +47,7 @@ export interface StatsResponse {
   season: number;
   cachedAt: string;
   standings: StandingsRow[];
-  leaders: { scorers: LeaderRow[]; assists: LeaderRow[] } | null;
+  leaders: LeagueLeaders | null;
 }
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? '';
