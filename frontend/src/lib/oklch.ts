@@ -90,3 +90,24 @@ export function interpolateDiverging(ratio: number): DivergingColor {
     l,
   };
 }
+
+// Sprint 19 — deterministic team "brand halo" hue. No team primary-color
+// field exists anywhere in this codebase (matches/FOOTBALL_LEAGUES only
+// carry a per-LEAGUE accent, LEAGUE_ACCENT in MatchCard.tsx) and ESPN's
+// soccer competitor objects don't reliably expose one either. A stable hash
+// of the team name is the honest, zero-network-call substitute: same team
+// always renders the same hue, no per-card image sampling (expensive across
+// a whole feed), no risk of an unverified ESPN field being absent at runtime.
+function hashTeamHue(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % 360;
+}
+
+/** Subtle radial-gradient-ready OKLCH color for a team's atmospheric card halo. */
+export function teamHaloColor(name: string, alpha = 0.18): string {
+  const hue = hashTeamHue(name);
+  return `oklch(65% 0.15 ${hue} / ${alpha})`;
+}

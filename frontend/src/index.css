@@ -948,6 +948,30 @@ html.light .glass-grain { mix-blend-mode: multiply; }
   }
 }
 
+/* Variable-opacity gradient border (Sprint 19 — "eliminate flat boxiness").
+   Standard CSS-only gradient-border trick: a ::before ring sized by its own
+   padding, masked to its own ring via mask-composite:exclude so only the
+   ring itself paints, not the full rect. Compositor-only (a mask, not a
+   filter or JS), so it's cheap even across a whole feed of match cards.
+   Uses the theme's own border tokens (bright -> subtle) rather than a new
+   hardcoded color, so it stays correct across dark/light automatically. */
+.gradient-edge {
+  position: relative;
+}
+.gradient-edge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--color-border-bright) 0%, transparent 60%, var(--color-border-subtle) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
 /* Brutalist hollow display text — absurdly large, thin-stroke outline.
    Used for the scroll-reveal "2026" behind the Hero content. */
 .wc-brutalist-hollow {

@@ -22,6 +22,8 @@ interface GlassCardProps {
   tactile?: boolean;
   /** On touch devices, falls back to opted-in gyroscope tilt instead of doing nothing (Sprint 16 Commit 3). Use sparingly — one focused card, never a whole grid. */
   allowGyroscope?: boolean;
+  /** Sprint 19 — variable-opacity gradient border (a single ::before pseudo-element, mask-composite:exclude) instead of a flat single-opacity border-color. Replaces the real border with a transparent one so the two don't double up. */
+  edgeGradient?: boolean;
 }
 
 export function GlassCard({
@@ -37,6 +39,7 @@ export function GlassCard({
   grain,
   tactile,
   allowGyroscope,
+  edgeGradient,
 }: GlassCardProps) {
   // Always initialize motion values — hooks must be unconditional
   const mouseX = useMotionValue(0);
@@ -70,6 +73,9 @@ export function GlassCard({
     // Needed for the absolute-positioned glare/grain overlay to be contained
     (interactive || onClick || grain || tactile) && 'relative overflow-hidden group',
     tactile && 'tactile-tilt',
+    // The gradient ring pseudo-element replaces the flat single-opacity
+    // border-color entirely — a real border underneath would double up.
+    edgeGradient && ['gradient-edge', 'border-transparent'],
     className,
   );
 

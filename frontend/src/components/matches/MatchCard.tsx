@@ -12,6 +12,7 @@ import { Avatar } from '../ui/Avatar';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import { HTAnalystCard } from '../ui/HTAnalystCard';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown, isMatchLocked } from '../../lib/utils';
+import { teamHaloColor } from '../../lib/oklch';
 import { haptic } from '../../lib/haptics';
 import { CoinIcon } from '../ui/CoinIcon';
 import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../../lib/constants';
@@ -377,9 +378,14 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
   const awayWon = isFinished && match.home_score !== null && match.away_score !== null && (match.away_score > match.home_score || awayWonOnPens);
 
   // Predicted live cards get a blue glow — visually distinct from unpredicted live (green)
+  // Sprint 19 — the plain (non-live) state now reuses 'elevated' (deeper
+  // blur + ambient shadow, already existed for the Bento Arena) instead of
+  // the flat 'default' — real depth for zero new CSS, and it's the majority
+  // of cards in any feed (NS/finished), i.e. exactly the ones that read
+  // flattest before this.
   const cardVariant = isInProgress
     ? (hasPrediction ? 'live-predicted' : 'live')
-    : 'default';
+    : 'elevated';
 
   return (
     <div ref={cardRef}>
@@ -389,6 +395,8 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
       leagueAccent={LEAGUE_ACCENT[match.league_id]}
       className="overflow-hidden"
       breathing={enableLiveAnimations && isInProgress}
+      grain
+      edgeGradient
     >
       {/* Card header */}
       <button
@@ -515,7 +523,13 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
                           ? { type: 'spring', stiffness: 200, damping: 18, mass: 0.8 }
                           : { duration: 0 }
                         }
-                        className="text-2xl font-bebas tracking-widest"
+                        // Sprint 19 — font-mono + tabular-nums instead of
+                        // font-bebas: Bebas's numerals aren't monospaced, so
+                        // a score flip (0-0 -> 1-0) could reflow surrounding
+                        // layout by 1-2px on every goal. Monospace tabular
+                        // figures keep the box the same width regardless of
+                        // which digits are showing.
+                        className="text-2xl font-mono font-bold tabular-nums"
                       >
                         <span className={homeLeading ? 'text-accent-green' : awayLeading ? 'text-white/50' : 'text-white'}>{match.home_score ?? 0}</span>
                         <span className="text-white/40"> — </span>
@@ -528,7 +542,7 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
                   <div className="flex items-center gap-1.5">
                     <span
                       className={cn(
-                        'text-xs font-bold tracking-wider animate-pulse',
+                        'text-xs font-mono font-bold tabular-nums animate-pulse',
                         ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status) ? 'text-amber-400' : 'text-accent-green'
                       )}
                     >
@@ -1233,9 +1247,19 @@ function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 
   const shortName = name.length > 12 ? name.split(' ').pop() || name : name;
   const highlight = isWinner || isLeading;
   const cardCount = Math.min(redCards, 3); // cap at 3 for layout safety
+  // Sprint 19 — atmospheric team brand halo behind the badge. `isolate` on
+  // the wrapper forces a new stacking context so the halo's -z-10 stays
+  // contained to this wrapper instead of risking painting behind the whole
+  // card (a plain `relative` parent alone doesn't guarantee that).
+  const haloColor = teamHaloColor(name);
   return (
     <div className={cn('flex flex-col items-center gap-1 w-[80px]')}>
-      <div className="relative">
+      <div className="relative isolate">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -z-10 inset-[-45%] rounded-full blur-xl"
+          style={{ background: `radial-gradient(circle, ${haloColor} 0%, transparent 70%)` }}
+        />
         {badge ? (
           <img
             src={badge}
@@ -1252,9 +1276,11 @@ function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 
         ) : (
           <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-base">⚽</div>
         )}
-        {/* Red cards — shown in top-right corner of badge when > 0 */}
+        {/* Red cards — shown in top-end corner of badge when > 0 (logical
+            positioning — CLAUDE.md rule 4.10 — so this mirrors correctly in
+            RTL instead of always sitting physically top-right) */}
         {cardCount > 0 && (
-          <div className="absolute -top-1 -right-1 flex gap-[2px]">
+          <div className="absolute -top-1 -end-1 flex gap-[2px]">
             {Array.from({ length: cardCount }).map((_, i) => (
               <motion.div
                 key={i}
