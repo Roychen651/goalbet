@@ -20,16 +20,20 @@ interface LeaderboardTableProps {
   sparklineMap?: Map<string, RecentPrediction[]>;
   /** Weekly rank delta per user_id (positive = moved up). 'weekly' tab only. */
   rankDeltaMap?: Map<string, number>;
+  /** V4 Sprint 23 — notification "View Standings" deep link (?highlight=<user_id>).
+   *  Seeds the initially-expanded row so a rank_drop notification's CTA lands
+   *  directly on the user's own recap instead of a flat, unremarkable table. */
+  initialHighlightUserId?: string | null;
 }
 
-export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap, sparklineMap, rankDeltaMap }: LeaderboardTableProps) {
+export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap, sparklineMap, rankDeltaMap, initialHighlightUserId }: LeaderboardTableProps) {
   const { t } = useLangStore();
   // Sprint 21 — which row's lightweight in-place preview is open, if any.
   // Deliberately separate from onUserClick's modal-opening row click — the
   // existing own-row/other-row modal split (UserMatchHistoryModal/H2HModal)
   // stays exactly as-is; this is an additional, smaller affordance, not a
   // replacement for it.
-  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(initialHighlightUserId ?? null);
 
   if (loading) return <PageLoader />;
   if (entries.length === 0) {

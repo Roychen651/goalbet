@@ -10,10 +10,12 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
-import { Bell, CheckCheck } from 'lucide-react';
+import { Bell, CheckCheck, ChevronRight } from 'lucide-react';
 import { AppNotification } from '../../hooks/useNotifications';
 import { useLangStore } from '../../stores/langStore';
+import { useGroupStore } from '../../stores/groupStore';
 import type { TranslationKey } from '../../lib/i18n';
 import { cn } from '../../lib/utils';
 import { haptic } from '../../lib/haptics';
@@ -44,7 +46,16 @@ function relativeTime(createdAt: string, t: (key: TranslationKey) => string): st
 
 // ─── Content builder — language-aware, metadata-driven ───────────────────────
 
-function buildContent(notif: AppNotification, t: (key: TranslationKey) => string) {
+// V4 Sprint 23 — 'view_match' routes to HomePage's ?focus deep link,
+// 'view_standings' to LeaderboardPage's ?highlight deep link. Only rendered
+// when the notification actually carries the id the target page needs
+// (match_id for prediction_result) — a CTA with nowhere real to go is worse
+// than no CTA.
+type NotifCta = 'view_match' | 'view_standings' | null;
+
+function buildContent(notif: AppNotification, t: (key: TranslationKey) => string): {
+  title: string; body: string; badge: string | null; positive: boolean; cta: NotifCta;
+} {
   if (notif.type === 'prediction_result') {
     const {
       home_team = '', away_team = '',
@@ -60,6 +71,7 @@ function buildContent(notif: AppNotification, t: (key: TranslationKey) => string
       body:     `${home_team}${scoreStr}${away_team}`,
       badge:    `+${points_earned} ${t('notifPts')}  ·  +${coins_earned} ${t('notifCoins')}`,
       positive: points_earned > 0,
+      cta:      notif.metadata.match_id ? 'view_match' : null,
     };
   }
   if (notif.type === 'rank_drop') {
@@ -71,21 +83,23 @@ function buildContent(notif: AppNotification, t: (key: TranslationKey) => string
         : t('notifRankDropBodyGeneric').replace('{0}', String(new_rank ?? '?')),
       badge: old_rank != null && new_rank != null ? `#${old_rank} → #${new_rank}` : null,
       positive: false,
+      cta: 'view_standings',
     };
   }
 
-  return { title: notif.title_key, body: notif.body_key, badge: null, positive: false };
+  return { title: notif.title_key, body: notif.body_key, badge: null, positive: false, cta: null };
 }
 
 // ─── Single notification row ──────────────────────────────────────────────────
 
-function NotifRow({ notif, t, onRead, onDismiss }: {
+function NotifRow({ notif, t, onRead, onDismiss, onCta }: {
   notif: AppNotification;
   t: (key: TranslationKey) => string;
   onRead: (id: string) => void;
   onDismiss: (id: string) => void;
+  onCta: (notif: AppNotification, cta: 'view_match' | 'view_standings') => void;
 }) {
-  const { title, body, badge, positive } = buildContent(notif, t);
+  const { title, body, badge, positive, cta } = buildContent(notif, t);
   const timeLabel = relativeTime(notif.created_at, t);
   // Fires the threshold-cross feedback exactly once per drag gesture, not on
   // every pixel of movement past the line.
@@ -164,6 +178,19 @@ function NotifRow({ notif, t, onRead, onDismiss }: {
           </div>
         </div>
       </button>
+
+      {/* Inline quick-action CTA — a sibling of the mark-read button, not
+          nested inside it (two interactive elements can't nest validly).
+          Its own onClick, so tapping it never also fires markRead's toggle. */}
+      {cta && (
+        <button
+          onClick={() => onCta(notif, cta)}
+          className="flex items-center gap-1 ms-[26px] mb-3 -mt-1 text-[11px] font-bold text-accent-green hover:opacity-80 transition-opacity"
+        >
+          {cta === 'view_match' ? t('notifViewMatch') : t('notifViewStandings')}
+          <ChevronRight size={12} className="rtl:rotate-180" />
+        </button>
+      )}
     </motion.div>
   );
 }
@@ -233,12 +260,13 @@ function NotifHeader({ t, unreadCount, markAllRead }: {
 
 // ─── Shared list body ──────────────────────────────────────────────────────────
 
-function NotifList({ notifications, loading, t, markRead, dismiss, className }: {
+function NotifList({ notifications, loading, t, markRead, dismiss, onCta, className }: {
   notifications: AppNotification[];
   loading: boolean;
   t: (key: TranslationKey) => string;
   markRead: (id: string) => Promise<void>;
   dismiss: (id: string) => Promise<void>;
+  onCta: (notif: AppNotification, cta: 'view_match' | 'view_standings') => void;
   className?: string;
 }) {
   return (
@@ -252,7 +280,7 @@ function NotifList({ notifications, loading, t, markRead, dismiss, className }: 
       ) : (
         <AnimatePresence mode="popLayout" initial={false}>
           {notifications.map(n => (
-            <NotifRow key={n.id} notif={n} t={t} onRead={markRead} onDismiss={dismiss} />
+            <NotifRow key={n.id} notif={n} t={t} onRead={markRead} onDismiss={dismiss} onCta={onCta} />
           ))}
         </AnimatePresence>
       )}
@@ -278,7 +306,25 @@ interface NotificationCenterProps {
 
 export function NotificationCenter({ open, onClose, placement = 'bottom', notifications, unreadCount, loading, markAllRead, markRead, dismiss }: NotificationCenterProps) {
   const { t, lang } = useLangStore();
+  const navigate = useNavigate();
+  const { activeGroupId, setActiveGroup } = useGroupStore();
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // V4 Sprint 23 — inline quick-action CTA routing. A notification's match
+  // (or standings) may belong to a group other than the one the user is
+  // currently viewing — switching active group first is what makes the
+  // deep link actually resolve to something real, not just an empty feed.
+  const handleCta = (notif: AppNotification, cta: 'view_match' | 'view_standings') => {
+    if (notif.group_id && notif.group_id !== activeGroupId) {
+      setActiveGroup(notif.group_id);
+    }
+    onClose();
+    if (cta === 'view_match' && notif.metadata.match_id) {
+      navigate(`/?focus=${notif.metadata.match_id}`);
+    } else if (cta === 'view_standings') {
+      navigate(`/leaderboard?highlight=${notif.user_id}`);
+    }
+  };
 
   // Close on outside click. Skip clicks on the bell button itself — otherwise
   // tapping the bell while the panel is open fires this handler first (closing
@@ -353,7 +399,7 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
               transition={{ type: 'spring', stiffness: 340, damping: 34, mass: 0.8 }}
             >
               <NotifHeader t={t} unreadCount={unreadCount} markAllRead={markAllRead} />
-              <NotifList notifications={notifications} loading={loading} t={t} markRead={markRead} dismiss={dismiss} className="flex-1" />
+              <NotifList notifications={notifications} loading={loading} t={t} markRead={markRead} dismiss={dismiss} onCta={handleCta} className="flex-1" />
             </motion.div>
           </>
         )}
@@ -391,7 +437,7 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
           }}
         >
           <NotifHeader t={t} unreadCount={unreadCount} markAllRead={markAllRead} />
-          <NotifList notifications={notifications} loading={loading} t={t} markRead={markRead} dismiss={dismiss} className="max-h-[380px]" />
+          <NotifList notifications={notifications} loading={loading} t={t} markRead={markRead} dismiss={dismiss} onCta={handleCta} className="max-h-[380px]" />
         </motion.div>
       )}
     </AnimatePresence>
