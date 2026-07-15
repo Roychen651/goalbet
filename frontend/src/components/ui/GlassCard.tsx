@@ -24,6 +24,22 @@ interface GlassCardProps {
   allowGyroscope?: boolean;
   /** Sprint 19 — variable-opacity gradient border (a single ::before pseudo-element, mask-composite:exclude) instead of a flat single-opacity border-color. Replaces the real border with a transparent one so the two don't double up. */
   edgeGradient?: boolean;
+  /**
+   * Applied to the internal `relative z-10` wrapper that lifts real content
+   * above the glare/grain overlays (see the comment at that div below) —
+   * NOT the outer element `className` styles. Any flex/grid layout classes
+   * meant to govern `children` directly (`flex flex-col gap-3`,
+   * `justify-between`, `items-center`, …) must go here, never in
+   * `className`: the outer element's children are that wrapper div, not
+   * `children` itself, so a flex className on the outer only ever lays out
+   * one item (the wrapper) — reported live as visibly broken spacing/
+   * centering on real cards (BentoArena's streak/risk tiles, Trophy
+   * Cabinet's badge icons) before this prop existed. Only meaningful when
+   * `interactive`, `grain`, or `tactile` is set (the plain render branch
+   * has no wrapper — `children` renders directly, `className` already
+   * reaches it correctly there).
+   */
+  contentClassName?: string;
 }
 
 export function GlassCard({
@@ -40,6 +56,7 @@ export function GlassCard({
   tactile,
   allowGyroscope,
   edgeGradient,
+  contentClassName,
 }: GlassCardProps) {
   // Always initialize motion values — hooks must be unconditional
   const mouseX = useMotionValue(0);
@@ -111,8 +128,9 @@ export function GlassCard({
             all three are absolute-positioned with a positive z-index, which
             paints over plain static children per CSS stacking order unless
             content is explicitly promoted too (bit us once already for
-            grain alone, Sprint 15) */}
-        <div className={cn((interactive || grain || tactile) && 'relative z-10')}>
+            grain alone, Sprint 15). contentClassName lands here, not on
+            the outer motion.div — see the prop doc above. */}
+        <div className={cn((interactive || grain || tactile) && 'relative z-10', contentClassName)}>
           {children}
         </div>
       </motion.div>
@@ -126,7 +144,7 @@ export function GlassCard({
         {/* relative z-10 keeps in-flow content painting above the absolute,
             positive-z-index grain overlay — without it grain (a positioned
             layer) paints over plain static children per CSS stacking order */}
-        <div className="relative z-10">{children}</div>
+        <div className={cn('relative z-10', contentClassName)}>{children}</div>
       </Tag>
     );
   }
@@ -134,7 +152,7 @@ export function GlassCard({
   if (tactile) {
     return (
       <Tag ref={tiltRef} className={base} style={dynamicStyle}>
-        <div className="relative z-10">{children}</div>
+        <div className={cn('relative z-10', contentClassName)}>{children}</div>
       </Tag>
     );
   }

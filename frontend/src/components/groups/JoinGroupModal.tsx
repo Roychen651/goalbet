@@ -36,7 +36,8 @@ export function JoinGroupModal({ onClose }: JoinGroupModalProps) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <GlassCard
         variant="elevated"
-        className="w-full max-w-sm p-6 space-y-5"
+        className="w-full max-w-sm p-6"
+        contentClassName="space-y-5"
         onClick={e => e.stopPropagation()}
       >
         <div>

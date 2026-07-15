@@ -43,7 +43,13 @@ export function PredictionCardDesktop({
         className="relative w-full max-w-[460px] max-h-[85dvh]"
         onClick={e => e.stopPropagation()}
       >
-        <GlassCard variant="elevated" grain edgeGradient className="flex flex-col max-h-[85dvh] overflow-hidden">
+        <GlassCard
+          variant="elevated"
+          grain
+          edgeGradient
+          className="max-h-[85dvh] overflow-hidden"
+          contentClassName="flex flex-col h-full"
+        >
           <div className="flex items-center justify-between px-4 pt-4 pb-2.5 border-b border-white/8 shrink-0">
             <div className="flex min-w-0 flex-col">
               <h2 className="truncate text-sm font-bold text-text-primary">
