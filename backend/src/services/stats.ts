@@ -38,9 +38,26 @@ export interface LeaderRow {
   shortName: string;
   teamName: string | null;
   teamLogo: string | null;
+  // V4 Sprint 27 — best-effort ESPN athlete headshot URL. This sandbox cannot
+  // reach ESPN's API to verify the real field name/shape (site.web.api.espn.com
+  // is 403'd on the outbound CONNECT tunnel here), so this reads the
+  // conventional `athlete.headshot.href` shape used elsewhere in ESPN's site
+  // API family, with graceful null fallback. EntityBadge already renders a
+  // gradient-initials fallback for any null/broken URL — a wrong guess here
+  // degrades silently, it never breaks the UI.
+  photo: string | null;
   value: number;
   matches: number | null;
   displayValue: string;
+}
+
+export interface LeagueLeaders {
+  scorers: LeaderRow[];
+  assists: LeaderRow[];
+  // V4 Sprint 27 — "Discipline" category (yellow cards). Same graceful-null
+  // pattern as scorers/assists: many leagues/seasons simply don't expose a
+  // yellowCardsLeaders node, so this stays optional rather than required.
+  discipline: LeaderRow[];
 }
 
 export interface StatsResponse {
@@ -49,7 +66,7 @@ export interface StatsResponse {
   season: number;
   cachedAt: string;
   standings: StandingsRow[];
-  leaders: { scorers: LeaderRow[]; assists: LeaderRow[] } | null;
+  leaders: LeagueLeaders | null;
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -130,6 +147,8 @@ function mapLeaderList(list: Record<string, unknown>[] | undefined): LeaderRow[]
     const displayValue = String(entry.displayValue ?? '');
     const value = typeof entry.value === 'number' ? entry.value : parseFloat(String(entry.value ?? '0'));
 
+    const headshot = (athlete.headshot as Record<string, unknown> | undefined);
+
     rows.push({
       rank: idx + 1,
       athleteId: String(athlete.id ?? ''),
@@ -137,6 +156,7 @@ function mapLeaderList(list: Record<string, unknown>[] | undefined): LeaderRow[]
       shortName: String(athlete.shortName ?? athlete.displayName ?? 'Unknown'),
       teamName: team.displayName ? String(team.displayName) : team.name ? String(team.name) : null,
       teamLogo: String(team.logo ?? '') || pickLogo(team.logos as Record<string, unknown>[] | undefined),
+      photo: (headshot?.href ? String(headshot.href) : null),
       value: Number.isFinite(value) ? value : 0,
       matches: parseMatches(displayValue),
       displayValue,
@@ -145,7 +165,7 @@ function mapLeaderList(list: Record<string, unknown>[] | undefined): LeaderRow[]
   return rows.slice(0, 10);
 }
 
-async function fetchLeaders(slug: string, season: number): Promise<{ scorers: LeaderRow[]; assists: LeaderRow[] } | null> {
+async function fetchLeaders(slug: string, season: number): Promise<LeagueLeaders | null> {
   const url = `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${slug}/statistics?season=${season}`;
   try {
     const { data } = await axios.get(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
@@ -154,12 +174,19 @@ async function fetchLeaders(slug: string, season: number): Promise<{ scorers: Le
 
     const goalsNode = stats.find(s => s.name === 'goalsLeaders') ?? stats[0];
     const assistsNode = stats.find(s => s.name === 'assistsLeaders');
+    // V4 Sprint 27 — "Discipline" (most-carded players). Best-effort node
+    // name guess (unverifiable from this sandbox, see the LeaderRow.photo
+    // comment above for why) — gracefully returns an empty array via
+    // mapLeaderList(undefined) if ESPN doesn't expose this node for a given
+    // league/season, never throws.
+    const cardsNode = stats.find(s => s.name === 'yellowCardsLeaders');
 
     const scorers = mapLeaderList(goalsNode?.leaders as Record<string, unknown>[] | undefined);
     const assists = mapLeaderList(assistsNode?.leaders as Record<string, unknown>[] | undefined);
+    const discipline = mapLeaderList(cardsNode?.leaders as Record<string, unknown>[] | undefined);
 
-    if (scorers.length === 0 && assists.length === 0) return null;
-    return { scorers, assists };
+    if (scorers.length === 0 && assists.length === 0 && discipline.length === 0) return null;
+    return { scorers, assists, discipline };
   } catch (err) {
     logger.debug(`[stats] leaders fetch failed for ${slug}: ${err}`);
     return null;

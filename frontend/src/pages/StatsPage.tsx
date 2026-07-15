@@ -110,7 +110,11 @@ export function StatsPage() {
             )}
           </section>
 
-          {data?.leaders && (data.leaders.scorers?.length > 0 || data.leaders.assists?.length > 0) && (
+          {data?.leaders && (
+            (data.leaders.scorers?.length > 0) ||
+            (data.leaders.assists?.length > 0) ||
+            (data.leaders.discipline?.length > 0)
+          ) && (
             <section className="space-y-2">
               <h2 className="font-barlow text-xs font-bold uppercase tracking-widest text-text-muted">
                 {t('statsLeaders')}
@@ -118,6 +122,7 @@ export function StatsPage() {
               <LeagueLeaders
                 scorers={data.leaders.scorers ?? []}
                 assists={data.leaders.assists ?? []}
+                discipline={data.leaders.discipline ?? []}
               />
             </section>
           )}

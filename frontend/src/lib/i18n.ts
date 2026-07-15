@@ -556,6 +556,11 @@ export const translations = {
     statsGoals: 'Goals',
     statsAssists: 'Assists',
 
+    // V4 Sprint 27 — Player Leaders Hub sub-nav
+    statsDiscipline: 'Discipline',
+    statsCards: 'Cards',
+    statsNoLeadersInCategory: 'No data in this category yet',
+
     // World Cup bracket view
     wcRouteToTrophy: 'Route to the Trophy',
     wcHostNations: 'Host Nations',
@@ -1281,6 +1286,11 @@ export const translations = {
     statsPlayerMatches: '{0} משחקים',
     statsGoals: 'שערים',
     statsAssists: 'בישולים',
+
+    // V4 Sprint 27 — Player Leaders Hub sub-nav
+    statsDiscipline: 'כרטיסים',
+    statsCards: 'כרטיסים צהובים',
+    statsNoLeadersInCategory: 'אין עדיין נתונים בקטגוריה זו',
 
     // World Cup bracket view
     wcRouteToTrophy: 'הדרך לגביע',
