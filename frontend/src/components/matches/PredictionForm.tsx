@@ -14,6 +14,7 @@ const LEAGUES_WITHOUT_CORNERS = new Set([4396]);
 import { useLangStore } from '../../stores/langStore';
 import { useCoinsStore } from '../../stores/coinsStore';
 import { haptic } from '../../lib/haptics';
+import { playSound } from '../../lib/sensoryAudio';
 
 interface PredictionFormProps {
   match: Match;
@@ -157,6 +158,11 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       predicted_btts: btts,
       predicted_over_under: overUnder,
     });
+    // lock_thud, not coin_chime — coin_chime already means "you received
+    // coins" everywhere else in the app (daily bonus, prediction wins).
+    // lock_thud already means "something just became final" (Momentum Bets
+    // lock) — the correct semantic match for locking in a prediction.
+    playSound('lock_thud');
     setSaved(true);
   };
 
@@ -196,7 +202,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       content: (
         <OutcomePicker
           value={outcome}
-          onChange={(v) => { haptic('selection'); setOutcome(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOutcome(v); setSaved(false); }}
           homeTeam={match.home_team}
           awayTeam={match.away_team}
           color={TIER_COLORS[0]}
@@ -228,7 +234,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       content: (
         <CornersPicker
           value={cornersValue}
-          onChange={(v) => { haptic('selection'); setCornersValue(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setCornersValue(v); setSaved(false); }}
           color={TIER_COLORS[2]}
         />
       ),
@@ -272,7 +278,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           active={btts !== null}
           color={TIER_COLORS[tiers.length]}
           value={btts}
-          onChange={(v) => { haptic('selection'); setBtts(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setBtts(v); setSaved(false); }}
           yesLabel={t('yes')}
           noLabel={t('no')}
           impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
@@ -286,7 +292,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           active={overUnder !== null}
           color={TIER_COLORS[tiers.length + 1]}
           value={overUnder === null ? null : overUnder === 'over'}
-          onChange={(v) => { haptic('selection'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
           yesLabel="O 2.5"
           noLabel="U 2.5"
           impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
