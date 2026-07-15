@@ -10,6 +10,7 @@ import { MatchStats } from './MatchStats';
 import { MatchMomentumPulse } from './MatchMomentumPulse';
 import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
+import { EntityBadge } from '../ui/EntityBadge';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import { HTAnalystCard } from '../ui/HTAnalystCard';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown, isMatchLocked } from '../../lib/utils';
@@ -375,6 +376,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
   const leagueInfo = FOOTBALL_LEAGUES.find(l => l.id === match.league_id);
   const leagueBadge = leagueInfo?.badge;
   const leagueEspnId = leagueInfo?.espnLogoId ?? null;
+  const localizedLeagueName = tLeagueName(match.league_id, match.league_name, lang);
 
   // ET/PEN detection for finished matches
   const wentToET = isFinished && (match.regulation_home != null || match.went_to_penalties);
@@ -596,25 +598,32 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
               </div>
             ) : (
               <div className="flex flex-col items-center gap-0.5">
-                {/* League logo — dark variant by default, light variant in html.light */}
+                {/* League logo — dark variant by default, light variant in html.light.
+                    Sprint 26 — each variant is its own EntityBadge instance so a
+                    failed load falls back to a synthesized initials badge INSTEAD
+                    of the old "onError -> display:none" (which just left a blank
+                    gap). The dual-instance shape is unchanged on purpose — the
+                    fallback needs the exact same league-logo-dark/-light CSS-class
+                    toggle as the real images (rule: dual img + CSS class toggle,
+                    never a single element with a filter hack), and EntityBadge's
+                    own gradient fallback is already theme-fluid, so no per-theme
+                    fallback variant is needed, just the same visibility class. */}
                 {leagueEspnId !== null ? (<>
-                  <img
+                  <EntityBadge
                     src={`https://a.espncdn.com/i/leaguelogos/soccer/500-dark/${leagueEspnId}.png`}
-                    className="w-5 h-5 object-contain league-logo-dark"
-                    alt={match.league_name}
-                    title={match.league_name}
-                    width={20}
-                    height={20}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    name={localizedLeagueName}
+                    title={localizedLeagueName}
+                    hashSeed={leagueInfo?.name ?? match.league_name}
+                    size={20}
+                    className="w-5 h-5 league-logo-dark"
                   />
-                  <img
+                  <EntityBadge
                     src={`https://a.espncdn.com/i/leaguelogos/soccer/500/${leagueEspnId}.png`}
-                    className="w-5 h-5 object-contain league-logo-light"
-                    alt={match.league_name}
-                    title={match.league_name}
-                    width={20}
-                    height={20}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    name={localizedLeagueName}
+                    title={localizedLeagueName}
+                    hashSeed={leagueInfo?.name ?? match.league_name}
+                    size={20}
+                    className="w-5 h-5 league-logo-light"
                   />
                 </>) : leagueBadge ? (
                   <span className="text-sm leading-none" title={match.league_name}>{leagueBadge}</span>
@@ -1288,22 +1297,17 @@ function TeamBlock({ name, haloKey, badge, score, isWinner, isLeading, right, re
           className="pointer-events-none absolute -z-10 inset-[-45%] rounded-full blur-xl"
           style={{ background: `radial-gradient(circle, ${haloColor} 0%, transparent 70%)` }}
         />
-        {badge ? (
-          <img
-            src={badge}
-            alt={name}
-            width={36}
-            height={36}
-            className={cn(
-              'w-9 h-9 object-contain transition-all duration-200',
-              highlight && 'drop-shadow-[0_0_8px_rgba(0,255,135,0.5)] scale-105',
-            )}
-            loading="lazy"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-base">⚽</div>
-        )}
+        <EntityBadge
+          src={badge}
+          name={name}
+          hashSeed={haloKey ?? name}
+          size={36}
+          loading="lazy"
+          className={cn(
+            'w-9 h-9 transition-all duration-200',
+            highlight && 'drop-shadow-[0_0_8px_rgba(0,255,135,0.5)] scale-105',
+          )}
+        />
         {/* Red cards — shown in top-end corner of badge when > 0 (logical
             positioning — CLAUDE.md rule 4.10 — so this mirrors correctly in
             RTL instead of always sitting physically top-right) */}
