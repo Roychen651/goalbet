@@ -948,6 +948,59 @@ html.light .glass-grain { mix-blend-mode: multiply; }
   }
 }
 
+/* Variable-opacity gradient border (Sprint 19 — "eliminate flat boxiness").
+   Standard CSS-only gradient-border trick: a ::before ring sized by its own
+   padding, masked to its own ring via mask-composite:exclude so only the
+   ring itself paints, not the full rect. Compositor-only (a mask, not a
+   filter or JS), so it's cheap even across a whole feed of match cards.
+   Uses the theme's own border tokens (bright -> subtle) rather than a new
+   hardcoded color, so it stays correct across dark/light automatically. */
+.gradient-edge {
+  position: relative;
+}
+.gradient-edge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--color-border-bright) 0%, transparent 60%, var(--color-border-subtle) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Breathing live clock badge (Sprint 19). Deliberately a CSS keyframe, not a
+   per-instance Framer Motion loop -- a Live tab can render a dozen+ of
+   these simultaneously, and a dozen independent JS-driven animations is
+   real main-thread cost a shared @keyframes rule doesn't pay. Same
+   reasoning already governs .animate-live-breathing above (applied there to
+   the whole card border instead of just this small text badge) and the
+   World Cup aurora blobs' plain CSS keyframes. Opacity pulses in parallel
+   with a genuine chroma/lightness shift between two static OKLCH stops of
+   the same hue (not just an opacity fade) -- two variants (green for live
+   play, amber for ET) so the color always matches whichever the badge would
+   have shown statically before. */
+@keyframes liveClockPulseGreen {
+  0%, 100% { opacity: 0.72; color: oklch(78% 0.07 218); }
+  50%      { opacity: 1;    color: oklch(78% 0.15 218); }
+}
+@keyframes liveClockPulseAmber {
+  0%, 100% { opacity: 0.72; color: oklch(75% 0.09 72); }
+  50%      { opacity: 1;    color: oklch(75% 0.18 72); }
+}
+.live-clock-pulse-green { animation: liveClockPulseGreen 2.2s ease-in-out infinite; }
+.live-clock-pulse-amber { animation: liveClockPulseAmber 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .live-clock-pulse-green,
+  .live-clock-pulse-amber {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* Brutalist hollow display text — absurdly large, thin-stroke outline.
    Used for the scroll-reveal "2026" behind the Hero content. */
 .wc-brutalist-hollow {

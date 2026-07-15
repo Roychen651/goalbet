@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { useMatches } from '../hooks/useMatches';
 import { usePredictions } from '../hooks/usePredictions';
 import { useGroupMatchPredictions } from '../hooks/useGroupMatchPredictions';
@@ -150,33 +150,56 @@ export function HomePage() {
         )}
       </div>
 
-      {/* Tabs — sticky, borderless pill design that works in both light and dark */}
+      {/* Tabs — segmented snapper. Horizontally scroll-snappable (min-w guard
+          keeps pills readable if 4 no longer fit; on any normal viewport
+          today they still evenly fill via flex-1, identical to before) with
+          a single layoutId-tagged highlight that morphs between whichever
+          pill is active instead of each pill owning its own background —
+          the standard Framer Motion "sliding tab indicator" shared-layout
+          recipe, same LayoutGroup pattern Sprint 16 proved out for the H2H
+          panel morph. */}
       <div className="match-tabs-sticky sticky top-[56px] sm:top-0 z-20 -mx-4 px-4 pt-2 pb-3">
-        <div className="flex gap-1.5">
-          {TABS.map(tab => (
-            <motion.button
-              key={tab.id}
-              onClick={() => { haptic('light'); setActiveTab(tab.id); }}
-              whileTap={{ scale: 0.95, rotate: -0.5, transition: { type: 'spring', stiffness: 500, damping: 15 } }}
-              className={cn(
-                'relative flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all duration-200',
-                activeTab === tab.id
-                  ? 'bg-accent-green text-bg-base shadow-[0_0_12px_rgba(0,255,135,0.35)]'
-                  : 'text-text-muted hover:text-text-primary bg-white/5 hover:bg-white/10'
-              )}
-            >
-              {tab.label}
-              {tab.badge && (
-                <span className={cn(
-                  'absolute -top-1 -end-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center',
-                  activeTab === tab.id ? 'bg-bg-base text-accent-green' : 'bg-accent-green text-bg-base'
-                )}>
-                  {tab.badge}
-                </span>
-              )}
-            </motion.button>
-          ))}
-        </div>
+        <LayoutGroup id="home-tabs">
+          <div
+            className="flex gap-1.5 overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: 'none' }}
+            data-lenis-prevent
+          >
+            {TABS.map(tab => {
+              const active = activeTab === tab.id;
+              return (
+                <motion.button
+                  key={tab.id}
+                  onClick={() => { haptic('light'); setActiveTab(tab.id); }}
+                  whileTap={{ scale: 0.95, rotate: -0.5, transition: { type: 'spring', stiffness: 500, damping: 15 } }}
+                  className={cn(
+                    'relative flex-1 min-w-[76px] shrink-0 snap-center py-1.5 text-[13px] font-semibold rounded-full transition-colors duration-200',
+                    active
+                      ? 'text-bg-base'
+                      : 'text-text-muted hover:text-text-primary bg-white/5 hover:bg-white/10'
+                  )}
+                >
+                  {active && (
+                    <motion.div
+                      layoutId="activeTabPill"
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                      className="absolute inset-0 rounded-full bg-accent-green shadow-[0_0_12px_rgba(0,255,135,0.35)]"
+                    />
+                  )}
+                  <span className="relative z-10">{tab.label}</span>
+                  {tab.badge && (
+                    <span className={cn(
+                      'absolute -top-1 -end-0.5 z-10 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center',
+                      active ? 'bg-bg-base text-accent-green' : 'bg-accent-green text-bg-base'
+                    )}>
+                      {tab.badge}
+                    </span>
+                  )}
+                </motion.button>
+              );
+            })}
+          </div>
+        </LayoutGroup>
       </div>
 
       {/* Match feed */}
