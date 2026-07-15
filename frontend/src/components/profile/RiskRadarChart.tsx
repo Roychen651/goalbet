@@ -80,14 +80,26 @@ export function RiskRadarChart({ axes }: { axes: RadarAxisDatum[] }) {
 
   return (
     <div>
-      <svg
-        viewBox={`0 0 ${SIZE} ${SIZE}`}
-        width="100%"
-        className="max-w-[280px] mx-auto block"
-        style={{ direction: 'ltr' }}
-        role="img"
-        aria-label={t('radarTitle')}
-      >
+      {/* An <svg> with only `width="100%"` and no explicit `height` relies on
+          the browser deriving intrinsic aspect ratio purely from viewBox —
+          support for that derivation is inconsistent enough in practice that
+          it shipped as a real bug here (the chart rendered correctly but sat
+          inside a container many times taller than the drawn content, a huge
+          blank gap before the text below it). An explicit `aspect-square`
+          wrapper (fixed 1:1 ratio, the same CLS-safe-box technique already
+          used by Sparkline.tsx) plus width=100% height=100% on the svg
+          itself is the robust fix — no dependence on viewBox-to-box
+          derivation at all. */}
+      <div className="max-w-[280px] aspect-square mx-auto">
+        <svg
+          viewBox={`0 0 ${SIZE} ${SIZE}`}
+          width="100%"
+          height="100%"
+          className="block"
+          style={{ direction: 'ltr' }}
+          role="img"
+          aria-label={t('radarTitle')}
+        >
         <defs>
           <radialGradient id={gradientId} cx="50%" cy="50%" r="65%">
             <stop offset="0%" stopColor={accent} stopOpacity="0.32" />
@@ -168,17 +180,22 @@ export function RiskRadarChart({ axes }: { axes: RadarAxisDatum[] }) {
                   {a.label}
                 </div>
               </foreignObject>
+              {/* The visible dot (r=3.5-5) is nowhere near a real touch
+                  target — reported live, on a real phone/thumb. A separate,
+                  invisible r=24 circle (~45px at this chart's max render
+                  width, clearing Apple HIG's 44pt minimum) carries all the
+                  actual interaction; the small dot is purely decorative and
+                  pointer-events-none so it never competes with its own hit
+                  area. */}
               <circle
                 cx={dataPt.x}
                 cy={dataPt.y}
-                r={isActive ? 5 : 3.5}
-                fill={isActive ? accent : 'var(--color-bg-card)'}
-                stroke={accent}
-                strokeWidth={1.5}
+                r={24}
+                fill="transparent"
                 tabIndex={0}
                 role="button"
                 aria-label={`${a.label}: ${a.raw}`}
-                className="cursor-pointer transition-[r] duration-150 outline-none"
+                className="cursor-pointer outline-none"
                 onClick={() => setSelected(prev => prev === i ? null : i)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -187,10 +204,21 @@ export function RiskRadarChart({ axes }: { axes: RadarAxisDatum[] }) {
                   }
                 }}
               />
+              <circle
+                cx={dataPt.x}
+                cy={dataPt.y}
+                r={isActive ? 6 : 4.5}
+                fill={isActive ? accent : 'var(--color-bg-card)'}
+                stroke={accent}
+                strokeWidth={1.5}
+                pointerEvents="none"
+                className="transition-[r] duration-150"
+              />
             </g>
           );
         })}
-      </svg>
+        </svg>
+      </div>
 
       {/* Fixed-height detail line — CLS-safe whether or not a point is selected */}
       <div className="mt-2 h-5 flex items-center justify-center text-center">

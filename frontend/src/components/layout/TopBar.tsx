@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, HelpCircle, ChevronDown } from 'lucide-react';
+import { Bell, HelpCircle, ChevronDown, Moon, Sun } from 'lucide-react';
 import { useGroupStore } from '../../stores/groupStore';
 import { useUIStore } from '../../stores/uiStore';
 import { Avatar } from '../ui/Avatar';
@@ -164,19 +164,28 @@ export function TopBar() {
             >
               <HelpCircle size={14} className="text-text-muted" />
             </button>
+            {/* Flag emoji (previous impl) and font-rendered emoji both have
+                inconsistent glyph metrics across platforms — flexbox centers
+                the line box, not the glyph's own ink, so different emoji
+                visibly sit at different heights in the same fixed-size
+                button (reported live, real phone). Lucide icons (already
+                this row's language for Help/Bell) have exact, predictable
+                geometry; a plain text label sidesteps flag-emoji rendering
+                entirely (some platforms render flag sequences as bare
+                two-letter codes instead of an actual flag glyph). */}
             <button
               onClick={() => setLang(lang === 'en' ? 'he' : 'en')}
-              className="flex items-center justify-center w-9 hover:bg-white/8 active:bg-white/15 transition-colors border-e border-white/10 text-[15px] leading-none"
+              className="flex items-center justify-center w-9 hover:bg-white/8 active:bg-white/15 transition-colors border-e border-white/10 text-[11px] font-bold leading-none tabular-nums"
               title={lang === 'en' ? 'Switch to Hebrew' : 'Switch to English'}
             >
-              {lang === 'en' ? '🇮🇱' : '🇬🇧'}
+              {lang === 'en' ? 'עב' : 'EN'}
             </button>
             <button
               onClick={toggleTheme}
-              className="flex items-center justify-center w-9 hover:bg-white/8 active:bg-white/15 transition-colors text-[15px] leading-none"
+              className="flex items-center justify-center w-9 hover:bg-white/8 active:bg-white/15 transition-colors"
               aria-label="Toggle theme"
             >
-              {theme === 'dark' ? '🌙' : '☀️'}
+              {theme === 'dark' ? <Moon size={14} className="text-text-muted" /> : <Sun size={14} className="text-text-muted" />}
             </button>
           </div>
 

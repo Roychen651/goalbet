@@ -23,7 +23,11 @@ export function LangToggle({ className, compact = false }: LangToggleProps) {
       )}
       title={lang === 'en' ? 'Switch to Hebrew' : 'עבור לאנגלית'}
     >
-      <span className="text-base leading-none">{lang === 'en' ? '🇮🇱' : '🇬🇧'}</span>
+      {/* Text label, not a flag emoji — flag glyph metrics/rendering are
+          inconsistent across platforms (some even render a bare two-letter
+          code instead of a flag), same fix applied to TopBar.tsx's own
+          inline lang button. */}
+      <span className="text-[11px] font-bold leading-none tabular-nums">{lang === 'en' ? 'עב' : 'EN'}</span>
       {!compact && <span className="text-xs opacity-80">{lang === 'en' ? 'עברית' : 'English'}</span>}
     </button>
   );
