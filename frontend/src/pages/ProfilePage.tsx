@@ -1,7 +1,8 @@
 import { TranslationKey } from '../lib/i18n';
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Share2 } from 'lucide-react';
+import { streakTierColor } from '../lib/oklch';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useLangStore } from '../stores/langStore';
@@ -27,10 +28,26 @@ interface PredictionWithMatch extends Prediction {
   match: Match;
 }
 
+// Sprint 22 — per-tier breathing intensity for the avatar halo. Bronze reads
+// "muted/carbon" (slow, low amplitude), silver reads "frozen/crisp" (a touch
+// brighter, still calm), ember reads "pulsating flame" (fast, high
+// amplitude) — the animation itself sells the tier, not just the color.
+const HALO_MOTION: Record<'bronze' | 'silver' | 'ember', {
+  opacity: [number, number, number];
+  scale: [number, number, number];
+  duration: number;
+  staticOpacity: number;
+}> = {
+  bronze: { opacity: [0.25, 0.4, 0.25], scale: [1, 1.05, 1], duration: 4, staticOpacity: 0.32 },
+  silver: { opacity: [0.35, 0.55, 0.35], scale: [1, 1.07, 1], duration: 3.2, staticOpacity: 0.42 },
+  ember:  { opacity: [0.45, 0.8, 0.45], scale: [1, 1.15, 1], duration: 1.8, staticOpacity: 0.55 },
+};
+
 export function ProfilePage() {
   const { user, profile, signOut, updateUsername } = useAuthStore();
   const { groups, activeGroupId } = useGroupStore();
   const { t } = useLangStore();
+  const reduceMotion = useReducedMotion();
   const [history, setHistory] = useState<PredictionWithMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
@@ -334,7 +351,28 @@ export function ProfilePage() {
       <motion.div initial={{ opacity: 0, y: 30, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: 'spring', stiffness: 90, damping: 18 }}>
         <GlassCard variant="elevated" className="p-5">
           <div className="flex items-center gap-4">
-            <motion.button onClick={() => setShowAvatarPicker(true)} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }} className="relative group shrink-0" title={t('chooseAvatar')}>
+            <motion.button onClick={() => setShowAvatarPicker(true)} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.94 }} className="relative isolate group shrink-0" title={t('streakTooltip').replace('{0}', String(currentStreak))}>
+              {/* Streak-tier breathing halo — exactly one avatar renders on
+                  this page (unlike a list row), so a Framer Motion loop is
+                  the right tool, not a CSS keyframe (same "single instance"
+                  reasoning already applied to the #1 leaderboard row's gold
+                  halo, LeaderboardRow.tsx). Colors resolve live via the
+                  three --streak-* CSS custom properties (index.css) —
+                  streakTierColor() only ever hands back a var() reference,
+                  never a hardcoded literal. */}
+              {(() => {
+                const { token, tier } = streakTierColor(currentStreak);
+                const m = HALO_MOTION[tier];
+                return (
+                  <motion.div
+                    aria-hidden
+                    className="pointer-events-none absolute -z-10 -inset-3 rounded-full blur-lg"
+                    style={{ background: `radial-gradient(circle, ${token} 0%, transparent 70%)` }}
+                    animate={reduceMotion ? { opacity: m.staticOpacity } : { opacity: m.opacity, scale: m.scale }}
+                    transition={reduceMotion ? undefined : { duration: m.duration, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                );
+              })()}
               <Avatar src={profile.avatar_url} name={profile.username} size="xl" />
               <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <span className="text-white text-xs font-medium">✏️</span>

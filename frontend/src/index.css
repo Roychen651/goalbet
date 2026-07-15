@@ -61,6 +61,18 @@
      at/near full balance. */
   --risk-gold: oklch(85% 0.14 85);
   --risk-warning: oklch(70% 0.20 20);
+
+  /* Sprint 22 — Profile avatar streak-tier halo. Three fixed discrete
+     tiers, not a continuous interpolation scale like arena/risk above, so
+     these are plain lookup tokens (no interpolate*() function needed —
+     lib/oklch.ts's streakTierColor() just returns one of these three
+     var() references directly, the same way LeaderboardRow.tsx already
+     uses var(--risk-gold) inline without going through interpolateRisk).
+     bronze = muted carbon-gray (0-3 streak), silver = frozen platinum-blue
+     (4-7), ember = pulsating flame gold-orange (8+). */
+  --streak-bronze: oklch(45% 0.04 240);
+  --streak-silver: oklch(80% 0.08 220);
+  --streak-ember: oklch(70% 0.22 35);
 }
 
 /* ─── Light mode — "Frost" ─── */
@@ -107,6 +119,15 @@ html.light {
      near-white cards — same discipline as the arena scale above. */
   --risk-gold: oklch(65% 0.16 85);
   --risk-warning: oklch(58% 0.22 20);
+
+  /* Sprint 22 — streak-tier halo, light surface variant. Same hue anchors
+     as dark (240/220/35), darkened + held/raised in chroma for contrast on
+     near-white cards — same adjustment discipline as arena/risk above.
+     Silver needs the biggest drop (80% -> 48%): at dark-mode lightness it
+     would nearly disappear against a white card. */
+  --streak-bronze: oklch(35% 0.03 240);
+  --streak-silver: oklch(48% 0.10 220);
+  --streak-ember: oklch(58% 0.20 35);
 }
 
 /* ============================================================
