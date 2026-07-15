@@ -46,6 +46,10 @@ export function LeaderboardPage() {
   // row values); populated on weekly/lastWeek tabs so KPI, Insights, and Row all share
   // the SAME period-filtered numbers.
   const [periodStatsMap, setPeriodStatsMap] = useState<PeriodStatsMap | null>(null);
+  // Sprint 21 — last-5-resolved-predictions points per user, for each row's
+  // sparkline. Fetched ONCE for the whole table (not per-row) to avoid the
+  // exact N+1 pattern §30 already forbids for this codebase.
+  const [sparklineMap, setSparklineMap] = useState<Map<string, number[]>>(new Map());
   const { entries, loading } = useLeaderboard(type);
   const { user } = useAuthStore();
   const { groups, activeGroupId } = useGroupStore();
@@ -132,6 +136,57 @@ export function LeaderboardPage() {
 
     return () => { cancelled = true; };
   }, [activeGroupId, type]);
+
+  // Sprint 21 — batched sparkline data. Mirrors the periodStatsMap fetch's
+  // own shape (matches-in-window first, then predictions for those matches,
+  // aggregated client-side) rather than a new pattern. Independent of `type`
+  // — the sparkline always shows the same trailing 5 resolved predictions
+  // regardless of which leaderboard tab is active.
+  useEffect(() => {
+    if (!activeGroupId) { setSparklineMap(new Map()); return; }
+    let cancelled = false;
+    (async () => {
+      // 90 days is generous headroom for "last 5 resolved" even for a
+      // lightly-active group; newest first so index 0 = most recent match.
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: recentMatches } = await supabase
+        .from('matches')
+        .select('id')
+        .gte('kickoff_time', ninetyDaysAgo)
+        .lte('kickoff_time', new Date().toISOString())
+        .order('kickoff_time', { ascending: false });
+      if (cancelled) return;
+      if (!recentMatches || recentMatches.length === 0) { setSparklineMap(new Map()); return; }
+
+      const matchOrder = new Map(recentMatches.map((m, i) => [m.id as string, i]));
+      const matchIds = recentMatches.map(m => m.id as string);
+
+      const { data: preds } = await supabase
+        .from('predictions')
+        .select('user_id, match_id, points_earned')
+        .eq('group_id', activeGroupId)
+        .eq('is_resolved', true)
+        .in('match_id', matchIds);
+      if (cancelled) return;
+
+      const byUser = new Map<string, { order: number; pts: number }[]>();
+      for (const p of (preds ?? []) as { user_id: string; match_id: string; points_earned: number | null }[]) {
+        const order = matchOrder.get(p.match_id);
+        if (order === undefined) continue;
+        if (!byUser.has(p.user_id)) byUser.set(p.user_id, []);
+        byUser.get(p.user_id)!.push({ order, pts: p.points_earned ?? 0 });
+      }
+
+      const result = new Map<string, number[]>();
+      for (const [userId, list] of byUser) {
+        list.sort((a, b) => a.order - b.order); // 0 = most recent
+        const last5 = list.slice(0, 5).reverse(); // oldest -> newest for the chart
+        result.set(userId, last5.map(x => x.pts));
+      }
+      setSparklineMap(result);
+    })();
+    return () => { cancelled = true; };
+  }, [activeGroupId]);
 
   const TABS: { key: LeaderboardType; label: string }[] = [
     { key: 'total', label: t('allTime') },
@@ -246,6 +301,7 @@ export function LeaderboardPage() {
         currentUserId={user?.id}
         type={type}
         periodStatsMap={periodStatsMap}
+        sparklineMap={sparklineMap}
         onUserClick={(entry) => {
           if (entry.user_id === user?.id) {
             // Own row → show personal match history

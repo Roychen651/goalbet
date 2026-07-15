@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { LeaderboardEntryWithProfile } from '../../lib/supabase';
 import { LeaderboardRow } from './LeaderboardRow';
@@ -15,10 +16,18 @@ interface LeaderboardTableProps {
   onUserClick?: (entry: LeaderboardEntryWithProfile) => void;
   /** Period-filtered stats per user_id. null on 'total' tab. */
   periodStatsMap?: PeriodStatsMap | null;
+  /** Last-5-resolved-predictions points per user_id, for each row's sparkline. */
+  sparklineMap?: Map<string, number[]>;
 }
 
-export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap }: LeaderboardTableProps) {
+export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap, sparklineMap }: LeaderboardTableProps) {
   const { t } = useLangStore();
+  // Sprint 21 — which row's lightweight in-place preview is open, if any.
+  // Deliberately separate from onUserClick's modal-opening row click — the
+  // existing own-row/other-row modal split (UserMatchHistoryModal/H2HModal)
+  // stays exactly as-is; this is an additional, smaller affordance, not a
+  // replacement for it.
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   if (loading) return <PageLoader />;
   if (entries.length === 0) {
@@ -66,6 +75,9 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
                 type={type}
                 periodStat={periodStatsMap ? periodStatsMap.get(entry.user_id) ?? null : null}
                 onClick={onUserClick ? () => onUserClick(entry) : undefined}
+                sparklinePoints={sparklineMap?.get(entry.user_id)}
+                expanded={expandedUserId === entry.user_id}
+                onToggleExpand={() => setExpandedUserId(prev => prev === entry.user_id ? null : entry.user_id)}
               />
             </motion.div>
           ))}
