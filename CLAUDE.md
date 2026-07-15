@@ -43,6 +43,7 @@ Read this before touching any file. Everything here reflects the live codebase.
 34. [The Live Center — Home & Match Cards Overhaul (V4 Sprint 19)](#34-the-live-center--home--match-cards-overhaul-v4-sprint-19)
 35. [The Tactile Slip — Bet Form & Sliding Drawer Overhaul (V4 Sprint 20)](#35-the-tactile-slip--bet-form--sliding-drawer-overhaul-v4-sprint-20)
 36. [The Prestige Standings — Leaderboard & Group Tables Overhaul (V4 Sprint 21)](#36-the-prestige-standings--leaderboard--group-tables-overhaul-v4-sprint-21)
+37. [The Hall of Fame — Interactive Profile & Identity Overhaul (V4 Sprint 22)](#37-the-hall-of-fame--interactive-profile--identity-overhaul-v4-sprint-22)
 
 ---
 
@@ -392,7 +393,9 @@ goalbet/
 │       │   │   ├── AvatarPicker.tsx       # Emoji avatar chooser
 │       │   │   ├── HallOfFameChronicles.tsx # Sprint 27 — 3D-tilt gold/crimson carousel of user_chronicles (perfect +10 on high-profile matches); returns null when empty
 │       │   │   ├── ProfileBentoV2.tsx     # Stats bento grid; hero card renders the live <Sparkline> points trajectory (Sprint 9) + NumberFlow-rolled total
-│       │   │   └── ShareableRecapCard.tsx # V4 Sprint 11 — swipe-to-close bottom sheet showing rank/points/streak preview (reuses useLeaderboard, zero new query); Share button draws the actual shareable asset via lib/shareCard.ts's Canvas primitive, then the 3-tier share fallback (file-share → text-share → clipboard+download)
+│       │   │   ├── RiskRadarChart.tsx     # V4 Sprint 22 — pure trigonometric SVG spider/radar chart (5 axes at 72° intervals, no charting library). Labels render via `<foreignObject>` + a real truncating `<div>`, not raw SVG `<text>` — the fixed viewBox/box-width/radius constants were solved together and verified numerically against the worst-case axis angle, then confirmed against an actual Playwright screenshot (caught a real label-clipping bug pixel-math alone hadn't). SVG root pins `direction: 'ltr'`; text alignment is derived purely from `cos(theta)`'s sign, never an `isRTL` branch — the exact double-flip class of bug PredictionHeatmap.tsx shipped once (Sprint 15)
+│       │   │   ├── ShareableRecapCard.tsx # V4 Sprint 11 — swipe-to-close bottom sheet showing rank/points/streak preview (reuses useLeaderboard, zero new query); Share button draws the actual shareable asset via lib/shareCard.ts's Canvas primitive, then the 3-tier share fallback (file-share → text-share → clipboard+download)
+│       │   │   └── TrophyCabinet.tsx      # V4 Sprint 22 — 6 badges computed on the fly from data already on ProfilePage (same honesty class as LeaderboardRow.tsx's existing inline badgeHot/badgeSniper pills — un-persisted, no unlock timestamp; a real persisted achievement-unlock system is a separate, out-of-scope backend feature, see §37). Each badge is its own `GlassCard tactile` (no `allowGyroscope` — a grid of simultaneously-tilting cards is the exact motion-sickness case Sprint 16 scopes gyroscope away from) with a hand-drawn glowing inline SVG icon; locked badges render dimmed with a lock indicator, never hidden
 │       │   ├── matches/
 │       │   │   ├── MatchCard.tsx          # ACTIVE card: MatchCardCore (private) + MatchCard (public, shimmer wrapper). isPastKickoffNS, DELAYED, live clock, weather/referee/competition phase, TacticalIntelSection, dual dark/light league logos, live breathing glow, goal flash, score flip. HT broadcast ticker via HTAnalystCard. V4 Sprint 19 — non-live cards use GlassCard variant='elevated' (was 'default') + `grain` + `edgeGradient` for real depth; TeamBlock renders a `teamHaloColor`-driven radial-gradient halo behind each badge (`isolate` wrapper + `-z-10`); score + live-clock digits are `font-mono tabular-nums` (was `font-bebas`) for CLS stability; live-clock badge uses `.live-clock-pulse-green`/`-amber` (compositor CSS keyframes, not Framer Motion); red-card badge cluster fixed from a literal `-right-1` to logical `-end-1`
 │       │   │   ├── MatchFeed.tsx          # Date-grouped feed; imports MatchCard directly
@@ -2468,3 +2471,79 @@ Rank number, points, rank-delta, and bet-slip point chips all moved to `font-mon
 - **A "derive it from data already fetched" solution beats a new migration whenever the derivation is honest about being an approximation.** The rank-delta badge needed no schema change because the two numbers it compares (`weekly_points`, `last_week_points`) were already being fetched for an unrelated reason — check what's already in hand before reaching for a new persisted column.
 - **`layout` on sibling list items automatically solves "don't squish my neighbors" for a height-changing expand/accordion** — no extra height-reservation or manual reflow logic needed once the siblings already have `layout` from an unrelated row-reordering feature. The two capabilities compose for free.
 - **Every new OKLCH-driven UI element must resolve its color through the codebase's existing live-token functions (`interpolateDiverging`, `interpolateRisk`), never a hardcoded `oklch(...)` literal** — this was caught and fixed in this same sprint, on the very rule it violates (§21's OKLCH pitfall), which is itself the reminder to actually check newly-written code against standing rules before considering a commit done, not just before writing it.
+
+---
+
+## 37. The Hall of Fame — Interactive Profile & Identity Overhaul (V4 Sprint 22)
+
+A data-visualization and identity pass on the Profile page: a streak-tier avatar halo, a hand-built trigonometric radar chart, and a tactile trophy grid. The brief that opened this sprint asked for "earned achievement badges" as if that data already existed, and specified raw CSS-keyframe/hardcoded-OKLCH mechanics for the halo — both corrected before any code was written, after auditing the real schema and existing components rather than assuming the brief's premises.
+
+### Corrections made before writing code
+
+**"Earned achievement badges" — no such data entity exists anywhere.** No `achievements`/`badges`/`user_badges` table, no unlock timestamp, in `supabase/migrations/*.sql`. The only real, persisted, close-to-this-concept table is `user_chronicles` (Sprint 27) — narrowly scoped to perfect +10 picks on high-profile matches, and it **already owns the name "Hall of Fame"** (`HallOfFameChronicles.tsx`, already mounted on this exact page). Building a second, generically-named "Hall of Fame" for a different concept on the same screen would collide with existing UI. Rather than inventing a full persisted achievement-unlock backend (a real, separate feature — migration + unlock-detection service + RLS — well outside a visual-overhaul sprint), the Trophy Cabinet extends a pattern that **already exists and ships zero new schema**: `LeaderboardRow.tsx` already computes inline, un-persisted badges from thresholds (`badgeHot`, `badgeSniper`). The 6 Trophy Cabinet badges are the same computed-on-the-fly shape, just with a premium tilt-glass presentation. A true persisted achievement system with unlock history remains a legitimate, distinct future sprint.
+
+**Radar chart — 3 of 5 axes were real, 2 needed a fix, checked against the actual RPC and hooks first.** `get_stats_arena_payload` and `ProfilePage.tsx`'s existing `history` fetch were read in full before assuming any axis's data existed. Accuracy, Boldness (avg stake), and Specialist (exact-score rate) are all client-side re-derivations of numbers `ProfilePage.tsx` already computes from `history` — zero new queries, the same discipline Sprint 9 established for the trajectory/form series. Volatility (stddev of points-earned) is likewise fully derivable from `history`, just not previously computed. Live Activity (Momentum Bets participation) genuinely wasn't aggregated anywhere — it needed one new, lightweight `count`-only query against `micro_prediction_bets` (no new RPC, no migration). Per the Sprint 20 Risk Meter lesson ("a ratio's denominator must be sized to the numerator's real range, not just be dimensionally correct"), every axis's [0,1] clamp uses an explicit, stated denominator rather than a bare guess — see the axis table below.
+
+**Avatar halo — CSS keyframes were the wrong tool, and the brief's literal OKLCH values would have violated this codebase's own standing rule.** There is exactly **one** avatar on the Profile page (not a list) — the "many simultaneous instances → CSS, single instance → Framer Motion" split this codebase already established twice (live-clock badges/aurora blobs vs. the Sprint 21 #1-leaderboard gold halo) points at Framer, not a new pseudo-element keyframe system; a single `animate` loop on transform/opacity is already compositor-driven, so "hardware acceleration" was never actually a CSS-vs-JS distinction here. And hardcoding `oklch(45% 0.04 240)` etc. directly into a component would be exactly the "second hardcoded copy of an OKLCH value" mistake this project already self-caught once (Sprint 21's rank-delta badge). Correction: three new CSS custom properties (`--streak-bronze/-silver/-ember`, both theme blocks), resolved live, reusing `LeaderboardRow.tsx`'s exact Framer Motion halo pattern.
+
+### Commit 1 — Avatar Streak Tier Halo
+
+Three fixed OKLCH tokens (`index.css`, both theme blocks) — bronze `oklch(45% 0.04 240)` (muted carbon-gray, 0-3 streak), silver `oklch(80% 0.08 220)` (frozen platinum-blue, 4-7), ember `oklch(70% 0.22 35)` (pulsating flame gold-orange, 8+) in dark mode, darkened/re-saturated light-mode variants following the exact same adjustment discipline as `--arena-cold/hot`/`--risk-gold/warning`. `lib/oklch.ts`'s `streakTierColor(streak)` is deliberately **simpler** than `interpolateDiverging`/`interpolateRisk` — three fixed discrete tiers, not a continuous ratio, so it needs no `getComputedStyle`/caching machinery at all; it just returns a `var(--streak-*)` reference, the same way `LeaderboardRow.tsx` already uses `var(--risk-gold)` directly.
+
+`ProfilePage.tsx`'s avatar gets the exact `LeaderboardRow.tsx` wrapper shape (`relative isolate` div, a breathing `motion.div` halo, `useReducedMotion()` → static opacity, no loop) — reused, not reinvented. Per-tier animation intensity (not just color) sells the tier: bronze is slow/low-amplitude (4s, opacity 0.25→0.4), silver a touch brighter and crisper (3.2s, 0.35→0.55), ember fast and pulsating (1.8s, 0.45→0.8). The halo reads the *same* `currentStreak` value already computed and displayed in `ProfileBentoV2`'s streak `MicroCard`, so the two can never visually disagree.
+
+### Commit 2 — Pure Trigonometric Risk Radar Chart
+
+Hand-built inline SVG, zero charting library (this codebase's standing "Strict Charting Law" — §25/§30). For center `(cx, cy)`, radius `r`, and `n` axes:
+
+```
+theta_i = -PI/2 + i * (2*PI / n)      // -90deg start, axis 0 points up
+x_i = cx + r * v * cos(theta_i)
+y_i = cy + r * v * sin(theta_i)
+```
+
+The 5 axes, each `[0,1]`-clamped against an explicit denominator:
+
+| Axis | Formula | Source |
+|---|---|---|
+| Accuracy | `ftCorrect / ftPredictions` | already computed from `history` |
+| Boldness | `avgStakePerPrediction / COIN_COSTS.MAX_PER_MATCH` | already computed from `history` |
+| Specialist | `exactScoreCount / scorePreds.length` | already computed from `history` |
+| Volatility | `stddev(points_earned) / (MAX_PER_MATCH / 2)` | newly derived from `history` (no new query) |
+| Live Activity | `momentumBetCount / 20` | **one new** `count:'exact', head:true` query against `micro_prediction_bets` |
+
+RTL: the SVG root pins `direction: 'ltr'` — the exact double-flip bug this codebase already shipped once (`PredictionHeatmap.tsx`, Sprint 15, §21 Common Pitfalls) can't recur here by construction. Axis-label `text-anchor`/alignment is derived purely from `Math.cos(theta)`'s sign (`> 0.1` → start, `< -0.1` → end, else middle), never an `isRTL` branch.
+
+**Labels render via `<foreignObject>` + a real truncating `<div>`, not raw SVG `<text>`** — this was a live find, not a design preference from the start. A first pass used plain SVG `<text>` with hand-picked viewBox/radius constants that looked correct on paper; a temporary, uncommitted preview harness (mounted the component standalone with mock data in both LTR and RTL wrappers, screenshotted via Playwright — see the addendum below) caught a real bug the geometry math alone hadn't: "Live Activity" rendered clipped to "Live Activit". The fix wasn't a font-size tweak — it was re-solving `SIZE`/`MAX_RADIUS`/`LABEL_RADIUS_RATIO`/`LABEL_BOX_W` **together**, verified numerically (every label box's `[x, x+W]`/`[y, y+H]` stays inside `[0, SIZE]` at the worst-case axis angle, `|cos(theta)| ≈ 0.951`) before re-screenshotting to confirm. A `<div>` with CSS `truncate` inside `<foreignObject>` is a robust guarantee against this whole bug class in either language, instead of an untested pixel guess.
+
+Vertices are keyboard-accessible (`tabIndex`, `role="button"`, Enter/Space) and tap/click reveals the raw number behind that axis in a fixed-height (CLS-safe) detail line below the chart — never a native SVG `<title>` tooltip, which reads poorly on touch.
+
+### Commit 3 — Tactile Glass Trophy Cabinet
+
+Six badges, each a `GlassCard tactile` (cursor-tracking glare + 3D pointer tilt — already fully built by `useTactileTilt`, Sprint 16, nothing new to wire) in a `grid-cols-2 sm:grid-cols-3` bento, deliberately **without** `allowGyroscope` — a grid of many simultaneously-tilting cards is exactly the motion-sickness case Sprint 16's gyroscope-scoping rule forbids (opt-in, one hero element only, never a whole grid). Badges:
+
+| Badge | Threshold | Accent |
+|---|---|---|
+| Sniper | accuracy ≥ 65% & picks ≥ 5 | `--color-accent-green` (matches the leaderboard's existing badgeSniper definition exactly) |
+| Century Club | totalPoints ≥ 100 | `--risk-gold` |
+| Iron Streak | currentStreak ≥ 8 | `--streak-ember` (same threshold as the avatar halo's ember tier — direct thematic tie-in) |
+| Sharpshooter | exactScoreCount ≥ 5 | violet (matches the existing "Best Tier" card accent) |
+| Veteran | resolvedCount ≥ 25 | `--color-accent-secondary` |
+| High Roller | boldnessRatio ≥ 0.7 | `--risk-warning` (reuses the *exact same* avg-stake/`MAX_PER_MATCH` ratio the radar's Boldness axis computes — one honest number, two presentations) |
+
+Each badge is a hand-drawn, glowing inline SVG (`currentColor`-themed, `drop-shadow` glow when earned), never a raster image. Locked badges render **dimmed with a visible lock indicator, never hidden** — the cabinet reads as a real collection to work toward, not a mystery box.
+
+### Commit 4 — Numeric coherence + a real RTL verification pass
+
+The radar's detail-line value already used `font-mono tabular-nums` from Commit 2; `ProfileBentoV2` was already compliant (confirmed by the pre-blueprint audit) so nothing else on the page needed a font sweep this sprint.
+
+**The substantive part of this commit was verifying the RTL/label-fit promise from the blueprint against an actual render, not just trusting the trigonometry.** A temporary file (`__sprint22_preview.tsx`, never committed) mounted `RiskRadarChart`/`TrophyCabinet` standalone with mock data, `main.tsx` was briefly repointed at it, `npm run dev` + a Playwright screenshot (both an English/LTR panel and a Hebrew/RTL panel side by side) confirmed: (1) the chart's layout is byte-for-byte identical under a Hebrew `dir="rtl"` ancestor — no mirroring, proving the `direction:'ltr'` pin actually works, not just compiles; (2) the label-clipping bug described in Commit 2, caught by this exact screenshot; (3) locked/earned Trophy Cabinet states render correctly, including the lock icon landing on the logical trailing side automatically under RTL with zero direction-specific code (flex/logical properties, not physical `ml-`/`mr-`). `main.tsx` and the preview file were fully reverted before any commit — `git status` confirmed clean before staging.
+
+### Rules
+
+- **Before treating a brief's "existing feature" as existing, grep the actual schema.** "Earned achievement badges" sounded like a small ask; it was actually a request to build a persisted, unlock-timestamped entity from nothing. The corrected scope (computed-on-the-fly badges, the same shape as `LeaderboardRow.tsx`'s existing inline pills) delivered the visual mandate honestly without inventing backend surface area a "profile visual overhaul" sprint shouldn't own.
+- **A new feature's name must be checked against what's already on the same page.** "Hall of Fame" already meant something specific and shipped (`user_chronicles`, Sprint 27) — a second, differently-scoped "Hall of Fame" on the same screen would have been a real naming collision, not just a coincidence.
+- **A single-instance UI element (one avatar, one #1 row) should reuse this codebase's existing Framer Motion breathing-halo pattern, not spin up a parallel CSS-keyframe system** — the "many simultaneous instances" cost concern that justifies CSS-only choices elsewhere (live-clock badges, aurora blobs) simply doesn't apply to an element that renders exactly once.
+- **Fixed discrete color tiers (bronze/silver/ember) don't need `interpolateDiverging`/`interpolateRisk`'s live-read/caching machinery** — a plain lookup returning a `var(--token)` reference is simpler and sufficient when there's no continuous ratio to interpolate. Don't reach for the heavier pattern when the lighter one already fits.
+- **A hand-built SVG chart's label geometry constants must be solved together and verified numerically against the worst-case axis angle, not picked independently and eyeballed** — and even then, confirm against an actual rendered screenshot before considering the RTL/overflow promise fulfilled. This sprint's own blueprint explicitly promised a live-Hebrew-render check "before merge, not after," and the live render caught a real bug (label clipping) the geometry math alone had missed — the verification step wasn't ceremony, it changed the shipped code.
+- **A temporary preview/test harness used to visually verify a component must be fully reverted (and confirmed via `git status`) before anything is staged for commit** — `main.tsx` and the scratch preview file in this sprint were never at risk of being committed, but the discipline of checking is what guarantees that, not assuming it.
