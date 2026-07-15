@@ -7,6 +7,7 @@ import { MatchStatusBadge } from './MatchStatusBadge';
 import { LockedPrediction } from './PredictionForm';
 import { MatchTimeline } from './MatchTimeline';
 import { MatchStats } from './MatchStats';
+import { MatchMomentumPulse } from './MatchMomentumPulse';
 import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
 import { AIScoutCard } from '../ui/AIScoutCard';
@@ -820,6 +821,7 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
                   )}
                   {/* Match Center — Stats, Timeline, Rosters (Live + FT) */}
                   {(isFinished || isLive) && <MatchStats match={match} />}
+                  {isLive && <MatchMomentumPulse match={match} />}
                   {isFinished && <MatchTimeline match={match} />}
                   {(isFinished || isLive) && <MatchRosters match={match} />}
                 </>
