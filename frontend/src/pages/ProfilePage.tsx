@@ -420,7 +420,13 @@ export function ProfilePage() {
                 );
               })()}
               <Avatar src={profile.avatar_url} name={profile.username} size="xl" />
-              <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              {/* avatar-edit-overlay's :hover trigger lives in index.css,
+                  gated to (hover: hover) and (pointer: fine) — same reason
+                  as GlassCard's .glass-spotlight: a bare group-hover here
+                  would stick "on" after a tap (mobile Safari's :hover has
+                  no real unhover on touch), leaving the avatar permanently
+                  dimmed-with-pencil after closing the picker it opens. */}
+              <div className="avatar-edit-overlay absolute inset-0 rounded-full bg-black/50 opacity-0 transition-opacity flex items-center justify-center">
                 <span className="text-white text-xs font-medium">✏️</span>
               </div>
             </motion.button>
