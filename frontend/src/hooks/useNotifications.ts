@@ -29,6 +29,12 @@ export interface AppNotification {
     old_rank?: number;
     new_rank?: number;
     overtaker_username?: string | null;
+    // V4 Sprint 24 — populated server-side once scoreUpdater.ts's
+    // flushRankDropNotifications() selects the overtaker's profile gender
+    // alongside their username. Until then this is always undefined, which
+    // tg() resolves to the honest "unspecified" slash-notation variant, not
+    // a silent male default.
+    overtaker_gender?: 'male' | 'female' | 'unspecified' | null;
     [key: string]: unknown;
   };
   is_read: boolean;

@@ -425,7 +425,6 @@ export const translations = {
     notifPts: 'pts',
     notifCoins: 'coins',
     notifRankDropTitle: 'Rank Drop',
-    notifRankDropBody: '{0} just overtook you — you\'re now #{1}',
     notifRankDropBodyGeneric: 'You just dropped to #{0}',
     notifViewMatch: 'View Match',
     notifViewStandings: 'View Standings',
@@ -705,6 +704,27 @@ export const translations = {
     trophyVeteranDesc: '25+ resolved predictions',
     trophyHighRollerName: 'High Roller',
     trophyHighRollerDesc: 'Consistently bets big',
+
+    // Gender-context copy (V4 Sprint 24) — English has no verb-gender
+    // agreement for these, so _male/_female/_unspecified are identical text.
+    // They still exist as real keys so tg() resolves uniformly regardless
+    // of active language.
+    activityPredictionLocked: 'Prediction locked in! 🤞',
+    activityWonCoins_male: 'Scored {0} pts → won {1} coins!',
+    activityWonCoins_female: 'Scored {0} pts → won {1} coins!',
+    activityWonCoins_unspecified: 'Scored {0} pts → won {1} coins!',
+    activityClimbedRank_male: 'Climbed to rank #{0}',
+    activityClimbedRank_female: 'Climbed to rank #{0}',
+    activityClimbedRank_unspecified: 'Climbed to rank #{0}',
+    notifRankDropBody_male: '{0} just overtook you — new rank: #{1}',
+    notifRankDropBody_female: '{0} just overtook you — new rank: #{1}',
+    notifRankDropBody_unspecified: '{0} just overtook you — new rank: #{1}',
+
+    // Profile — gender preference (V4 Sprint 24)
+    genderSectionTitle: 'How should we refer to you?',
+    genderMale: 'Male',
+    genderFemale: 'Female',
+    genderUnspecified: "I'd rather not say",
   },
 
   he: {
@@ -761,13 +781,13 @@ export const translations = {
     startingNow: 'מתחיל עכשיו',
 
     // Prediction form
-    fullTimeResult: 'תוצאה סופית',
-    exactScore: 'תוצאה מדויקת',
+    fullTimeResult: 'תוצאת סיום',
+    exactScore: 'בול בתוצאה',
     totalCorners: 'סה"כ קרנות',
     cornersUnder9: '≤ 9',
     cornersTen: '10',
     cornersOver11: '≥ 11',
-    bothTeamsToScore: 'שתי הקבוצות מבקיעות',
+    bothTeamsToScore: 'שער לשני הצדדים (BTTS)',
     totalGoals: 'סה"כ שערים',
     lockInPrediction: 'נעל ניחוש',
     updatePrediction: 'עדכן ניחוש',
@@ -965,7 +985,7 @@ export const translations = {
 
     // Bento stats
     bentoFtWinRate: 'אחוז ניחוש',
-    bentoCurrentStreak: 'רצף נוכחי',
+    bentoCurrentStreak: 'רצף להבות',
     bentoConsecutiveCorrect: 'ניחושים רצופים',
     bestStreakLabel: 'השיא',
     leaderboardExpandRow: 'הצג תצוגה מהירה',
@@ -1128,7 +1148,6 @@ export const translations = {
     notifPts: 'נק׳',
     notifCoins: 'מטבעות',
     notifRankDropTitle: 'ירידה בדירוג',
-    notifRankDropBody: '{0} עקף/ה אותך — עכשיו את/ה מקום #{1}',
     notifRankDropBodyGeneric: 'ירדת למקום #{0}',
     notifViewMatch: 'צפה במשחק',
     notifViewStandings: 'צפה בטבלה',
@@ -1358,7 +1377,7 @@ export const translations = {
     arenaDistributionTitle: 'התפלגות הקבוצה',
     arenaH2HTitle: 'ראש בראש',
     arenaH2HSubtitle: '{0} יריבים עם היסטוריה משותפת',
-    arenaStreakTile: 'רצף נוכחי',
+    arenaStreakTile: 'רצף להבות',
     arenaRiskTile: 'ציון סיכון',
     arenaNoGroup: 'הצטרף לקבוצה כדי לראות את נתוני הזירה שלך',
     arenaNoData: 'אין עדיין ניחושים שהוכרעו — שחק כמה משחקים כדי למלא את הזירה',
@@ -1408,7 +1427,82 @@ export const translations = {
     trophyVeteranDesc: '25+ ניחושים שהוכרעו',
     trophyHighRollerName: 'מהמר גדול',
     trophyHighRollerDesc: 'מהמר בגדול, שוב ושוב',
+
+    // Gender-context copy (V4 Sprint 24)
+    activityPredictionLocked: 'הניחוש ננעל! מחזיקים אצבעות 🤞',
+    activityWonCoins_male: 'הרוויח {0} נק׳ ← {1} מטבעות!',
+    activityWonCoins_female: 'הרוויחה {0} נק׳ ← {1} מטבעות!',
+    activityWonCoins_unspecified: 'זכייה של {0} נק׳ ← {1} מטבעות!',
+    activityClimbedRank_male: 'טיפס למקום #{0}',
+    activityClimbedRank_female: 'טיפסה למקום #{0}',
+    activityClimbedRank_unspecified: 'עלייה למקום #{0}',
+    notifRankDropBody_male: '{0} עקף אותך — המקום החדש: #{1}',
+    notifRankDropBody_female: '{0} עקפה אותך — המקום החדש: #{1}',
+    notifRankDropBody_unspecified: '{0} עקף/ה אותך — המקום החדש: #{1}',
+
+    // Profile — gender preference (V4 Sprint 24)
+    genderSectionTitle: 'איך שנפנה אליך?',
+    genderMale: 'זכר',
+    genderFemale: 'נקבה',
+    genderUnspecified: 'מעדיף/ה שלא לציין',
   },
 } as const;
 
 export type TranslationKey = keyof typeof translations.en;
+
+// ─── V4 Sprint 24 — gender-context resolution ──────────────────────────────
+//
+// This codebase has no i18next dependency (see CLAUDE.md §16/§39) — `t()` is
+// a hand-rolled lookup against `translations.en`/`translations.he`, and
+// `TranslationKey` is auto-derived from `en`'s keys. `tg()` is a thin
+// addition to that same system: it resolves `${base}_male` / `${base}_female`
+// as ordinary, fully-typed TranslationKeys — no new i18n engine, no new
+// runtime dependency.
+//
+// Hebrew has no true gender-neutral 3rd-person-singular verb form, so a
+// `gender: 'unspecified'` profile needs its own explicit strategy, not a
+// silent default to male. Two are used across this codebase depending on
+// what the sentence is actually saying:
+//   1. Where the sentence CAN be restructured to not need the verb at all
+//      (e.g. "the prediction locked" instead of "X locked a prediction"),
+//      that restructure is the actual fix — no gendered key needed, see
+//      `activityPredictionLocked`.
+//   2. Where a sentence names a specific OTHER user whose gender genuinely
+//      isn't known (e.g. a rank-drop notification about who overtook you,
+//      before that user has set a gender preference), the `_unspecified`
+//      variant uses the traditional Hebrew slash notation ("עקף/ה") — an
+//      explicit, honest "we don't know" marker culturally established for
+//      exactly this case (job postings, forms), not a silent male default.
+export type Gender = 'male' | 'female' | 'unspecified';
+
+// Extracts every base name that has at least a `${base}_male` sibling key —
+// `tg()` only accepts bases that are actually gendered, so passing a plain
+// non-gendered key is a compile-time error, not a silent runtime miss.
+type GenderedBase = {
+  [K in TranslationKey]: K extends `${infer B}_male` ? B : never;
+}[TranslationKey];
+
+/**
+ * Resolves a gendered copy pair. `unspecified`/missing gender resolves to
+ * the `_unspecified` variant when one exists, otherwise falls back to
+ * `_male` (documented limitation — see the module comment above, this is
+ * never used where an `_unspecified` variant with better phrasing exists).
+ */
+export function tg(
+  t: (key: TranslationKey) => string,
+  base: GenderedBase,
+  gender: Gender | null | undefined,
+): string {
+  // Missing/null gender (a profile that hasn't set one, or data from before
+  // Sprint 24's gender column existed) must resolve the same as an explicit
+  // 'unspecified' — falling through to '_male' here would be exactly the
+  // silent default this whole mechanism exists to avoid.
+  const suffix = gender === 'female' ? '_female' : gender === 'male' ? '_male' : '_unspecified';
+  const key = `${base}${suffix}` as TranslationKey;
+  // `_unspecified` isn't guaranteed to exist for every gendered base (some
+  // only have _male/_female) — fall back to _male rather than rendering a
+  // missing-key placeholder.
+  return (translations.en as Record<string, string>)[key] !== undefined || (translations.he as Record<string, string>)[key] !== undefined
+    ? t(key)
+    : t(`${base}_male` as TranslationKey);
+}

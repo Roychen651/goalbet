@@ -14,6 +14,11 @@ export interface GroupEvent {
   // joined from profiles
   username?: string;
   avatar_url?: string | null;
+  // V4 Sprint 24 — populated once the profiles join in useGroupEvents'
+  // fetch query selects gender alongside username/avatar_url. Always
+  // undefined until then; tg() resolves that to the honest "unspecified"
+  // phrasing, not a silent male default.
+  gender?: 'male' | 'female' | 'unspecified' | null;
   // joined from matches
   home_team?: string;
   away_team?: string;

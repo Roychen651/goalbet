@@ -6,7 +6,7 @@ import { Avatar } from '../ui/Avatar';
 import { EmptyState } from '../ui/EmptyState';
 import { cn } from '../../lib/utils';
 import { CoinIcon } from '../ui/CoinIcon';
-import type { TranslationKey } from '../../lib/i18n';
+import { tg, type TranslationKey } from '../../lib/i18n';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
 
 // ── Time formatting ──────────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
         <div className="space-y-2">
           {/* Action line */}
           <p className="text-sm text-text-primary/80">
-            🔒 {isHe ? 'נעל/ה ניחוש' : 'Locked a prediction'}
+            {t('activityPredictionLocked')}
             {meta.tiers_count ? (
               <span className="text-text-muted text-xs ms-1">
                 · {String(meta.tiers_count)} {isHe ? 'שלבים' : 'tiers'}
@@ -211,7 +211,7 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
                 <img src={homeBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
               )}
               <span className="text-xs font-medium text-text-primary truncate">{homeTeam}</span>
-              <span className="text-text-muted text-[10px] font-barlow uppercase">vs</span>
+              <span className="text-text-muted text-[10px] font-barlow uppercase">{isHe ? 'נגד' : 'vs'}</span>
               <span className="text-xs font-medium text-text-primary truncate">{awayTeam}</span>
               {awayBadge && (
                 <img src={awayBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
@@ -259,10 +259,7 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
       {isWon && (
         <div className="space-y-2">
           <p className="text-sm text-text-primary/80">
-            💰 {isHe
-              ? `לקח/ה ${String(meta.points ?? 0)} נק׳ ← ${String(meta.coins ?? 0)} מטבעות!`
-              : `Scored ${String(meta.points ?? 0)} pts → won ${String(meta.coins ?? 0)} coins!`
-            }
+            💰 {tg(t, 'activityWonCoins', event.gender).replace('{0}', String(meta.points ?? 0)).replace('{1}', String(meta.coins ?? 0))}
           </p>
 
           {/* Match strip */}
@@ -272,7 +269,7 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
                 <img src={homeBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
               )}
               <span className="text-xs font-medium text-text-primary truncate">{homeTeam}</span>
-              <span className="text-text-muted text-[10px] font-barlow uppercase">vs</span>
+              <span className="text-text-muted text-[10px] font-barlow uppercase">{isHe ? 'נגד' : 'vs'}</span>
               <span className="text-xs font-medium text-text-primary truncate">{awayTeam}</span>
               {awayBadge && (
                 <img src={awayBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
@@ -285,10 +282,7 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
       {/* ── LEADERBOARD_CLIMB ─────────────────────────────────────────────── */}
       {event.event_type === 'LEADERBOARD_CLIMB' && (
         <p className="text-sm text-text-primary/80">
-          📈 {isHe
-            ? `טיפס/ה למקום #${String(meta.rank ?? '?')}`
-            : `Climbed to rank #${String(meta.rank ?? '?')}`
-          }
+          📈 {tg(t, 'activityClimbedRank', event.gender).replace('{0}', String(meta.rank ?? '?'))}
         </p>
       )}
     </motion.div>
@@ -388,7 +382,7 @@ function AiBanterCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) 
                   <img src={homeBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
                 )}
                 <span className="text-xs font-medium text-text-primary truncate">{homeTeam}</span>
-                <span className="text-text-muted text-[10px] font-barlow uppercase">vs</span>
+                <span className="text-text-muted text-[10px] font-barlow uppercase">{isHe ? 'נגד' : 'vs'}</span>
                 <span className="text-xs font-medium text-text-primary truncate">{awayTeam}</span>
                 {awayBadge && (
                   <img src={awayBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
