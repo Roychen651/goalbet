@@ -6,7 +6,7 @@ import { GlassCard } from '../ui/GlassCard';
 import { PageLoader } from '../ui/LoadingSpinner';
 import { EmptyState } from '../ui/EmptyState';
 import { useLangStore } from '../../stores/langStore';
-import type { PeriodStatsMap } from '../../pages/LeaderboardPage';
+import type { PeriodStatsMap, RecentPrediction } from '../../pages/LeaderboardPage';
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntryWithProfile[];
@@ -16,11 +16,13 @@ interface LeaderboardTableProps {
   onUserClick?: (entry: LeaderboardEntryWithProfile) => void;
   /** Period-filtered stats per user_id. null on 'total' tab. */
   periodStatsMap?: PeriodStatsMap | null;
-  /** Last-5-resolved-predictions points per user_id, for each row's sparkline. */
-  sparklineMap?: Map<string, number[]>;
+  /** Last-5-resolved-predictions (matchId + points) per user_id. */
+  sparklineMap?: Map<string, RecentPrediction[]>;
+  /** Weekly rank delta per user_id (positive = moved up). 'weekly' tab only. */
+  rankDeltaMap?: Map<string, number>;
 }
 
-export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap, sparklineMap }: LeaderboardTableProps) {
+export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap, sparklineMap, rankDeltaMap }: LeaderboardTableProps) {
   const { t } = useLangStore();
   // Sprint 21 — which row's lightweight in-place preview is open, if any.
   // Deliberately separate from onUserClick's modal-opening row click — the
@@ -75,7 +77,8 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
                 type={type}
                 periodStat={periodStatsMap ? periodStatsMap.get(entry.user_id) ?? null : null}
                 onClick={onUserClick ? () => onUserClick(entry) : undefined}
-                sparklinePoints={sparklineMap?.get(entry.user_id)}
+                recentPredictions={sparklineMap?.get(entry.user_id)}
+                rankDelta={rankDeltaMap?.get(entry.user_id)}
                 expanded={expandedUserId === entry.user_id}
                 onToggleExpand={() => setExpandedUserId(prev => prev === entry.user_id ? null : entry.user_id)}
               />

@@ -1,12 +1,21 @@
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
-import { LeaderboardEntryWithProfile } from '../../lib/supabase';
+import { LeaderboardEntryWithProfile, supabase } from '../../lib/supabase';
 import { Avatar } from '../ui/Avatar';
 import { LeaderboardRowSparkline } from './LeaderboardRowSparkline';
 import { cn } from '../../lib/utils';
 import { haptic } from '../../lib/haptics';
+import { interpolateDiverging } from '../../lib/oklch';
 import { useLangStore } from '../../stores/langStore';
-import type { PeriodStat } from '../../pages/LeaderboardPage';
+import type { PeriodStat, RecentPrediction } from '../../pages/LeaderboardPage';
+
+interface BetSlipMatch {
+  home_team: string;
+  away_team: string;
+  home_team_badge: string | null;
+  away_team_badge: string | null;
+}
 
 interface LeaderboardRowProps {
   entry: LeaderboardEntryWithProfile;
@@ -15,8 +24,10 @@ interface LeaderboardRowProps {
   /** Period-filtered stats for this user. null on 'total' tab or when missing. */
   periodStat?: PeriodStat | null;
   onClick?: () => void;
-  /** Last-5-resolved-predictions points, oldest -> newest, for the row sparkline. */
-  sparklinePoints?: number[];
+  /** Last-5-resolved-predictions (matchId + points), oldest -> newest. */
+  recentPredictions?: RecentPrediction[];
+  /** Weekly rank delta (positive = moved up). Only rendered on the 'weekly' tab. */
+  rankDelta?: number;
   /** Whether this row's lightweight in-place preview is open. */
   expanded?: boolean;
   /** Toggles the preview — a separate tap target from `onClick`'s modal. */
@@ -29,7 +40,7 @@ const PODIUM_STYLES: Record<number, { ring: string; shadow: string; avatarSize: 
   3: { ring: 'ring-2 ring-amber-700/60', shadow: 'drop-shadow-[0_0_8px_rgba(180,100,50,0.25)]', avatarSize: 'lg', bg: 'bg-orange-900/10' },
 };
 
-export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick, sparklinePoints, expanded, onToggleExpand }: LeaderboardRowProps) {
+export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick, recentPredictions, rankDelta, expanded, onToggleExpand }: LeaderboardRowProps) {
   const { t } = useLangStore();
   // Points / picks / accuracy: on period tabs read EVERY number from periodStat so the
   // row, KPI card, and Insights always agree. Fall back to the entry row only on the
@@ -46,6 +57,30 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
     : 0;
   const podium = PODIUM_STYLES[entry.rank];
 
+  // Sprint 21 — lazy bet-slip detail. Fetches team names/badges for the SAME
+  // matchIds the sparkline already knows about, only once, only when this
+  // row's preview is actually opened — the eager batched fetch in
+  // LeaderboardPage.tsx stays cheap (points only) for every row in the
+  // table, and this per-row detail is paid for only by rows a user actually
+  // expands.
+  const [betSlipMatches, setBetSlipMatches] = useState<Map<string, BetSlipMatch> | null>(null);
+  const betSlipFetchedRef = useRef(false);
+  useEffect(() => {
+    if (!expanded || betSlipFetchedRef.current || !recentPredictions || recentPredictions.length === 0) return;
+    betSlipFetchedRef.current = true;
+    const matchIds = recentPredictions.map(p => p.matchId);
+    let cancelled = false;
+    supabase
+      .from('matches')
+      .select('id, home_team, away_team, home_team_badge, away_team_badge')
+      .in('id', matchIds)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setBetSlipMatches(new Map((data ?? []).map((m) => [m.id as string, m as BetSlipMatch])));
+      });
+    return () => { cancelled = true; };
+  }, [expanded, recentPredictions]);
+
   return (
     <div className={cn(
       'border-b border-white/5 last:border-b-0',
@@ -59,7 +94,7 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
         !isCurrentUser && !podium && 'hover:bg-white/4',
       )}
     >
-      <div className="w-7 text-center shrink-0">
+      <div className="w-7 flex flex-col items-center shrink-0">
         {entry.rank === 1 ? (
           <span className="text-lg">🥇</span>
         ) : entry.rank === 2 ? (
@@ -69,6 +104,28 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
         ) : (
           <span className="text-text-muted text-sm font-mono font-semibold tabular-nums">{entry.rank}</span>
         )}
+        {/* Rank delta — 'weekly' tab only, no badge when unchanged. Color
+            comes from interpolateDiverging (lib/oklch.ts), which resolves
+            the live --arena-cold/hot tokens via getComputedStyle — never a
+            hardcoded second copy of those numbers. Low-alpha background via
+            color-mix, the same technique Toast.tsx already established for
+            "a resolved color at low opacity, blended into the surface."
+            Logical gap/flex order means it mirrors correctly in RTL with
+            zero direction-specific code. */}
+        {type === 'weekly' && typeof rankDelta === 'number' && rankDelta !== 0 && (() => {
+          const deltaColor = interpolateDiverging(rankDelta > 0 ? 1 : 0).color;
+          return (
+            <span
+              className="mt-0.5 inline-flex items-center gap-0.5 px-1 rounded-full text-[9px] font-mono font-bold tabular-nums leading-tight whitespace-nowrap"
+              style={{
+                color: deltaColor,
+                background: `color-mix(in oklch, ${deltaColor} 16%, var(--color-bg-card))`,
+              }}
+            >
+              {rankDelta > 0 ? '▲' : '▼'} {Math.abs(rankDelta)}
+            </span>
+          );
+        })()}
       </div>
 
       <Avatar
@@ -83,8 +140,8 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
           <span className={cn('font-semibold text-sm truncate', isCurrentUser ? 'text-accent-green' : 'text-white')}>
             {entry.username}{isCurrentUser && ` (${t('you')})`}
           </span>
-          {sparklinePoints && sparklinePoints.length >= 2 && (
-            <LeaderboardRowSparkline points={sparklinePoints} className="shrink-0" />
+          {recentPredictions && recentPredictions.length >= 2 && (
+            <LeaderboardRowSparkline points={recentPredictions.map(p => p.points)} className="shrink-0" />
           )}
           {entry.weekly_points > 15 && (
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-accent-orange/10 text-accent-orange border border-accent-orange/20 leading-none whitespace-nowrap">
@@ -152,10 +209,12 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
     </div>
 
     {/* In-place preview — separate from the modals onClick opens (own row:
-        UserMatchHistoryModal, other row: H2HModal, both untouched). This is
-        a lighter, faster peek: streak/accuracy recap now, last-3 bet slips
-        added in the next commit. stopPropagation so interacting inside the
-        preview never also triggers the row's modal-opening onClick. */}
+        UserMatchHistoryModal, other row: H2HModal, both untouched). A
+        lighter, faster peek: streak/accuracy recap + the last 5 resolved
+        predictions as mini team-badge pairs (mandate: "recent 5 bet slips
+        with mini team icons"), colored by whether that pick earned points.
+        stopPropagation so interacting inside the preview never also
+        triggers the row's modal-opening onClick. */}
     <AnimatePresence initial={false}>
       {expanded && (
         <motion.div
@@ -166,21 +225,63 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
           className="overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-4 pb-3 pt-1 ms-10 flex items-center gap-4 text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="text-text-muted">{t('bentoCurrentStreak')}</span>
-              <span className="font-mono font-semibold tabular-nums text-orange-400">🔥 {entry.current_streak}</span>
+          <div className="px-4 pb-3 pt-1 ms-10 space-y-2.5">
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="text-text-muted">{t('bentoCurrentStreak')}</span>
+                <span className="font-mono font-semibold tabular-nums text-orange-400">🔥 {entry.current_streak}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-text-muted">{t('badgeSniper')}</span>
+                <span className="font-mono font-semibold tabular-nums text-accent-green">
+                  {picksMade > 0 ? `${accuracy}%` : '—'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-text-muted">{t('bestStreakLabel')}</span>
+                <span className="font-mono font-semibold tabular-nums text-white/80">🏅 {entry.best_streak}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-text-muted">{t('badgeSniper')}</span>
-              <span className="font-mono font-semibold tabular-nums text-accent-green">
-                {picksMade > 0 ? `${accuracy}%` : '—'}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-text-muted">{t('bestStreakLabel')}</span>
-              <span className="font-mono font-semibold tabular-nums text-white/80">🏅 {entry.best_streak}</span>
-            </div>
+
+            {recentPredictions && recentPredictions.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {recentPredictions.map((p) => {
+                  const match = betSlipMatches?.get(p.matchId);
+                  const won = p.points > 0;
+                  return (
+                    <div
+                      key={p.matchId}
+                      title={match ? `${match.home_team} vs ${match.away_team} · +${p.points}` : undefined}
+                      className={cn(
+                        'flex items-center gap-1 px-1.5 py-1 rounded-lg border shrink-0',
+                        won ? 'bg-accent-green/8 border-accent-green/20' : 'bg-white/3 border-white/8',
+                      )}
+                    >
+                      {match ? (
+                        <>
+                          {match.home_team_badge ? (
+                            <img src={match.home_team_badge} alt={match.home_team} width={14} height={14} className="w-3.5 h-3.5 object-contain" />
+                          ) : (
+                            <span className="w-3.5 h-3.5 rounded-full bg-white/10 shrink-0" />
+                          )}
+                          <span className="text-white/20 text-[9px]">–</span>
+                          {match.away_team_badge ? (
+                            <img src={match.away_team_badge} alt={match.away_team} width={14} height={14} className="w-3.5 h-3.5 object-contain" />
+                          ) : (
+                            <span className="w-3.5 h-3.5 rounded-full bg-white/10 shrink-0" />
+                          )}
+                        </>
+                      ) : (
+                        <span className="w-8 h-3.5 rounded bg-white/5 animate-pulse" />
+                      )}
+                      <span className={cn('text-[9px] font-mono font-bold tabular-nums', won ? 'text-accent-green' : 'text-text-muted/50')}>
+                        {won ? `+${p.points}` : '0'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </motion.div>
       )}
