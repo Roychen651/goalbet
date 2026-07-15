@@ -29,6 +29,9 @@ export type Database = {
           avatar_url: string | null;
           created_at: string;
           group_id: string | null;
+          // V4 Sprint 24 — migration 047. Default 'unspecified'; drives
+          // tg()'s gendered copy across notifications/Locker Room/AI text.
+          gender: 'male' | 'female' | 'unspecified';
         };
         Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'created_at'>;
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;

@@ -893,9 +893,11 @@ async function flushRankDropNotifications(tracker: RankTracker): Promise<void> {
         const overtaker = afterSorted[before - 1]; // whoever now sits at this user's old rank
         if (!overtaker || overtaker.user_id === userId) continue;
 
+        // V4 Sprint 24 — gender selects alongside username so the frontend's
+        // tg() can render "עקף"/"עקפה" correctly instead of defaulting.
         const { data: overtakerProfile } = await supabaseAdmin
           .from('profiles')
-          .select('username')
+          .select('username, gender')
           .eq('id', overtaker.user_id)
           .single();
 
@@ -909,6 +911,7 @@ async function flushRankDropNotifications(tracker: RankTracker): Promise<void> {
             old_rank: before,
             new_rank: after,
             overtaker_username: overtakerProfile?.username ?? null,
+            overtaker_gender: overtakerProfile?.gender ?? 'unspecified',
           },
         });
         if (notifError) {

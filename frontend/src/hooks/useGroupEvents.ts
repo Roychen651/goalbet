@@ -43,7 +43,7 @@ export function useGroupEvents() {
     try {
       const { data, error } = await supabase
         .from('group_events')
-        .select('*, profiles(username, avatar_url), matches(home_team, away_team, home_team_badge, away_team_badge)')
+        .select('*, profiles(username, avatar_url, gender), matches(home_team, away_team, home_team_badge, away_team_badge)')
         .eq('group_id', activeGroupId)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -54,7 +54,7 @@ export function useGroupEvents() {
       }
 
       const mapped: GroupEvent[] = (data ?? []).map((row: Record<string, unknown>) => {
-        const profile = row.profiles as { username?: string; avatar_url?: string | null } | null;
+        const profile = row.profiles as { username?: string; avatar_url?: string | null; gender?: 'male' | 'female' | 'unspecified' | null } | null;
         const match = row.matches as { home_team?: string; away_team?: string; home_team_badge?: string | null; away_team_badge?: string | null } | null;
         return {
           id: row.id as string,
@@ -66,6 +66,7 @@ export function useGroupEvents() {
           created_at: row.created_at as string,
           username: profile?.username ?? 'Unknown',
           avatar_url: profile?.avatar_url ?? null,
+          gender: profile?.gender ?? 'unspecified',
           home_team: match?.home_team,
           away_team: match?.away_team,
           home_team_badge: match?.home_team_badge,
