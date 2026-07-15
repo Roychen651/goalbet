@@ -89,7 +89,7 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
             extends below the viewport), so a ring would look wrong on the one
             side that shouldn't have one. */}
         <Drawer.Content
-          className="card-elevated fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[85dvh] flex-col rounded-t-2xl outline-none sm:max-w-[460px] relative overflow-hidden"
+          className="card-elevated fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[85dvh] flex-col rounded-t-2xl outline-none sm:max-w-[460px] overflow-hidden"
           style={{
             borderBottom: 'none',
             boxShadow: '0 -8px 60px rgba(0,0,0,0.5)',
