@@ -915,11 +915,17 @@ function GenderSelector({ t }: { t: (key: TranslationKey) => string }) {
               onClick={() => handleSelect(opt.value)}
               disabled={saving}
               className={cn(
-                'flex-1 px-2 py-2 rounded-lg text-[11px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border whitespace-nowrap active:scale-95 disabled:opacity-60',
+                // Sprint 24 RTL guard: `truncate` (not bare whitespace-nowrap)
+                // so the longest label ("מעדיף/ה שלא לציין") degrades to an
+                // ellipsis instead of overflowing its chip on a narrow
+                // viewport — same defensive pattern as PredictionHeatmap's
+                // clipPath guard, never an auto-scaling font size.
+                'flex-1 min-w-0 px-2 py-2 rounded-lg text-[11px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border truncate active:scale-95 disabled:opacity-60',
                 isSelected
                   ? cn('border-accent-green text-accent-green bg-accent-green/10 -translate-y-px', GENDER_EMBOSS_SHADOW)
                   : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:text-text-primary', GENDER_DEBOSS_SHADOW),
               )}
+              title={opt.label}
             >
               {opt.label}
             </button>

@@ -601,6 +601,7 @@ const CHRONICLER_SYSTEM_HE = `אתה היסטוריון ספורט מיתי המ
 
 interface ChronicleContext {
   username: string;
+  gender: 'male' | 'female' | 'unspecified';
   homeTeam: string;
   awayTeam: string;
   leagueName: string | null;
@@ -608,15 +609,28 @@ interface ChronicleContext {
   finalAway: number;
 }
 
+// V4 Sprint 24 — the saga is written ABOUT this user in the 3rd person, and
+// Hebrew 3rd-person-past verbs conjugate by gender ("ניחש" vs "ניחשה"). The
+// old prompt hardcoded the masculine form regardless of who the user was.
+// 'unspecified' uses a noun-based construction ("הניחוש של X היה...") that
+// sidesteps the verb entirely, same honest-default strategy as tg() on the
+// frontend (lib/i18n.ts) rather than silently defaulting to male.
+function chroniclePickVerbHe(gender: ChronicleContext['gender']): string {
+  if (gender === 'female') return 'ניחשה';
+  if (gender === 'male') return 'ניחש';
+  return 'ניחש/ה'; // unspecified — honest, not a silent default
+}
+
 async function generateChronicleText(ctx: ChronicleContext, lang: 'en' | 'he'): Promise<string | null> {
   if (lang === 'he') {
     const league = ctx.leagueName ?? 'ליגה';
+    const verb = chroniclePickVerbHe(ctx.gender);
     const user =
       `משתמש: ${ctx.username}\n` +
       `משחק: ${ctx.homeTeam} מול ${ctx.awayTeam}\n` +
       `תחרות: ${league}\n` +
       `תוצאה סופית מנחשת במדויק: ${ctx.finalHome}-${ctx.finalAway}\n\n` +
-      `${ctx.username} ניחש את התוצאה המדויקת הבלתי נתפסת של המשחק הזה. כתוב סאגה מיתית בת שלושה משפטים.`;
+      `${ctx.username} ${verb} את התוצאה המדויקת הבלתי נתפסת של המשחק הזה. כתוב סאגה מיתית בת שלושה משפטים, והמשך להטות פעלים המתארים את ${ctx.username} באותו מגדר דקדוקי כמו "${verb}" לעיל.`;
     return callGroq(
       [
         { role: 'system', content: CHRONICLER_SYSTEM_HE },
@@ -686,16 +700,18 @@ export async function ensureChronicle(seed: ChronicleSeed): Promise<void> {
       .maybeSingle();
     if (existing) return;
 
-    // Username for the prose
+    // Username + gender for the prose (gender drives Hebrew verb agreement —
+    // see chroniclePickVerbHe())
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('username')
+      .select('username, gender')
       .eq('id', seed.userId)
       .single();
     const username = profile?.username ?? 'The Oracle';
 
     const ctx: ChronicleContext = {
       username,
+      gender: (profile?.gender ?? 'unspecified') as ChronicleContext['gender'],
       homeTeam: seed.homeTeam,
       awayTeam: seed.awayTeam,
       leagueName: seed.leagueName,
