@@ -24,6 +24,7 @@ import { LIVE_STATUSES, FINISHED_STATUSES, calcPredictionCost, COIN_COSTS } from
 import { InfoTip } from '../components/ui/InfoTip';
 import { CoinIcon } from '../components/ui/CoinIcon';
 import { RiskRadarChart, RadarAxisDatum } from '../components/profile/RiskRadarChart';
+import { TrophyCabinet } from '../components/profile/TrophyCabinet';
 
 interface PredictionWithMatch extends Prediction {
   match: Match;
@@ -674,6 +675,23 @@ export function ProfilePage() {
             </div>
             <RiskRadarChart axes={radarAxes} />
           </GlassCard>
+        </motion.div>
+      )}
+
+      {/* ── Trophy Cabinet ────────────────────────────────────────────────── */}
+      {!loading && hasAnalytics && (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 100, damping: 18, delay: 0.15 }}>
+          <TrophyCabinet
+            stats={{
+              accuracyPct: accuracyRatio * 100,
+              picksMade: ftPredictions.length,
+              totalPoints,
+              currentStreak,
+              exactScoreCount,
+              resolvedCount: resolved.length,
+              boldnessRatio: clamp01(avgStake / COIN_COSTS.MAX_PER_MATCH),
+            }}
+          />
         </motion.div>
       )}
 

@@ -687,6 +687,22 @@ export const translations = {
     radarSpecialist: 'Specialist',
     radarVolatility: 'Volatility',
     radarTapHint: 'Tap a point to see the number behind it',
+
+    // Trophy Cabinet (Sprint 22)
+    trophyCabinetTitle: 'Trophy Cabinet',
+    trophyLocked: 'Locked',
+    trophySniperName: 'Sniper',
+    trophySniperDesc: '65%+ accuracy over 5+ picks',
+    trophyCenturyName: 'Century Club',
+    trophyCenturyDesc: '100+ total points',
+    trophyIronStreakName: 'Iron Streak',
+    trophyIronStreakDesc: '8+ correct results in a row',
+    trophySharpshooterName: 'Sharpshooter',
+    trophySharpshooterDesc: '5+ exact score hits',
+    trophyVeteranName: 'Veteran',
+    trophyVeteranDesc: '25+ resolved predictions',
+    trophyHighRollerName: 'High Roller',
+    trophyHighRollerDesc: 'Consistently bets big',
   },
 
   he: {
@@ -1372,6 +1388,22 @@ export const translations = {
     radarSpecialist: 'התמחות',
     radarVolatility: 'תנודתיות',
     radarTapHint: 'הקש/י על נקודה כדי לראות את המספר מאחוריה',
+
+    // Trophy Cabinet (Sprint 22)
+    trophyCabinetTitle: 'ארון הגביעים',
+    trophyLocked: 'נעול',
+    trophySniperName: 'צלף',
+    trophySniperDesc: '65%+ דיוק על פני 5+ ניחושים',
+    trophyCenturyName: 'מועדון המאה',
+    trophyCenturyDesc: '100+ נקודות בסך הכל',
+    trophyIronStreakName: 'רצף ברזל',
+    trophyIronStreakDesc: '8+ תוצאות נכונות ברצף',
+    trophySharpshooterName: 'קלע מדויק',
+    trophySharpshooterDesc: '5+ ניחושי תוצאה מדויקת',
+    trophyVeteranName: 'ותיק',
+    trophyVeteranDesc: '25+ ניחושים שהוכרעו',
+    trophyHighRollerName: 'שחקן גדול',
+    trophyHighRollerDesc: 'מהמר גבוה בעקביות',
   },
 } as const;
 
