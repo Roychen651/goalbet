@@ -677,6 +677,16 @@ export const translations = {
     arenaH2HExpandAria: 'View full match history',
     arenaH2HMatchHistoryTitle: 'Match History',
     arenaH2HFinal: 'Final',
+
+    // Risk Profile radar (Sprint 22)
+    radarTitle: 'Risk Profile',
+    radarInfoTip: 'Your predicting style across 5 dimensions — tap a point for details',
+    radarAccuracy: 'Accuracy',
+    radarBoldness: 'Boldness',
+    radarLiveActivity: 'Live Activity',
+    radarSpecialist: 'Specialist',
+    radarVolatility: 'Volatility',
+    radarTapHint: 'Tap a point to see the number behind it',
   },
 
   he: {
@@ -1352,6 +1362,16 @@ export const translations = {
     arenaH2HExpandAria: 'הצג היסטוריית משחקים מלאה',
     arenaH2HMatchHistoryTitle: 'היסטוריית משחקים',
     arenaH2HFinal: 'תוצאה סופית',
+
+    // Risk Profile radar (Sprint 22)
+    radarTitle: 'פרופיל הסיכון',
+    radarInfoTip: 'סגנון הניחושים שלך על פני 5 מימדים — הקש/י על נקודה לפרטים',
+    radarAccuracy: 'דיוק',
+    radarBoldness: 'העזה',
+    radarLiveActivity: 'פעילות חיה',
+    radarSpecialist: 'התמחות',
+    radarVolatility: 'תנודתיות',
+    radarTapHint: 'הקש/י על נקודה כדי לראות את המספר מאחוריה',
   },
 } as const;
 

@@ -20,9 +20,10 @@ import { FormBars } from '../components/ui/FormBars';
 import { HallOfFameChronicles } from '../components/profile/HallOfFameChronicles';
 import { ShareableRecapCard } from '../components/profile/ShareableRecapCard';
 import { formatKickoffTime, isMatchLocked, calcBreakdown } from '../lib/utils';
-import { LIVE_STATUSES, FINISHED_STATUSES, calcPredictionCost } from '../lib/constants';
+import { LIVE_STATUSES, FINISHED_STATUSES, calcPredictionCost, COIN_COSTS } from '../lib/constants';
 import { InfoTip } from '../components/ui/InfoTip';
 import { CoinIcon } from '../components/ui/CoinIcon';
+import { RiskRadarChart, RadarAxisDatum } from '../components/profile/RiskRadarChart';
 
 interface PredictionWithMatch extends Prediction {
   match: Match;
@@ -85,6 +86,23 @@ export function ProfilePage() {
 
   useEffect(() => {
     fetchHistory();
+  }, [user?.id, activeGroupId]);
+
+  // Sprint 22 — the one genuinely new query the Risk Profile radar needs.
+  // Every other axis (accuracy, boldness, specialist, volatility) is
+  // derivable from `history` above (already fetched, zero extra cost);
+  // Momentum Bets participation isn't covered by that fetch (a different
+  // table, `micro_prediction_bets`) and isn't aggregated anywhere else in
+  // the app, so this is a single head:true count — no row data transferred.
+  const [momentumBetCount, setMomentumBetCount] = useState(0);
+  useEffect(() => {
+    if (!user || !activeGroupId) return;
+    supabase
+      .from('micro_prediction_bets')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('group_id', activeGroupId)
+      .then(({ count }) => setMomentumBetCount(count ?? 0));
   }, [user?.id, activeGroupId]);
 
 
@@ -312,6 +330,33 @@ export function ProfilePage() {
   });
 
   const hasAnalytics = ftResolved.length >= 3;
+
+  // ── Risk Profile radar axes ───────────────────────────────────────────────
+  // Each value is clamped to [0,1] with an explicit, stated denominator (the
+  // Sprint 20 Risk Meter lesson — a ratio's denominator must be sized to the
+  // numerator's real range, not just be dimensionally correct). 4 of 5 axes
+  // are pure re-derivations of numbers already computed above from `history`
+  // — zero extra queries; only Live Activity needed the new count above.
+  const clamp01 = (n: number) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 0));
+  const avgStake = resolved.length > 0
+    ? resolved.reduce((sum, p) => sum + (p.coins_bet ?? 0), 0) / resolved.length
+    : 0;
+  const pointsMean = resolved.length > 0
+    ? resolved.reduce((sum, p) => sum + p.points_earned, 0) / resolved.length
+    : 0;
+  const pointsStddev = resolved.length > 1
+    ? Math.sqrt(resolved.reduce((sum, p) => sum + (p.points_earned - pointsMean) ** 2, 0) / resolved.length)
+    : 0;
+  const accuracyRatio = ftPredictions.length > 0 ? ftCorrect.length / ftPredictions.length : 0;
+  const specialistRatio = scorePreds.length > 0 ? exactScoreCount / scorePreds.length : 0;
+
+  const radarAxes: RadarAxisDatum[] = [
+    { key: 'accuracy', label: t('radarAccuracy'), value: clamp01(accuracyRatio), raw: `${Math.round(accuracyRatio * 100)}%` },
+    { key: 'boldness', label: t('radarBoldness'), value: clamp01(avgStake / COIN_COSTS.MAX_PER_MATCH), raw: avgStake.toFixed(1) },
+    { key: 'liveActivity', label: t('radarLiveActivity'), value: clamp01(momentumBetCount / 20), raw: String(momentumBetCount) },
+    { key: 'specialist', label: t('radarSpecialist'), value: clamp01(specialistRatio), raw: `${Math.round(specialistRatio * 100)}%` },
+    { key: 'volatility', label: t('radarVolatility'), value: clamp01(pointsStddev / (COIN_COSTS.MAX_PER_MATCH / 2)), raw: `σ${pointsStddev.toFixed(1)}` },
+  ];
 
   // ── Points Trajectory ─────────────────────────────────────────────────────
   // Running cumulative points across resolved predictions, oldest→newest by
@@ -616,6 +661,19 @@ export function ProfilePage() {
               </motion.div>
             </div>
           )}
+        </motion.div>
+      )}
+
+      {/* ── Risk Profile radar ────────────────────────────────────────────── */}
+      {!loading && hasAnalytics && (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 100, damping: 18, delay: 0.1 }}>
+          <GlassCard variant="elevated" className="p-4">
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <span className="font-bebas text-lg tracking-wider text-white">{t('radarTitle')}</span>
+              <InfoTip text={t('radarInfoTip')} />
+            </div>
+            <RiskRadarChart axes={radarAxes} />
+          </GlassCard>
         </motion.div>
       )}
 
