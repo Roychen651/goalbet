@@ -1,3 +1,4 @@
+import { motion, LayoutGroup } from 'framer-motion';
 import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
 import type { StandingsRow } from '../../hooks/useLeagueStats';
@@ -32,40 +33,52 @@ export function StandingsTable({ rows }: StandingsTableProps) {
             <Th bold>{t('statsColPts')}</Th>
           </tr>
         </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.team.id || `${row.rank}-${row.team.name}`}>
-              <td className="sticky start-0 z-10 bg-bg-card px-3 py-2.5 text-start whitespace-nowrap border-t border-border-subtle/60">
-                <div className="flex items-center gap-2 min-w-[140px]">
-                  <span className="w-5 text-end text-text-muted tabular-nums">{row.rank || '—'}</span>
-                  {row.team.logo ? (
-                    <img
-                      src={row.team.logo}
-                      alt={row.team.name}
-                      width={18}
-                      height={18}
-                      className="w-[18px] h-[18px] object-contain shrink-0"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <span className="w-[18px] h-[18px] shrink-0" />
-                  )}
-                  <span className="text-white text-xs font-sans font-medium truncate">
-                    {row.team.shortName || row.team.name}
-                  </span>
-                </div>
-              </td>
-              <Td>{row.gp}</Td>
-              <Td>{row.w}</Td>
-              <Td>{row.d}</Td>
-              <Td>{row.l}</Td>
-              <Td>{row.gf}</Td>
-              <Td>{row.ga}</Td>
-              <Td>{formatSigned(row.gd)}</Td>
-              <Td bold>{row.points}</Td>
-            </tr>
-          ))}
-        </tbody>
+        <LayoutGroup id="standings-rows">
+          <tbody>
+            {rows.map((row) => (
+              // motion.tr + layout — same FLIP-on-resort behavior as
+              // LeaderboardTable's rows, so a standings shuffle after a sync
+              // animates teams sliding to their new rank instead of an
+              // instant re-render in the new order. getBoundingClientRect
+              // works fine on <tr> in every evergreen browser, so `layout`
+              // measures correctly despite the table layout algorithm.
+              <motion.tr
+                key={row.team.id || `${row.rank}-${row.team.name}`}
+                layout
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              >
+                <td className="sticky start-0 z-10 bg-bg-card px-3 py-2.5 text-start whitespace-nowrap border-t border-border-subtle/60">
+                  <div className="flex items-center gap-2 min-w-[140px]">
+                    <span className="w-5 text-end text-text-muted font-mono tabular-nums">{row.rank || '—'}</span>
+                    {row.team.logo ? (
+                      <img
+                        src={row.team.logo}
+                        alt={row.team.name}
+                        width={18}
+                        height={18}
+                        className="w-[18px] h-[18px] object-contain shrink-0"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="w-[18px] h-[18px] shrink-0" />
+                    )}
+                    <span className="text-white text-xs font-sans font-medium truncate">
+                      {row.team.shortName || row.team.name}
+                    </span>
+                  </div>
+                </td>
+                <Td>{row.gp}</Td>
+                <Td>{row.w}</Td>
+                <Td>{row.d}</Td>
+                <Td>{row.l}</Td>
+                <Td>{row.gf}</Td>
+                <Td>{row.ga}</Td>
+                <Td>{formatSigned(row.gd)}</Td>
+                <Td bold>{row.points}</Td>
+              </motion.tr>
+            ))}
+          </tbody>
+        </LayoutGroup>
       </table>
     </div>
   );
