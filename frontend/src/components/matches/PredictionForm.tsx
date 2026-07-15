@@ -1,17 +1,20 @@
 import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import NumberFlow from '@number-flow/react';
 import { Match, Prediction } from '../../lib/supabase';
 import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
 import { CoinIcon } from '../ui/CoinIcon';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, POINTS, calcPredictionCost } from '../../lib/constants';
+import { interpolateRisk } from '../../lib/oklch';
 
 // International Friendlies: hundreds of matches per week, corners never tracked
 const LEAGUES_WITHOUT_CORNERS = new Set([4396]);
 import { useLangStore } from '../../stores/langStore';
 import { useCoinsStore } from '../../stores/coinsStore';
 import { haptic } from '../../lib/haptics';
+import { playSound } from '../../lib/sensoryAudio';
 
 interface PredictionFormProps {
   match: Match;
@@ -36,13 +39,23 @@ export interface PredictionData {
 
 type OutcomeOption = 'H' | 'D' | 'A';
 
+// Sprint 20 — `emboss` replaces `glow` as the selected-chip shadow: an inner
+// light-catch (reads as raised/lit from above) plus an outward glow in the
+// tier's own color, instead of a bare outward glow alone. `glow` itself is
+// kept (still referenced by TierRow's point label, unrelated to the chip
+// shadow) — only the 4 chip render sites below switch to `emboss`.
 const TIER_COLORS = [
-  { dot: 'bg-emerald-400', pts: 'text-emerald-400', glow: 'shadow-[0_0_12px_rgba(52,211,153,0.3)]' },
-  { dot: 'bg-yellow-400',  pts: 'text-yellow-400',  glow: 'shadow-[0_0_12px_rgba(234,179,8,0.3)]'  },
-  { dot: 'bg-blue-400',    pts: 'text-blue-400',    glow: 'shadow-[0_0_12px_rgba(96,165,250,0.3)]'  },
-  { dot: 'bg-orange-400',  pts: 'text-orange-400',  glow: 'shadow-[0_0_12px_rgba(251,146,60,0.3)]'  },
-  { dot: 'bg-purple-400',  pts: 'text-purple-400',  glow: 'shadow-[0_0_12px_rgba(192,132,252,0.3)]' },
+  { dot: 'bg-emerald-400', pts: 'text-emerald-400', glow: 'shadow-[0_0_12px_rgba(52,211,153,0.3)]',  emboss: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_3px_10px_-2px_rgba(52,211,153,0.45)]' },
+  { dot: 'bg-yellow-400',  pts: 'text-yellow-400',  glow: 'shadow-[0_0_12px_rgba(234,179,8,0.3)]',   emboss: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_3px_10px_-2px_rgba(234,179,8,0.45)]'  },
+  { dot: 'bg-blue-400',    pts: 'text-blue-400',    glow: 'shadow-[0_0_12px_rgba(96,165,250,0.3)]',  emboss: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_3px_10px_-2px_rgba(96,165,250,0.45)]'  },
+  { dot: 'bg-orange-400',  pts: 'text-orange-400',  glow: 'shadow-[0_0_12px_rgba(251,146,60,0.3)]',  emboss: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_3px_10px_-2px_rgba(251,146,60,0.45)]'  },
+  { dot: 'bg-purple-400',  pts: 'text-purple-400',  glow: 'shadow-[0_0_12px_rgba(192,132,252,0.3)]', emboss: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_3px_10px_-2px_rgba(192,132,252,0.45)]' },
 ];
+
+// Shared "debossed" (sunken-into-the-surface) shadow for unselected chips —
+// deliberately NOT per-tier colored; only the selected state should carry
+// tier identity, so an unselected chip always recedes the same neutral way.
+const DEBOSS_SHADOW = 'shadow-[inset_0_1px_3px_rgba(0,0,0,0.3),inset_0_-1px_0_rgba(255,255,255,0.03)]';
 
 function deriveOutcomeFromScore(home: string, away: string): OutcomeOption | null {
   const h = parseInt(home);
@@ -145,6 +158,11 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       predicted_btts: btts,
       predicted_over_under: overUnder,
     });
+    // lock_thud, not coin_chime — coin_chime already means "you received
+    // coins" everywhere else in the app (daily bonus, prediction wins).
+    // lock_thud already means "something just became final" (Momentum Bets
+    // lock) — the correct semantic match for locking in a prediction.
+    playSound('lock_thud');
     setSaved(true);
   };
 
@@ -163,6 +181,13 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   const oldCost = existingPrediction?.coins_bet ?? 0;
   const netCost = currentCost - oldCost; // positive = spending more, negative = getting refund
   const insufficientCoins = netCost > 0 && coins < netCost;
+  const displayCost = netCost > 0 ? netCost : currentCost;
+  // Risk Meter — a live gauge reflecting the already-computed cost/balance
+  // ratio, never a draggable input. GoalBet's coin cost is fixed per tier
+  // selection (submit_prediction, migration 040) — there is no discretionary
+  // stake to "slide"; sending a client-chosen amount to a coin-spending RPC
+  // is exactly what rule 4.11/SS27 forbids.
+  const riskRatio = insufficientCoins ? 1 : Math.max(0, Math.min(1, displayCost / Math.max(1, coins)));
 
   if (locked) {
     return <LockedPrediction match={match} prediction={existingPrediction} resolved={resolved} />;
@@ -177,7 +202,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       content: (
         <OutcomePicker
           value={outcome}
-          onChange={(v) => { haptic('selection'); setOutcome(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOutcome(v); setSaved(false); }}
           homeTeam={match.home_team}
           awayTeam={match.away_team}
           color={TIER_COLORS[0]}
@@ -209,7 +234,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       content: (
         <CornersPicker
           value={cornersValue}
-          onChange={(v) => { haptic('selection'); setCornersValue(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setCornersValue(v); setSaved(false); }}
           color={TIER_COLORS[2]}
         />
       ),
@@ -253,7 +278,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           active={btts !== null}
           color={TIER_COLORS[tiers.length]}
           value={btts}
-          onChange={(v) => { haptic('selection'); setBtts(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setBtts(v); setSaved(false); }}
           yesLabel={t('yes')}
           noLabel={t('no')}
           impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
@@ -267,7 +292,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           active={overUnder !== null}
           color={TIER_COLORS[tiers.length + 1]}
           value={overUnder === null ? null : overUnder === 'over'}
-          onChange={(v) => { haptic('selection'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
           yesLabel="O 2.5"
           noLabel="U 2.5"
           impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
@@ -285,20 +310,35 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
             className="pt-1 space-y-2"
           >
-            {/* Coin summary row */}
-            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/6 border border-amber-500/15">
-              <div className="flex items-center gap-1.5">
-                <span className="text-white/40 text-[10px] font-headline uppercase tracking-wider">Cost</span>
-                <span className="flex items-center gap-1 text-amber-400 font-display font-bold tabular-nums text-xs">
-                  <CoinIcon size={13} /> {netCost > 0 ? netCost : currentCost}
-                  {netCost < 0 && <span className="text-emerald-400 ms-1 text-[10px]">(+{Math.abs(netCost)} refund)</span>}
-                </span>
+            {/* Coin summary row + Risk Meter */}
+            <div className="px-3 py-2.5 rounded-xl bg-amber-500/6 border border-amber-500/15 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white/40 text-[10px] font-headline uppercase tracking-wider">Cost</span>
+                  <span className="flex items-center gap-1 text-amber-400 font-display font-bold tabular-nums text-xs">
+                    <CoinIcon size={13} /> <NumberFlow value={displayCost} />
+                    {netCost < 0 && <span className="text-emerald-400 ms-1 text-[10px]">(+{Math.abs(netCost)} refund)</span>}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white/40 text-[10px] font-headline uppercase tracking-wider">Balance</span>
+                  <span className={cn('flex items-center gap-1 font-display font-bold tabular-nums text-xs', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
+                    <CoinIcon size={13} /> <NumberFlow value={coins} />
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-white/40 text-[10px] font-headline uppercase tracking-wider">Balance</span>
-                <span className={cn('flex items-center gap-1 font-display font-bold tabular-nums text-xs', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
-                  <CoinIcon size={13} /> {coins}
-                </span>
+              {/* Risk Meter — a live gauge, not a slider. There is no
+                  discretionary stake in this economy to drag/choose; this
+                  bar only ever reflects the cost your current tier
+                  selections already computed, animating gold -> warning as
+                  that cost approaches your balance. */}
+              <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ background: interpolateRisk(riskRatio).color }}
+                  animate={{ width: `${riskRatio * 100}%` }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                />
               </div>
             </div>
             {insufficientCoins && (
@@ -403,12 +443,12 @@ function InlineBoolTier({
               onClick={() => { if (!isImpossible) onChange(isSelected ? null : v); }}
               disabled={isImpossible}
               className={cn(
-                'px-2.5 py-1 rounded-lg text-[11px] font-display font-semibold transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border whitespace-nowrap active:scale-95',
+                'px-2.5 py-1 rounded-lg text-[11px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border whitespace-nowrap active:scale-95',
                 isSelected && !isImpossible
-                  ? cn('border-current text-current bg-current/10', color.pts)
+                  ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
                   : isImpossible
                   ? 'opacity-25 cursor-not-allowed bg-white/3 border-white/5 text-text-muted'
-                  : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:text-text-primary',
+                  : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:text-text-primary', DEBOSS_SHADOW),
               )}
             >
               {v ? yesLabel : noLabel}
@@ -450,10 +490,10 @@ function OutcomePicker({
           onClick={() => { if (!lockedByScore) onChange(val); }}
           disabled={lockedByScore}
           className={cn(
-            'py-1.5 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
+            'py-1.5 rounded-lg transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
             value === val
-              ? cn('border-current text-current bg-current/10', color.pts, color.glow)
-              : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
+              ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
+              : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW),
             lockedByScore && value !== val && 'opacity-40 cursor-not-allowed',
           )}
         >
@@ -527,12 +567,12 @@ function BoolPicker({
             disabled={isImpossible}
             title={isImpossible ? 'Not possible with your score' : undefined}
             className={cn(
-              'py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border relative active:scale-95',
+              'py-1.5 rounded-lg text-xs font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border relative active:scale-95',
               isSelected && !isImpossible
-                ? cn('border-current text-current bg-current/10', color.pts, color.glow)
+                ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
                 : isImpossible
                 ? 'opacity-30 cursor-not-allowed bg-white/3 border-white/5 text-text-muted line-through'
-                : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
+                : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW),
             )}
           >
             {v ? yesLabel : noLabel}
@@ -777,10 +817,10 @@ function CornersPicker({
           key={val}
           onClick={() => onChange(value === val ? null : val)}
           className={cn(
-            'py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
+            'py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
             value === val
-              ? cn('border-current text-current bg-current/10', color.pts, color.glow)
-              : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
+              ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
+              : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW),
           )}
         >
           {label}

@@ -52,6 +52,15 @@
   --arena-hot: oklch(65% 0.22 13);
   --arena-glow: oklch(78% 0.11 218 / 0.35);
   --arena-grain-opacity: 0.035;
+
+  /* Sprint 20 — Risk Meter two-stop scale (OKLCH). Deliberately a separate
+     token pair from --arena-cold/hot: arena's scale means "performance"
+     (win ratio), this one means "how much of your balance this bet risks" —
+     different semantics, so reusing the same anchors would make one scale's
+     meaning bleed into the other's. gold = safe/low commitment, warning =
+     at/near full balance. */
+  --risk-gold: oklch(85% 0.14 85);
+  --risk-warning: oklch(70% 0.20 20);
 }
 
 /* ─── Light mode — "Frost" ─── */
@@ -92,6 +101,12 @@ html.light {
   --arena-hot: oklch(56% 0.20 13);
   --arena-glow: oklch(55% 0.14 218 / 0.22);
   --arena-grain-opacity: 0.05;
+
+  /* Sprint 20 — Risk Meter, light surface variant. Same hue anchors (85
+     gold / 20 warning) as dark, darker + more saturated for contrast on
+     near-white cards — same discipline as the arena scale above. */
+  --risk-gold: oklch(65% 0.16 85);
+  --risk-warning: oklch(58% 0.22 20);
 }
 
 /* ============================================================
