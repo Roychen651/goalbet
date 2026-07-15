@@ -13,6 +13,7 @@ interface AuthState {
   fetchProfile: () => Promise<void>;
   updateAvatar: (avatarUrl: string) => Promise<void>;
   updateUsername: (username: string) => Promise<void>;
+  updateGender: (gender: 'male' | 'female' | 'unspecified') => Promise<void>;
   init: () => () => void; // returns cleanup fn
 }
 
@@ -79,6 +80,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data, error } = await supabase
       .from('profiles')
       .update({ username })
+      .eq('id', user.id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    if (data) set({ profile: data });
+  },
+
+  updateGender: async (gender: 'male' | 'female' | 'unspecified') => {
+    const { user } = get();
+    if (!user) return;
+    // Direct client write, same shape as updateUsername — profiles is
+    // already owner-writable under existing RLS (auth.uid() = id), no new
+    // RPC needed for a plain profile-field update.
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ gender })
       .eq('id', user.id)
       .select()
       .single();
