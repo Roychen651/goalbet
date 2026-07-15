@@ -111,3 +111,40 @@ export function teamHaloColor(name: string, alpha = 0.18): string {
   const hue = hashTeamHue(name);
   return `oklch(65% 0.15 ${hue} / ${alpha})`;
 }
+
+// Sprint 20 — Risk Meter. A separate two-stop scale from the arena
+// diverging one above: --risk-gold/--risk-warning mean "how much of your
+// balance this bet risks," not "performance," so they get their own tokens
+// (index.css) rather than reusing --arena-cold/hot for a different meaning.
+let cachedRiskAnchors: { gold: Oklch; warning: Oklch } | null = null;
+let cachedRiskForTheme: string | null = null;
+
+function getRiskAnchors() {
+  const isLight = document.documentElement.classList.contains('light');
+  const themeKey = isLight ? 'light' : 'dark';
+  if (cachedRiskAnchors && cachedRiskForTheme === themeKey) return cachedRiskAnchors;
+
+  const styles = getComputedStyle(document.documentElement);
+  cachedRiskAnchors = {
+    gold: parseOklch(styles.getPropertyValue('--risk-gold')),
+    warning: parseOklch(styles.getPropertyValue('--risk-warning')),
+  };
+  cachedRiskForTheme = themeKey;
+  return cachedRiskAnchors;
+}
+
+/**
+ * ratio: 0 (safe, low commitment) .. 1 (at/near full balance). A plain
+ * two-stop lerp, not diverging around a midpoint like interpolateDiverging.
+ */
+export function interpolateRisk(ratio: number): DivergingColor {
+  const { gold, warning } = getRiskAnchors();
+  const t = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0));
+  const l = lerp(gold.l, warning.l, t);
+  const c = lerp(gold.c, warning.c, t);
+  const h = lerpHue(gold.h, warning.h, t);
+  return {
+    color: `oklch(${l.toFixed(1)}% ${c.toFixed(3)} ${h.toFixed(1)})`,
+    l,
+  };
+}
