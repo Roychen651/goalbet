@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useLeaderboard, LeaderboardType } from '../hooks/useLeaderboard';
 import { useAuthStore } from '../stores/authStore';
@@ -44,6 +45,12 @@ export type PeriodStatsMap = Map<string, PeriodStat>;
 export type RecentPrediction = { matchId: string; points: number };
 
 export function LeaderboardPage() {
+  const [searchParams] = useSearchParams();
+  // V4 Sprint 23 — notification "View Standings" deep link (?highlight=<user_id>).
+  // Captured once via a lazy initializer, same reasoning as HomePage's
+  // focusMatchId: LeaderboardTable's own expandedUserId state is seeded from
+  // this exactly once, independent of any later searchParams changes.
+  const [highlightUserId] = useState(() => searchParams.get('highlight'));
   const [type, setType] = useState<LeaderboardType>('total');
   const [selectedUser, setSelectedUser] = useState<SelectedUser | null>(null);
   const [h2hFriend, setH2hFriend] = useState<H2HUser | null>(null);
@@ -332,6 +339,7 @@ export function LeaderboardPage() {
         periodStatsMap={periodStatsMap}
         sparklineMap={sparklineMap}
         rankDeltaMap={rankDeltaMap}
+        initialHighlightUserId={highlightUserId}
         onUserClick={(entry) => {
           if (entry.user_id === user?.id) {
             // Own row → show personal match history

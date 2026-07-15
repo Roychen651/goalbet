@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { useMatches } from '../hooks/useMatches';
 import { usePredictions } from '../hooks/usePredictions';
@@ -22,7 +23,20 @@ import type { PredictionData } from '../components/matches/PredictionForm';
 type Tab = 'all' | 'upcoming' | 'live' | 'completed';
 
 export function HomePage() {
-  const [activeTab, setActiveTab] = useState<Tab>('all');
+  const [searchParams] = useSearchParams();
+  // V4 Sprint 23 — notification "View Match" deep link (?focus=<match_id>).
+  // Captured once via a lazy initializer, NOT re-derived from `searchParams`
+  // on every render: `matches` loads asynchronously, and the MatchCard that
+  // needs this id to fire its own autoFocus effect may not mount until
+  // several renders after this one. If the param were live-read instead,
+  // clearing it from the URL (or any unrelated searchParams change) before
+  // that later render would silently drop the value the deferred mount
+  // still needs. A prediction_result notification only ever fires after a
+  // match resolves (is_resolved=true → in practice FT), so the target card
+  // only exists in the 'completed' tab's filtered set, never 'all' (which
+  // deliberately excludes finished matches).
+  const [focusMatchId] = useState(() => searchParams.get('focus'));
+  const [activeTab, setActiveTab] = useState<Tab>(focusMatchId ? 'completed' : 'all');
   const [showScoringGuide, setShowScoringGuide] = useState(false);
   const [showCoinGuide, setShowCoinGuide] = useState(false);
   const { matches, loading, loadingMore, error, loadMore, upcomingDays, hasMore } = useMatches(activeTab);
@@ -209,6 +223,7 @@ export function HomePage() {
         predictorsByMatch={predictorsByMatch}
         loading={loading}
         activeTab={activeTab}
+        focusMatchId={focusMatchId}
       />
 
       {/* Load More Fixtures — only shown on upcoming-facing tabs, not results */}

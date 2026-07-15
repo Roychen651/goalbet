@@ -288,10 +288,16 @@ interface MatchCardProps {
   match: Match;
   prediction?: Prediction;
   predictors?: { user_id: string; avatar_url: string | null; username: string }[];
+  /** V4 Sprint 23 — set when this card is the target of a notification's
+   *  "View Match" deep link (?focus=<match_id>). Expands the card and
+   *  scrolls it into view once, on mount only — never re-triggers on a
+   *  later re-render (e.g. a live score update) since the id comparison
+   *  that produces this prop lives in the parent, not a dependency here. */
+  autoFocus?: boolean;
 }
 
-function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
-  const [expanded, setExpanded] = useState(false);
+function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }: MatchCardProps) {
+  const [expanded, setExpanded] = useState(autoFocus);
   const { t, lang } = useLangStore();
   const rtl = lang === 'he';
   const { user, profile } = useAuthStore();
@@ -315,6 +321,18 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
     prevScoreRef.current = { home: match.home_score, away: match.away_score };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.home_score, match.away_score]);
+
+  // V4 Sprint 23 — deep link from a notification's "View Match" CTA. Runs
+  // once on mount only (empty deps) — a later prop change must never
+  // re-trigger the scroll, or a live score update elsewhere in the feed
+  // (which doesn't change this card's identity, see mergeMatches's
+  // reference-preservation, §22) could yank the viewport back here.
+  useEffect(() => {
+    if (autoFocus && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Tactical intel: fetched eagerly on mount for NS upcoming matches ────────
   const [espnInfo, setEspnInfo] = useState<EspnMatchInfo | null>(null);

@@ -15,6 +15,10 @@ interface MatchFeedProps {
   predictorsByMatch?: Map<string, { user_id: string; username: string; avatar_url: string | null }[]>;
   loading: boolean;
   activeTab: 'all' | 'upcoming' | 'live' | 'completed';
+  /** V4 Sprint 23 — match id from a notification's "View Match" deep link
+   *  (?focus=<match_id>). Passed straight through to whichever MatchCard
+   *  matches; everyone else renders exactly as before. */
+  focusMatchId?: string | null;
 }
 
 // Returns true for any match that is in progress (including stalled NS past kickoff)
@@ -35,7 +39,7 @@ function dateLabel(kickoffTime: string, lang: 'en' | 'he'): string {
 }
 
 export function MatchFeed({
-  matches, predictions, predictorsByMatch, loading, activeTab,
+  matches, predictions, predictorsByMatch, loading, activeTab, focusMatchId,
 }: MatchFeedProps) {
   const { t, lang } = useLangStore();
   const isSyncing = useUIStore(s => s.isSyncing);
@@ -149,6 +153,7 @@ export function MatchFeed({
                       index={i}
                       predictions={predictions}
                       predictorsByMatch={predictorsByMatch}
+                      autoFocus={match.id === focusMatchId}
                     />
                   ))}
                 </div>
@@ -168,6 +173,7 @@ export function MatchFeed({
                       index={i}
                       predictions={predictions}
                       predictorsByMatch={predictorsByMatch}
+                      autoFocus={match.id === focusMatchId}
                     />
                   ))}
                 </div>
@@ -184,6 +190,7 @@ export function MatchFeed({
                     index={i}
                     predictions={predictions}
                     predictorsByMatch={predictorsByMatch}
+                    autoFocus={match.id === focusMatchId}
                   />
                 ))}
               </div>
@@ -200,17 +207,19 @@ export function MatchFeed({
 
 // Single match card wrapped in animation
 function MatchCardItem({
-  match, index, predictions, predictorsByMatch,
+  match, index, predictions, predictorsByMatch, autoFocus,
 }: {
   match: Match;
   index: number;
   predictions: Map<string, Prediction>;
   predictorsByMatch?: Map<string, { user_id: string; username: string; avatar_url: string | null }[]>;
+  autoFocus?: boolean;
 }) {
   const cardProps = {
     match,
     prediction: predictions.get(match.id),
     predictors: predictorsByMatch?.get(match.id),
+    autoFocus,
   };
 
   return (
