@@ -1090,6 +1090,24 @@ html.light .glass-grain { mix-blend-mode: multiply; }
   .help-connector-line { animation: none; background-position: 0% 0%; }
 }
 
+/* Bento Almanac — Coin Economy ambient drift (Sprint 25 Commit 3). Three
+   small CoinIcon SVGs float + fade behind the row list, purely decorative,
+   pointer-events-none, staggered via animation-delay so they don't move in
+   lockstep. Same CSS-only-ambient-loop reasoning as the connector line
+   above — this card can be simultaneously visible with 3 other bento cards
+   each running their own ambient loop, so every one of them stays
+   compositor-only. */
+@keyframes coinDrift {
+  0%   { transform: translateY(6px); opacity: 0; }
+  15%  { opacity: 0.14; }
+  85%  { opacity: 0.14; }
+  100% { transform: translateY(-10px); opacity: 0; }
+}
+.coin-drift-particle { animation: coinDrift 5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .coin-drift-particle { animation: none; opacity: 0; }
+}
+
 /* Brutalist hollow display text — absurdly large, thin-stroke outline.
    Used for the scroll-reveal "2026" behind the Hero content. */
 .wc-brutalist-hollow {

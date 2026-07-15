@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trophy, Search, Users, Pencil, Layers, Wallet, Radio } from 'lucide-react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { X, Trophy, Search, Users, Pencil, Layers, Wallet, Radio, ChevronDown } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
 import { cn } from '../../lib/utils';
 import { GlassCard } from './GlassCard';
+import { CoinIcon } from './CoinIcon';
 import { POINTS, COIN_COSTS } from '../../lib/constants';
 import { TIER_COLORS } from '../../lib/tierVisuals';
 
@@ -167,55 +168,123 @@ function TierLedgerCard({ isHe }: { isHe: boolean }) {
 // job now (Correction: avoids showing the same 5 numbers twice across two
 // cards). This card is scoped to flow only: how coins enter and leave the
 // balance, not what a single bet costs.
+// Three ambient coin particles drift behind the row list — purely
+// decorative, pointer-events-none, disabled under prefers-reduced-motion
+// (.coin-drift-particle, index.css). Staggered animation-delay so they
+// don't move in lockstep.
+const COIN_DRIFT_POSITIONS = [
+  { insetInlineStart: '8%', animationDelay: '0s' },
+  { insetInlineStart: '45%', animationDelay: '1.6s' },
+  { insetInlineStart: '80%', animationDelay: '3.2s' },
+];
+
 function CoinEconomyCard({ isHe }: { isHe: boolean }) {
   return (
-    <GlassCard variant="elevated" grain tactile className="p-4">
-      <CardHeader icon={<Wallet size={14} />} title={isHe ? 'כלכלת המטבעות' : 'The Coin Economy'} />
-      <div>
-        <InfoRow icon="📅" label={isHe ? 'בונוס יומי' : 'Daily bonus'} value="+30 🪙" />
-        <InfoRow icon="✅" label={isHe ? 'תביעת זכייה' : 'Winning claims'} value={isHe ? 'נק׳ × 2' : 'pts × 2'} />
-        <InfoRow icon="⚡" label={isHe ? 'הימור מיידי' : 'Instant-lock bets'} value="-2 / +4 🪙" valueClass="text-white/70" />
+    <GlassCard variant="elevated" grain tactile className="p-4 relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        {COIN_DRIFT_POSITIONS.map((pos, i) => (
+          <div key={i} className="absolute top-1/2 coin-drift-particle" style={pos as React.CSSProperties}>
+            <CoinIcon size={14} />
+          </div>
+        ))}
       </div>
-      <p className="text-text-muted text-[11px] leading-relaxed mt-2.5">
-        {isHe
-          ? 'יתרת המטבעות מוצגת תמיד כ-≥ 0 — אין מספרים שליליים.'
-          : 'Your coin balance is always shown as ≥ 0 — no negatives ever.'}
-      </p>
+      <div className="relative z-10">
+        <CardHeader icon={<Wallet size={14} />} title={isHe ? 'כלכלת המטבעות' : 'The Coin Economy'} />
+        <div>
+          <InfoRow icon="📅" label={isHe ? 'בונוס יומי' : 'Daily bonus'} value="+30 🪙" />
+          <InfoRow icon="✅" label={isHe ? 'תביעת זכייה' : 'Winning claims'} value={isHe ? 'נק׳ × 2' : 'pts × 2'} />
+          <InfoRow icon="⚡" label={isHe ? 'הימור מיידי' : 'Instant-lock bets'} value="-2 / +4 🪙" valueClass="text-white/70" />
+        </div>
+        <p className="text-text-muted text-[11px] leading-relaxed mt-2.5">
+          {isHe
+            ? 'יתרת המטבעות מוצגת תמיד כ-≥ 0 — אין מספרים שליליים.'
+            : 'Your coin balance is always shown as ≥ 0 — no negatives ever.'}
+        </p>
+      </div>
     </GlassCard>
   );
 }
 
-// ─── Card D — FAQ (Commit 2: ported, static list — accordion arrives in
-// Commit 3) ─────────────────────────────────────────────────────────────────
+// ─── Card D — FAQ Accordion (Sprint 25 Commit 3) ──────────────────────────────
+// One-open-at-a-time, matching WorldCupBracket.tsx's existing single-round
+// accordion convention rather than inventing a new multi-expand model this
+// codebase has no precedent for. The height:0/height:'auto' AnimatePresence
+// shape is copied verbatim from that same component — CLAUDE.md's own
+// Common Pitfalls cite it by name as the reference for "do not convert to
+// CSS transitions, Framer handles the auto-height measurement."
 function FaqCard({ isHe }: { isHe: boolean }) {
+  const [openId, setOpenId] = useState<number | null>(null);
+
   const items = isHe ? [
-    { icon: '🟢', title: 'עדכונים בזמן אמת', desc: 'משחקים חיים מתעדכנים כל 30 שניות.' },
-    { icon: '⚽', title: 'הארכה ופנדלים', desc: 'ניבויים מתבססים על 90 הדקות בלבד.' },
-    { icon: '⚔️', title: 'ראש בראש', desc: 'ניבויי חברים נסתרים עד לקיקאוף.' },
-    { icon: '📐', title: 'קרנות', desc: 'מוזנות ידנית לאחר המשחק ונפתרות אוטומטית.' },
-    { icon: '🔒', title: 'נעילה', desc: '15 דקות לפני הקיקאוף. ניתן לעדכן עד אז.' },
+    { icon: '🟢', title: 'עדכונים בזמן אמת', desc: 'משחקים חיים מתעדכנים כל 30 שניות ישירות מ-ESPN.' },
+    { icon: '⚽', title: 'הארכה ופנדלים', desc: 'ניבויים תמיד מתבססים על תוצאת 90 הדקות בלבד. שערים בהארכה ובפנדלים לא נספרים לניקוד.' },
+    { icon: '⚔️', title: 'ראש בראש', desc: 'ניבויי חברים בקבוצה נסתרים עד לקיקאוף. לאחר מכן, לחץ על שורה בטבלה לצפייה בהשוואה מלאה.' },
+    { icon: '📐', title: 'קרנות', desc: 'מספר הקרנות מוזן ידנית לאחר סיום המשחק. ברגע שהוזן, ניבויי הקרנות נפתרים אוטומטית.' },
+    { icon: '🔒', title: 'זמן נעילה', desc: 'ניבויים ננעלים 15 דקות לפני הקיקאוף. ניתן לעדכן את הניבוי בכל עת עד לנעילה — רק העדכון האחרון נספר.' },
+    { icon: '✏️', title: 'עריכת ניבוי', desc: 'כן — אפשר לשנות כל שלב שכבר בחרת כל עוד המשחק לא ננעל, ללא הגבלת מספר פעמים.' },
+    { icon: '🏆', title: 'מקסימום נקודות', desc: '19 נקודות למשחק בודד — כל 5 השלבים במלואם, כולל בונוס התוצאה המדויקת.' },
   ] : [
-    { icon: '🟢', title: 'Live updates', desc: 'Live matches refresh every 30 seconds.' },
-    { icon: '⚽', title: 'Extra time & pens', desc: 'Predictions always use the 90-minute score.' },
-    { icon: '⚔️', title: 'Head to Head', desc: "Friends' predictions are hidden until kickoff." },
-    { icon: '📐', title: 'Corners', desc: 'Entered manually post-match, resolved automatically.' },
-    { icon: '🔒', title: 'Lock time', desc: '15 minutes before kickoff. Editable until then.' },
+    { icon: '🟢', title: 'Live updates', desc: 'Live matches refresh every 30 seconds, pulled directly from ESPN.' },
+    { icon: '⚽', title: 'Extra time & penalties', desc: 'Predictions always use the 90-minute score only. Goals in extra time and penalty shootouts never count toward points.' },
+    { icon: '⚔️', title: 'Head to Head', desc: "Friends' predictions are hidden until kickoff. After that, tap any leaderboard row for a full side-by-side comparison." },
+    { icon: '📐', title: 'Corners', desc: 'Corner totals are entered manually after each match. The moment they land, corners predictions resolve automatically.' },
+    { icon: '🔒', title: 'Lock time', desc: 'Predictions lock 15 minutes before kickoff. You can update your pick any number of times before then — only the last save counts.' },
+    { icon: '✏️', title: 'Can I edit a prediction?', desc: "Yes — change any tier you've already picked as many times as you like, right up until the lock." },
+    { icon: '🏆', title: 'Maximum points', desc: '19 points on a single match — all 5 tiers correct, including the exact-score stacking bonus.' },
   ];
 
   return (
-    <GlassCard variant="elevated" grain tactile className="p-4">
+    <GlassCard variant="elevated" grain tactile className="p-4 sm:flex sm:flex-col sm:max-h-[320px]">
       <CardHeader icon={<Radio size={14} />} title={isHe ? 'שאלות נפוצות' : 'FAQ'} />
-      <div className="space-y-1.5">
-        {items.map((item, i) => (
-          <div key={i} className="flex gap-2 py-1">
-            <span className="text-sm shrink-0 leading-none mt-0.5">{item.icon}</span>
-            <div className="min-w-0">
-              <p className="text-white text-xs font-medium">{item.title}</p>
-              <p className="text-text-muted text-[11px] mt-0.5 leading-relaxed">{item.desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Sprint 25 — Correction: an expanding accordion inside a fixed bento
+          cell must not grow the whole grid row (it would drag Card C's
+          height along with it via CSS Grid's default row-stretch). This
+          list gets its own bounded, internally scrolling region on sm+
+          instead — Card D's outer card height never changes. On mobile the
+          whole sheet already scrolls, so no extra constraint is needed
+          there. */}
+      <LayoutGroup id="help-faq">
+        <div className="space-y-1 sm:overflow-y-auto sm:flex-1 sm:pe-1 sm:min-h-0" data-lenis-prevent>
+          {items.map((item, i) => {
+            const isOpen = openId === i;
+            return (
+              <motion.div key={i} layout className="rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setOpenId(isOpen ? null : i)}
+                  className="w-full flex items-center gap-2 py-1.5 text-start"
+                  aria-expanded={isOpen}
+                >
+                  <span className="text-sm shrink-0 leading-none">{item.icon}</span>
+                  <span className="flex-1 min-w-0 text-white text-xs font-medium truncate">{item.title}</span>
+                  <motion.span
+                    animate={{ rotate: isOpen ? 180 : 0 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' as const }}
+                    className="shrink-0 text-text-muted"
+                  >
+                    <ChevronDown size={13} />
+                  </motion.span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeOut' as const }}
+                      className="overflow-hidden min-h-0"
+                      style={{ willChange: 'height' }}
+                    >
+                      <p className="text-text-muted text-[11px] leading-relaxed ps-6 pb-2 pe-1">
+                        {item.desc}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </div>
+      </LayoutGroup>
     </GlassCard>
   );
 }
@@ -238,7 +307,7 @@ export function HelpGuideModal({ onClose }: Props) {
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <motion.div
-        className="relative w-full sm:max-w-2xl card-elevated sm:rounded-2xl rounded-t-2xl overflow-hidden z-10 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
+        className="relative w-full sm:max-w-2xl card-elevated sm:rounded-2xl rounded-t-2xl overflow-hidden z-10 max-h-[90dvh] sm:max-h-[82dvh] flex flex-col"
         variants={SHEET}
         transition={{ type: 'spring', stiffness: 320, damping: 30 }}
         drag="y"
