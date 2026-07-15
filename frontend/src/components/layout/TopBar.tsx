@@ -191,10 +191,13 @@ export function TopBar() {
 
         </div>
 
-        {/* Notification panel anchors here */}
+        {/* V4 Sprint 23 — full-height slide-over drawer, not the dropdown
+            Sidebar (desktop) still uses. TopBar itself is already sm:hidden,
+            so this placement is implicitly mobile-only. */}
         <NotificationCenter
           open={showNotif}
           onClose={() => setShowNotif(false)}
+          placement="drawer"
           notifications={notifications}
           unreadCount={unreadCount}
           loading={loading}

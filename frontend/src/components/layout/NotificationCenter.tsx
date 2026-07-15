@@ -155,13 +155,77 @@ function EmptyState({ t }: { t: (key: TranslationKey) => string }) {
   );
 }
 
+// ─── Shared header (unread count + mark-all-read) ─────────────────────────────
+
+function NotifHeader({ t, unreadCount, markAllRead }: {
+  t: (key: TranslationKey) => string;
+  unreadCount: number;
+  markAllRead: () => Promise<void>;
+}) {
+  return (
+    <div
+      className="flex items-center justify-between px-4 py-3 shrink-0"
+      style={{ borderBottom: '1px solid var(--card-border)' }}
+    >
+      <div className="flex items-center gap-2">
+        <Bell size={14} className="text-text-muted" />
+        <span className="text-sm font-semibold text-text-primary">
+          {t('notifications')}
+        </span>
+        {unreadCount > 0 && (
+          <span className="text-[10px] font-bold bg-accent-green text-bg-base rounded-full px-1.5 py-0.5 leading-none">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </div>
+      {unreadCount > 0 && (
+        <button
+          onClick={markAllRead}
+          className="flex items-center gap-1.5 text-[11px] text-text-muted hover:text-accent-green transition-colors"
+        >
+          <CheckCheck size={12} />
+          {t('notifMarkAllRead')}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Shared list body ──────────────────────────────────────────────────────────
+
+function NotifList({ notifications, loading, t, markRead, className }: {
+  notifications: AppNotification[];
+  loading: boolean;
+  t: (key: TranslationKey) => string;
+  markRead: (id: string) => Promise<void>;
+  className?: string;
+}) {
+  return (
+    <div className={cn('overflow-y-auto overscroll-contain', className)} onWheel={(e) => e.stopPropagation()}>
+      {loading && notifications.length === 0 ? (
+        <div className="flex justify-center items-center py-10">
+          <div className="w-5 h-5 rounded-full border-2 border-[var(--card-border)] border-t-accent-green animate-spin" />
+        </div>
+      ) : notifications.length === 0 ? (
+        <EmptyState t={t} />
+      ) : (
+        <motion.div layout>
+          {notifications.map(n => (
+            <NotifRow key={n.id} notif={n} t={t} onRead={markRead} />
+          ))}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface NotificationCenterProps {
   open: boolean;
   onClose: () => void;
-  /** 'bottom' (default) = dropdown below button (TopBar). 'right' = panel to the right (Sidebar). */
-  placement?: 'bottom' | 'right';
+  /** 'bottom' (default) = dropdown below button (TopBar). 'right' = panel to the right (Sidebar). 'drawer' = full-height mobile slide-over (V4 Sprint 23). */
+  placement?: 'bottom' | 'right' | 'drawer';
   /** Pass from the parent's useNotifications() instance to avoid duplicate state */
   notifications: AppNotification[];
   unreadCount: number;
@@ -171,7 +235,7 @@ interface NotificationCenterProps {
 }
 
 export function NotificationCenter({ open, onClose, placement = 'bottom', notifications, unreadCount, loading, markAllRead, markRead }: NotificationCenterProps) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click. Skip clicks on the bell button itself — otherwise
@@ -196,6 +260,64 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
     document.addEventListener('keydown', h);
     return () => document.removeEventListener('keydown', h);
   }, [open, onClose]);
+
+  // V4 Sprint 23 — mobile drawer. Rendered as two SIBLING motion.div elements
+  // (backdrop + panel), never nested, and deliberately NOT the same element:
+  // the panel is what Framer Motion slides via an `x` transform, and stacking
+  // backdrop-filter (or mix-blend-mode) on an element that is itself being
+  // transformed is the exact documented WebKit paint-failure that made
+  // PredictionModal.tsx's sheet invisible on a real phone once already
+  // (CLAUDE.md §21/§34) — there's no real WebKit engine in this environment
+  // to re-verify a fix if that lesson gets ignored again. The blur lives on
+  // the backdrop (fixed, full-screen, animates opacity only — never
+  // transformed); the panel gets a solid themed background instead.
+  //
+  // Slide direction is the one place this component branches on language
+  // rather than staying purely logical-property-driven: a Framer `x` value
+  // is an unavoidably physical transform (CSS logical properties can't
+  // express it), so unlike the RTL-pinned SVG charts elsewhere in this
+  // codebase, here an explicit isRTL check is correct, not a regression.
+  if (placement === 'drawer') {
+    const isRTL = lang === 'he';
+    return (
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              key="notif-drawer-backdrop"
+              className="fixed inset-0 z-[59] bg-black/60 backdrop-blur-xl [backdrop-filter:blur(24px)_saturate(160%)]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={onClose}
+            />
+            <motion.div
+              ref={panelRef}
+              key="notif-drawer-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('notifications')}
+              className="fixed inset-y-0 end-0 z-[60] w-[86vw] max-w-[380px] h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.5)]"
+              style={{
+                background: 'var(--color-tooltip-bg)',
+                borderInlineStart: '1px solid var(--card-border)',
+                paddingTop: 'env(safe-area-inset-top, 0px)',
+                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+              }}
+              initial={{ x: isRTL ? '-100%' : '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: isRTL ? '-100%' : '100%' }}
+              transition={{ type: 'spring', stiffness: 340, damping: 34, mass: 0.8 }}
+            >
+              <NotifHeader t={t} unreadCount={unreadCount} markAllRead={markAllRead} />
+              <NotifList notifications={notifications} loading={loading} t={t} markRead={markRead} className="flex-1" />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    );
+  }
 
   // Positioning strategy:
   //   bottom / mobile : fixed, inset-x-2 (8 px from edges), 58 px from top (below TopBar)
@@ -226,52 +348,8 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
             border: '1px solid var(--card-border)',
           }}
         >
-          {/* Header */}
-          <div
-            className="flex items-center justify-between px-4 py-3"
-            style={{ borderBottom: '1px solid var(--card-border)' }}
-          >
-            <div className="flex items-center gap-2">
-              <Bell size={14} className="text-text-muted" />
-              <span className="text-sm font-semibold text-text-primary">
-                {t('notifications')}
-              </span>
-              {unreadCount > 0 && (
-                <span className="text-[10px] font-bold bg-accent-green text-bg-base rounded-full px-1.5 py-0.5 leading-none">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllRead}
-                className="flex items-center gap-1.5 text-[11px] text-text-muted hover:text-accent-green transition-colors"
-              >
-                <CheckCheck size={12} />
-                {t('notifMarkAllRead')}
-              </button>
-            )}
-          </div>
-
-          {/* List */}
-          <div
-            className="max-h-[380px] overflow-y-auto overscroll-contain"
-            onWheel={(e) => e.stopPropagation()}
-          >
-            {loading && notifications.length === 0 ? (
-              <div className="flex justify-center items-center py-10">
-                <div className="w-5 h-5 rounded-full border-2 border-[var(--card-border)] border-t-accent-green animate-spin" />
-              </div>
-            ) : notifications.length === 0 ? (
-              <EmptyState t={t} />
-            ) : (
-              <motion.div layout>
-                {notifications.map(n => (
-                  <NotifRow key={n.id} notif={n} t={t} onRead={markRead} />
-                ))}
-              </motion.div>
-            )}
-          </div>
+          <NotifHeader t={t} unreadCount={unreadCount} markAllRead={markAllRead} />
+          <NotifList notifications={notifications} loading={loading} t={t} markRead={markRead} className="max-h-[380px]" />
         </motion.div>
       )}
     </AnimatePresence>
