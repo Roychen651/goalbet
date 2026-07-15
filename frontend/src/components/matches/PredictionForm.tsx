@@ -18,6 +18,7 @@ import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { TIER_COLORS, DEBOSS_SHADOW } from '../../lib/tierVisuals';
+import { InfoTip } from '../ui/InfoTip';
 
 interface PredictionFormProps {
   match: Match;
@@ -83,6 +84,21 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   const locked = isMatchLocked(match.kickoff_time) || match.status !== 'NS';
   const resolved = existingPrediction?.is_resolved ?? false;
 
+  // V4 Sprint 26 — the static LEAGUES_WITHOUT_CORNERS exclusion stays the
+  // floor (a curated, zero-sample-size-needed signal for a league we
+  // already know about); match.corners_supported === false is the new
+  // empirical signal (migration 048), computed per-league from this
+  // league's own resolved-match history. NULL/undefined (not enough
+  // history yet, or the migration hasn't landed) fails OPEN — an unknown
+  // league is treated as normal, never preemptively restricted. Without
+  // this, a league whose ESPN feed silently never reports corners leaves a
+  // prediction's Corners tier permanently unresolvable — the user already
+  // paid COIN_COSTS.CORNERS and can never win it back (pointsEngine.ts's
+  // corners branch only fires when match.corners_total !== null). Computed
+  // here (before any hooks) so the clear-stale-value effect below can use
+  // it as a dependency.
+  const cornersDisabled = LEAGUES_WITHOUT_CORNERS.has(match.league_id) || match.corners_supported === false;
+
   const [outcome, setOutcome] = useState<OutcomeOption | null>(existingPrediction?.predicted_outcome ?? null);
   const [homeScore, setHomeScore] = useState<string>(existingPrediction?.predicted_home_score?.toString() ?? '');
   const [awayScore, setAwayScore] = useState<string>(existingPrediction?.predicted_away_score?.toString() ?? '');
@@ -138,6 +154,19 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
     if (overUnder !== null && overUnder !== scoreDerivedOU) { setOverUnder(null); setSaved(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoreDerivedOU, hasExactScore]);
+
+  // V4 Sprint 26 — a narrow edge case: a corners pick was made while this
+  // league was still considered supported, and it later got empirically
+  // re-flagged as unsupported before kickoff. Without this, re-saving any
+  // OTHER tier would resubmit the now-stale corners value, and
+  // submit_prediction() (migration 049) would reject the entire save — the
+  // user would be blocked from editing anything else about this
+  // prediction. Clearing it client-side means they just silently lose the
+  // now-unresolvable pick instead.
+  useEffect(() => {
+    if (cornersDisabled && cornersValue !== null) { setCornersValue(null); setSaved(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cornersDisabled]);
 
   const handleSubmit = async () => {
     await onSave({
@@ -229,19 +258,28 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         />
       ),
     },
-    ...(!LEAGUES_WITHOUT_CORNERS.has(match.league_id) ? [{
+    {
+      // V4 Sprint 26 — always in the array now (was conditionally spread
+      // out entirely for LEAGUES_WITHOUT_CORNERS leagues). A disabled,
+      // explained chip is a real UX upgrade over a tier that just silently
+      // isn't there with no indication why — and it keeps TIER_COLORS'
+      // positional indexing fixed (0=Result/1=Score/2=Corners/3=BTTS/
+      // 4=O-U) instead of shifting depending on whether corners is
+      // excluded for this particular match's league.
       key: 'tier3',
       label: t('totalCorners'),
       pts: POINTS.TIER3_CORNERS,
       active: cornersValue !== null,
+      disabled: cornersDisabled,
       content: (
         <CornersPicker
           value={cornersValue}
           onChange={(v) => { haptic('selection'); playSound('toggle_click'); setCornersValue(v); setSaved(false); }}
           color={TIER_COLORS[2]}
+          disabled={cornersDisabled}
         />
       ),
-    }] : []),
+    },
   ];
 
   const preMatchInsight = (lang === 'he' && match.ai_pre_match_insight_he) || match.ai_pre_match_insight;
@@ -266,6 +304,8 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
             ptsNote={tier.ptsNote}
             active={tier.active}
             color={TIER_COLORS[i]}
+            disabled={tier.disabled}
+            disabledTooltip={tier.disabled ? t('cornersUnsupportedTooltip') : undefined}
           >
             <LockedTier locked={!!isNewUser && tier.key !== 'tier1'}>{tier.content}</LockedTier>
           </TierRow>
@@ -369,7 +409,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
 // ============================================================
 
 function TierRow({
-  label, pts, ptsNote, active, color, children,
+  label, pts, ptsNote, active, color, children, disabled, disabledTooltip,
 }: {
   label: string;
   pts: number;
@@ -377,25 +417,36 @@ function TierRow({
   active: boolean;
   color: typeof TIER_COLORS[number];
   children: React.ReactNode;
+  /** V4 Sprint 26 — this specific match's league doesn't reliably report
+      this stat (LEAGUES_WITHOUT_CORNERS or corners_supported===false).
+      Dims the row and surfaces disabledTooltip via InfoTip next to the
+      label — never just a silently-missing tier (rule: a disabled
+      interactive element must look disabled, not just behave disabled,
+      CLAUDE.md §21). */
+  disabled?: boolean;
+  disabledTooltip?: string;
 }) {
   const { t } = useLangStore();
   return (
     <div className={cn(
       'rounded-xl border p-2.5 transition-all duration-200',
-      active
-        ? 'bg-white/5 border-white/12 tier-row-active'
-        : 'bg-white/2 border-white/6 tier-row-inactive',
+      disabled
+        ? 'bg-white/2 border-white/6 opacity-60'
+        : active
+          ? 'bg-white/5 border-white/12 tier-row-active'
+          : 'bg-white/2 border-white/6 tier-row-inactive',
     )}>
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
-          <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color.dot)} />
+          <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', disabled ? 'bg-text-muted/40' : color.dot)} />
           <span className="text-text-primary text-xs sm:text-[13px] font-headline uppercase tracking-wider leading-none">{label}</span>
+          {disabled && disabledTooltip && <InfoTip text={disabledTooltip} />}
         </div>
         <div className="flex items-center gap-1">
           {ptsNote && (
             <span className="text-text-muted text-[9px] font-display italic opacity-40">{ptsNote}</span>
           )}
-          <span className={cn('text-[10px] font-display font-semibold tabular-nums', active ? color.pts : 'text-text-muted opacity-35')}>
+          <span className={cn('text-[10px] font-display font-semibold tabular-nums', !disabled && active ? color.pts : 'text-text-muted opacity-35')}>
             +{pts} {t('pts')}
           </span>
         </div>
@@ -866,11 +917,16 @@ export function LockedPrediction({
 }
 
 function CornersPicker({
-  value, onChange, color,
+  value, onChange, color, disabled,
 }: {
   value: 'under9' | 'ten' | 'over11' | null;
   onChange: (v: 'under9' | 'ten' | 'over11' | null) => void;
   color: typeof TIER_COLORS[number];
+  /** V4 Sprint 26 — every chip renders debossed-only (never the selected/
+      emboss state, even if a stale historical value exists) and becomes
+      genuinely inert: real disabled attribute (not just a no-op onClick),
+      cursor-not-allowed, no hover/active feedback. */
+  disabled?: boolean;
 }) {
   const { t } = useLangStore();
   const options: { val: 'under9' | 'ten' | 'over11'; label: string }[] = [
@@ -883,12 +939,15 @@ function CornersPicker({
       {options.map(({ val, label }) => (
         <button
           key={val}
-          onClick={() => onChange(value === val ? null : val)}
+          disabled={disabled}
+          onClick={() => { if (!disabled) onChange(value === val ? null : val); }}
           className={cn(
-            'py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
-            value === val
-              ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
-              : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW),
+            'py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border',
+            disabled
+              ? cn('bg-white/2 border-white/6 text-text-muted/50 cursor-not-allowed', DEBOSS_SHADOW)
+              : cn('active:scale-95', value === val
+                  ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
+                  : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW)),
           )}
         >
           {label}
