@@ -79,24 +79,31 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
         {/* max-h-[85dvh] (was 88vh) — dvh tracks the actual visible viewport as
             iOS/Android browser chrome collapses or expands; vh is pinned to the
             largest possible viewport and can clip under a still-visible address
-            bar. card-elevated brings the same deeper blur/saturate + border
-            tokens GlassCard's 'elevated' variant already uses elsewhere — reused,
-            not reinvented. The upward box-shadow stays a hand-tuned inline
-            override (card-elevated's own shadow is downward-facing, wrong
-            direction for a sheet anchored to the bottom of the screen). No
-            gradient-edge ring here on purpose — that technique draws a full
-            4-side border and this sheet has no bottom edge (it's flush with /
-            extends below the viewport), so a ring would look wrong on the one
-            side that shouldn't have one. */}
+            bar.
+
+            REVERTED (Sprint 20 follow-up): this sheet previously carried
+            card-elevated (backdrop-filter: blur+saturate) AND .glass-grain
+            (mix-blend-mode) — both are well-documented WebKit compositing
+            landmines specifically when combined with overflow-hidden +
+            border-radius on a position:fixed element, and stacking BOTH on
+            the SAME element is exactly that trap. Reported live on a real
+            phone: the sheet never painted at all (fully invisible) while
+            Drawer.Overlay — a separate element, no backdrop-filter/blend-mode
+            of its own — rendered fine, which is the actual signature of a
+            WebKit backdrop-filter/mix-blend-mode paint failure, not a layout
+            bug. Reverted to the plain solid background this shipped with
+            before Sprint 20's visual pass. Re-attempting glass depth here
+            needs on-device verification first, not another blind reapply. */}
         <Drawer.Content
-          className="card-elevated fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[85dvh] flex-col rounded-t-2xl outline-none sm:max-w-[460px] overflow-hidden"
+          className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[85dvh] flex-col rounded-t-2xl outline-none sm:max-w-[460px]"
           style={{
+            background: 'var(--color-tooltip-bg)',
+            border: '1px solid var(--card-border)',
             borderBottom: 'none',
             boxShadow: '0 -8px 60px rgba(0,0,0,0.5)',
           }}
         >
-          <div className="glass-grain" />
-          <div className="relative z-10 flex flex-col min-h-0 flex-1">
+          <div className="flex flex-col min-h-0 flex-1">
             {/* Grabber handle */}
             <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-text-muted/40" />
 
