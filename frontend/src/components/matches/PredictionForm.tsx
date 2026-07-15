@@ -6,7 +6,7 @@ import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
 import { CoinIcon } from '../ui/CoinIcon';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
-import { LIVE_STATUSES, POINTS, calcPredictionCost } from '../../lib/constants';
+import { LIVE_STATUSES, POINTS, COIN_COSTS, calcPredictionCost } from '../../lib/constants';
 import { interpolateRisk } from '../../lib/oklch';
 
 // International Friendlies: hundreds of matches per week, corners never tracked
@@ -182,12 +182,24 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   const netCost = currentCost - oldCost; // positive = spending more, negative = getting refund
   const insufficientCoins = netCost > 0 && coins < netCost;
   const displayCost = netCost > 0 ? netCost : currentCost;
-  // Risk Meter — a live gauge reflecting the already-computed cost/balance
-  // ratio, never a draggable input. GoalBet's coin cost is fixed per tier
-  // selection (submit_prediction, migration 040) — there is no discretionary
-  // stake to "slide"; sending a client-chosen amount to a coin-spending RPC
-  // is exactly what rule 4.11/SS27 forbids.
-  const riskRatio = insufficientCoins ? 1 : Math.max(0, Math.min(1, displayCost / Math.max(1, coins)));
+  // Risk Meter — a live gauge reflecting the already-computed cost, never a
+  // draggable input. GoalBet's coin cost is fixed per tier selection
+  // (submit_prediction, migration 040) — there is no discretionary stake to
+  // "slide"; sending a client-chosen amount to a coin-spending RPC is
+  // exactly what rule 4.11/SS27 forbids.
+  //
+  // Ratio is cost-vs-MAX_PER_MATCH (19), not cost-vs-balance. A single
+  // match can cost at most 19 coins while typical balances run into the
+  // hundreds (120 join bonus + 30/day) — cost/balance is almost always a
+  // few percent regardless of which tiers are picked, so the bar looked
+  // frozen no matter what a user tapped (reported live). cost/19 sweeps the
+  // full 0-100% range across the tiers a user can actually toggle, so the
+  // bar responds visibly to every tap — insufficientCoins still forces full
+  // red regardless of this ratio, since "can't afford it" is a real signal
+  // independent of how "loaded up" the pick is.
+  const riskRatio = insufficientCoins
+    ? 1
+    : Math.max(0, Math.min(1, displayCost / COIN_COSTS.MAX_PER_MATCH));
 
   if (locked) {
     return <LockedPrediction match={match} prediction={existingPrediction} resolved={resolved} />;
