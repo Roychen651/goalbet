@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Share2 } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Share2, Trophy } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useLangStore } from '../../stores/langStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -29,6 +29,7 @@ export function ShareableRecapCard({ onClose }: ShareableRecapCardProps) {
   const { entries, loading } = useLeaderboard('total');
   const [sharing, setSharing] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
 
   const isHe = lang === 'he';
   const mine = entries.find(e => e.user_id === user?.id);
@@ -113,23 +114,53 @@ export function ShareableRecapCard({ onClose }: ShareableRecapCardProps) {
                 <div className="w-6 h-6 border-2 border-accent-green/40 border-t-accent-green rounded-full animate-spin" />
               </div>
             ) : (
+              // This preview's own ancestor (the bottom-sheet motion.div
+              // above) has `drag="y"` — a real CSS transform. This
+              // codebase has a documented, previously-shipped WebKit bug
+              // where `backdrop-filter`/`mix-blend-mode` paint-fails under
+              // a transformed ancestor (CLAUDE.md §21/§34), and there's no
+              // real WebKit engine available in this environment to verify
+              // a fix against, so this polish pass deliberately uses only
+              // `filter: blur()` (already safe here — the existing bloom
+              // div below already used it) and `mask`-based gradient edges
+              // (`.gradient-edge`, a different CSS mechanism with no
+              // documented conflict) — never backdrop-filter or
+              // mix-blend-mode, to stay on the safe side of that lesson.
               <div
                 ref={cardRef}
-                className="relative rounded-2xl overflow-hidden bento-hero-card border p-6 flex flex-col items-center text-center"
+                className="relative rounded-2xl overflow-hidden gradient-edge border-transparent p-6 flex flex-col items-center text-center"
+                style={{ background: 'radial-gradient(120% 90% at 50% -10%, rgba(189,232,245,0.10), transparent 65%), var(--color-bg-card)' }}
               >
                 <div className="absolute -bottom-8 -start-8 w-36 h-36 rounded-full bento-hero-bloom blur-2xl pointer-events-none" />
                 <span className="text-accent-green font-bold text-sm mb-1">GoalBet ⚽</span>
-                <span className="text-white font-semibold text-lg mb-3">{profile?.username}</span>
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/40 mb-1">{t('shareRecapRankLabel')}</span>
-                <span className="font-display font-bold text-6xl text-accent-green leading-none mb-4">#{mine.rank}</span>
+                <span className="text-white font-semibold text-lg mb-4">{profile?.username}</span>
+
+                {/* Breathing glow behind the rank — filter:blur, not
+                    backdrop-filter, so it's safe under the sheet's drag
+                    transform (see note above). */}
+                <div className="relative isolate mb-4">
+                  <motion.div
+                    aria-hidden
+                    className="pointer-events-none absolute -z-10 inset-0 -m-6 rounded-full blur-xl"
+                    style={{ background: 'radial-gradient(circle, var(--color-accent-green) 0%, transparent 70%)' }}
+                    animate={reduceMotion ? { opacity: 0.28 } : { opacity: [0.18, 0.38, 0.18], scale: [1, 1.08, 1] }}
+                    transition={reduceMotion ? undefined : { duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                  {mine.rank === 1 && (
+                    <Trophy size={18} className="text-accent-green mx-auto mb-1" style={{ filter: 'drop-shadow(0 0 6px var(--color-accent-green))' }} />
+                  )}
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/40 block mb-1">{t('shareRecapRankLabel')}</span>
+                  <span className="font-display font-bold text-6xl text-accent-green text-glow-green leading-none block">#{mine.rank}</span>
+                </div>
+
                 <div className="flex items-center gap-8">
                   <div className="flex flex-col items-center">
-                    <span className="font-display font-bold text-3xl text-white tabular-nums">{mine.total_points}</span>
+                    <span className="font-mono font-bold text-3xl text-white tabular-nums">{mine.total_points}</span>
                     <span className="text-[10px] uppercase tracking-widest text-white/40 mt-1">{t('totalPoints')}</span>
                   </div>
                   <div className="w-px h-10 bg-white/10" />
                   <div className="flex flex-col items-center">
-                    <span className="font-display font-bold text-3xl text-accent-green tabular-nums">{mine.current_streak}🔥</span>
+                    <span className="font-mono font-bold text-3xl text-accent-green tabular-nums">{mine.current_streak}🔥</span>
                     <span className="text-[10px] uppercase tracking-widest text-white/40 mt-1">{t('bentoCurrentStreak')}</span>
                   </div>
                 </div>
