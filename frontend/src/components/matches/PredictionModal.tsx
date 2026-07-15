@@ -18,6 +18,8 @@ import { useLangStore } from '../../stores/langStore';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { PredictionForm, PredictionData } from './PredictionForm';
 import { PredictionCardDesktop } from './PredictionCardDesktop';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
+import { tLeagueName } from '../../lib/constants';
 import { haptic } from '../../lib/haptics';
 import type { Match, Prediction } from '../../lib/supabase';
 
@@ -36,7 +38,7 @@ interface PredictionModalProps {
 export function PredictionModal({ matches, predictions, onSave, savingMatchId, espnOdds, isNewUser }: PredictionModalProps) {
   const matchId = useUIStore(s => s.activePredictionMatchId);
   const close = useUIStore(s => s.closePredictionModal);
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
   // Matches Tailwind's own `sm:` breakpoint so this never becomes a second,
   // drifting definition of "desktop" alongside the CSS.
   const isDesktop = useMediaQuery('(min-width: 640px)');
@@ -115,10 +117,10 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
               >
                 <div className="flex min-w-0 flex-col">
                   <Drawer.Title className="truncate text-sm font-bold text-text-primary">
-                    {match.home_team} vs {match.away_team}
+                    {lang === 'he' ? `${tTeam(match.home_team)} נגד ${tTeam(match.away_team)}` : `${match.home_team} vs ${match.away_team}`}
                   </Drawer.Title>
                   <span className="truncate text-[10px] text-text-muted opacity-60">
-                    {match.league_name}
+                    {tLeagueName(match.league_id, match.league_name, lang)}
                     {match.round ? ` · R${match.round}` : ''}
                   </span>
                 </div>

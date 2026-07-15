@@ -5,6 +5,8 @@ import { PredictionForm, type PredictionData } from './PredictionForm';
 import { haptic } from '../../lib/haptics';
 import { useLangStore } from '../../stores/langStore';
 import type { Match, Prediction } from '../../lib/supabase';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
+import { tLeagueName } from '../../lib/constants';
 
 // Sprint 20 — the desktop counterpart to PredictionModal.tsx's Vaul drawer.
 // Vaul is a drawer-only library (no centered-dialog mode), so this is a
@@ -24,7 +26,7 @@ interface PredictionCardDesktopProps {
 export function PredictionCardDesktop({
   match, prediction, onSave, saving, odds, isNewUser, onClose,
 }: PredictionCardDesktopProps) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
 
   return (
     <motion.div
@@ -53,10 +55,10 @@ export function PredictionCardDesktop({
           <div className="flex items-center justify-between px-4 pt-4 pb-2.5 border-b border-white/8 shrink-0">
             <div className="flex min-w-0 flex-col">
               <h2 className="truncate text-sm font-bold text-text-primary">
-                {match.home_team} vs {match.away_team}
+                {lang === 'he' ? `${tTeam(match.home_team)} נגד ${tTeam(match.away_team)}` : `${match.home_team} vs ${match.away_team}`}
               </h2>
               <span className="truncate text-[10px] text-text-muted opacity-60">
-                {match.league_name}{match.round ? ` · R${match.round}` : ''}
+                {tLeagueName(match.league_id, match.league_name, lang)}{match.round ? ` · R${match.round}` : ''}
               </span>
             </div>
             <button

@@ -16,6 +16,7 @@ import { useLangStore } from '../../stores/langStore';
 import { useCoinsStore } from '../../stores/coinsStore';
 import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
 
 interface PredictionFormProps {
   match: Match;
@@ -89,7 +90,7 @@ function LockedTier({ locked = true, children }: { locked?: boolean; children: R
 }
 
 export const PredictionForm = memo(function PredictionForm({ match, existingPrediction, onSave, saving, odds, isNewUser }: PredictionFormProps) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
   const locked = isMatchLocked(match.kickoff_time) || match.status !== 'NS';
   const resolved = existingPrediction?.is_resolved ?? false;
 
@@ -216,8 +217,8 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         <OutcomePicker
           value={outcome}
           onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOutcome(v); setSaved(false); }}
-          homeTeam={match.home_team}
-          awayTeam={match.away_team}
+          homeTeam={lang === 'he' ? tTeam(match.home_team) : match.home_team}
+          awayTeam={lang === 'he' ? tTeam(match.away_team) : match.away_team}
           color={TIER_COLORS[0]}
           lockedByScore={hasExactScore}
           odds={odds}
@@ -254,7 +255,6 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
     }] : []),
   ];
 
-  const lang = useLangStore(s => s.lang);
   const preMatchInsight = (lang === 'he' && match.ai_pre_match_insight_he) || match.ai_pre_match_insight;
 
   return (
@@ -669,7 +669,7 @@ function TierBreakdownRow({ tier, prediction, match, delay }: {
   match: Match;
   delay: number;
 }) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
 
   // Map calcBreakdown keys → i18n labels
   const tierLabel: Record<string, string> = {
@@ -682,8 +682,8 @@ function TierBreakdownRow({ tier, prediction, match, delay }: {
   };
 
   const outcomeLabel = (v: 'H' | 'D' | 'A' | null) =>
-    v === 'H' ? match.home_team.split(' ').pop() || t('home')
-    : v === 'A' ? match.away_team.split(' ').pop() || t('away')
+    v === 'H' ? (lang === 'he' ? tTeam(match.home_team) : match.home_team).split(' ').pop() || t('home')
+    : v === 'A' ? (lang === 'he' ? tTeam(match.away_team) : match.away_team).split(' ').pop() || t('away')
     : v === 'D' ? t('draw') : null;
 
   const predDetail = (() => {

@@ -7,6 +7,7 @@ import { useLangStore } from '../../stores/langStore';
 interface League {
   id: number;
   name: string;
+  nameHe: string;
   country: string;
   badge: string;
   espnLogoId: number | null;
@@ -68,7 +69,7 @@ function LeagueLogo({
 }
 
 export function LeagueDropdown({ leagues, value, onChange }: Props) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -140,7 +141,7 @@ export function LeagueDropdown({ leagues, value, onChange }: Props) {
         {/* Text stack */}
         <div className="flex-1 min-w-0 text-start">
           <div className="font-barlow font-bold text-[15px] uppercase tracking-wide text-white truncate leading-tight">
-            {selected?.name ?? t('statsSelectLeague')}
+            {(selected ? (lang === 'he' ? selected.nameHe : selected.name) : null) ?? t('statsSelectLeague')}
           </div>
           <div className="text-text-muted text-[10px] uppercase tracking-[0.18em] truncate leading-tight mt-0.5">
             {selected?.country ?? '—'}
@@ -258,7 +259,7 @@ export function LeagueDropdown({ leagues, value, onChange }: Props) {
                           'font-barlow font-bold text-sm uppercase tracking-wide truncate leading-tight',
                         )}
                       >
-                        {l.name}
+                        {lang === 'he' ? l.nameHe : l.name}
                       </div>
                       <div
                         className={cn(

@@ -7,6 +7,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { cn } from '../../lib/utils';
 import { CoinIcon } from '../ui/CoinIcon';
 import type { TranslationKey } from '../../lib/i18n';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
 
 // ── Time formatting ──────────────────────────────────────────────────────────
 
@@ -130,8 +131,10 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
   const meta = event.metadata;
 
   // Match info from joined data (matches table) — preferred over metadata
-  const homeTeam = event.home_team || String(meta.home_team ?? '');
-  const awayTeam = event.away_team || String(meta.away_team ?? '');
+  const homeTeamEn = event.home_team || String(meta.home_team ?? '');
+  const awayTeamEn = event.away_team || String(meta.away_team ?? '');
+  const homeTeam = lang === 'he' && homeTeamEn ? tTeam(homeTeamEn) : homeTeamEn;
+  const awayTeam = lang === 'he' && awayTeamEn ? tTeam(awayTeamEn) : awayTeamEn;
   const homeBadge = event.home_team_badge;
   const awayBadge = event.away_team_badge;
   const hasMatch = !!(homeTeam && awayTeam);
@@ -303,8 +306,10 @@ function AiBanterCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) 
   const meta = event.metadata;
   const text = String((isHe && meta.text_he) || meta.text_en || '').trim();
 
-  const homeTeam = event.home_team || String(meta.home_team ?? '');
-  const awayTeam = event.away_team || String(meta.away_team ?? '');
+  const homeTeamEn = event.home_team || String(meta.home_team ?? '');
+  const awayTeamEn = event.away_team || String(meta.away_team ?? '');
+  const homeTeam = isHe && homeTeamEn ? tTeam(homeTeamEn) : homeTeamEn;
+  const awayTeam = isHe && awayTeamEn ? tTeam(awayTeamEn) : awayTeamEn;
   const homeBadge = event.home_team_badge;
   const awayBadge = event.away_team_badge;
   const hasMatch = !!(homeTeam && awayTeam);

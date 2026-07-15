@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
 import { Avatar } from '../ui/Avatar';
 import type { ArenaH2HRow } from '../../hooks/useStatsArena';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
 
 interface ExpandedH2HViewProps {
   row: ArenaH2HRow;
@@ -93,11 +94,13 @@ export function ExpandedH2HView({ row, onClose }: ExpandedH2HViewProps) {
                 <div className="flex items-center justify-between text-[10px] text-text-muted font-barlow uppercase tracking-wide">
                   <span className="truncate">{m.league_name}</span>
                   <span className="shrink-0 ms-2">
-                    {new Date(m.kickoff_time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(m.kickoff_time).toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="truncate text-text-primary">{m.home_team} – {m.away_team}</span>
+                  <span className="truncate text-text-primary">
+                    {lang === 'he' ? `${tTeam(m.home_team)} – ${tTeam(m.away_team)}` : `${m.home_team} – ${m.away_team}`}
+                  </span>
                   <span className="shrink-0 font-mono font-semibold text-text-primary tabular-nums">
                     {t('arenaH2HFinal')} {scoreLabel(m.home_score, m.away_score)}
                   </span>

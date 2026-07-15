@@ -19,7 +19,7 @@ const CUSTOM_VIEW_LEAGUES = new Set<number>([WORLD_CUP_ID]);
 type ArenaTab = 'leagues' | 'arena';
 
 export function StatsPage() {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
   const { groups, activeGroupId } = useGroupStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const [tab, setTab] = useState<ArenaTab>('leagues');
@@ -57,7 +57,7 @@ export function StatsPage() {
             {t('statsHubTitle')}
           </h1>
           {selectedLeague && (
-            <p className="text-text-muted text-xs mt-0.5">{selectedLeague.name}</p>
+            <p className="text-text-muted text-xs mt-0.5">{lang === 'he' ? selectedLeague.nameHe : selectedLeague.name}</p>
           )}
         </div>
 

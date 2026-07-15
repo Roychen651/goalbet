@@ -6,6 +6,7 @@ import {
   Sparkles, Ticket, Check,
 } from 'lucide-react';
 import { cn, isMatchLocked } from '../../lib/utils';
+import { normalizeTeamName } from '../../lib/teamNameUtils';
 import { useLangStore } from '../../stores/langStore';
 import { useUIStore } from '../../stores/uiStore';
 import { type TranslationKey } from '../../lib/i18n';
@@ -57,12 +58,7 @@ const TEAM_ALIASES: Record<string, string> = {
 };
 
 function normTeam(name: string): string {
-  const base = name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z]/g, '');
-  return TEAM_ALIASES[base] ?? base;
+  return normalizeTeamName(name, TEAM_ALIASES);
 }
 
 // Order-independent key for a fixture (ESPN home/away may differ from ours).

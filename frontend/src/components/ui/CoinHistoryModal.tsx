@@ -9,6 +9,7 @@ import { useLangStore } from '../../stores/langStore';
 import { CoinIcon } from './CoinIcon';
 import { cn } from '../../lib/utils';
 import type { TranslationKey } from '../../lib/i18n';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -121,7 +122,9 @@ function TxRow({ tx, t, lang }: { tx: CoinTransaction; t: (key: TranslationKey) 
 
   // For match-related transactions, show team names if available
   const matchLabel = tx.matches
-    ? `${tx.matches.home_team} vs ${tx.matches.away_team}`
+    ? lang === 'he'
+      ? `${tTeam(tx.matches.home_team)} נגד ${tTeam(tx.matches.away_team)}`
+      : `${tx.matches.home_team} vs ${tx.matches.away_team}`
     : null;
 
   return (

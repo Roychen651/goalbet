@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useLangStore } from '../../stores/langStore';
 import { teamHaloColor } from '../../lib/oklch';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { fetchEspnEvents, type MatchEvent } from '../../lib/espnEvents';
 import { getLiveClock } from '../../lib/utils';
 import type { Match } from '../../lib/supabase';
@@ -105,10 +106,10 @@ function MatchMomentumPulseImpl({ match }: MatchMomentumPulseProps) {
       </svg>
       <div className="flex items-center justify-between mt-1">
         <span className="text-[9px] text-white/25 truncate max-w-[45%]" dir={isRTL ? 'rtl' : 'ltr'}>
-          {match.home_team.split(' ').pop()}
+          {(isRTL ? tTeam(match.home_team) : match.home_team).split(' ').pop()}
         </span>
         <span className="text-[9px] text-white/25 truncate max-w-[45%]" dir={isRTL ? 'rtl' : 'ltr'}>
-          {match.away_team.split(' ').pop()}
+          {(isRTL ? tTeam(match.away_team) : match.away_team).split(' ').pop()}
         </span>
       </div>
     </div>

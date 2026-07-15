@@ -14,9 +14,10 @@ import { AIScoutCard } from '../ui/AIScoutCard';
 import { HTAnalystCard } from '../ui/HTAnalystCard';
 import { cn, formatKickoffTime, getLiveClock, calcLiveBreakdown, calcBreakdown, isMatchLocked } from '../../lib/utils';
 import { teamHaloColor } from '../../lib/oklch';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { haptic } from '../../lib/haptics';
 import { CoinIcon } from '../ui/CoinIcon';
-import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../../lib/constants';
+import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG, tLeagueName } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import type { TranslationKey } from '../../lib/i18n';
 import { useLiveClock } from '../../hooks/useLiveClock';
@@ -365,7 +366,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
     ? t('secsAgo').replace('{0}', String(updatedAgoSecs))
     : t('minsAgo').replace('{0}', String(Math.floor(updatedAgoSecs / 60)));
   const hasPrediction = !!prediction;
-  const { date, time, countdown, lockCountdown } = formatKickoffTime(match.kickoff_time);
+  const { date, time, countdown, lockCountdown } = formatKickoffTime(match.kickoff_time, lang);
   // True when kickoff is within the next 5 minutes
   const startingSoon = !isLive && !isAET && !isFinished && !isPastKickoffNS && (() => {
     const diffMs = new Date(match.kickoff_time).getTime() - Date.now();
@@ -425,7 +426,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
         {/* League + status row */}
         <div className="flex items-center justify-between mb-3">
           <span className="text-text-muted text-xs truncate me-2">
-            {match.league_name}
+            {tLeagueName(match.league_id, match.league_name, lang)}
             {match.round && ` · R${match.round}`}
           </span>
           <div className="flex items-center gap-2 shrink-0">
@@ -516,7 +517,8 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
         {/* Teams + score */}
         <div className="flex items-center gap-3">
           <TeamBlock
-            name={match.home_team}
+            name={lang === 'he' ? tTeam(match.home_team) : match.home_team}
+            haloKey={match.home_team}
             badge={match.home_team_badge}
             score={isLive || isFinished ? match.home_score : null}
             isWinner={homeWon}
@@ -678,7 +680,8 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
           </div>
 
           <TeamBlock
-            name={match.away_team}
+            name={lang === 'he' ? tTeam(match.away_team) : match.away_team}
+            haloKey={match.away_team}
             badge={match.away_team_badge}
             score={isLive || isFinished ? match.away_score : null}
             isWinner={awayWon}
@@ -698,7 +701,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                   {espnInfo.predictor.homeWinPct}%
                 </span>
                 <span className="text-[9px] text-text-muted/50 font-display leading-none truncate max-w-[55px]">
-                  {match.home_team.split(' ').slice(-1)[0]}
+                  {(lang === 'he' ? tTeam(match.home_team) : match.home_team).split(' ').slice(-1)[0]}
                 </span>
               </div>
               <div className="flex-1">
@@ -713,7 +716,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                   {espnInfo.predictor.awayWinPct}%
                 </span>
                 <span className="text-[9px] text-text-muted/50 font-display leading-none truncate max-w-[55px]">
-                  {match.away_team.split(' ').slice(-1)[0]}
+                  {(lang === 'he' ? tTeam(match.away_team) : match.away_team).split(' ').slice(-1)[0]}
                 </span>
               </div>
             </div>
@@ -813,8 +816,8 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                   {!isFinished && !isLive && !isAET && espnInfo && (
                     <TacticalIntelSection
                       info={espnInfo}
-                      homeName={match.home_team}
-                      awayName={match.away_team}
+                      homeName={lang === 'he' ? tTeam(match.home_team) : match.home_team}
+                      awayName={lang === 'he' ? tTeam(match.away_team) : match.away_team}
                     />
                   )}
                   {/* Prediction: locked view inline, or button to open modal */}
@@ -1260,8 +1263,8 @@ function TacticalIntelSection({ info, homeName, awayName }: {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 0, rank }: {
-  name: string; badge: string | null; score: number | null;
+function TeamBlock({ name, haloKey, badge, score, isWinner, isLeading, right, redCards = 0, rank }: {
+  name: string; haloKey?: string; badge: string | null; score: number | null;
   isWinner: boolean; isLeading?: boolean; right?: boolean; redCards?: number; rank?: number | null;
 }) {
   const shortName = name.length > 12 ? name.split(' ').pop() || name : name;
@@ -1271,7 +1274,12 @@ function TeamBlock({ name, badge, score, isWinner, isLeading, right, redCards = 
   // the wrapper forces a new stacking context so the halo's -z-10 stays
   // contained to this wrapper instead of risking painting behind the whole
   // card (a plain `relative` parent alone doesn't guarantee that).
-  const haloColor = teamHaloColor(name);
+  // V4 Sprint 24 — hashed from `haloKey` (the original, untranslated ESPN
+  // name) when provided, never the possibly-Hebrew `name` used for display —
+  // otherwise the same team would hash to a different halo color depending
+  // on which language the viewer has selected, breaking the "same team
+  // always renders the same halo" invariant this halo exists to guarantee.
+  const haloColor = teamHaloColor(haloKey ?? name);
   return (
     <div className={cn('flex flex-col items-center gap-1 w-[80px]')}>
       <div className="relative isolate">

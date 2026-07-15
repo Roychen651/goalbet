@@ -6,6 +6,7 @@ import { LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import { fetchEspnEvents, type MatchEvent } from '../../lib/espnEvents';
 import { useLangStore } from '../../stores/langStore';
 import type { Match } from '../../lib/supabase';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
@@ -277,11 +278,11 @@ export function MatchTimeline({ match }: { match: Match }) {
               {/* Column labels + commentary toggle */}
               <div className="flex items-center px-1.5 mb-1">
                 <span className="flex-1 text-[9px] uppercase tracking-wider text-white/18 text-start truncate">
-                  {match.home_team.split(' ').slice(-1)[0]}
+                  {(he ? tTeam(match.home_team) : match.home_team).split(' ').slice(-1)[0]}
                 </span>
                 <span className="w-11 text-center text-[9px] text-white/15 shrink-0">{he ? 'זמן' : 'time'}</span>
                 <span className="flex-1 text-[9px] uppercase tracking-wider text-white/18 text-end truncate">
-                  {match.away_team.split(' ').slice(-1)[0]}
+                  {(he ? tTeam(match.away_team) : match.away_team).split(' ').slice(-1)[0]}
                 </span>
               </div>
               {/* Commentary toggle — only when there are goal texts */}

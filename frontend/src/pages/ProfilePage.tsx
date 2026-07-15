@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Share2 } from 'lucide-react';
 import { streakTierColor } from '../lib/oklch';
+import { tTeam } from '../lib/dictionaries/teamsHe';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useLangStore } from '../stores/langStore';
@@ -48,7 +49,7 @@ const HALO_MOTION: Record<'bronze' | 'silver' | 'ember', {
 export function ProfilePage() {
   const { user, profile, signOut, updateUsername } = useAuthStore();
   const { groups, activeGroupId } = useGroupStore();
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
   const reduceMotion = useReducedMotion();
   const [history, setHistory] = useState<PredictionWithMatch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -725,6 +726,7 @@ export function ProfilePage() {
               onSave={handleSavePrediction}
               onDelete={handleDeletePrediction}
               t={t}
+              lang={lang}
             />
           )}
 
@@ -742,6 +744,7 @@ export function ProfilePage() {
               onSave={handleSavePrediction}
               onDelete={handleDeletePrediction}
               t={t}
+              lang={lang}
             />
           )}
 
@@ -759,6 +762,7 @@ export function ProfilePage() {
               onSave={handleSavePrediction}
               onDelete={handleDeletePrediction}
               t={t}
+              lang={lang}
               paginated
             />
           )}
@@ -791,10 +795,11 @@ interface SectionProps {
   onSave: (data: PredictionData, id: string) => Promise<void>;
   onDelete: (id: string) => void;
   t: (key: TranslationKey) => string;
+  lang: 'en' | 'he';
   paginated?: boolean;
 }
 
-function PredictionSection({ title, predictions, expandedIds, toggleExpanded, confirmDeleteId, setConfirmDeleteId, deleting, saving, onSave, onDelete, t, paginated }: SectionProps) {
+function PredictionSection({ title, predictions, expandedIds, toggleExpanded, confirmDeleteId, setConfirmDeleteId, deleting, saving, onSave, onDelete, t, lang, paginated }: SectionProps) {
   const [visibleCount, setVisibleCount] = useState(paginated ? HISTORY_PAGE_SIZE : predictions.length);
   // Reset pagination when the predictions list changes (e.g. group switch)
   useEffect(() => {
@@ -810,7 +815,7 @@ function PredictionSection({ title, predictions, expandedIds, toggleExpanded, co
       <motion.div className="space-y-2" animate="show" variants={{ show: { transition: { staggerChildren: 0.04 } } }}>
         {visible.map(pred => {
           const editable = pred.match.status === 'NS' && !isMatchLocked(pred.match.kickoff_time);
-          const { lockCountdown } = formatKickoffTime(pred.match.kickoff_time);
+          const { lockCountdown } = formatKickoffTime(pred.match.kickoff_time, lang);
           const isExpanded = expandedIds.has(pred.id);
           return (
             <motion.div key={pred.id} variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 90, damping: 18 } } }}>
@@ -829,9 +834,11 @@ function PredictionSection({ title, predictions, expandedIds, toggleExpanded, co
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-white text-sm font-medium truncate">{pred.match.home_team} vs {pred.match.away_team}</div>
+                    <div className="text-white text-sm font-medium truncate">
+                      {lang === 'he' ? `${tTeam(pred.match.home_team)} נגד ${tTeam(pred.match.away_team)}` : `${pred.match.home_team} vs ${pred.match.away_team}`}
+                    </div>
                     <div className="text-text-muted text-xs flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span>{formatKickoffTime(pred.match.kickoff_time).date}</span>
+                      <span>{formatKickoffTime(pred.match.kickoff_time, lang).date}</span>
                       <MatchStatusBadge status={
                         pred.match.went_to_penalties ? 'PEN'
                         : pred.match.regulation_home != null ? 'AET'
