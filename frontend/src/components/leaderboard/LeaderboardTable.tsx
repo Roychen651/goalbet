@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, LayoutGroup } from 'framer-motion';
 import { LeaderboardEntryWithProfile } from '../../lib/supabase';
 import { LeaderboardRow } from './LeaderboardRow';
 import { GlassCard } from '../ui/GlassCard';
@@ -34,36 +34,43 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
         <span className="text-end">{t('pts')}</span>
       </div>
 
-      {/* Rows */}
-      <motion.div
-        initial="hidden"
-        animate="show"
-        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
-      >
-        {entries.map((entry) => (
-          <motion.div
-            key={entry.user_id}
-            variants={{
-              hidden: { opacity: 0, y: 10 },
-              show: {
-                opacity: 1,
-                y: 0,
-                transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] as const },
-              },
-            }}
-            whileHover={{ scale: 1.005 }}
-            transition={{ duration: 0.18, ease: 'easeOut' as const }}
-          >
-            <LeaderboardRow
-              entry={entry}
-              isCurrentUser={entry.user_id === currentUserId}
-              type={type}
-              periodStat={periodStatsMap ? periodStatsMap.get(entry.user_id) ?? null : null}
-              onClick={onUserClick ? () => onUserClick(entry) : undefined}
-            />
-          </motion.div>
-        ))}
-      </motion.div>
+      {/* Rows — LayoutGroup + `layout` on each row means a sort-order change
+          (a prediction resolving, a tab switch, live points shifting rank)
+          animates rows sliding to their new position via Framer's FLIP
+          measurement, instead of the list silently re-rendering in the new
+          order with no visual continuity. */}
+      <LayoutGroup id="leaderboard-rows">
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
+        >
+          {entries.map((entry) => (
+            <motion.div
+              key={entry.user_id}
+              layout
+              variants={{
+                hidden: { opacity: 0, y: 10 },
+                show: {
+                  opacity: 1,
+                  y: 0,
+                  transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] as const },
+                },
+              }}
+              whileHover={{ scale: 1.005 }}
+              transition={{ layout: { type: 'spring', stiffness: 380, damping: 32 }, duration: 0.18, ease: 'easeOut' as const }}
+            >
+              <LeaderboardRow
+                entry={entry}
+                isCurrentUser={entry.user_id === currentUserId}
+                type={type}
+                periodStat={periodStatsMap ? periodStatsMap.get(entry.user_id) ?? null : null}
+                onClick={onUserClick ? () => onUserClick(entry) : undefined}
+              />
+            </motion.div>
+          ))}
+        </motion.div>
+      </LayoutGroup>
     </GlassCard>
   );
 }
