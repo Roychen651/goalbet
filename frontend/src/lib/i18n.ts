@@ -677,6 +677,32 @@ export const translations = {
     arenaH2HExpandAria: 'View full match history',
     arenaH2HMatchHistoryTitle: 'Match History',
     arenaH2HFinal: 'Final',
+
+    // Risk Profile radar (Sprint 22)
+    radarTitle: 'Risk Profile',
+    radarInfoTip: 'Your predicting style across 5 dimensions — tap a point for details',
+    radarAccuracy: 'Accuracy',
+    radarBoldness: 'Boldness',
+    radarLiveActivity: 'Live Activity',
+    radarSpecialist: 'Specialist',
+    radarVolatility: 'Volatility',
+    radarTapHint: 'Tap a point to see the number behind it',
+
+    // Trophy Cabinet (Sprint 22)
+    trophyCabinetTitle: 'Trophy Cabinet',
+    trophyLocked: 'Locked',
+    trophySniperName: 'Sniper',
+    trophySniperDesc: '65%+ accuracy over 5+ picks',
+    trophyCenturyName: 'Century Club',
+    trophyCenturyDesc: '100+ total points',
+    trophyIronStreakName: 'Iron Streak',
+    trophyIronStreakDesc: '8+ correct results in a row',
+    trophySharpshooterName: 'Sharpshooter',
+    trophySharpshooterDesc: '5+ exact score hits',
+    trophyVeteranName: 'Veteran',
+    trophyVeteranDesc: '25+ resolved predictions',
+    trophyHighRollerName: 'High Roller',
+    trophyHighRollerDesc: 'Consistently bets big',
   },
 
   he: {
@@ -1352,6 +1378,32 @@ export const translations = {
     arenaH2HExpandAria: 'הצג היסטוריית משחקים מלאה',
     arenaH2HMatchHistoryTitle: 'היסטוריית משחקים',
     arenaH2HFinal: 'תוצאה סופית',
+
+    // Risk Profile radar (Sprint 22)
+    radarTitle: 'פרופיל הסיכון',
+    radarInfoTip: 'סגנון הניחושים שלך על פני 5 מימדים — הקש/י על נקודה לפרטים',
+    radarAccuracy: 'דיוק',
+    radarBoldness: 'העזה',
+    radarLiveActivity: 'פעילות חיה',
+    radarSpecialist: 'התמחות',
+    radarVolatility: 'תנודתיות',
+    radarTapHint: 'הקש/י על נקודה כדי לראות את המספר מאחוריה',
+
+    // Trophy Cabinet (Sprint 22)
+    trophyCabinetTitle: 'ארון הגביעים',
+    trophyLocked: 'נעול',
+    trophySniperName: 'צלף',
+    trophySniperDesc: '65%+ דיוק על פני 5+ ניחושים',
+    trophyCenturyName: 'מועדון המאה',
+    trophyCenturyDesc: '100+ נקודות בסך הכל',
+    trophyIronStreakName: 'רצף ברזל',
+    trophyIronStreakDesc: '8+ תוצאות נכונות ברצף',
+    trophySharpshooterName: 'קלע מדויק',
+    trophySharpshooterDesc: '5+ ניחושי תוצאה מדויקת',
+    trophyVeteranName: 'ותיק',
+    trophyVeteranDesc: '25+ ניחושים שהוכרעו',
+    trophyHighRollerName: 'שחקן גדול',
+    trophyHighRollerDesc: 'מהמר גבוה בעקביות',
   },
 } as const;
 

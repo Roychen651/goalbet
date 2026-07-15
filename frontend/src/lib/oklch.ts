@@ -148,3 +148,18 @@ export function interpolateRisk(ratio: number): DivergingColor {
     l,
   };
 }
+
+// Sprint 22 — Avatar streak-tier halo. Three fixed discrete tiers, not a
+// continuous ratio, so unlike interpolateDiverging/interpolateRisk this
+// doesn't need getComputedStyle/caching machinery at all — it just picks
+// which of the three --streak-* tokens (index.css) applies and hands back
+// a var() reference for the caller to drop straight into a style prop,
+// exactly how LeaderboardRow.tsx already uses `var(--risk-gold)` directly
+// for its single-token gold halo.
+export type StreakTier = 'bronze' | 'silver' | 'ember';
+
+export function streakTierColor(streak: number): { token: string; tier: StreakTier } {
+  if (streak >= 8) return { token: 'var(--streak-ember)', tier: 'ember' };
+  if (streak >= 4) return { token: 'var(--streak-silver)', tier: 'silver' };
+  return { token: 'var(--streak-bronze)', tier: 'bronze' };
+}
