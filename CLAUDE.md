@@ -37,6 +37,9 @@ Read this before touching any file. Everything here reflects the live codebase.
 28. [The Autonomous Economy (V4 Sprint 12)](#28-the-autonomous-economy-v4-sprint-12)
 29. [In-Play Micro-Predictions — Momentum Bets (V4 Sprint 14)](#29-in-play-micro-predictions--momentum-bets-v4-sprint-14)
 30. [The Bento Arena — My Arena Stats Dashboard (V4 Sprint 15)](#30-the-bento-arena--my-arena-stats-dashboard-v4-sprint-15)
+31. [Fluid Morphing & Depth (V4 Sprint 16)](#31-fluid-morphing--depth-v4-sprint-16)
+32. [The Sensory Immersion (V4 Sprint 17)](#32-the-sensory-immersion-v4-sprint-17)
+33. [The Dopamine Cannon (V4 Sprint 18)](#33-the-dopamine-cannon-v4-sprint-18)
 
 ---
 
@@ -368,7 +371,7 @@ goalbet/
 │       │   │   ├── CreateGroupModal.tsx
 │       │   │   ├── InviteCodeDisplay.tsx
 │       │   │   ├── JoinGroupModal.tsx
-│       │   │   ├── MomentumBanner.tsx      # V4 Sprint 14 — breathing conic-gradient banner in LockerRoomPage when the active group has a live open/locked micro-prediction question. Countdown via useCountdown (useLiveClock-shaped isolated re-render — never touches LockerRoomPage/ActivityFeed). Tap opens MomentumBetSheet
+│       │   │   ├── MomentumBanner.tsx      # V4 Sprint 14 — breathing conic-gradient banner in LockerRoomPage when the active group has a live open/locked micro-prediction question. Countdown via useCountdown (useLiveClock-shaped isolated re-render — never touches LockerRoomPage/ActivityFeed). Tap opens MomentumBetSheet while open. Once locked: shows a live mm:ss countdown to `resolves_at` (not a static "Locked" label — added post-Sprint-15 after watching a real live match sit static for 10 minutes), dims to opacity-70 with a Lock icon swapped in for the pulsing Zap, and the button itself is `disabled` — betting is structurally closed at that point (§29), and the dim+lock cue exists specifically so that disabled state reads as intentional, not broken (a real bug report otherwise)
 │       │   │   └── MomentumBetSheet.tsx    # V4 Sprint 14 — swipe-to-close bottom sheet (rule 4.13), Yes/No choice buttons, haptic('selection') on tap + haptic('success') on confirmed submission
 │       │   ├── layout/
 │       │   │   ├── AppShell.tsx           # Root layout + ONLY place for auto-sync + cold-start isSyncing flag
@@ -396,9 +399,11 @@ goalbet/
 │       │   │   ├── TacticalPitch.tsx      # Glass tactical formation view for Starting XI; horizontal pitch with percentage-based positioning
 │       │   │   └── PredictionForm.tsx     # 5-tier prediction input; corners hidden for league 4396
 │       │   ├── stats/
-│       │   │   ├── BentoArena.tsx         # V4 Sprint 15 — "My Arena" tab root. Responsive Bento Grid (1-col mobile, 4-col sm+), Framer Motion staggered spring entrance (staggerChildren 0.06, stiffness 100/damping 15), useReducedMotion short-circuit. Fed by useStatsArena (single RPC, no per-card fetch); hero/streak/risk tiles are NumberFlow-animated numbers, Heatmap/Distribution/H2H slots render PredictionHeatmap/GroupDistributionChart/H2HMatrix
+│       │   │   ├── BentoArena.tsx         # V4 Sprint 15 — "My Arena" tab root. Responsive Bento Grid (1-col mobile, 4-col sm+), Framer Motion staggered spring entrance (staggerChildren 0.06, stiffness 100/damping 15), useReducedMotion short-circuit. Fed by useStatsArena (single RPC, no per-card fetch); hero/streak/risk tiles are NumberFlow-animated numbers, Heatmap/Distribution/H2H slots render PredictionHeatmap/GroupDistributionChart/H2HMatrix. V4 Sprint 16 turns on `tactile` (+ `allowGyroscope` on the hero card only) on every GlassCard. V4 Sprint 18 wraps the Streak tile's NumberFlow in `<CelebrationManager>` — see §33
+│       │   │   ├── CelebrationManager.tsx # V4 Sprint 18 — the focused win-celebration orchestrator, mounted around BentoArena's Streak tile. Consumes useNewPointsAlert() unmodified as its sole trigger (no new Realtime subscription). See §33 for the full sequence (spotlight dim → pulse ring → celebrateAt() confetti → conditional NumberFlow replay)
+│       │   │   ├── ExpandedH2HView.tsx    # V4 Sprint 16 — createPortal-rendered full match-by-match H2H history, morphs in from H2HMatrix's collapsed panel via a shared Framer Motion layoutId (`h2h-panel-${opponent_id}`). Fed by migration 045's match_details array — zero new network call
 │       │   │   ├── GroupDistributionChart.tsx # V4 Sprint 15 — "emphasis" chart: one muted-gray Gaussian curve modeling the group (RPC only exposes mean/stddev, never individual stakes — the curve is a modeled normal distribution, not a fake empirical one) + one glowing accent marker at the caller's own z-score position. Reuses lib/svgPath.ts's smoothPath
-│       │   │   ├── H2HMatrix.tsx          # V4 Sprint 15 — scroll-snap opponent-picker rail (data-lenis-prevent) that re-indexes into the already-fetched h2h_matrix array — zero network calls per switch. NumberFlow-animated points/shared-matches/record comparison + a 3-segment win/tie/loss bar
+│       │   │   ├── H2HMatrix.tsx          # V4 Sprint 15 — scroll-snap opponent-picker rail (data-lenis-prevent) that re-indexes into the already-fetched h2h_matrix array — zero network calls per switch. NumberFlow-animated points/shared-matches/record comparison + a 3-segment win/tie/loss bar. V4 Sprint 16 — wrapped in a `LayoutGroup`; a `Maximize2` button (shown only when `hasHistory`) morphs the collapsed panel into `<ExpandedH2HView>` via the shared `layoutId`
 │       │   │   ├── LeagueDropdown.tsx     # Custom animated dropdown; dual dark/light ESPN league logos; data-lenis-prevent so inner wheel-scroll works inside Lenis; layoutId-backed active bar
 │       │   │   ├── LeagueLeaders.tsx      # Top scorers / assists tables sourced from ESPN leaders feed
 │       │   │   ├── PredictionHeatmap.tsx  # V4 Sprint 15 — hand-built inline SVG League x Bet-Type grid. Diverging OKLCH color per cell via lib/oklch.ts (not CSS color-mix), every cell direct-labeled with its %, contrast-aware label ink, diagonal-hatch + "n/a" for sample_size < 3, RTL-aware column/label mirroring + clipPath guard on long league names, "view as table" accessible fallback, hover/focus detail line
@@ -411,15 +416,15 @@ goalbet/
 │       │       ├── CoinIcon.tsx           # Animated coin SVG icon with configurable size
 │       │       ├── EmptyState.tsx         # Reusable empty-state placeholder
 │       │       ├── FadeInView.tsx         # Wrapper: fade-in on mount via Framer Motion
-│       │       ├── GlassCard.tsx         # V4 Sprint 15 added an optional `grain` prop — overlays the .glass-grain feTurbulence texture (generalized from World Cup's .wc-grain). Only wraps children in an extra `relative z-10` div when grain is on, so every other call site is untouched
+│       │       ├── GlassCard.tsx         # V4 Sprint 15 added an optional `grain` prop — overlays the .glass-grain feTurbulence texture (generalized from World Cup's .wc-grain). Only wraps children in an extra `relative z-10` div when grain is on, so every other call site is untouched. V4 Sprint 16 adds `tactile`/`allowGyroscope` props — attaches useTactileTilt's ref across all three render branches; content gets the same `relative z-10` treatment whenever `tactile` is on (same stacking-order fix as `grain`)
 │       │       ├── HelpGuideModal.tsx     # Bottom sheet — swipe-to-close enabled
 │       │       ├── HTAnalystCard.tsx      # Sprint 27 — broadcast-TV lower-third for live HT tactical read; rotating red/amber/cyan conic border + pulsing red LIVE badge + word-by-word typewriter reveal. Returns null when text is empty
 │       │       ├── InfoTip.tsx            # Tooltip using CSS vars (works in both themes)
-│       │       ├── LangToggle.tsx
+│       │       ├── LangToggle.tsx         # V4 Sprint 17 — same haptic('toggle_click') + playSound('toggle_click') pairing as ThemeToggle.tsx
 │       │       ├── LoadingSpinner.tsx
-│       │       ├── MagneticButtonV2.tsx   # Magnetic pull button; variants: volt / ghost / purple
+│       │       ├── MagneticButtonV2.tsx   # Magnetic pull button; variants: volt / ghost / purple. V4 Sprint 18 — `whileTap` upgraded from a flat `{ scale: 0.96 }` to `{ scale: 0.95, rotate: -0.5, transition: { spring, stiffness: 500, damping: 15 } }` for a genuine elastic overshoot feel
 │       │       ├── MatchCardSkeleton.tsx  # Premium cold-start loader (pulse + shimmer). Exports MatchCardSkeleton + MatchCardSkeletonList
-│       │       ├── NeonButton.tsx         # Variants: green / ghost / danger
+│       │       ├── NeonButton.tsx         # Variants: green / ghost / danger. V4 Sprint 18 — converted to `motion.button` with the same elastic `whileTap` as MagneticButtonV2; `NeonButtonProps` omits `onAnimationStart`/`onDrag*` from `ButtonHTMLAttributes` since those React DOM handler signatures clash with Framer Motion's own
 │       │       ├── PolicyModal.tsx
 │       │       ├── PushToggle.tsx         # Sprint 8 — self-hiding match-reminder toggle (Settings). Renders nothing when Web Push unsupported / VAPID key unset; shows "add to home screen" hint on iOS Safari; enable/disable button on installed PWA + desktop/Android
 │       │       ├── ScoringGuide.tsx       # Bottom sheet — swipe-to-close enabled
@@ -427,13 +432,15 @@ goalbet/
 │       │       ├── FormBars.tsx           # Sprint 9 — last-N points-per-match bars (colour = outcome, height = magnitude), spring grow-in, reduced-motion aware
 │       │       ├── StaggerList.tsx        # Wrapper: staggered child animations
 │       │       ├── SyncProgressBar.tsx    # Fixed top bar; visible while isSyncing; z-[100]
-│       │       ├── ThemeToggle.tsx
+│       │       ├── ThemeToggle.tsx        # V4 Sprint 17 — onClick fires haptic('toggle_click') + playSound('toggle_click') before the theme flips
 │       │       ├── TiltCardV2.tsx         # 3° tilt with spring physics for profile bento cards
-│       │       ├── Toast.tsx
+│       │       ├── TiltModeToggle.tsx     # V4 Sprint 16 — self-hiding gyroscope opt-in toggle in Settings, mirrors PushToggle.tsx's shape exactly. Hidden entirely when isTiltSupported() is false; requestTiltPermission() must be called from this real tap (iOS 13+ gate)
+│       │       ├── Toast.tsx              # V4 Sprint 17 — full rewrite: stacked (AnimatePresence mode="popLayout" + layout), swipeable-to-dismiss (drag="x", same threshold pattern as bottom sheets), icon+color resolved per toast type via OKLCH color-mix against the arena tokens. uiStore.ts's public API (addToast/removeToast/Toast type) is unchanged — this is a render-layer rewrite only
 │       │       └── WelcomeAnimation.tsx   # First-login welcome sequence
 │       ├── hooks/
 │       │   ├── useAuth.ts                 # Legacy Google OAuth (kept for backward compat)
 │       │   ├── useAuthV2.ts               # Auth-v2 state machine (8 views)
+│       │   ├── useCoinRollFeedback.ts     # V4 Sprint 17 — fires 4 haptic('coin_roll') sub-pulses spread across 600ms (matching the coin NumberFlow's transformTiming) on any coins increase. Wired ONLY into TopBar.tsx, deliberately not also Sidebar.tsx — both are simultaneously mounted (CSS-toggled by breakpoint), wiring both would double-fire per real deposit
 │       │   ├── useCountdown.ts            # V4 Sprint 14 — same isolated local-state/setInterval shape as useLiveClock, ticks whole seconds remaining until an expiry timestamp; drives MomentumBanner without re-rendering LockerRoomPage
 │       │   ├── useGroupEvents.ts          # Locker Room activity feed subscriber. event_type union includes MICRO_BANTER (V4 Sprint 14) alongside AI_BANTER; user_id is string | null (both AI event types have no owning user)
 │       │   ├── useGroupMatchPredictions.ts
@@ -442,24 +449,29 @@ goalbet/
 │       │   ├── useLiveClock.ts            # Ticking clock for live matches
 │       │   ├── useMatches.ts              # Fetches + Realtime + goalbet:synced listener
 │       │   ├── useMatchSync.ts            # Manual sync ONLY (Settings button) — 60s timeout
-│       │   ├── useMicroPrediction.ts      # V4 Sprint 14 — active group's live open/locked micro-prediction question + caller's own bet, group_id-filtered Realtime, submitBet() mirrors usePredictions.ts's optimistic-then-authoritative-reconcile shape
+│       │   ├── useMicroPrediction.ts      # V4 Sprint 14 — active group's live open/locked micro-prediction question + caller's own bet, group_id-filtered Realtime, submitBet() mirrors usePredictions.ts's optimistic-then-authoritative-reconcile shape. Gained (post-Sprint-15): resolves_at on the question row (feeds MomentumBanner's locked-phase countdown) + a Realtime subscription on micro_prediction_bets UPDATE that fires the won/refund toast + haptic the moment settleBets() resolves the caller's own bet — previously a win only showed up as the top-bar coin count silently changing. V4 Sprint 17 adds a bet-lock "snap": haptic('bet_lock') + playSound('lock_thud') when a question the caller has a stake in flips open→locked
 │       │   ├── useNewPointsAlert.ts       # Toast on newly earned points since last visit
 │       │   ├── useNotifications.ts        # Persistent notifications feed subscriber
 │       │   ├── usePredictions.ts          # TanStack Query mutation wrapping submit_prediction (V4 Sprint 11) — single RPC call, no separate client upsert to predictions
-│       │   ├── useStatsArena.ts           # V4 Sprint 15 — TanStack Query wrapper around get_stats_arena_payload (migration 044). staleTime ~2min, deliberately outside AppShell's auto-sync (rule 4.3) since this data moves at the pace of match resolutions, not live scores
+│       │   ├── useStatsArena.ts           # V4 Sprint 15 — TanStack Query wrapper around get_stats_arena_payload (migration 044). staleTime ~2min, deliberately outside AppShell's auto-sync (rule 4.3) since this data moves at the pace of match resolutions, not live scores. V4 Sprint 16 (migration 045) — ArenaH2HRow gains match_details: ArenaH2HMatchDetail[], feeding ExpandedH2HView. V4 Sprint 18 — CelebrationManager calls queryClient.invalidateQueries({queryKey: ['statsArena']}) on a detected win to nudge the 2-min staleTime fresh
+│       │   ├── useTactileTilt.ts          # V4 Sprint 16 — zero-re-render 3D pointer tilt. Writes --tilt-x/--tilt-y/--glare-x/--glare-y directly via el.style.setProperty inside a RAF-throttled pointermove handler — no setState in the hot path. Capability-gated once per mount ((hover:hover) and (pointer:fine)); falls back to deviceorientation (beta/gamma delta against a captured baseline) only when allowGyroscope is true and hover isn't available. No-ops entirely under prefers-reduced-motion
 │       │   ├── useWorldCupMatches.ts       # Fetches all synced league-4480 rows (+ realtime) for the WC bracket live overlay
 │       │   └── useRTLDirection.ts         # Sets document.dir from active language
 │       ├── lib/
 │       │   ├── authSchema.ts              # Password validation: strength, requirements, error mapping
+│       │   ├── celebrate.ts               # canvas-confetti wrapper (an existing dependency — the app's only chart/particle library, kept out of the "no charting library" rule since it's decorative, not data-viz). celebratePrediction()/celebrateWin() are fixed screen-edge bursts; V4 Sprint 18 adds celebrateAt(el) — same engine, origin derived from el's own getBoundingClientRect() converted to viewport-fraction coordinates, so the burst originates from a specific card instead of the screen edges. All three set disableForReducedMotion: true
 │       │   ├── constants.ts               # FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG, POINTS, COIN_COSTS, ROUTES
 │       │   ├── featureFlags.ts            # Feature flag registry (currently no active flags)
+│       │   ├── haptics.ts                 # Vibration API wrapper, safe no-op where unsupported. V4 Sprint 17 adds toggle_click/bet_lock/coin_roll patterns, paired 1:1 by name with lib/sensoryAudio.ts's synthesized SFX
 │       │   ├── i18n.ts                    # EN + HE translations, TranslationKey type
 │       │   ├── oklch.ts                    # V4 Sprint 15 — hand-crafted OKLCH interpolation for the heatmap's diverging scale. interpolateDiverging(ratio) linearly lerps L/C/H (shortest-path hue lerp) between the --arena-cold/mid/hot anchors, read live via getComputedStyle at call time — the tokens in index.css stay the single source of truth, never duplicated as hardcoded numbers here. Deliberately not CSS color-mix(): a discrete color + its resolved lightness (for contrast-aware label ink) are both needed per cell
 │       │   ├── push.ts                     # Sprint 8 — Web Push client: getPushStatus() / enablePush() / disablePush(); VAPID key gate; iOS-non-standalone detection (checked BEFORE apiSupported so iPhone Safari shows the install hint, not nothing)
 │       │   ├── queryClient.ts             # TanStack Query client (refetchOnWindowFocus off — AppShell owns sync)
+│       │   ├── sensoryAudio.ts             # V4 Sprint 17 — synthesized zero-asset SFX via Web Audio API oscillator/gain nodes on one lazily-created AudioContext. unlockAudio() must be called from a real user-gesture handler (autoplay policy — App.tsx's first pointerdown listener does this, once, then removes itself); playSound('toggle_click' | 'coin_chime' | 'lock_thud') schedules a tone thereafter. No <audio> elements, no binary assets, no network request
 │       │   ├── shareCard.ts                # V4 Sprint 11 — zero-dependency shareable recap card. drawRecapCard() hand-draws rank/points/streak to an offscreen Canvas (same philosophy as Sparkline.tsx — no html2canvas/html-to-image); colors resolved from live CSS custom properties via getComputedStyle at draw time so the PNG matches the active theme; RTL handled explicitly (ctx.direction + right-anchored text). shareRecapCard() is the 3-tier fallback: navigator.share with a file → navigator.share text-only → clipboard copy + explicit PNG download
 │       │   ├── supabase.ts                # Supabase client (anon key) + all TypeScript table types
 │       │   ├── svgPath.ts                  # V4 Sprint 15 — smoothPath() (Catmull-Rom → cubic Bézier) extracted from Sparkline.tsx so every hand-built SVG chart shares one spline implementation. Sparkline.tsx and GroupDistributionChart.tsx both import it
+│       │   ├── tiltPermission.ts           # V4 Sprint 16 — requestTiltPermission() / isTiltSupported(), mirrors lib/push.ts's shape exactly. Gates iOS 13+'s DeviceOrientationEvent.requestPermission() behind a real tap (TiltModeToggle.tsx)
 │       │   ├── utils.ts                   # calcBreakdown() (client-side scoring mirror), cn()
 │       │   └── worldCup2026.ts            # Static FIFA WC 2026 data: 12 groups, R32/R16/QF/SF/3rd/Final with dates + FIFA match numbers + venueId, 16 host stadiums, tournament phases. Consumed by WorldCupBracket
 │       ├── pages/
@@ -471,7 +483,7 @@ goalbet/
 │       │   ├── LockerRoomPage.tsx         # Group activity feed (WON_COINS, predictions, etc.)
 │       │   ├── LoginPage.tsx              # Thin wrapper — redirect if logged in, render AuthContainer
 │       │   ├── ProfilePage.tsx            # Stats, prediction history, sign-out button
-│       │   ├── SettingsPage.tsx           # Group mgmt, leagues, admin tools, Account section
+│       │   ├── SettingsPage.tsx           # Group mgmt, leagues, admin tools, Account section. `<TiltModeToggle />` added after `<PushToggle />` (V4 Sprint 16)
 │       │   └── StatsPage.tsx              # Two sub-tabs (V4 Sprint 15): "Leagues" — LeagueDropdown + StandingsTable + LeagueLeaders for ESPN-backed leagues, WorldCupBracket for custom-view tournaments (CUSTOM_VIEW_LEAGUES set, currently World Cup 4480); "My Arena" — BentoArena, the personal/group stats dashboard (§30)
 │       └── stores/
 │           ├── authStore.ts               # user, profile, session; signInWithGoogle, signOut
@@ -479,6 +491,7 @@ goalbet/
 │           ├── groupStore.ts              # groups[], activeGroupId; persisted to localStorage
 │           ├── langStore.ts               # lang ('en'|'he'); persisted to localStorage
 │           ├── themeStore.ts              # theme ('dark'|'light'); persisted to localStorage
+│           ├── tiltStore.ts               # V4 Sprint 16 — gyroscopeEnabled; persisted to localStorage
 │           └── uiStore.ts                 # activeModal, toasts[], isSyncing; memory only
 │
 ├── backend/
@@ -1041,7 +1054,7 @@ curl "https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard"
 
 ## 14. Database & Migrations
 
-Migrations live in `supabase/migrations/`. Current sequence: **001 → 044** (024 does not exist).
+Migrations live in `supabase/migrations/`. Current sequence: **001 → 045** (024 does not exist).
 Apply via `supabase db push --linked` (auto-runs via hook on migration file write once logged in).
 
 | Migration | What it adds |
@@ -1089,6 +1102,7 @@ Apply via `supabase db push --linked` (auto-runs via hook on migration file writ
 | `042` | **In-Play Micro-Predictions "Momentum Bets" (V4 Sprint 14):** creates `micro_prediction_questions` + `micro_prediction_bets` (group-scoped like every other economy table, zero client-writable columns — every write goes through `submit_micro_prediction()`); RLS on bets mirrors migration 037's privacy shape (own row visible, others hidden until the question locks); adds `MICRO_BANTER` to `group_events.event_type` with its **own** dedup index `(group_id, question_id)` — deliberately not reusing migration 039's `(group_id, match_id)` index, which allows only one `AI_BANTER` row per match per group and would silently drop the 2nd/3rd roast on a match with multiple milestone questions. See §29. Idempotent. |
 | `043` | **Momentum Bets settlement primitives (V4 Sprint 14):** adds `micro_prediction_bets.settled_at` (a completion guard deliberately separate from `is_winner` — a canceled/refunded bet has no winner/loser) and `credit_group_coins()`, a minimal atomic balance-increment RPC (service-role-only, never `GRANT`ed to `authenticated`) used because the Supabase JS client can't express `coins = coins + N` atomically without either a race-prone read-then-write or an RPC. Idempotent. |
 | `044` | **The Bento Arena (V4 Sprint 15):** adds `get_stats_arena_payload(p_user_id, p_group_id) RETURNS JSONB` — one `SECURITY DEFINER` RPC assembling the entire "My Arena" stats tab (League x Bet-Type heatmap, stake/streak/risk distribution vs. the group, precomputed H2H matrix against every other member) in a single self-join, zero N+1. `auth.uid()` + group-membership guards first, mirroring the coin-RPC discipline even though nothing here spends coins. Every aggregate filters on `predictions.is_resolved = true`, not a literal `matches.status = 'FT'` — see §30 for why that distinction matters for WC2026 knockout matches. Adds supporting index `idx_predictions_group_user_resolved`. Idempotent (`CREATE OR REPLACE`, `CREATE INDEX IF NOT EXISTS`). |
+| `045` | **H2H match details (V4 Sprint 16):** `CREATE OR REPLACE` on `get_stats_arena_payload` (same signature as 044, same established extend-in-place pattern as 040) — the H2H CTE gains a new `JOIN matches m ON m.id = p1.match_id` and each opponent row's `match_details` field is populated with a `jsonb_agg(...)` of every shared match (kickoff time, league, teams, scores, both users' predicted scores, both users' points earned), ordered newest-first. Feeds `ExpandedH2HView.tsx`'s morphing full-history panel — zero new network call, the detail was already inside the one RPC round trip. Idempotent. |
 
 ### Migration idempotency
 
@@ -1355,6 +1369,7 @@ All stores use Zustand. Persistence uses `localStorage` where noted.
 | `langStore.ts` | `lang` (`'en'` \| `'he'`) | localStorage | Also controls `document.dir` via `useRTLDirection` |
 | `themeStore.ts` | `theme` (`'dark'` \| `'light'`) | localStorage | Manages `html.light` class |
 | `uiStore.ts` | `activeModal`, `toasts[]`, `isSyncing` | Memory only | `openModal(id)`, `addToast(msg, type)`, `setSyncing(bool)` |
+| `tiltStore.ts` | `gyroscopeEnabled` | localStorage | V4 Sprint 16 — opt-in flag for `GlassCard`'s `allowGyroscope` prop; set via `TiltModeToggle.tsx` after a successful `requestTiltPermission()` |
 
 ---
 
@@ -1581,6 +1596,8 @@ Step 1 **must complete before** step 2. Reversing the order leaves orphaned data
 - **Brutalist "2026" is two stacked spans.** The base `.wc-brutalist-hollow` stays always visible (hollow stroke). The `.wc-brutalist-fill` overlay uses `-webkit-background-clip: text` with a tri-host gradient and its opacity is driven by `useTransform(scrollY, [0, 260, 460], [0, 0.6, 1])`. Do not collapse into one span — text-clip and stroke can't coexist cleanly on a single element.
 - **World Cup card 3D entrances need `transformPerspective: 1000` on the motion element itself.** `GroupCard` and `StadiumCard` animate `rotateX: 15 → 0` + `scale: 0.95 → 1`; without `transformPerspective` on the same element (or `perspective` on the parent), `rotateX` collapses to a 2D scale and the tilt is invisible. Also set `transformStyle: 'preserve-3d'`.
 - **Trophy SVG has 5 ordered layers — do not reorder.** (1) Gold body with `filter="url(#wc-3d)"` for drop shadow; (2) left-side specular rim-light gradient; (3) vertical top-down inner-shine gradient; (4) engraved detail group clipped to the silhouette (globe meridians, continents, figure curves, malachite rings separated by a gold band); (5) dark outline stroke. The engraved detail layer uses strokes and low-opacity fills so the gold underneath is never occluded. The base is now **2 malachite rings separated by a gold band** (not 4 bands), matching the authentic Jules Gazzaniga design.
+- **A `disabled` interactive element must look disabled, not just behave disabled.** `MomentumBanner`'s tap target was correctly `disabled` once a Momentum Bets question locks (betting is structurally closed — §29), but nothing visually distinguished that from the live, tappable state: same full brightness, same urgent pulsing icon. Reported live as "it just appeared and isn't clickable" — a real, confusing bug from the user's side even though the underlying logic was already correct. The fix was purely visual (`opacity-70`, `cursor-default`, swap the pulsing `Zap` icon for a static `Lock`), not a logic change. Any future disabled-but-still-rendered interactive element needs its own visual affordance, not just an HTML `disabled` attribute the user can't see.
+- **Check for an existing dependency before building a new subsystem to avoid one.** Sprint 18's blueprint called for a hand-rolled `Float32Array` particle-physics confetti component to keep the "zero new dependencies" discipline intact. Reading the actual code first found `canvas-confetti` already installed and already in use (`lib/celebrate.ts`'s `celebratePrediction`/`celebrateWin`, live since an earlier sprint) — building a second, parallel particle engine would have been *more* code and *more* risk for a goal ("no new dependency") that was already satisfied. `celebrateAt(el)` reuses the same engine with a computed origin instead. Verify the dependency graph before assuming a "zero-dependency" constraint requires new code — sometimes it's already met.
 
 ### Coins
 
@@ -2103,6 +2120,15 @@ The danger in a "goal in the next N minutes" proposition is specific to this cod
 
 `useCountdown.ts` is a new hook with the **exact same isolated local-state/`setInterval` shape as `useLiveClock`** — a 1Hz tick re-renders only the component that calls it. `MomentumBanner` uses it so the countdown never cascades into `LockerRoomPage` or the `ActivityFeed` list beside it. `MomentumBetSheet` is a standard swipe-to-close bottom sheet (rule 4.13) with `haptic('selection')` on choice tap and `haptic('success')` on confirmed submission; the coin balance update flows through `coinsStore`, which has rendered through `NumberFlow` in the top bar since Sprint 12 — no new animation code needed.
 
+### Addendum — closing the "went silent" gaps (post-Sprint-15)
+
+Two gaps surfaced by watching a real live match end-to-end, both closed in the same pass:
+
+1. **Locked phase went completely static for up to 10 minutes.** `MomentumBanner` originally just showed a fixed "Locked — good luck" label the entire wait. It now runs a second `useCountdown` keyed to `question.resolves_at` (the fixed `[locked_at, locked_at+10min)` outcome window from the arbitrage-fix design above) and shows a live `mm:ss` — real information, not a static placeholder, and free of any new backend call since `resolves_at` was already computable.
+2. **A resolved bet had zero in-app acknowledgment.** Once a question resolves, its row stops matching `useMicroPrediction`'s `open`/`locked` filter and the banner simply vanishes — a win previously only showed up as the top-bar coin count silently changing, no toast, no haptic, nothing in The Locker Room. `useMicroPrediction.ts` now also subscribes to `micro_prediction_bets` `UPDATE` filtered on the caller's own `user_id`; the moment `settled_at` lands, it fires `momentumWonToast`/`momentumRefundToast` (+ `haptic('success')` on a win). Silent on a genuine loss (`is_winner === false`) — a loss toast every ~10 minutes per active bet would be noise, the same restraint the main prediction economy already applies.
+
+A later live report ("it just appeared and isn't clickable") found a third, purely visual gap in the same banner — see the new Common Pitfalls entry in §21 ("A `disabled` interactive element must look disabled, not just behave disabled").
+
 ### Rules
 
 - **Any future time-windowed betting mechanic must measure its outcome window from lock time, never open time.** This is the structural arbitrage fix — re-derive it from first principles before assuming a tighter server clock check is sufficient.
@@ -2168,3 +2194,121 @@ What "premium, motion-and-typography-first, zero-new-KB" looked like in practice
 - **Every heatmap-style chart cell must be direct-labeled.** Color alone is never a legal encoding of the value on this project — a WARN-band cell (low sample size, low contrast at a ramp's pale end) obligates a visible label or a table-view fallback, not a color-only cell.
 - **New OKLCH design tokens read live via `getComputedStyle`, never hardcoded as a second copy of the same numbers in JS.** `lib/oklch.ts` is the pattern to follow for any future hand-rolled color interpolation.
 - **A chart may only model data it wasn't given (e.g. a Gaussian from mean/stddev instead of raw samples) when the underlying RPC deliberately withheld the raw data for a real reason (here: privacy).** State the modeling choice in a code comment where it happens — never let a modeled curve look indistinguishable from a real empirical one without saying so.
+
+---
+
+## 31. Fluid Morphing & Depth (V4 Sprint 16)
+
+Three commits, all Bento Arena-scoped: a zero-re-render 3D pointer-tilt primitive, a shared-element ("morphing") transition pilot for the H2H card, and a strictly opt-in gyroscope fallback for touch devices. The throughline across all three is the same one from Sprint 15: reuse Framer Motion (already loaded) and plain DOM/CSS custom properties, never a new dependency.
+
+### `useTactileTilt.ts` — tilt without re-rendering React
+
+The naive implementation of "tilt the card toward the cursor" is `useState` + `onMouseMove` — a `setState` on every pixel of pointer movement, re-rendering the card (and, if not memoized carefully, its children) dozens of times a second. `useTactileTilt.ts` instead writes `--tilt-x` / `--tilt-y` / `--glare-x` / `--glare-y` **directly onto the element's own `style`** via a ref, inside a `requestAnimationFrame`-throttled `pointermove` handler. React's render cycle never enters the hot path at all. The element's bounding rect is measured once per hover session (`pointerenter`), not re-read on every `pointermove` — cheap and correct, since a card's position doesn't change mid-hover.
+
+Capability-gated **once per mount**, not per event: `(hover: hover) and (pointer: fine)` — a real mouse, not a touchscreen or coarse pointer. Falls back to `deviceorientation` (beta/gamma delta against a captured baseline) only when the caller explicitly opts in via `allowGyroscope` **and** hover isn't available (see the gyroscope section below for why this is opt-in, not automatic). `will-change` is set on `pointerenter` and cleared on `pointerleave` so the browser doesn't keep a compositing layer alive for cards nobody is currently hovering. Fully no-ops under `prefers-reduced-motion`.
+
+`.tactile-tilt` (`index.css`) reads those custom properties: `transform: perspective(900px) rotateX(var(--tilt-x,0deg)) rotateY(var(--tilt-y,0deg))` plus a CSS `transition` so the card eases back to flat on pointer-leave without any JS-driven spring. `.tactile-tilt::after` is a radial-gradient glare tracking `--glare-x`/`--glare-y`, using `var(--arena-glow)` (the same OKLCH token from Sprint 15 — no new color introduced).
+
+`GlassCard.tsx` gained `tactile?: boolean` and `allowGyroscope?: boolean` props, attaching `tiltRef` across all three of its render branches. Content gets the same `relative z-10` treatment whenever `tactile` is on — the tilt-driven glare is a positioned, positive-z-index overlay, so plain static children would otherwise paint underneath it per normal CSS stacking order (the identical class of bug the `grain` prop hit in Sprint 15, fixed the same way). `BentoArena.tsx` turns `tactile` on for all 6 cards; `allowGyroscope` is passed **only** to the hero card, not the whole grid (see below).
+
+### H2H morphing portal — the `layoutId` shared-transition pilot
+
+The H2H comparison panel (`H2HMatrix.tsx`) now morphs into a full match-by-match history view (`ExpandedH2HView.tsx`) instead of the summary card being the only detail ever available. This is the pilot for Framer Motion's `layoutId` shared-element pattern in this codebase — deliberately **not** applied to `MatchCard`'s existing accordion-expand system in the same sprint. That's a separate, mature, already-working system on the single most-trafficked surface in the app; retrofitting `layoutId` onto it is its own sprint with its own regression risk, not something to bundle silently into an unrelated stats-tab feature.
+
+Backend: migration 045 extends `get_stats_arena_payload` (`CREATE OR REPLACE`, the same established in-place-extension pattern as migration 040 building on 020/021) — the H2H CTE gains a `JOIN matches m ON m.id = p1.match_id` and each opponent row's new `match_details` field is a `jsonb_agg(...)` of every shared match (kickoff time, league, both teams, both scores, both users' predicted scores, both users' points), newest-first. This is the actual detail `ExpandedH2HView` renders — **zero new network round trip**, the data was already inside the one RPC call Sprint 15 established; it just wasn't being selected into the payload yet.
+
+Frontend: `H2HMatrix.tsx`'s collapsed panel is wrapped in a `LayoutGroup`, carrying `layoutId={`h2h-panel-${opponent_id}`}`. A `Maximize2` button — shown only when `hasHistory` — swaps to `<ExpandedH2HView>`, which renders via `createPortal` into a new `#portal-root` div (added to `index.html` as a sibling of `#root`). The portal exists specifically to escape `GlassCard`'s `.tactile-tilt` `transform` — a CSS `transform` on an ancestor creates a new containing block for any `position: fixed` descendant, which would otherwise clip or mis-position the full-screen expanded view. `LayoutGroup` context propagates through `createPortal` even though the portaled DOM node physically lives elsewhere in the tree, so the container still morphs and the content still crossfades (delayed ~120ms so the shape-morph reads before the text swap) despite the two views not being DOM siblings.
+
+### Gyroscope opt-in — strictly opt-in, strictly scoped
+
+Gyroscope-driven tilt on touch devices was **not** made automatic, for two independent, real constraints flagged before any code was written:
+
+1. **iOS 13+ gates `DeviceOrientationEvent` behind an explicit user-gesture permission prompt** (Apple's fingerprinting mitigation) — there is no silent path to gyroscope data on iOS. `lib/tiltPermission.ts`'s `requestTiltPermission()` must be called from a real tap; it mirrors `lib/push.ts`'s exact shape (`isTiltSupported()` / `requestTiltPermission()`).
+2. **Gyroscope-driven tilt on an entire grid of cards is a real motion-sickness risk** for some users on a scrolling page — the Bento grid isn't a single hero object, it's six cards spread across the viewport. `allowGyroscope` is therefore wired to **only the hero card**, never the full grid, in `BentoArena.tsx`.
+
+`tiltStore.ts` (new, Zustand, persisted) holds the single `gyroscopeEnabled` boolean. `TiltModeToggle.tsx` (Settings, mounted after `PushToggle`) mirrors `PushToggle.tsx`'s self-hiding shape exactly: renders nothing when `!isTiltSupported()`, shows the enable/disable button otherwise, requests permission on tap.
+
+### Rules
+
+- **A DOM-ref/CSS-custom-property tilt (or any per-frame visual effect) must never route through `setState`.** `useTactileTilt.ts` is the reference pattern — write to `element.style.setProperty` inside a RAF-throttled handler, let CSS `transform`/`transition` do the rendering, keep React's render cycle out of the hot path entirely.
+- **A `layoutId` shared transition works through `createPortal`** — the portaled node doesn't need to be a DOM sibling of the source, only inside the same `LayoutGroup` context. Use a portal specifically when an ancestor's `transform` (tilt, drag, etc.) would otherwise break a `position: fixed` descendant's containing block.
+- **A new interaction pilot (like `layoutId` morphing) belongs on a low-traffic surface first, not retrofitted onto a high-traffic, already-working system in the same sprint that introduces it.** Prove the pattern somewhere contained before touching `MatchCard`.
+- **Any device-motion feature (gyroscope, accelerometer) gated behind a mobile Safari permission prompt must be triggered from a real tap, never programmatically on mount** — `requestTiltPermission()`/`requestPushPermission()`-style functions are the pattern; both live in a `lib/*Permission.ts` file with an `isXSupported()` companion.
+- **Gyroscope-driven (or any ambient-motion-driven) visual effects must be opt-in and scoped, never automatic and grid-wide.** Motion sensitivity is a real accessibility concern distinct from `prefers-reduced-motion` (which the browser already reports) — a user who hasn't explicitly reduced motion may still not want six cards on a scrolling page all tilting with their phone's orientation.
+
+---
+
+## 32. The Sensory Immersion (V4 Sprint 17)
+
+Three commits closing the audio and haptic layer: zero-asset synthesized sound effects, a from-scratch `Toast.tsx` rewrite (stacking, swipeable, themed — not a new library), and a coin-deposit audio-haptic orchestration pass that coalesces bursty Realtime events into one coherent moment instead of several overlapping ones.
+
+### `lib/sensoryAudio.ts` — synthesized, not recorded
+
+Three flagship micro-sounds — `toggle_click`, `coin_chime`, `lock_thud` — each synthesized entirely in code via a handful of Web Audio API oscillator/gain nodes scheduled on a single, lazily-created `AudioContext`. No `<audio>` elements, no binary assets, no network request, no licensing question — genuinely more "zero-weight" than a brief's own "keep pre-recorded files under 15KB each" mandate, since there is nothing to ship at all. (This environment also has no way to source or record real audio assets — synthesis was the honest alternative to fabricating placeholder files.) `coin_chime` is two sine tones a major sixth apart (1046.5 Hz + 1568 Hz); `lock_thud` is a falling sine sweep (90 Hz → 60 Hz); `toggle_click` is a 12ms square wave at 1800 Hz.
+
+**Autoplay-policy compliance is the one hard constraint here.** Browsers refuse to start an `AudioContext` (or will start it suspended) without a preceding real user gesture. `unlockAudio()` must be — and only is — called from inside a genuine gesture handler: `App.tsx`'s `AppInitializer` attaches a one-time `pointerdown` listener on mount that calls `unlockAudio()` then immediately removes itself. Every later `playSound()` call reuses that same already-unlocked context. `playSound()` never lazily creates the context itself — that would silently fail (or throw) the first time it's called outside a gesture.
+
+### `Toast.tsx` — a rewrite, not a library migration
+
+The brief asked for stacking, exit animations, and swipe-to-dismiss — all three are Framer Motion features the app already loads, and every bottom-sheet modal in this codebase already uses the identical drag-to-dismiss gesture (rule 4.13). Reaching for a toast library (Sonner was the specific ask) would have made toasts the **one** overlay in the app following a different animation model from everything else, not just added bundle weight for no reason.
+
+`AnimatePresence mode="popLayout"` + `layout` on each toast item handles the stack: as toasts are added/removed, siblings reflow with a spring rather than jump-cutting. Each `ToastItem` carries `drag="x"` + `dragConstraints={{left:0,right:0}}` with the same offset/velocity threshold pattern used by every swipe-to-close bottom sheet, so dismissing a toast feels identical to dismissing a modal. Icon and background color are resolved per toast type via `color-mix(in oklch, ${tone} 14%, var(--color-bg-card))` against the same `--arena-*`-family OKLCH tokens established in Sprint 15 — no new hardcoded hex anywhere. Positioning uses `start-1/2`/`sm:end-4`/`sm:start-auto` (logical properties, RTL-correct per rule 4.10). `uiStore.ts`'s public API (`addToast`, `removeToast`, the `Toast` type) is **unchanged** — this is a render-layer rewrite only, every existing call site kept working with zero edits.
+
+### Haptic-audio pairing + the coin-deposit coalescing handler
+
+`haptics.ts` gained three named patterns — `toggle_click`, `bet_lock`, `coin_roll` — paired 1:1 by name with `sensoryAudio.ts`'s synthesized SFX, an extension of the existing `PATTERNS` lookup rather than a rebuild. `useCoinRollFeedback.ts` (new) fires 4 `coin_roll` sub-pulses spread evenly across 600ms — matching the coin `NumberFlow`'s known `transformTiming` duration exactly — so the haptic reads as one continuous tactile "whir" synced to the digits visibly rolling, not a series of disconnected taps. Wired into `TopBar.tsx` **only**, deliberately not also `Sidebar.tsx`: both are simultaneously mounted (CSS-toggled by breakpoint, not conditionally rendered — see `AppShell.tsx`), so wiring both would double-fire the roll on every real deposit. Haptics are also meaningless on the desktop viewport `Sidebar` occupies anyway.
+
+`App.tsx`'s `coin_transactions` Realtime INSERT handler generalizes from `type==='daily_bonus'`-only (Sprint 12) to **any** positive-amount deposit for the current user. Rather than a naive trailing debounce, it's a **coalescing window**: sound + haptic fire on the *leading* edge (the first deposit in a burst feels instant, not delayed behind a wait-and-see debounce), while the toast waits for the *trailing* edge (500ms) so it reports one true combined total instead of several "+X coins" toasts stacking when e.g. one sync tick resolves three predictions within a few hundred milliseconds of each other. This is the same batching philosophy as Sprint 11's `RankTracker` (§27) — accumulate through a window, emit once — applied to a different signal.
+
+`useMicroPrediction.ts` gains a small "bet-lock snap": when a question the caller has an active stake in flips `open → locked`, it fires `haptic('bet_lock')` + `playSound('lock_thud')` — a mechanical, decisive cue for the moment the outcome window closes on a bet you placed.
+
+### Rules
+
+- **A synthesized (Web Audio) sound effect is a legitimate, often superior alternative to a pre-recorded asset** when the codebase has no way to source real audio — it ships literally 0 bytes of binary asset versus any file-size budget, and it's the honest choice over fabricating a placeholder.
+- **`AudioContext` creation must happen inside a real user-gesture handler, once, and never be re-attempted lazily inside a sound-playing function.** `unlockAudio()` from a one-time `pointerdown` listener that removes itself is the pattern — autoplay policies will silently break (or throw on) any other approach.
+- **A UI library ask (toast stacking/swipe, in this case) should first be checked against the animation primitives already loaded** (here, Framer Motion + the existing bottom-sheet drag pattern) before reaching for a new package — adding one when the existing tooling already covers the ask makes the new surface visually *inconsistent* with the rest of the app, not just heavier.
+- **A haptic tied to an animated number roll (`NumberFlow`, odometers, etc.) should be several sub-pulses spread across the animation's own known duration, not one pulse at the value-change instant.** Reference: `useCoinRollFeedback.ts`'s 4-pulses-over-600ms, matched to the exact `transformTiming` the visual uses.
+- **A hook wired into a component that's simultaneously mounted with a breakpoint-toggled sibling (e.g. `TopBar`/`Sidebar`) must be wired into exactly one of them, never both.** Both render at the same time (CSS visibility, not conditional mounting) — double-wiring double-fires any per-mount or per-effect side effect.
+- **A bursty Realtime signal that should produce one user-facing acknowledgment (not several stacked ones) needs a coalescing window: immediate feedback on the leading edge, one batched summary on the trailing edge.** Never a naive debounce that delays even the first event's feedback — see `App.tsx`'s coin-deposit handler for the reference shape.
+
+---
+
+## 33. The Dopamine Cannon (V4 Sprint 18)
+
+Three commits adding tactile/celebratory polish on top of Sprints 16–17's motion and sensory foundations: a card-scoped confetti burst, an elastic "overshoot" tap feel on the app's highest-signal buttons, and a focused win-celebration sequence on the Bento Arena's Streak tile.
+
+### `celebrateAt()` — reusing `canvas-confetti`, not building a new particle engine
+
+The original blueprint called for a hand-rolled `CanvasConfetti.tsx` — typed `Float32Array` particle state, gravity/drag/wind physics per frame, a `ResizeObserver`-sized canvas — specifically to preserve the "zero new dependencies" discipline this codebase has defended repeatedly (no GSAP in Sprint 15, no Sonner in Sprint 17). Reading the actual code first, before writing any of that, found `canvas-confetti` **already installed and already in use**: `lib/celebrate.ts`'s `celebratePrediction()`/`celebrateWin()` have been live since an earlier sprint. Building a second, parallel particle engine to avoid a "new" dependency that was already present would have been strictly worse — more code, more surface area, for a goal already met.
+
+`celebrateAt(el)` was added to `lib/celebrate.ts` instead: same engine, same brand `COLORS` palette, same `disableForReducedMotion: true`, but the burst `origin` is computed from the target element's own `getBoundingClientRect()` converted to viewport-fraction coordinates — so the confetti visually originates from a specific card (the Streak tile) rather than `celebratePrediction`/`celebrateWin`'s fixed screen-edge origins.
+
+### Tactile elastic tap — two tiers, split by repetition
+
+**Tier A (Framer Motion, low-repetition/singular triggers):** `whileTap` upgraded from a flat `{ scale: 0.96 }` to `{ scale: 0.95, rotate: -0.5, transition: { type: 'spring', stiffness: 500, damping: 15 } }` — a genuine elastic overshoot instead of a linear shrink. Applied to `MagneticButtonV2`, `NeonButton` (converted to `motion.button`; `NeonButtonProps` omits `onAnimationStart`/`onDrag*` from `ButtonHTMLAttributes` since those React DOM handler signatures clash with Framer Motion's own), `ShareableRecapCard`'s share button, and HomePage's 4 tab pills.
+
+**Tier B (CSS-only overshoot curve, high-repetition surfaces):** `PredictionForm.tsx`'s four `active:scale-95` tier-button sites (`OutcomePicker`, `InlineBoolTier`, `BoolPicker`, `CornersPicker`) get `transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]` in place of the flat `duration-150` transition — the same springy overshoot feel, but without instantiating Framer Motion components on a surface that can render dozens of these buttons simultaneously in the match feed. This split (Framer Motion for singular/rare triggers, CSS overshoot curves for high-repetition surfaces) is the same performance-conscious pattern already established for `PredictionHeatmap.tsx` cells vs. one-off buttons elsewhere.
+
+### `CelebrationManager.tsx` — the focused celebration orchestrator
+
+Mounted around the Streak tile in `BentoArena.tsx` — the one existing card value that literally increments on a win, making it the natural anchor for a "look what you earned" moment. Consumes `useNewPointsAlert()` **completely unmodified** as its sole win-detection trigger (the existing `localStorage` last-seen-points watermark + `leaderboard` Realtime subscription established back in the addiction-loop era) — no second Realtime subscription, no duplicate win-tracking logic.
+
+Sequence on a detected win (`hasNew` flips true):
+1. `queryClient.invalidateQueries({ queryKey: ['statsArena'] })` — a best-effort nudge, since `useStatsArena` has its own ~2-minute `staleTime` (Sprint 15, deliberately outside `AppShell`'s auto-sync) and could otherwise leave the displayed `streak` stale for a while after a real win landed.
+2. A **spotlight dim**: a single oversized `box-shadow` (`0 0 0 9999px rgba(4,8,16,0.6)`) positioned exactly over the Streak card's own bounding rect, plus `backdropFilter: blur(2px)` — dims and softly blurs every *other* Bento card without touching their own React state or re-rendering them, since the "cutout" is purely how `box-shadow` spread math works.
+3. A **pulse ring** on the card itself, using `var(--arena-glow)` (Sprint 15's OKLCH token — no new color).
+4. `celebrateAt(cardRef.current)` fires at t=150ms — the confetti burst anchored to the card.
+5. A **conditional `NumberFlow` replay**: only when the streak value has genuinely moved past a dedicated `localStorage` watermark (separate from `useNewPointsAlert`'s points watermark) does the component hold the *old* streak value through the dim/ring, then flip to the *new* value in sync with the confetti burst — a real animated roll-up, not just a value that already silently updated off-screen sometime earlier.
+6. Cleanup after ~2.2s: clears the celebration state, updates the streak watermark, calls `markAsSeen()`.
+
+The whole visual sequence is skipped entirely under `prefers-reduced-motion` — but the watermark/`markAsSeen()` bookkeeping still runs, so a reduced-motion user doesn't get re-shown the same "new" win indefinitely.
+
+**Deliberately does not replay the coin chime or haptic.** `App.tsx`'s Sprint 17 coin-deposit handler already fired those the instant the win actually happened — which can be minutes before the user opens the Stats tab and this component mounts. Re-firing them here would be a duplicate, disconnected-in-time echo of feedback the user already received.
+
+### Rules
+
+- **Before scoping a new zero-dependency subsystem, check whether the codebase already has a library that satisfies the same constraint.** `canvas-confetti` was already installed and in use; the right move was extending it (`celebrateAt`), not building a parallel particle engine to avoid a "new" dependency that wasn't actually going to be new.
+- **Split tap-feedback implementation by repetition, not by preference.** Framer Motion `whileTap` springs for buttons that appear once or a few times on screen; a CSS `cubic-bezier` overshoot curve for buttons that can render in the dozens simultaneously (tier-selector grids, match-feed rows). Both should read as "the same elastic feel" to the user even though the underlying mechanism differs.
+- **A focused win celebration should reuse the app's existing win-detection hook verbatim, not build a second one.** `useNewPointsAlert()` (Sprint 8-era) was already the source of truth for "did this user earn something new since their last visit" — `CelebrationManager` consumes it as-is.
+- **Don't replay sensory feedback (sound/haptic) that already fired earlier for the same event.** A win's coin chime/haptic fires once, at the moment the win is processed server-side and the Realtime event lands (§32) — a later UI component reacting to the same underlying state change should add new *visual* feedback, not re-trigger sound/haptic the user already felt.
+- **A card-scoped spotlight-dim effect can be done with a single oversized `box-shadow`, not per-sibling opacity state.** Position an element exactly over the target's bounding rect with `box-shadow: 0 0 0 9999px <dim-color>` — everything outside that rect dims, the rect itself stays untouched, with zero state threaded through sibling components.
