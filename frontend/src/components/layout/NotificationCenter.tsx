@@ -16,7 +16,7 @@ import { Bell, CheckCheck, ChevronRight } from 'lucide-react';
 import { AppNotification } from '../../hooks/useNotifications';
 import { useLangStore } from '../../stores/langStore';
 import { useGroupStore } from '../../stores/groupStore';
-import type { TranslationKey } from '../../lib/i18n';
+import { tg, type TranslationKey } from '../../lib/i18n';
 import { cn } from '../../lib/utils';
 import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
@@ -75,11 +75,11 @@ function buildContent(notif: AppNotification, t: (key: TranslationKey) => string
     };
   }
   if (notif.type === 'rank_drop') {
-    const { old_rank, new_rank, overtaker_username } = notif.metadata;
+    const { old_rank, new_rank, overtaker_username, overtaker_gender } = notif.metadata;
     return {
       title: t('notifRankDropTitle'),
       body: overtaker_username
-        ? t('notifRankDropBody').replace('{0}', overtaker_username).replace('{1}', String(new_rank ?? '?'))
+        ? tg(t, 'notifRankDropBody', overtaker_gender).replace('{0}', overtaker_username).replace('{1}', String(new_rank ?? '?'))
         : t('notifRankDropBodyGeneric').replace('{0}', String(new_rank ?? '?')),
       badge: old_rank != null && new_rank != null ? `#${old_rank} → #${new_rank}` : null,
       positive: false,
