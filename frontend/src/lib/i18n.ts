@@ -561,6 +561,19 @@ export const translations = {
     statsCards: 'Cards',
     statsNoLeadersInCategory: 'No data in this category yet',
 
+    // V4 Sprint 27 — Interactive Team Sheets
+    statsFormGuide: 'Form Guide',
+    statsTeamStats: 'Team Stats',
+    statsGoalsPerMatch: 'Goals / Match',
+    statsCornersPerMatch: 'Corners / Match',
+    statsCleanSheets: 'Clean Sheets',
+    statsAvgCards: 'Avg Cards',
+    statsNoFormData: 'No recent match data available',
+    statsExpandTeam: 'Expand team details',
+    statsResultWin: 'Win',
+    statsResultDraw: 'Draw',
+    statsResultLoss: 'Loss',
+
     // World Cup bracket view
     wcRouteToTrophy: 'Route to the Trophy',
     wcHostNations: 'Host Nations',
@@ -1291,6 +1304,19 @@ export const translations = {
     statsDiscipline: 'כרטיסים',
     statsCards: 'כרטיסים צהובים',
     statsNoLeadersInCategory: 'אין עדיין נתונים בקטגוריה זו',
+
+    // V4 Sprint 27 — Interactive Team Sheets
+    statsFormGuide: 'מצב כושר',
+    statsTeamStats: 'נתוני קבוצה',
+    statsGoalsPerMatch: 'שערים למשחק',
+    statsCornersPerMatch: 'קרנות למשחק',
+    statsCleanSheets: 'רשתות נקיות',
+    statsAvgCards: 'ממוצע כרטיסים',
+    statsNoFormData: 'אין נתוני משחקים אחרונים זמינים',
+    statsExpandTeam: 'הרחב פרטי קבוצה',
+    statsResultWin: 'ניצחון',
+    statsResultDraw: 'תיקו',
+    statsResultLoss: 'הפסד',
 
     // World Cup bracket view
     wcRouteToTrophy: 'הדרך לגביע',
