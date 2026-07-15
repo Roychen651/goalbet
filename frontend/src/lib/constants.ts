@@ -1,28 +1,55 @@
 // Football leagues from TheSportsDB (free tier)
+// V4 Sprint 24 — `nameHe` is the single source of truth for Hebrew league
+// names (extends this existing array rather than a parallel leagues.json
+// dictionary, which would drift the same way COIN_COSTS/migration-040 or
+// the OKLCH tokens already warn against elsewhere in this codebase). Names
+// favor how Israeli football media/fans actually say them — transliterated
+// proper nouns where that's the real usage (פרימייר ליג, לה ליגה), the
+// quintessential slang short-forms for the two biggest tournaments (מונדיאל,
+// יורו — not the literal "גביע העולם"/"אליפות אירופה"), and the standard
+// broadcast terms elsewhere (ליגת האלופות, קופה דל ריי). Directional, not
+// final — a native-speaker pass can refine any entry without touching the
+// lookup mechanism.
 export const FOOTBALL_LEAGUES = [
   // Top 5 European leagues
-  { id: 4328, name: 'Premier League',    country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: 23 },
-  { id: 4335, name: 'La Liga',           country: 'Spain',   badge: '🇪🇸', espnLogoId: 15 },
-  { id: 4331, name: 'Bundesliga',        country: 'Germany', badge: '🇩🇪', espnLogoId: 10 },
-  { id: 4332, name: 'Serie A',           country: 'Italy',   badge: '🇮🇹', espnLogoId: 12 },
-  { id: 4334, name: 'Ligue 1',           country: 'France',  badge: '🇫🇷', espnLogoId: 9  },
+  { id: 4328, name: 'Premier League',    nameHe: 'פרימייר ליג',       country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: 23 },
+  { id: 4335, name: 'La Liga',           nameHe: 'לה ליגה',           country: 'Spain',   badge: '🇪🇸', espnLogoId: 15 },
+  { id: 4331, name: 'Bundesliga',        nameHe: 'בונדסליגה',         country: 'Germany', badge: '🇩🇪', espnLogoId: 10 },
+  { id: 4332, name: 'Serie A',           nameHe: 'הליגה האיטלקית',    country: 'Italy',   badge: '🇮🇹', espnLogoId: 12 },
+  { id: 4334, name: 'Ligue 1',           nameHe: 'ליג 1',             country: 'France',  badge: '🇫🇷', espnLogoId: 9  },
   // European club competitions
-  { id: 4346, name: 'Champions League',  country: 'Europe',  badge: '⭐', espnLogoId: 2    },
-  { id: 4399, name: 'Europa League',     country: 'Europe',  badge: '🌍', espnLogoId: 2310  },
-  { id: 4877, name: 'Conference League', country: 'Europe',  badge: '🔵', espnLogoId: 20296 },
+  { id: 4346, name: 'Champions League',  nameHe: 'ליגת האלופות',      country: 'Europe',  badge: '⭐', espnLogoId: 2    },
+  { id: 4399, name: 'Europa League',     nameHe: 'ליגת אירופה',       country: 'Europe',  badge: '🌍', espnLogoId: 2310  },
+  { id: 4877, name: 'Conference League', nameHe: 'ליגת הקונפרנס',     country: 'Europe',  badge: '🔵', espnLogoId: 20296 },
   // Domestic cups
-  { id: 9001, name: 'FA Cup',            country: 'England', badge: '🏆', espnLogoId: 40 },
-  { id: 9002, name: 'League Cup',        country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: 41 },
-  { id: 9003, name: 'Copa del Rey',      country: 'Spain',   badge: '👑', espnLogoId: 80 },
+  { id: 9001, name: 'FA Cup',            nameHe: 'גביע ה-FA',         country: 'England', badge: '🏆', espnLogoId: 40 },
+  { id: 9002, name: 'League Cup',        nameHe: 'גביע הליגה',        country: 'England', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', espnLogoId: 41 },
+  { id: 9003, name: 'Copa del Rey',      nameHe: 'קופה דל ריי',       country: 'Spain',   badge: '👑', espnLogoId: 80 },
   // International
-  { id: 4480, name: 'World Cup',              country: 'World',  badge: '🌎', espnLogoId: 4    },
-  { id: 5000, name: 'World Cup Qualifiers',   country: 'Europe', badge: '🏆', espnLogoId: null },
-  { id: 4467, name: 'Euro Championship',      country: 'Europe', badge: '🇪🇺', espnLogoId: null },
-  { id: 4635, name: 'Nations League',         country: 'Europe', badge: '🏅', espnLogoId: 2395 },
-  { id: 4396, name: 'International Friendlies', country: 'World', badge: '🌐', espnLogoId: 53 },
+  { id: 4480, name: 'World Cup',              nameHe: 'מונדיאל',              country: 'World',  badge: '🌎', espnLogoId: 4    },
+  { id: 5000, name: 'World Cup Qualifiers',   nameHe: 'מוקדמות המונדיאל',     country: 'Europe', badge: '🏆', espnLogoId: null },
+  { id: 4467, name: 'Euro Championship',      nameHe: 'יורו',                 country: 'Europe', badge: '🇪🇺', espnLogoId: null },
+  { id: 4635, name: 'Nations League',         nameHe: 'ליגת האומות',          country: 'Europe', badge: '🏅', espnLogoId: 2395 },
+  { id: 4396, name: 'International Friendlies', nameHe: 'משחקי ידידות',       country: 'World', badge: '🌐', espnLogoId: 53 },
 ] as const;
 
 export type LeagueId = typeof FOOTBALL_LEAGUES[number]['id'];
+
+/**
+ * V4 Sprint 24 — resolves a league's display name by id, preferring
+ * FOOTBALL_LEAGUES.nameHe over the raw `matches.league_name` DB column when
+ * lang is 'he'. Looking up by the stable internal league_id (rather than
+ * trying to translate whatever string ESPN happened to sync into
+ * league_name) sidesteps the same normalization risk team names have —
+ * league_id is a small, fixed, already-canonical key. Falls back to
+ * `fallbackName` (the raw league_name) when the id isn't in our list or
+ * lang is 'en', never blank.
+ */
+export function tLeagueName(leagueId: number | null | undefined, fallbackName: string, lang: 'en' | 'he'): string {
+  if (lang !== 'he') return fallbackName;
+  const league = FOOTBALL_LEAGUES.find(l => l.id === leagueId);
+  return league?.nameHe ?? fallbackName;
+}
 
 // Points system
 export const POINTS = {

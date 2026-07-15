@@ -7,6 +7,7 @@ import { useLangStore } from '../../stores/langStore';
 import { FINISHED_STATUSES, LIVE_STATUSES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import type { TranslationKey } from '../../lib/i18n';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -527,9 +528,9 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
                       {/* Teams */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 text-xs">
-                          <span className="text-white/70 font-medium truncate">{shortTeam(match.home_team)}</span>
-                          <span className="text-white/25 shrink-0">vs</span>
-                          <span className="text-white/70 font-medium truncate">{shortTeam(match.away_team)}</span>
+                          <span className="text-white/70 font-medium truncate">{shortTeam(lang === 'he' ? tTeam(match.home_team) : match.home_team)}</span>
+                          <span className="text-white/25 shrink-0">{lang === 'he' ? 'נגד' : 'vs'}</span>
+                          <span className="text-white/70 font-medium truncate">{shortTeam(lang === 'he' ? tTeam(match.away_team) : match.away_team)}</span>
                         </div>
                       </div>
 
@@ -548,7 +549,7 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
                           </span>
                         ) : (
                           <span className="text-[10px] text-white/30">
-                            {new Date(match.kickoff_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(match.kickoff_time).toLocaleTimeString(lang === 'he' ? 'he-IL' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         )}
                       </div>

@@ -455,7 +455,7 @@ export function SettingsPage() {
             </div>
             <div>
               <p className="text-text-primary text-sm font-medium">{t('syncMatchesTitle')}</p>
-              <p className="text-text-muted text-xs mt-0.5">{lastSynced ? t('lastSynced').replace('{0}', lastSynced.toLocaleTimeString()) : t('syncDesc')}</p>
+              <p className="text-text-muted text-xs mt-0.5">{lastSynced ? t('lastSynced').replace('{0}', lastSynced.toLocaleTimeString(lang === 'he' ? 'he-IL' : 'en-US', { hour: '2-digit', minute: '2-digit' })) : t('syncDesc')}</p>
             </div>
           </div>
           <NeonButton variant="ghost" size="sm" loading={syncing} onClick={triggerSync}>{syncing ? t('syncing') : t('syncNow')}</NeonButton>
@@ -493,7 +493,7 @@ export function SettingsPage() {
                         : 'bg-white/3 border-white/6 text-text-primary/25 cursor-default'
                   )}
                 >
-                  {league.badge} {league.name}
+                  {league.badge} {lang === 'he' ? league.nameHe : league.name}
                 </button>
               ))}
             </div>

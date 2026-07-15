@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatKickoffTime(kickoffTime: string): {
+export function formatKickoffTime(kickoffTime: string, lang: 'en' | 'he' = 'en'): {
   date: string;
   time: string;
   relative: string;
@@ -20,13 +20,18 @@ export function formatKickoffTime(kickoffTime: string): {
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
 
-  const date = kickoff.toLocaleDateString(undefined, {
+  // Sprint 24 — was `undefined` locale (browser default), which showed
+  // English weekday/month names to Hebrew users regardless of app language.
+  // Same 'he-IL'/'en-US' branch already proven in MatchFeed.tsx's dateLabel().
+  const locale = lang === 'he' ? 'he-IL' : 'en-US';
+
+  const date = kickoff.toLocaleDateString(locale, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
   });
 
-  const time = kickoff.toLocaleTimeString(undefined, {
+  const time = kickoff.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,

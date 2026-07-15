@@ -7,6 +7,7 @@ import { useLangStore } from '../../stores/langStore';
 import { cn } from '../../lib/utils';
 import type { TranslationKey } from '../../lib/i18n';
 import { MomentumBetSheet } from './MomentumBetSheet';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
 
 const MILESTONE_KEY: Record<string, TranslationKey> = {
   kickoff: 'momentumMilestoneKickoff',
@@ -105,7 +106,11 @@ export function MomentumBanner() {
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-white/50 font-bebas">
               <span>{milestoneLabel}</span>
               {question.home_team && question.away_team && (
-                <span className="truncate">· {question.home_team} vs {question.away_team}</span>
+                <span className="truncate">
+                  · {lang === 'he'
+                    ? `${tTeam(question.home_team)} נגד ${tTeam(question.away_team)}`
+                    : `${question.home_team} vs ${question.away_team}`}
+                </span>
               )}
             </div>
             <div className="text-white font-semibold text-sm truncate">

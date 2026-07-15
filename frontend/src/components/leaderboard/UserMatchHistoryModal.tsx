@@ -5,6 +5,7 @@ import { Avatar } from '../ui/Avatar';
 import { formatKickoffTime } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
 import { LeaderboardType } from '../../hooks/useLeaderboard';
+import { tTeam } from '../../lib/dictionaries/teamsHe';
 
 interface UserInfo {
   user_id: string;
@@ -45,7 +46,7 @@ function getWeekBounds(type: LeaderboardType): { start: number | null; end: numb
 }
 
 export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatchHistoryModalProps) {
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
   const [history, setHistory] = useState<PredictionWithMatch[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -158,12 +159,14 @@ export function UserMatchHistoryModal({ user, groupId, type, onClose }: UserMatc
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="text-white/90 text-xs font-medium truncate">
-                          {pred.match?.home_team} vs {pred.match?.away_team}
+                          {pred.match && (lang === 'he'
+                            ? `${tTeam(pred.match.home_team)} נגד ${tTeam(pred.match.away_team)}`
+                            : `${pred.match.home_team} vs ${pred.match.away_team}`)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="text-text-muted text-[10px]">
-                          {formatKickoffTime(pred.match?.kickoff_time ?? '').date}
+                          {formatKickoffTime(pred.match?.kickoff_time ?? '', lang).date}
                         </span>
                         {pred.match?.home_score !== null && pred.match?.away_score !== null && (
                           <span className="text-white/40 text-[10px]">

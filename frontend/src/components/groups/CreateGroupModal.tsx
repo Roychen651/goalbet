@@ -18,7 +18,7 @@ export function CreateGroupModal({ onClose }: CreateGroupModalProps) {
   const { createGroup } = useGroupStore();
   const { user } = useAuthStore();
   const { addToast } = useUIStore();
-  const { t } = useLangStore();
+  const { t, lang } = useLangStore();
 
   const toggleLeague = (id: number) => {
     setSelectedLeagues(prev =>
@@ -81,7 +81,7 @@ export function CreateGroupModal({ onClose }: CreateGroupModalProps) {
                     : 'bg-white/5 border-white/10 text-text-muted hover:bg-white/10'
                 }`}
               >
-                {league.badge} {league.name}
+                {league.badge} {lang === 'he' ? league.nameHe : league.name}
               </button>
             ))}
           </div>
