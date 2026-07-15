@@ -36,13 +36,23 @@ export interface PredictionData {
 
 type OutcomeOption = 'H' | 'D' | 'A';
 
+// Sprint 20 — `emboss` replaces `glow` as the selected-chip shadow: an inner
+// light-catch (reads as raised/lit from above) plus an outward glow in the
+// tier's own color, instead of a bare outward glow alone. `glow` itself is
+// kept (still referenced by TierRow's point label, unrelated to the chip
+// shadow) — only the 4 chip render sites below switch to `emboss`.
 const TIER_COLORS = [
-  { dot: 'bg-emerald-400', pts: 'text-emerald-400', glow: 'shadow-[0_0_12px_rgba(52,211,153,0.3)]' },
-  { dot: 'bg-yellow-400',  pts: 'text-yellow-400',  glow: 'shadow-[0_0_12px_rgba(234,179,8,0.3)]'  },
-  { dot: 'bg-blue-400',    pts: 'text-blue-400',    glow: 'shadow-[0_0_12px_rgba(96,165,250,0.3)]'  },
-  { dot: 'bg-orange-400',  pts: 'text-orange-400',  glow: 'shadow-[0_0_12px_rgba(251,146,60,0.3)]'  },
-  { dot: 'bg-purple-400',  pts: 'text-purple-400',  glow: 'shadow-[0_0_12px_rgba(192,132,252,0.3)]' },
+  { dot: 'bg-emerald-400', pts: 'text-emerald-400', glow: 'shadow-[0_0_12px_rgba(52,211,153,0.3)]',  emboss: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_3px_10px_-2px_rgba(52,211,153,0.45)]' },
+  { dot: 'bg-yellow-400',  pts: 'text-yellow-400',  glow: 'shadow-[0_0_12px_rgba(234,179,8,0.3)]',   emboss: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_3px_10px_-2px_rgba(234,179,8,0.45)]'  },
+  { dot: 'bg-blue-400',    pts: 'text-blue-400',    glow: 'shadow-[0_0_12px_rgba(96,165,250,0.3)]',  emboss: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_3px_10px_-2px_rgba(96,165,250,0.45)]'  },
+  { dot: 'bg-orange-400',  pts: 'text-orange-400',  glow: 'shadow-[0_0_12px_rgba(251,146,60,0.3)]',  emboss: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_3px_10px_-2px_rgba(251,146,60,0.45)]'  },
+  { dot: 'bg-purple-400',  pts: 'text-purple-400',  glow: 'shadow-[0_0_12px_rgba(192,132,252,0.3)]', emboss: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_3px_10px_-2px_rgba(192,132,252,0.45)]' },
 ];
+
+// Shared "debossed" (sunken-into-the-surface) shadow for unselected chips —
+// deliberately NOT per-tier colored; only the selected state should carry
+// tier identity, so an unselected chip always recedes the same neutral way.
+const DEBOSS_SHADOW = 'shadow-[inset_0_1px_3px_rgba(0,0,0,0.3),inset_0_-1px_0_rgba(255,255,255,0.03)]';
 
 function deriveOutcomeFromScore(home: string, away: string): OutcomeOption | null {
   const h = parseInt(home);
@@ -403,12 +413,12 @@ function InlineBoolTier({
               onClick={() => { if (!isImpossible) onChange(isSelected ? null : v); }}
               disabled={isImpossible}
               className={cn(
-                'px-2.5 py-1 rounded-lg text-[11px] font-display font-semibold transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border whitespace-nowrap active:scale-95',
+                'px-2.5 py-1 rounded-lg text-[11px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border whitespace-nowrap active:scale-95',
                 isSelected && !isImpossible
-                  ? cn('border-current text-current bg-current/10', color.pts)
+                  ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
                   : isImpossible
                   ? 'opacity-25 cursor-not-allowed bg-white/3 border-white/5 text-text-muted'
-                  : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:text-text-primary',
+                  : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:text-text-primary', DEBOSS_SHADOW),
               )}
             >
               {v ? yesLabel : noLabel}
@@ -450,10 +460,10 @@ function OutcomePicker({
           onClick={() => { if (!lockedByScore) onChange(val); }}
           disabled={lockedByScore}
           className={cn(
-            'py-1.5 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
+            'py-1.5 rounded-lg transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
             value === val
-              ? cn('border-current text-current bg-current/10', color.pts, color.glow)
-              : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
+              ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
+              : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW),
             lockedByScore && value !== val && 'opacity-40 cursor-not-allowed',
           )}
         >
@@ -527,12 +537,12 @@ function BoolPicker({
             disabled={isImpossible}
             title={isImpossible ? 'Not possible with your score' : undefined}
             className={cn(
-              'py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border relative active:scale-95',
+              'py-1.5 rounded-lg text-xs font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border relative active:scale-95',
               isSelected && !isImpossible
-                ? cn('border-current text-current bg-current/10', color.pts, color.glow)
+                ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
                 : isImpossible
                 ? 'opacity-30 cursor-not-allowed bg-white/3 border-white/5 text-text-muted line-through'
-                : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
+                : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW),
             )}
           >
             {v ? yesLabel : noLabel}
@@ -777,10 +787,10 @@ function CornersPicker({
           key={val}
           onClick={() => onChange(value === val ? null : val)}
           className={cn(
-            'py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
+            'py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
             value === val
-              ? cn('border-current text-current bg-current/10', color.pts, color.glow)
-              : 'bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary',
+              ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
+              : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW),
           )}
         >
           {label}
