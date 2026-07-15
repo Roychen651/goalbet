@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 export interface StandingsRow {
   rank: number;
@@ -95,200 +95,80 @@ export interface LeagueNewsResponse {
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? '';
 
+// V4 Sprint 27 Commit 4 — every statistics query on the Stats -> Leagues tab
+// shares this exact 15-minute staleTime/gcTime. This data (ESPN standings,
+// leaders, team form, news) moves at the pace of match rounds and news
+// cycles, not live scores — a 15-min cache means switching between the
+// Leagues/My Arena sub-tabs, or re-expanding a standings row already looked
+// at, costs zero extra requests, while still catching up within one
+// realistic browsing session. Deliberately outside AppShell's auto-sync
+// (rule 4.3) for the same reason useStatsArena's 2-min staleTime already is.
+const STATS_STALE_TIME_MS = 15 * 60 * 1000;
+const STATS_GC_TIME_MS = 15 * 60 * 1000;
+
+async function fetchJson<T>(path: string, signal: AbortSignal): Promise<T | null> {
+  const res = await fetch(`${BACKEND_URL}${path}`, { signal });
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw new Error(`HTTP ${res.status}`);
+  }
+  return (await res.json()) as T;
+}
+
 export function useLeagueStats(leagueId: number | null) {
-  const [data, setData] = useState<StatsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const query = useQuery<StatsResponse | null>({
+    queryKey: ['leagueStats', leagueId],
+    queryFn: ({ signal }) => fetchJson<StatsResponse>(`/api/stats/${leagueId}`, signal),
+    enabled: leagueId != null && !!BACKEND_URL,
+    staleTime: STATS_STALE_TIME_MS,
+    gcTime: STATS_GC_TIME_MS,
+  });
 
-  useEffect(() => {
-    if (leagueId == null) {
-      setData(null);
-      return;
-    }
-    if (!BACKEND_URL) {
-      setError('Backend URL not configured');
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20_000);
-
-    fetch(`${BACKEND_URL}/api/stats/${leagueId}`, { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok) {
-          if (res.status === 404) return null;
-          throw new Error(`HTTP ${res.status}`);
-        }
-        return (await res.json()) as StatsResponse;
-      })
-      .then((json) => {
-        if (cancelled) return;
-        setData(json);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if ((err as Error).name === 'AbortError') return;
-        setError((err as Error).message);
-        setData(null);
-      })
-      .finally(() => {
-        clearTimeout(timeout);
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-      clearTimeout(timeout);
-    };
-  }, [leagueId]);
-
-  return { data, loading, error };
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error ? (query.error as Error).message : null,
+  };
 }
 
-// V4 Sprint 27 — Interactive Team Sheets. Deliberately lazy: only called when
-// a standings row is actually expanded (teamId non-null), never prefetched
-// for the whole table. A tiny in-memory module cache (15 min, matching this
-// sprint's caching mandate) means re-collapsing/re-expanding the same row —
-// or a second row for a team someone already looked at — costs zero extra
-// requests. This hand-rolled shape mirrors useLeagueStats above and will be
-// folded into a real useQuery alongside it in Commit 4.
-const TEAM_FORM_CACHE_TTL_MS = 15 * 60 * 1000;
-const teamFormCache = new Map<string, { data: TeamFormResponse; expiresAt: number }>();
-
+// V4 Sprint 27 — Interactive Team Sheets. `enabled` only turns true once a
+// standings row is actually expanded (teamId non-null) — never prefetched
+// for the whole table. The shared 15-min staleTime means re-collapsing/
+// re-expanding the same row, or a second row for a team someone already
+// looked at, costs zero extra requests — TanStack Query's own cache now
+// does what Commit 2's hand-rolled module Map did, so that Map is gone.
 export function useTeamForm(leagueId: number | null, teamId: string | null) {
-  const [data, setData] = useState<TeamFormResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const query = useQuery<TeamFormResponse | null>({
+    queryKey: ['leagueTeamForm', leagueId, teamId],
+    queryFn: ({ signal }) => fetchJson<TeamFormResponse>(`/api/stats/${leagueId}/team/${teamId}/form`, signal),
+    enabled: leagueId != null && !!teamId && !!BACKEND_URL,
+    staleTime: STATS_STALE_TIME_MS,
+    gcTime: STATS_GC_TIME_MS,
+  });
 
-  useEffect(() => {
-    if (leagueId == null || !teamId) {
-      setData(null);
-      return;
-    }
-    if (!BACKEND_URL) {
-      setError('Backend URL not configured');
-      return;
-    }
-
-    const cacheKey = `${leagueId}:${teamId}`;
-    const cached = teamFormCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      setData(cached.data);
-      setError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20_000);
-
-    fetch(`${BACKEND_URL}/api/stats/${leagueId}/team/${teamId}/form`, { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok) {
-          if (res.status === 404) return null;
-          throw new Error(`HTTP ${res.status}`);
-        }
-        return (await res.json()) as TeamFormResponse;
-      })
-      .then((json) => {
-        if (cancelled) return;
-        setData(json);
-        if (json) teamFormCache.set(cacheKey, { data: json, expiresAt: Date.now() + TEAM_FORM_CACHE_TTL_MS });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if ((err as Error).name === 'AbortError') return;
-        setError((err as Error).message);
-        setData(null);
-      })
-      .finally(() => {
-        clearTimeout(timeout);
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-      clearTimeout(timeout);
-    };
-  }, [leagueId, teamId]);
-
-  return { data, loading, error };
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error ? (query.error as Error).message : null,
+  };
 }
 
-// V4 Sprint 27 — The Pulse Feed. Lazy: enabled only decides whether this hook
-// actually fetches, so a caller can mount it unconditionally and simply pass
-// `enabled={newsCardsScrolledIntoView}` (or similar) without restructuring
-// around conditional hook calls. 15-min cache, same shape as useTeamForm.
-const NEWS_CACHE_TTL_MS = 15 * 60 * 1000;
-const newsCache = new Map<number, { data: LeagueNewsResponse; expiresAt: number }>();
-
+// V4 Sprint 27 — The Pulse Feed. `enabled` gates on the Leagues sub-tab
+// actually being open (not World Cup's custom view, not My Arena) — true
+// lazy loading, matching this sprint's mandate, now expressed as a real
+// TanStack `enabled` flag instead of a hand-rolled `if (!active) return`.
 export function useLeagueNews(leagueId: number | null, enabled: boolean) {
-  const [data, setData] = useState<LeagueNewsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const query = useQuery<LeagueNewsResponse | null>({
+    queryKey: ['leagueNews', leagueId],
+    queryFn: ({ signal }) => fetchJson<LeagueNewsResponse>(`/api/stats/${leagueId}/news`, signal),
+    enabled: enabled && leagueId != null && !!BACKEND_URL,
+    staleTime: STATS_STALE_TIME_MS,
+    gcTime: STATS_GC_TIME_MS,
+  });
 
-  useEffect(() => {
-    if (leagueId == null || !enabled) {
-      return;
-    }
-    if (!BACKEND_URL) {
-      setError('Backend URL not configured');
-      return;
-    }
-
-    const cached = newsCache.get(leagueId);
-    if (cached && cached.expiresAt > Date.now()) {
-      setData(cached.data);
-      setError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20_000);
-
-    fetch(`${BACKEND_URL}/api/stats/${leagueId}/news`, { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok) {
-          if (res.status === 404) return null;
-          throw new Error(`HTTP ${res.status}`);
-        }
-        return (await res.json()) as LeagueNewsResponse;
-      })
-      .then((json) => {
-        if (cancelled) return;
-        setData(json);
-        if (json) newsCache.set(leagueId, { data: json, expiresAt: Date.now() + NEWS_CACHE_TTL_MS });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if ((err as Error).name === 'AbortError') return;
-        setError((err as Error).message);
-        setData(null);
-      })
-      .finally(() => {
-        clearTimeout(timeout);
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-      clearTimeout(timeout);
-    };
-  }, [leagueId, enabled]);
-
-  return { data, loading, error };
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error ? (query.error as Error).message : null,
+  };
 }
