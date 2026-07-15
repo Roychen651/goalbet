@@ -1,5 +1,6 @@
 import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Minus, Plus } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Match, Prediction } from '../../lib/supabase';
 import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
@@ -534,25 +535,81 @@ function ScorePicker({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <ScoreInput value={homeValue} onChange={onHomeChange} />
+      <ScoreStepper value={homeValue} onChange={onHomeChange} />
       <span className="text-text-muted text-base font-display font-bold shrink-0">—</span>
-      <ScoreInput value={awayValue} onChange={onAwayChange} />
+      <ScoreStepper value={awayValue} onChange={onAwayChange} />
     </div>
   );
 }
 
-function ScoreInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+// A tap-driven stepper, not a native <input type="number">. The native
+// number keyboard, opening inside a Vaul bottom sheet that's already
+// `position: fixed`, forced the visual viewport to resize on focus — the
+// whole sheet visibly jumped/reflowed on open (reported live, on a real
+// phone). A stepper has no focusable text field and never triggers the
+// keyboard at all, which doesn't just work around the jump, it makes it
+// structurally impossible: there's nothing here for iOS/Android to attach
+// a keyboard to.
+const SCORE_MAX = 20;
+
+function ScoreStepper({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const numValue = value === '' ? null : parseInt(value, 10);
+  const canDecrement = numValue !== null && numValue > 0;
+  const canIncrement = numValue === null || numValue < SCORE_MAX;
+
+  const step = (delta: 1 | -1) => {
+    if (delta === 1 && !canIncrement) return;
+    if (delta === -1 && !canDecrement) return;
+    haptic('selection');
+    playSound('toggle_click');
+    const next = Math.max(0, Math.min(SCORE_MAX, (numValue ?? -1) + delta));
+    onChange(String(next));
+  };
+
+  const btnBase = 'w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-lg border flex items-center justify-center transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-90';
+  const btnEnabled = cn('bg-white/4 border-white/8 text-text-primary hover:bg-yellow-400/10 hover:border-yellow-400/40', DEBOSS_SHADOW);
+  const btnDisabled = 'bg-white/2 border-white/5 text-text-muted/30 cursor-not-allowed';
+
   return (
-    <input
-      type="number"
-      min="0"
-      max="20"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="0"
-      className="flex-1 py-1.5 text-center text-lg font-display font-bold tracking-wide rounded-lg border bg-transparent border-border-subtle text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-yellow-400/60 focus:bg-yellow-400/5 transition-all duration-150"
-      style={{ WebkitAppearance: 'none', opacity: 1 }}
-    />
+    <div className="flex-1 flex items-center justify-center gap-1.5 py-1 rounded-lg border border-border-subtle bg-transparent">
+      <button
+        type="button"
+        aria-label="decrement"
+        onClick={() => step(-1)}
+        disabled={!canDecrement}
+        className={cn(btnBase, canDecrement ? btnEnabled : btnDisabled)}
+      >
+        <Minus size={14} strokeWidth={3} />
+      </button>
+
+      <div className="w-8 text-center overflow-hidden">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={numValue ?? 'empty'}
+            initial={{ y: -14, opacity: 0, scale: 1.2 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 14, opacity: 0, scale: 0.8 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 22, mass: 0.7 }}
+            className={cn(
+              'inline-block text-lg font-mono font-bold tabular-nums',
+              numValue === null ? 'text-text-muted/50' : 'text-yellow-400',
+            )}
+          >
+            {numValue ?? 0}
+          </motion.span>
+        </AnimatePresence>
+      </div>
+
+      <button
+        type="button"
+        aria-label="increment"
+        onClick={() => step(1)}
+        disabled={!canIncrement}
+        className={cn(btnBase, canIncrement ? btnEnabled : btnDisabled)}
+      >
+        <Plus size={14} strokeWidth={3} />
+      </button>
+    </div>
   );
 }
 
