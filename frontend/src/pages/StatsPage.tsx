@@ -6,6 +6,7 @@ import { useGroupStore } from '../stores/groupStore';
 import { useLeagueStats } from '../hooks/useLeagueStats';
 import { StandingsTable } from '../components/stats/StandingsTable';
 import { LeagueLeaders } from '../components/stats/LeagueLeaders';
+import { PulseFeed } from '../components/stats/PulseFeed';
 import { LeagueDropdown } from '../components/stats/LeagueDropdown';
 import { WorldCupBracket } from '../components/stats/WorldCupBracket';
 import { BentoArena } from '../components/stats/BentoArena';
@@ -126,6 +127,8 @@ export function StatsPage() {
               />
             </section>
           )}
+
+          <PulseFeed leagueId={leagueId} active={tab === 'leagues' && !isCustomView} />
         </>
       )}
     </div>

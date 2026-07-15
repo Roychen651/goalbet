@@ -573,6 +573,7 @@ export const translations = {
     statsResultWin: 'Win',
     statsResultDraw: 'Draw',
     statsResultLoss: 'Loss',
+    statsPulseFeed: 'League Pulse',
 
     // World Cup bracket view
     wcRouteToTrophy: 'Route to the Trophy',
@@ -1317,6 +1318,7 @@ export const translations = {
     statsResultWin: 'ניצחון',
     statsResultDraw: 'תיקו',
     statsResultLoss: 'הפסד',
+    statsPulseFeed: 'דופק הליגה',
 
     // World Cup bracket view
     wcRouteToTrophy: 'הדרך לגביע',
