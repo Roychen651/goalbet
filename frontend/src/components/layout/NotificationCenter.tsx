@@ -10,12 +10,23 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { Bell, CheckCheck } from 'lucide-react';
 import { AppNotification } from '../../hooks/useNotifications';
 import { useLangStore } from '../../stores/langStore';
 import type { TranslationKey } from '../../lib/i18n';
 import { cn } from '../../lib/utils';
+import { haptic } from '../../lib/haptics';
+import { playSound } from '../../lib/sensoryAudio';
+
+// Swipe-to-dismiss threshold — identical shape to Toast.tsx's ToastItem drag
+// config (rule: physical swipe gestures should feel the same everywhere in
+// this app). Toasts dismiss on either axis direction; a notification row
+// dismisses the same way regardless of RTL/LTR — a swipe is a physical
+// gesture, not a logical-property concern (same reasoning as the drawer's
+// slide-direction isRTL branch above).
+const DISMISS_OFFSET = 80;
+const DISMISS_VELOCITY = 400;
 
 // ─── Time formatting ──────────────────────────────────────────────────────────
 
@@ -68,63 +79,92 @@ function buildContent(notif: AppNotification, t: (key: TranslationKey) => string
 
 // ─── Single notification row ──────────────────────────────────────────────────
 
-function NotifRow({ notif, t, onRead }: {
+function NotifRow({ notif, t, onRead, onDismiss }: {
   notif: AppNotification;
   t: (key: TranslationKey) => string;
   onRead: (id: string) => void;
+  onDismiss: (id: string) => void;
 }) {
   const { title, body, badge, positive } = buildContent(notif, t);
   const timeLabel = relativeTime(notif.created_at, t);
+  // Fires the threshold-cross feedback exactly once per drag gesture, not on
+  // every pixel of movement past the line.
+  const crossedRef = useRef(false);
 
   return (
-    <motion.button
+    <motion.div
       layout
-      onClick={() => !notif.is_read && onRead(notif.id)}
-      className={cn(
-        'w-full text-start px-4 py-3.5 border-b border-[var(--card-border)] last:border-0',
-        'transition-colors duration-150 hover:bg-white/[0.04]',
-        notif.is_read ? 'opacity-50' : 'opacity-100',
-      )}
+      initial={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0, transition: { duration: 0.18 } }}
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.6}
+      onDrag={(_, info: PanInfo) => {
+        const past = Math.abs(info.offset.x) > DISMISS_OFFSET;
+        if (past && !crossedRef.current) {
+          crossedRef.current = true;
+          haptic('light');
+          playSound('toggle_click');
+        } else if (!past && crossedRef.current) {
+          crossedRef.current = false;
+        }
+      }}
+      onDragEnd={(_, info: PanInfo) => {
+        if (Math.abs(info.offset.x) > DISMISS_OFFSET || Math.abs(info.velocity.x) > DISMISS_VELOCITY) {
+          onDismiss(notif.id);
+        }
+        crossedRef.current = false;
+      }}
+      className="border-b border-[var(--card-border)] last:border-0 cursor-grab active:cursor-grabbing"
     >
-      <div className="flex items-start gap-3">
-        {/* Unread dot */}
-        <div className="mt-1.5 shrink-0 w-2">
-          {!notif.is_read && (
-            <span className="block w-2 h-2 rounded-full bg-accent-green shadow-[0_0_6px_rgba(0,255,135,0.7)]" />
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          {/* Title + time */}
-          <div className="flex items-center justify-between gap-2 mb-0.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              {title}
-            </span>
-            <span className="text-[10px] text-text-muted opacity-60 shrink-0">{timeLabel}</span>
+      <button
+        onClick={() => !notif.is_read && onRead(notif.id)}
+        className={cn(
+          'w-full text-start px-4 py-3.5',
+          'transition-colors duration-150 hover:bg-white/[0.04]',
+          notif.is_read ? 'opacity-50' : 'opacity-100',
+        )}
+      >
+        <div className="flex items-start gap-3">
+          {/* Unread dot */}
+          <div className="mt-1.5 shrink-0 w-2">
+            {!notif.is_read && (
+              <span className="block w-2 h-2 rounded-full bg-accent-green shadow-[0_0_6px_rgba(0,255,135,0.7)]" />
+            )}
           </div>
 
-          {/* Match line */}
-          <p className={cn(
-            'text-sm leading-snug truncate text-text-primary',
-            notif.is_read && 'opacity-60',
-          )}>
-            {body}
-          </p>
+          <div className="flex-1 min-w-0">
+            {/* Title + time */}
+            <div className="flex items-center justify-between gap-2 mb-0.5">
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                {title}
+              </span>
+              <span className="text-[10px] text-text-muted opacity-60 shrink-0">{timeLabel}</span>
+            </div>
 
-          {/* Points + coins badge */}
-          {badge && (
-            <span className={cn(
-              'inline-block mt-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full',
-              positive
-                ? 'bg-accent-green/15 text-accent-green'
-                : 'bg-white/8 text-text-muted',
+            {/* Match line */}
+            <p className={cn(
+              'text-sm leading-snug truncate text-text-primary',
+              notif.is_read && 'opacity-60',
             )}>
-              {badge}
-            </span>
-          )}
+              {body}
+            </p>
+
+            {/* Points + coins badge */}
+            {badge && (
+              <span className={cn(
+                'inline-block mt-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full',
+                positive
+                  ? 'bg-accent-green/15 text-accent-green'
+                  : 'bg-white/8 text-text-muted',
+              )}>
+                {badge}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
-    </motion.button>
+      </button>
+    </motion.div>
   );
 }
 
@@ -193,11 +233,12 @@ function NotifHeader({ t, unreadCount, markAllRead }: {
 
 // ─── Shared list body ──────────────────────────────────────────────────────────
 
-function NotifList({ notifications, loading, t, markRead, className }: {
+function NotifList({ notifications, loading, t, markRead, dismiss, className }: {
   notifications: AppNotification[];
   loading: boolean;
   t: (key: TranslationKey) => string;
   markRead: (id: string) => Promise<void>;
+  dismiss: (id: string) => Promise<void>;
   className?: string;
 }) {
   return (
@@ -209,11 +250,11 @@ function NotifList({ notifications, loading, t, markRead, className }: {
       ) : notifications.length === 0 ? (
         <EmptyState t={t} />
       ) : (
-        <motion.div layout>
+        <AnimatePresence mode="popLayout" initial={false}>
           {notifications.map(n => (
-            <NotifRow key={n.id} notif={n} t={t} onRead={markRead} />
+            <NotifRow key={n.id} notif={n} t={t} onRead={markRead} onDismiss={dismiss} />
           ))}
-        </motion.div>
+        </AnimatePresence>
       )}
     </div>
   );
@@ -232,9 +273,10 @@ interface NotificationCenterProps {
   loading: boolean;
   markAllRead: () => Promise<void>;
   markRead: (id: string) => Promise<void>;
+  dismiss: (id: string) => Promise<void>;
 }
 
-export function NotificationCenter({ open, onClose, placement = 'bottom', notifications, unreadCount, loading, markAllRead, markRead }: NotificationCenterProps) {
+export function NotificationCenter({ open, onClose, placement = 'bottom', notifications, unreadCount, loading, markAllRead, markRead, dismiss }: NotificationCenterProps) {
   const { t, lang } = useLangStore();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -311,7 +353,7 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
               transition={{ type: 'spring', stiffness: 340, damping: 34, mass: 0.8 }}
             >
               <NotifHeader t={t} unreadCount={unreadCount} markAllRead={markAllRead} />
-              <NotifList notifications={notifications} loading={loading} t={t} markRead={markRead} className="flex-1" />
+              <NotifList notifications={notifications} loading={loading} t={t} markRead={markRead} dismiss={dismiss} className="flex-1" />
             </motion.div>
           </>
         )}
@@ -349,7 +391,7 @@ export function NotificationCenter({ open, onClose, placement = 'bottom', notifi
           }}
         >
           <NotifHeader t={t} unreadCount={unreadCount} markAllRead={markAllRead} />
-          <NotifList notifications={notifications} loading={loading} t={t} markRead={markRead} className="max-h-[380px]" />
+          <NotifList notifications={notifications} loading={loading} t={t} markRead={markRead} dismiss={dismiss} className="max-h-[380px]" />
         </motion.div>
       )}
     </AnimatePresence>

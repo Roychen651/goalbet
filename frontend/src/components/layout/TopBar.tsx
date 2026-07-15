@@ -25,7 +25,7 @@ export function TopBar() {
   const { t, lang, setLang }                      = useLangStore();
   const { theme, toggle: toggleTheme }            = useThemeStore();
   const coins                                     = useCoinsStore(s => s.coins);
-  const { unreadCount, notifications, loading, markAllRead, markRead } = useNotifications();
+  const { unreadCount, notifications, loading, markAllRead, markRead, dismiss } = useNotifications();
   const activeGroup = groups.find(g => g.id === activeGroupId);
   // Wired here only, not Sidebar.tsx — both are mounted simultaneously
   // (CSS-toggled by breakpoint, not conditionally rendered), so wiring it
@@ -203,6 +203,7 @@ export function TopBar() {
           loading={loading}
           markAllRead={markAllRead}
           markRead={markRead}
+          dismiss={dismiss}
         />
 
       </div>
