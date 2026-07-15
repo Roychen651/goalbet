@@ -34,21 +34,26 @@ function CardHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
   );
 }
 
-function InfoRow({ icon, label, value, valueClass }: { icon: string; label: string; value: string; valueClass?: string }) {
+function InfoRow({ icon, label, value, valueClass }: { icon: string; label: string; value: React.ReactNode; valueClass?: string }) {
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
       <div className="flex items-center gap-2">
         <span className="text-base leading-none">{icon}</span>
         <span className="text-white/80 text-sm">{label}</span>
       </div>
-      <span className={cn('text-sm font-bold font-mono tabular-nums', valueClass ?? 'text-accent-green')}>{value}</span>
+      <span className={cn('flex items-center gap-1 text-sm font-bold font-mono tabular-nums', valueClass ?? 'text-accent-green')}>{value}</span>
     </div>
   );
 }
 
 // ─── Card A — The Game Loop ───────────────────────────────────────────────────
 function GameLoopCard({ isHe }: { isHe: boolean }) {
-  const [openStep, setOpenStep] = useState<number | null>(null);
+  // Sprint 25 hotfix — a card that opens with "tap a step for details" and
+  // nothing else read as empty/uninformative (real user report: "not
+  // informative", "wanted the ultimate guide"). Opens on step 0 by default
+  // so there's always real content on screen at rest, not just an
+  // instruction to go find it.
+  const [openStep, setOpenStep] = useState<number | null>(0);
 
   const steps = isHe ? [
     { Icon: Users, title: 'הצטרפות', desc: 'צור קבוצה פרטית עם חברים או הצטרף עם קוד הזמנה בן 8 תווים.' },
@@ -101,7 +106,7 @@ function GameLoopCard({ isHe }: { isHe: boolean }) {
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
-        {openStep !== null && (
+        {openStep !== null ? (
           <motion.p
             key={openStep}
             initial={{ opacity: 0, height: 0 }}
@@ -112,13 +117,21 @@ function GameLoopCard({ isHe }: { isHe: boolean }) {
           >
             {steps[openStep].desc}
           </motion.p>
+        ) : (
+          <p className="text-text-muted text-[11px] leading-relaxed">
+            {isHe ? 'הקש על שלב לפרטים' : 'Tap a step for details'}
+          </p>
         )}
       </AnimatePresence>
-      {openStep === null && (
-        <p className="text-text-muted text-[11px] leading-relaxed">
-          {isHe ? 'הקש על שלב לפרטים' : 'Tap a step for details'}
+
+      <div className="mt-3 p-2.5 rounded-lg bg-accent-green/6 border border-accent-green/15">
+        <p className="text-accent-green text-[10px] font-medium mb-0.5">💡 {isHe ? 'טיפ' : 'Tip'}</p>
+        <p className="text-white/70 text-[11px] leading-relaxed">
+          {isHe
+            ? 'ניתן לעדכן ניבוי בכל עת כל עוד המשחק לא ננעל — רק העדכון האחרון נספר.'
+            : "You can update a prediction any time before it locks — only your last save counts."}
         </p>
-      )}
+      </div>
     </GlassCard>
   );
 }
@@ -160,8 +173,8 @@ function TierLedgerCard({ isHe }: { isHe: boolean }) {
               <span className={cn('w-2 h-2 rounded-full shrink-0', color.dot)} />
               <span className="flex-1 min-w-0 truncate text-white/85 text-xs">{tier.label}</span>
               <span className={cn('shrink-0 font-mono tabular-nums text-xs font-bold', color.pts)}>+{tier.pts}</span>
-              <span className="shrink-0 font-mono tabular-nums text-[10px] text-amber-400/80 w-9 text-end">
-                {tier.cost}🪙
+              <span className="shrink-0 flex items-center gap-0.5 font-mono tabular-nums text-[10px] text-amber-400/80 w-10 justify-end">
+                {tier.cost}<CoinIcon size={11} />
               </span>
             </button>
           );
@@ -171,6 +184,11 @@ function TierLedgerCard({ isHe }: { isHe: boolean }) {
         <span className="text-text-muted text-[10px]">{isHe ? 'מקסימום למשחק' : 'Max per match'}</span>
         <span className="font-mono tabular-nums text-xs text-accent-green font-bold">{COIN_COSTS.MAX_PER_MATCH} {isHe ? 'נק׳' : 'pts'}</span>
       </div>
+      <p className="text-text-muted text-[11px] leading-relaxed mt-2.5 pt-2.5 border-t border-white/8">
+        {isHe
+          ? 'ניחוש מדויק של הסקור מעניק אוטומטית גם את נקודות התוצאה הסופית — לכן "תוצאה מדויקת" שווה 10 נק׳ כולל (7 + 3 בונוס). קרנות אינן זמינות במשחקי ידידות בינלאומיים.'
+          : 'Getting the exact score right automatically awards the Result tier too — that\'s why "Exact Score" is worth 10 pts total (7 + 3 bonus). Corners is unavailable for International Friendlies.'}
+      </p>
     </GlassCard>
   );
 }
@@ -180,10 +198,20 @@ function TierLedgerCard({ isHe }: { isHe: boolean }) {
 // job now (Correction: avoids showing the same 5 numbers twice across two
 // cards). This card is scoped to flow only: how coins enter and leave the
 // balance, not what a single bet costs.
-// Three ambient coin particles drift behind the row list — purely
+// Three ambient coin particles drift behind the header — purely
 // decorative, pointer-events-none, disabled under prefers-reduced-motion
 // (.coin-drift-particle, index.css). Staggered animation-delay so they
 // don't move in lockstep.
+//
+// Sprint 25 hotfix — this band was originally `inset-0` (spanning the
+// whole card) with each particle positioned at `top: 50%` of the card's
+// total height. That was fine when the card was short, but restoring the
+// "How it works" worked-example paragraph (below, this same hotfix) made
+// the card tall enough that the 50% midpoint now lands squarely on the
+// "Instant-lock bets" row — a real, reported legibility problem, not a
+// hypothetical one. Confined to a fixed-height band behind the header
+// only, so it can never collide with a content row no matter how long the
+// card grows.
 const COIN_DRIFT_POSITIONS = [
   { insetInlineStart: '8%', animationDelay: '0s' },
   { insetInlineStart: '45%', animationDelay: '1.6s' },
@@ -193,7 +221,7 @@ const COIN_DRIFT_POSITIONS = [
 function CoinEconomyCard({ isHe }: { isHe: boolean }) {
   return (
     <GlassCard variant="elevated" grain tactile className="p-4 relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+      <div className="absolute inset-x-0 top-0 h-14 pointer-events-none" aria-hidden="true">
         {COIN_DRIFT_POSITIONS.map((pos, i) => (
           <div key={i} className="absolute top-1/2 coin-drift-particle" style={pos as React.CSSProperties}>
             <CoinIcon size={14} />
@@ -203,15 +231,18 @@ function CoinEconomyCard({ isHe }: { isHe: boolean }) {
       <div className="relative z-10">
         <CardHeader icon={<Wallet size={14} />} title={isHe ? 'כלכלת המטבעות' : 'The Coin Economy'} />
         <div>
-          <InfoRow icon="📅" label={isHe ? 'בונוס יומי' : 'Daily bonus'} value="+30 🪙" />
+          <InfoRow icon="📅" label={isHe ? 'בונוס יומי' : 'Daily bonus'} value={<>+30<CoinIcon size={11} /></>} />
           <InfoRow icon="✅" label={isHe ? 'תביעת זכייה' : 'Winning claims'} value={isHe ? 'נק׳ × 2' : 'pts × 2'} />
-          <InfoRow icon="⚡" label={isHe ? 'הימור מיידי' : 'Instant-lock bets'} value="-2 / +4 🪙" valueClass="text-white/70" />
+          <InfoRow icon="⚡" label={isHe ? 'הימור מיידי' : 'Instant-lock bets'} value={<>-2 / +4<CoinIcon size={11} /></>} valueClass="text-white/70" />
         </div>
-        <p className="text-text-muted text-[11px] leading-relaxed mt-2.5">
-          {isHe
-            ? 'יתרת המטבעות מוצגת תמיד כ-≥ 0 — אין מספרים שליליים.'
-            : 'Your coin balance is always shown as ≥ 0 — no negatives ever.'}
-        </p>
+        <div className="mt-2.5 p-2.5 rounded-lg bg-amber-500/8 border border-amber-500/15">
+          <p className="text-amber-400 text-[10px] font-medium mb-0.5">💡 {isHe ? 'איך זה עובד' : 'How it works'}</p>
+          <p className="text-white/70 text-[11px] leading-relaxed">
+            {isHe
+              ? 'ניבאת את כל 5 השלבים — הימרת 19 מטבעות. פגעת בכולם — קיבלת 38 מטבעות בחזרה (× 2). היתרה תמיד ≥ 0, אין מספרים שליליים.'
+              : 'Bet all 5 tiers → stake 19 coins. Hit them all → earn 38 coins back (19 pts × 2). Balance is always ≥ 0 — no negatives ever.'}
+          </p>
+        </div>
       </div>
     </GlassCard>
   );
@@ -353,9 +384,15 @@ export function HelpGuideModal({ onClose }: Props) {
           </button>
         </div>
 
-        {/* Bento grid */}
+        {/* Bento grid. Sprint 25 hotfix — real device report: the FAQ card's
+            last row sat flush against the home-indicator area with zero
+            breathing room ("cut off"). env(safe-area-inset-bottom) is the
+            same fix NotificationCenter's mobile drawer already applies
+            (§38) for the identical reason; falls back to 0px on devices/
+            browsers without a safe-area inset. */}
         <div
-          className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 overflow-y-auto flex-1"
+          className="grid grid-cols-1 sm:grid-cols-2 auto-rows-min content-start gap-3 p-4 overflow-y-auto flex-1 min-h-0"
+          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}
           onWheel={e => e.stopPropagation()}
           onPointerDown={e => e.stopPropagation()}
         >
