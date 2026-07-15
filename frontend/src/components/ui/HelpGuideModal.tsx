@@ -1,48 +1,22 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trophy, Pencil, Radio, Wallet, type LucideIcon } from 'lucide-react';
+import { X, Trophy, Search, Users, Pencil, Layers, Wallet, Radio } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
 import { cn } from '../../lib/utils';
-
-type Tab = 'play' | 'bets' | 'live' | 'coins';
+import { GlassCard } from './GlassCard';
+import { POINTS, COIN_COSTS } from '../../lib/constants';
+import { TIER_COLORS } from '../../lib/tierVisuals';
 
 interface Props { onClose: () => void }
 
 // ─── Shared UI atoms ──────────────────────────────────────────────────────────
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function CardHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
-    <p className="text-white/50 text-[10px] uppercase tracking-widest font-medium mb-3">
-      {children}
-    </p>
-  );
-}
-
-function Step({ n, title, desc }: { n: number; title: string; desc: string }) {
-  return (
-    <div className="flex gap-3 mb-4">
-      <div className="shrink-0 w-7 h-7 rounded-full bg-accent-green/15 border border-accent-green/30 flex items-center justify-center">
-        <span className="text-accent-green text-xs font-bold">{n}</span>
+    <div className="flex items-center gap-2 mb-3">
+      <div className="w-7 h-7 rounded-lg bg-accent-green/12 border border-accent-green/25 flex items-center justify-center text-accent-green shrink-0">
+        {icon}
       </div>
-      <div>
-        <p className="text-white text-sm font-medium leading-snug">{title}</p>
-        <p className="text-text-muted text-xs mt-0.5 leading-relaxed">{desc}</p>
-      </div>
-    </div>
-  );
-}
-
-function TierRow({ tier, label, pts, note }: { tier: number; label: string; pts: number; note?: string }) {
-  const colors = ['', 'text-blue-400', 'text-purple-400', 'text-amber-400', 'text-pink-400', 'text-cyan-400'];
-  return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0">
-      <div className={cn('shrink-0 w-6 h-6 rounded-lg bg-white/8 flex items-center justify-center text-xs font-bold', colors[tier])}>
-        {tier}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-white text-sm leading-snug">{label}</p>
-        {note && <p className="text-text-muted text-[11px] mt-0.5">{note}</p>}
-      </div>
-      <div className="shrink-0 font-bebas text-base text-accent-green">+{pts}</div>
+      <h3 className="text-white text-sm font-bold leading-none">{title}</h3>
     </div>
   );
 }
@@ -54,139 +28,195 @@ function InfoRow({ icon, label, value, valueClass }: { icon: string; label: stri
         <span className="text-base leading-none">{icon}</span>
         <span className="text-white/80 text-sm">{label}</span>
       </div>
-      <span className={cn('text-sm font-bold font-bebas', valueClass ?? 'text-accent-green')}>{value}</span>
+      <span className={cn('text-sm font-bold font-mono tabular-nums', valueClass ?? 'text-accent-green')}>{value}</span>
     </div>
   );
 }
 
-// ─── Tab: How to Play ─────────────────────────────────────────────────────────
-function PlayTab({ isHe }: { isHe: boolean }) {
+// ─── Card A — The Game Loop ───────────────────────────────────────────────────
+function GameLoopCard({ isHe }: { isHe: boolean }) {
+  const [openStep, setOpenStep] = useState<number | null>(null);
+
   const steps = isHe ? [
-    { title: 'הצטרף לקבוצה', desc: 'צור קבוצה פרטית עם חברים או הצטרף עם קוד הזמנה בן 8 תווים.' },
-    { title: 'עיין במשחקים', desc: 'משחקים מהליגות הפעילות שלך מופיעים בפיד. הוסף ליגות נוספות בהגדרות.' },
-    { title: 'בצע ניבויים', desc: 'בחר את התחזיות שלך לפני נעילה — 15 דקות לפני הקיקאוף.' },
-    { title: 'אסוף נקודות', desc: 'בסיום המשחק הנקודות מחושבות אוטומטית. הטבלה מתעדכנת בזמן אמת.' },
+    { Icon: Users, title: 'הצטרפות', desc: 'צור קבוצה פרטית עם חברים או הצטרף עם קוד הזמנה בן 8 תווים.' },
+    { Icon: Search, title: 'עיון', desc: 'משחקים מהליגות הפעילות שלך מופיעים בפיד. הוסף ליגות נוספות בהגדרות.' },
+    { Icon: Pencil, title: 'ניבוי', desc: 'בחר את התחזיות שלך לפני נעילה — 15 דקות לפני הקיקאוף.' },
+    { Icon: Trophy, title: 'ניקוד', desc: 'בסיום המשחק הנקודות מחושבות אוטומטית. הטבלה מתעדכנת בזמן אמת.' },
   ] : [
-    { title: 'Join a group', desc: 'Create a private group with friends or join one using an 8-character invite code.' },
-    { title: 'Browse matches', desc: 'Upcoming matches from your active leagues appear in the feed. Add more leagues in Settings.' },
-    { title: 'Make predictions', desc: 'Pick your tiers before the lock — predictions close 15 minutes before kickoff.' },
-    { title: 'Collect points', desc: 'After the final whistle, points are calculated automatically and the leaderboard updates live.' },
+    { Icon: Users, title: 'Join', desc: 'Create a private group with friends or join one using an 8-character invite code.' },
+    { Icon: Search, title: 'Browse', desc: 'Upcoming matches from your active leagues appear in the feed. Add more leagues in Settings.' },
+    { Icon: Pencil, title: 'Predict', desc: 'Pick your tiers before the lock — predictions close 15 minutes before kickoff.' },
+    { Icon: Trophy, title: 'Score', desc: 'After the final whistle, points are calculated automatically and the leaderboard updates live.' },
   ];
 
   return (
-    <div>
-      <SectionTitle>{isHe ? 'איך מתחילים' : 'Getting started'}</SectionTitle>
-      {steps.map((s, i) => <Step key={i} n={i + 1} title={s.title} desc={s.desc} />)}
-      <div className="mt-4 p-3 rounded-xl bg-accent-green/6 border border-accent-green/15">
-        <p className="text-accent-green text-xs font-medium mb-1">💡 {isHe ? 'טיפ' : 'Tip'}</p>
-        <p className="text-white/70 text-xs leading-relaxed">
-          {isHe
-            ? 'ניתן לעדכן ניבויים כל עוד המשחק לא ננעל. רק הניבוי האחרון שנשמר נספר.'
-            : 'You can update your prediction at any time while it\'s unlocked — only your last saved pick counts.'}
-        </p>
+    <GlassCard variant="elevated" grain tactile className="p-4">
+      <CardHeader icon={<Search size={14} />} title={isHe ? 'מעגל המשחק' : 'The Game Loop'} />
+
+      {/* Connector row — 4 nodes joined by a single ambient CSS gradient sweep
+          (.help-connector-line, index.css). Tap a node to reveal its detail
+          below instead of always showing all 4 descriptions at once — a
+          fixed bento cell has no room for the full text permanently. */}
+      <div className="relative flex items-center justify-between px-1 mb-3">
+        <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-0.5 help-connector-line rounded-full" />
+        {steps.map((s, i) => {
+          const isOpen = openStep === i;
+          return (
+            <button
+              key={i}
+              onClick={() => setOpenStep(isOpen ? null : i)}
+              className="relative z-10 flex flex-col items-center gap-1.5 group"
+              aria-expanded={isOpen}
+            >
+              <motion.div
+                whileTap={{ scale: 0.9 }}
+                className={cn(
+                  'w-8 h-8 rounded-full border flex items-center justify-center transition-colors',
+                  isOpen
+                    ? 'bg-accent-green/20 border-accent-green/50 text-accent-green'
+                    : 'bg-bg-card border-white/15 text-text-muted group-hover:text-white group-hover:border-white/30'
+                )}
+              >
+                <s.Icon size={14} />
+              </motion.div>
+              <span className={cn('text-[9px] font-medium leading-none', isOpen ? 'text-accent-green' : 'text-text-muted')}>
+                {s.title}
+              </span>
+            </button>
+          );
+        })}
       </div>
-    </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+        {openStep !== null && (
+          <motion.p
+            key={openStep}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' as const }}
+            className="text-text-muted text-xs leading-relaxed overflow-hidden"
+          >
+            {steps[openStep].desc}
+          </motion.p>
+        )}
+      </AnimatePresence>
+      {openStep === null && (
+        <p className="text-text-muted text-[11px] leading-relaxed">
+          {isHe ? 'הקש על שלב לפרטים' : 'Tap a step for details'}
+        </p>
+      )}
+    </GlassCard>
   );
 }
 
-// ─── Tab: Predictions / Bets ──────────────────────────────────────────────────
-function BetsTab({ isHe }: { isHe: boolean }) {
-  const tiers = isHe ? [
-    { tier: 1, label: 'תוצאה סופית (בית / תיקו / חוץ)', pts: 3 },
-    { tier: 2, label: 'תוצאה מדויקת', pts: 10, note: 'כולל תוצאה סופית — 7 + 3 נק׳' },
-    { tier: 3, label: 'סה"כ קרנות (≤9 / 10 בדיוק / ≥11)', pts: 4 },
-    { tier: 4, label: 'שתי הקבוצות מבקיעות (כן / לא)', pts: 2 },
-    { tier: 5, label: 'מעל / מתחת 2.5 שערים', pts: 3 },
-  ] : [
-    { tier: 1, label: 'Full Time Result (Home / Draw / Away)', pts: 3 },
-    { tier: 2, label: 'Exact Score', pts: 10, note: 'includes the result — 7 + 3 pts stacked' },
-    { tier: 3, label: 'Total Corners (≤9 / exactly 10 / ≥11)', pts: 4 },
-    { tier: 4, label: 'Both Teams to Score (Yes / No)', pts: 2 },
-    { tier: 5, label: 'Over / Under 2.5 Goals', pts: 3 },
+// ─── Card B — The Tier Ledger ─────────────────────────────────────────────────
+// Canonical 5-tier order (Result / Score / Corners / BTTS / Over-Under) — a
+// fixed reference ledger, unlike PredictionForm.tsx's own per-match tier
+// list whose length (and therefore index) shifts when a league has corners
+// disabled. Numbers come straight from POINTS/COIN_COSTS (constants.ts),
+// never a second hardcoded copy — the same dual-source-of-truth trap this
+// codebase self-corrects on repeatedly.
+function TierLedgerCard({ isHe }: { isHe: boolean }) {
+  const [selected, setSelected] = useState<number | null>(null);
+
+  const tiers = [
+    { label: isHe ? 'תוצאה סופית' : 'Result', pts: POINTS.TIER1_OUTCOME, cost: COIN_COSTS.RESULT_ONLY },
+    { label: isHe ? 'תוצאה מדויקת' : 'Exact Score', pts: POINTS.TIER2_EXACT_SCORE + POINTS.TIER2_EXACT_BONUS, cost: COIN_COSTS.SCORE },
+    { label: isHe ? 'קרנות' : 'Corners', pts: POINTS.TIER3_CORNERS, cost: COIN_COSTS.CORNERS },
+    { label: isHe ? 'שתי קבוצות מבקיעות' : 'BTTS', pts: POINTS.TIER5_BTTS, cost: COIN_COSTS.BTTS },
+    { label: isHe ? 'מעל / מתחת 2.5' : 'Over / Under', pts: POINTS.TIER6_OVER_UNDER, cost: COIN_COSTS.OVER_UNDER },
   ];
 
   return (
-    <div>
-      <SectionTitle>{isHe ? 'ניקוד לפי שלב' : 'Points per tier'}</SectionTitle>
-      <div className="rounded-xl bg-white/4 border border-white/8 px-3 overflow-hidden mb-4">
-        {tiers.map(t => <TierRow key={t.tier} {...t} />)}
+    <GlassCard variant="elevated" grain tactile className="p-4">
+      <CardHeader icon={<Layers size={14} />} title={isHe ? 'לוח השלבים' : 'The Tier Ledger'} />
+      <div className="space-y-1">
+        {tiers.map((tier, i) => {
+          const color = TIER_COLORS[i];
+          const isSelected = selected === i;
+          return (
+            <button
+              key={i}
+              onClick={() => setSelected(isSelected ? null : i)}
+              className={cn(
+                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border transition-colors text-start',
+                isSelected ? 'bg-white/8 border-white/15' : 'bg-transparent border-transparent hover:bg-white/4'
+              )}
+            >
+              <span className={cn('w-2 h-2 rounded-full shrink-0', color.dot)} />
+              <span className="flex-1 min-w-0 truncate text-white/85 text-xs">{tier.label}</span>
+              <span className={cn('shrink-0 font-mono tabular-nums text-xs font-bold', color.pts)}>+{tier.pts}</span>
+              <span className="shrink-0 font-mono tabular-nums text-[10px] text-amber-400/80 w-9 text-end">
+                {tier.cost}🪙
+              </span>
+            </button>
+          );
+        })}
       </div>
-      <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-accent-green/8 border border-accent-green/20 mb-5">
-        <span className="text-white/70 text-xs">{isHe ? 'מקסימום למשחק' : 'Maximum per match'}</span>
-        <span className="font-bebas text-lg text-accent-green">19 {isHe ? 'נק׳' : 'pts'}</span>
+      <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-white/8">
+        <span className="text-text-muted text-[10px]">{isHe ? 'מקסימום למשחק' : 'Max per match'}</span>
+        <span className="font-mono tabular-nums text-xs text-accent-green font-bold">{COIN_COSTS.MAX_PER_MATCH} {isHe ? 'נק׳' : 'pts'}</span>
       </div>
+    </GlassCard>
+  );
+}
 
-      <SectionTitle>{isHe ? 'שלב 2 — תוצאה מדויקת' : 'Tier 2 — Exact Score'}</SectionTitle>
-      <p className="text-white/60 text-xs leading-relaxed">
+// ─── Card C — The Coin Economy ────────────────────────────────────────────────
+// Deliberately does NOT repeat the per-tier cost table — that's Card B's
+// job now (Correction: avoids showing the same 5 numbers twice across two
+// cards). This card is scoped to flow only: how coins enter and leave the
+// balance, not what a single bet costs.
+function CoinEconomyCard({ isHe }: { isHe: boolean }) {
+  return (
+    <GlassCard variant="elevated" grain tactile className="p-4">
+      <CardHeader icon={<Wallet size={14} />} title={isHe ? 'כלכלת המטבעות' : 'The Coin Economy'} />
+      <div>
+        <InfoRow icon="📅" label={isHe ? 'בונוס יומי' : 'Daily bonus'} value="+30 🪙" />
+        <InfoRow icon="✅" label={isHe ? 'תביעת זכייה' : 'Winning claims'} value={isHe ? 'נק׳ × 2' : 'pts × 2'} />
+        <InfoRow icon="⚡" label={isHe ? 'הימור מיידי' : 'Instant-lock bets'} value="-2 / +4 🪙" valueClass="text-white/70" />
+      </div>
+      <p className="text-text-muted text-[11px] leading-relaxed mt-2.5">
         {isHe
-          ? 'ניחוש מדויק של הסקור מעניק אוטומטית גם את נקודות התוצאה הסופית. לכן שלב 2 שווה 10 נק׳ כולל (7 + 3).'
-          : 'Getting the exact score right automatically awards Tier 1 (the result is implied). That\'s why Tier 2 is worth 10 pts total (7 + 3 stacked).'}
+          ? 'יתרת המטבעות מוצגת תמיד כ-≥ 0 — אין מספרים שליליים.'
+          : 'Your coin balance is always shown as ≥ 0 — no negatives ever.'}
       </p>
-    </div>
+    </GlassCard>
   );
 }
 
-// ─── Tab: Live & Results ──────────────────────────────────────────────────────
-function LiveTab({ isHe }: { isHe: boolean }) {
+// ─── Card D — FAQ (Commit 2: ported, static list — accordion arrives in
+// Commit 3) ─────────────────────────────────────────────────────────────────
+function FaqCard({ isHe }: { isHe: boolean }) {
   const items = isHe ? [
-    { icon: '🟢', title: 'עדכונים בזמן אמת', desc: 'משחקים חיים מוצגים עם נקודה ירוקה מהבהבת. תוצאות מתעדכנות כל 30 שניות.' },
-    { icon: '✅', title: 'פירוט נקודות', desc: 'לאחר סיום המשחק (FT) מוצג פירוט מלא — אילו שלבים פגעת ואת הנקודות שהרווחת.' },
-    { icon: '📐', title: 'קרנות', desc: 'מספר הקרנות מוזן ידנית לאחר המשחק. לאחר עדכון, ניבויי הקרנות נפתרים אוטומטית.' },
-    { icon: '⚽', title: 'הארכה ופנדלים', desc: 'ניבויים מתבססים על תוצאת 90 הדקות. שערים בהארכה ופנדלים לא נספרים.' },
-    { icon: '⚔️', title: 'ראש בראש', desc: 'ניבויי חברים נסתרים עד לקיקאוף. לאחר מכן, לחץ על שורה בטבלה לצפייה בהשוואה.' },
+    { icon: '🟢', title: 'עדכונים בזמן אמת', desc: 'משחקים חיים מתעדכנים כל 30 שניות.' },
+    { icon: '⚽', title: 'הארכה ופנדלים', desc: 'ניבויים מתבססים על 90 הדקות בלבד.' },
+    { icon: '⚔️', title: 'ראש בראש', desc: 'ניבויי חברים נסתרים עד לקיקאוף.' },
+    { icon: '📐', title: 'קרנות', desc: 'מוזנות ידנית לאחר המשחק ונפתרות אוטומטית.' },
+    { icon: '🔒', title: 'נעילה', desc: '15 דקות לפני הקיקאוף. ניתן לעדכן עד אז.' },
   ] : [
-    { icon: '🟢', title: 'Real-time updates', desc: 'Live matches show a pulsing green dot. Scores refresh every 30 seconds from ESPN.' },
-    { icon: '✅', title: 'Points breakdown', desc: 'After full time (FT), a breakdown shows exactly which tiers hit and the points you earned.' },
-    { icon: '📐', title: 'Corners', desc: 'Corner totals are entered manually after each match. Corners predictions then resolve automatically on the next sync.' },
-    { icon: '⚽', title: 'Extra time & penalties', desc: 'Predictions always use the 90-minute score. Goals in extra time and penalty shootouts do not count.' },
-    { icon: '⚔️', title: 'Head to Head', desc: 'Friends\' predictions are hidden until kickoff. After that, tap any leaderboard row for a side-by-side comparison.' },
+    { icon: '🟢', title: 'Live updates', desc: 'Live matches refresh every 30 seconds.' },
+    { icon: '⚽', title: 'Extra time & pens', desc: 'Predictions always use the 90-minute score.' },
+    { icon: '⚔️', title: 'Head to Head', desc: "Friends' predictions are hidden until kickoff." },
+    { icon: '📐', title: 'Corners', desc: 'Entered manually post-match, resolved automatically.' },
+    { icon: '🔒', title: 'Lock time', desc: '15 minutes before kickoff. Editable until then.' },
   ];
 
   return (
-    <div className="space-y-2.5">
-      <SectionTitle>{isHe ? 'מהלך המשחק' : 'Match lifecycle'}</SectionTitle>
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/4 border border-white/8">
-          <span className="text-xl shrink-0 leading-none mt-0.5">{item.icon}</span>
-          <div>
-            <p className="text-white text-sm font-medium">{item.title}</p>
-            <p className="text-text-muted text-xs mt-0.5 leading-relaxed">{item.desc}</p>
+    <GlassCard variant="elevated" grain tactile className="p-4">
+      <CardHeader icon={<Radio size={14} />} title={isHe ? 'שאלות נפוצות' : 'FAQ'} />
+      <div className="space-y-1.5">
+        {items.map((item, i) => (
+          <div key={i} className="flex gap-2 py-1">
+            <span className="text-sm shrink-0 leading-none mt-0.5">{item.icon}</span>
+            <div className="min-w-0">
+              <p className="text-white text-xs font-medium">{item.title}</p>
+              <p className="text-text-muted text-[11px] mt-0.5 leading-relaxed">{item.desc}</p>
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Tab: Coin Economy ────────────────────────────────────────────────────────
-function CoinsTab({ isHe }: { isHe: boolean }) {
-  return (
-    <div>
-      <SectionTitle>{isHe ? 'הכנסות' : 'Earning coins'}</SectionTitle>
-      <div className="rounded-xl bg-white/4 border border-white/8 px-3 mb-5">
-        <InfoRow icon="🎁" label={isHe ? 'בונוס הצטרפות (חד-פעמי)' : 'Join bonus (one-time)'} value="+120 🪙" />
-        <InfoRow icon="📅" label={isHe ? 'בונוס יומי' : 'Daily login bonus'} value="+30 🪙" />
-        <InfoRow icon="⚽" label={isHe ? 'על כל שלב שפגעת' : 'Per correct tier'} value={isHe ? 'נקודות × 2' : 'pts × 2'} />
+        ))}
       </div>
-
-      <SectionTitle>{isHe ? 'עלות ניבוי לפי שלב' : 'Cost to predict per tier'}</SectionTitle>
-      <div className="rounded-xl bg-white/4 border border-white/8 px-3 mb-5">
-        <InfoRow icon="1️⃣" label={isHe ? 'תוצאה סופית' : 'Full Time Result'} value="3 🪙" valueClass="text-white/70" />
-        <InfoRow icon="2️⃣" label={isHe ? 'תוצאה מדויקת' : 'Exact Score'} value="10 🪙" valueClass="text-white/70" />
-        <InfoRow icon="3️⃣" label={isHe ? 'קרנות' : 'Total Corners'} value="4 🪙" valueClass="text-white/70" />
-        <InfoRow icon="4️⃣" label={isHe ? 'שתי קבוצות מבקיעות' : 'BTTS'} value="2 🪙" valueClass="text-white/70" />
-        <InfoRow icon="5️⃣" label={isHe ? 'מעל / מתחת 2.5' : 'Over / Under 2.5'} value="3 🪙" valueClass="text-white/70" />
-      </div>
-
-      <div className="p-3 rounded-xl bg-amber-500/8 border border-amber-500/15">
-        <p className="text-amber-400 text-xs font-medium mb-1.5">💡 {isHe ? 'איך זה עובד' : 'How it works'}</p>
-        <p className="text-white/70 text-xs leading-relaxed">
-          {isHe
-            ? 'ניבאת את כל 5 השלבים — הימרת 19 מטבעות. קיבלת 19 נק׳ מלאות — מקבל 38 מטבעות חזרה (× 2). יתרת המטבעות מוצגת תמיד כ-≥ 0.'
-            : 'Bet all 5 tiers → stake 19 coins. Hit them all → earn 38 coins back (19 pts × 2). Your coin balance is always shown as ≥ 0 — no negatives ever.'}
-        </p>
-      </div>
-    </div>
+    </GlassCard>
   );
 }
 
@@ -195,16 +225,8 @@ const BACKDROP = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
 const SHEET = { hidden: { opacity: 0, y: 40 }, visible: { opacity: 1, y: 0 } };
 
 export function HelpGuideModal({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>('play');
   const { lang } = useLangStore();
   const isHe = lang === 'he';
-
-  const tabs: { id: Tab; Icon: LucideIcon; en: string; he: string }[] = [
-    { id: 'play', Icon: Trophy, en: 'How to Play', he: 'איך משחקים' },
-    { id: 'bets', Icon: Pencil, en: 'Predictions', he: 'ניבויים' },
-    { id: 'live', Icon: Radio, en: 'Results', he: 'תוצאות' },
-    { id: 'coins', Icon: Wallet, en: 'Coins', he: 'מטבעות' },
-  ];
 
   return (
     <motion.div
@@ -216,7 +238,7 @@ export function HelpGuideModal({ onClose }: Props) {
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <motion.div
-        className="relative w-full sm:max-w-md card-elevated sm:rounded-2xl rounded-t-2xl overflow-hidden z-10 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
+        className="relative w-full sm:max-w-2xl card-elevated sm:rounded-2xl rounded-t-2xl overflow-hidden z-10 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
         variants={SHEET}
         transition={{ type: 'spring', stiffness: 320, damping: 30 }}
         drag="y"
@@ -250,43 +272,17 @@ export function HelpGuideModal({ onClose }: Props) {
           </button>
         </div>
 
-        {/* Tab strip */}
-        <div className="flex px-3 pt-3 gap-1 shrink-0">
-          {tabs.map(({ id, Icon, en, he }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={cn(
-                'flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-xl text-[10px] font-medium transition-all',
-                activeTab === id
-                  ? 'bg-accent-green/12 text-accent-green'
-                  : 'text-text-muted hover:text-white hover:bg-white/5'
-              )}
-            >
-              <Icon size={16} />
-              <span className="leading-none">{isHe ? he : en}</span>
-            </button>
-          ))}
+        {/* Bento grid */}
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 overflow-y-auto flex-1"
+          onWheel={e => e.stopPropagation()}
+          onPointerDown={e => e.stopPropagation()}
+        >
+          <GameLoopCard isHe={isHe} />
+          <TierLedgerCard isHe={isHe} />
+          <CoinEconomyCard isHe={isHe} />
+          <FaqCard isHe={isHe} />
         </div>
-
-        {/* Content */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15 }}
-            className="overflow-y-auto flex-1 px-5 py-4"
-            onWheel={e => e.stopPropagation()}
-            onPointerDown={e => e.stopPropagation()}
-          >
-            {activeTab === 'play' && <PlayTab isHe={isHe} />}
-            {activeTab === 'bets' && <BetsTab isHe={isHe} />}
-            {activeTab === 'live' && <LiveTab isHe={isHe} />}
-            {activeTab === 'coins' && <CoinsTab isHe={isHe} />}
-          </motion.div>
-        </AnimatePresence>
       </motion.div>
     </motion.div>
   );
