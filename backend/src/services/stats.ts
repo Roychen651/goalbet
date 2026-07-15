@@ -233,3 +233,152 @@ export async function getLeagueStats(leagueId: number): Promise<StatsResponse | 
   cache.set(leagueId, { data, expiresAt: now + CACHE_TTL_MS });
   return data;
 }
+
+// ─── V4 Sprint 27 — Interactive Team Sheets: per-team form + recent-match stats ───
+//
+// Deliberately reuses the SAME scoreboard endpoint + `competitor.statistics[]`
+// field names (`wonCorners`, `redCards`) already proven live in espn.ts's
+// match-sync pipeline, rather than guessing at a brand-new, unverified
+// `teams/{id}/schedule` endpoint shape — this sandbox cannot reach ESPN
+// directly to check one (see the LeaderRow.photo comment above), so reusing
+// an endpoint this codebase already depends on in production is the lower-risk
+// choice. `yellowCards` is the one genuinely unverified field name here
+// (parallel construction to the confirmed `redCards`); it degrades to null
+// gracefully via the same `getStat()` helper if ESPN doesn't expose it.
+
+export interface TeamFormMatch {
+  eventId: string;
+  date: string;
+  opponent: string;
+  opponentLogo: string | null;
+  isHome: boolean;
+  teamScore: number;
+  opponentScore: number;
+  result: 'W' | 'D' | 'L';
+  corners: number | null;
+  cards: number | null;
+  cleanSheet: boolean;
+}
+
+export interface TeamFormResponse {
+  teamId: string;
+  leagueId: number;
+  matches: TeamFormMatch[]; // newest-first, up to 5
+  form: ('W' | 'D' | 'L')[]; // oldest -> newest, for left-to-right reading
+  cornersPerMatch: number | null;
+  cardsPerMatch: number | null;
+  cleanSheets: number;
+  cachedAt: string;
+}
+
+const TEAM_FORM_CACHE_TTL_MS = 15 * 60 * 1000; // Sprint 27's 15-minute caching mandate
+type TeamFormCacheEntry = { data: TeamFormResponse; expiresAt: number };
+const teamFormCache = new Map<string, TeamFormCacheEntry>();
+
+function getCompetitorStat(competitor: Record<string, unknown>, name: string): number | null {
+  const stats = (competitor.statistics as Record<string, unknown>[] | undefined) ?? [];
+  const s = stats.find(st => st.name === name);
+  if (!s) return null;
+  const v = parseInt(String(s.displayValue ?? s.value ?? ''), 10);
+  return isNaN(v) ? null : v;
+}
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+
+function formatEspnDate(d: Date): string {
+  return `${d.getUTCFullYear()}${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}`;
+}
+
+export async function getTeamForm(leagueId: number, teamId: string): Promise<TeamFormResponse | null> {
+  const slug = LEAGUE_ESPN_MAP[leagueId];
+  if (!slug) return null;
+
+  const cacheKey = `${leagueId}:${teamId}`;
+  const now = Date.now();
+  const hit = teamFormCache.get(cacheKey);
+  if (hit && hit.expiresAt > now) return hit.data;
+
+  const to = new Date();
+  const from = new Date(to.getTime() - 60 * 86_400_000); // 60-day lookback — enough for ≥5 played matches even for continental teams with sparser fixture lists
+  const dateRange = `${formatEspnDate(from)}-${formatEspnDate(to)}`;
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=200&dates=${dateRange}`;
+
+  try {
+    const { data } = await axios.get(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+    const events = (data?.events as Record<string, unknown>[] | undefined) ?? [];
+
+    const teamMatches: TeamFormMatch[] = [];
+    for (const event of events) {
+      const comp = (event.competitions as Record<string, unknown>[] | undefined)?.[0];
+      if (!comp) continue;
+
+      const status = comp.status as Record<string, unknown> | undefined;
+      const statusType = status?.type as Record<string, unknown> | undefined;
+      const state = (statusType?.state as string | undefined) ?? 'pre';
+      if (state !== 'post') continue; // only finished matches count toward form — same 'post' state espn.ts already trusts
+
+      const competitors = (comp.competitors as Record<string, unknown>[] | undefined) ?? [];
+      const home = competitors.find(c => c.homeAway === 'home');
+      const away = competitors.find(c => c.homeAway === 'away');
+      if (!home || !away) continue;
+
+      const homeTeam = (home.team as Record<string, unknown>) ?? {};
+      const awayTeam = (away.team as Record<string, unknown>) ?? {};
+      const isHome = String(homeTeam.id ?? '') === teamId;
+      const isAway = String(awayTeam.id ?? '') === teamId;
+      if (!isHome && !isAway) continue;
+
+      const homeScore = parseInt(String(home.score ?? '0'), 10) || 0;
+      const awayScore = parseInt(String(away.score ?? '0'), 10) || 0;
+      const teamScore = isHome ? homeScore : awayScore;
+      const opponentScore = isHome ? awayScore : homeScore;
+      const opponentTeam = isHome ? awayTeam : homeTeam;
+      const teamCompetitor = (isHome ? home : away) as Record<string, unknown>;
+
+      const matchResult: 'W' | 'D' | 'L' = teamScore > opponentScore ? 'W' : teamScore < opponentScore ? 'L' : 'D';
+      const corners = getCompetitorStat(teamCompetitor, 'wonCorners');
+      const redCards = getCompetitorStat(teamCompetitor, 'redCards');
+      const yellowCards = getCompetitorStat(teamCompetitor, 'yellowCards');
+      const cards = redCards !== null || yellowCards !== null ? (redCards ?? 0) + (yellowCards ?? 0) : null;
+
+      teamMatches.push({
+        eventId: String(event.id ?? ''),
+        date: String(comp.date ?? ''),
+        opponent: String(opponentTeam.displayName ?? opponentTeam.name ?? ''),
+        opponentLogo: pickLogo(opponentTeam.logos as Record<string, unknown>[] | undefined) ?? (String(opponentTeam.logo ?? '') || null),
+        isHome,
+        teamScore,
+        opponentScore,
+        result: matchResult,
+        corners,
+        cards,
+        cleanSheet: opponentScore === 0,
+      });
+    }
+
+    teamMatches.sort((a, b) => (a.date < b.date ? 1 : -1)); // newest-first
+    const last5 = teamMatches.slice(0, 5);
+
+    const cornersValues = last5.map(m => m.corners).filter((v): v is number => v !== null);
+    const cardsValues = last5.map(m => m.cards).filter((v): v is number => v !== null);
+
+    const response: TeamFormResponse = {
+      teamId,
+      leagueId,
+      matches: last5,
+      form: [...last5].reverse().map(m => m.result),
+      cornersPerMatch: cornersValues.length > 0 ? cornersValues.reduce((a, b) => a + b, 0) / cornersValues.length : null,
+      cardsPerMatch: cardsValues.length > 0 ? cardsValues.reduce((a, b) => a + b, 0) / cardsValues.length : null,
+      cleanSheets: last5.filter(m => m.cleanSheet).length,
+      cachedAt: new Date().toISOString(),
+    };
+
+    teamFormCache.set(cacheKey, { data: response, expiresAt: now + TEAM_FORM_CACHE_TTL_MS });
+    return response;
+  } catch (err) {
+    logger.debug(`[stats] team form fetch failed for ${slug}/${teamId}: ${err}`);
+    return null;
+  }
+}

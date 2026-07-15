@@ -106,7 +106,7 @@ export function StatsPage() {
             ) : error || !data?.standings?.length ? (
               <EmptyState icon="📊" title={t('statsNoData')} description="" />
             ) : (
-              <StandingsTable rows={data.standings} />
+              <StandingsTable rows={data.standings} leagueId={leagueId!} />
             )}
           </section>
 
