@@ -102,8 +102,12 @@ jobs:
           # releases API call (and its 60/hr unauthenticated rate limit)
           # from the critical path entirely; "latest" has to resolve a
           # version first, a pinned number doesn't. Bump this number
-          # periodically rather than reverting to "latest".
-          version: 2.34.4
+          # periodically rather than reverting to "latest". Must be a
+          # real, published GitHub release tag — verified against
+          # github.com/supabase/cli/releases before pinning (an earlier
+          # pin, 2.34.4, was never an actual release and 404'd on asset
+          # download the moment "latest" stopped masking it).
+          version: 2.109.1
           # Kept as defense in depth: the `v1` action.yml declares its own
           # `github-token` INPUT (read via `with:`, not a plain GITHUB_TOKEN
           # env var — the previous fix set the env var, which this action
