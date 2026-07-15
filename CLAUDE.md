@@ -42,6 +42,7 @@ Read this before touching any file. Everything here reflects the live codebase.
 33. [The Dopamine Cannon (V4 Sprint 18)](#33-the-dopamine-cannon-v4-sprint-18)
 34. [The Live Center — Home & Match Cards Overhaul (V4 Sprint 19)](#34-the-live-center--home--match-cards-overhaul-v4-sprint-19)
 35. [The Tactile Slip — Bet Form & Sliding Drawer Overhaul (V4 Sprint 20)](#35-the-tactile-slip--bet-form--sliding-drawer-overhaul-v4-sprint-20)
+36. [The Prestige Standings — Leaderboard & Group Tables Overhaul (V4 Sprint 21)](#36-the-prestige-standings--leaderboard--group-tables-overhaul-v4-sprint-21)
 
 ---
 
@@ -383,8 +384,9 @@ goalbet/
 │       │   │   └── TopBar.tsx             # Mobile header: logo, group selector, coins, avatar
 │       │   ├── leaderboard/
 │       │   │   ├── H2HModal.tsx           # Head-to-head comparison (tap another user's row)
-│       │   │   ├── LeaderboardRow.tsx     # Own row → history modal; other row → H2H modal
-│       │   │   ├── LeaderboardTable.tsx
+│       │   │   ├── LeaderboardRow.tsx     # Own row → history modal; other row → H2H modal (unchanged, V4 Sprint 21). Row itself also gets a separate chevron toggle for a lightweight in-place preview (streak/accuracy recap + last-5 bet-slip mini team-badge pairs, lazy-fetched only on expand), a per-row sparkline next to the username, a weekly rank-delta badge (color via lib/oklch.ts's interpolateDiverging, never hardcoded), and a breathing gold halo (Framer Motion, reduced-motion aware) behind the #1 avatar
+│       │   │   ├── LeaderboardRowSparkline.tsx # V4 Sprint 21 — per-row trend line reusing smoothPath() (lib/svgPath.ts). Deliberately static/no draw-on (a leaderboard can render many simultaneously, unlike Sparkline.tsx's single Profile-page instance); slope-driven color (ice-blue up / warm orange down)
+│       │   │   ├── LeaderboardTable.tsx   # V4 Sprint 21 — rows get `layout` + a shared LayoutGroup so a sort-order change animates rows sliding to their new position (FLIP) instead of a silent re-render. Owns `expandedUserId` state for the row-preview chevrons
 │       │   │   └── UserMatchHistoryModal.tsx  # Bottom sheet — swipe-to-close enabled
 │       │   ├── profile/
 │       │   │   ├── AvatarPicker.tsx       # Emoji avatar chooser
@@ -412,7 +414,7 @@ goalbet/
 │       │   │   ├── LeagueDropdown.tsx     # Custom animated dropdown; dual dark/light ESPN league logos; data-lenis-prevent so inner wheel-scroll works inside Lenis; layoutId-backed active bar
 │       │   │   ├── LeagueLeaders.tsx      # Top scorers / assists tables sourced from ESPN leaders feed
 │       │   │   ├── PredictionHeatmap.tsx  # V4 Sprint 15 — hand-built inline SVG League x Bet-Type grid. Diverging OKLCH color per cell via lib/oklch.ts (not CSS color-mix), every cell direct-labeled with its %, contrast-aware label ink, diagonal-hatch + "n/a" for sample_size < 3, RTL-aware column/label mirroring + clipPath guard on long league names, "view as table" accessible fallback, hover/focus detail line
-│       │   │   ├── StandingsTable.tsx     # League standings table (rank, team, P/W/D/L, GF/GA/GD, pts)
+│       │   │   ├── StandingsTable.tsx     # League standings table (rank, team, P/W/D/L, GF/GA/GD, pts) — real `<table>`, ESPN team data, not GoalBet users. V4 Sprint 21 — rows are `motion.tr` with `layout` + a shared LayoutGroup so a standings shuffle after a sync animates teams sliding to their new rank; no bet-slip/sparkline/rank-delta (those are GoalBet-user concepts that don't apply to a team row)
 │       │   │   └── WorldCupBracket.tsx    # Custom "Route to the Trophy" view for World Cup (league 4480). Tri-Host Aurora (Mexico #00FF87 + USA #00E5FF + Canada #FF004D blurred blobs, mix-blend: screen) + broadcast grain overlay on the root wrapper. Parallax hero (useScroll/useTransform on confetti, halo, trophy watermark) with brutalist hollow "2026" behind content — aurora-gradient fill reveals on scroll. Floating glass pill navigation (sticky, rounded-full, dark glass backdrop-blur-xl). 4 tabs: groups/fixtures/knockouts/venues. Groups: FIFA rank + seed pot indicators, GroupCard enters with 3D rotateX perspective. Fixtures: gold "Predict" button with toast teaser. Knockouts: Framer Motion accordion on mobile, 9-column symmetric bracket on desktop (BracketTreeCard compact grid / BracketMatchCard full-detail mobile). FinalApex: rotating sunburst, floating particles, gradient champion text. Venues: mobile scroll-snap carousel, desktop masonry grid (marquee venues span 2 cols), StadiumCard enters with 3D rotateX perspective + backdrop-blur glass. Pure Framer Motion + useScroll
 │       │   └── ui/
 │       │       ├── Avatar.tsx             # Expects emoji:🏆 prefix
@@ -2421,3 +2423,47 @@ Submission plays `playSound('lock_thud')` — **not** `coin_chime` as originally
 - **A "meter"/gauge and a "slider"/input are different UI contracts — don't build the interactive one when only the display one is warranted (or vice versa).** The Risk Meter is intentionally non-interactive; giving it drag affordances (cursor, hover states implying interactivity) would mislead users into thinking it does something it doesn't.
 - **Distinct economic sound effects (earn vs. spend vs. lock-in) should stay semantically distinct — don't reuse "you received money" for "you just committed money."** `lock_thud` over `coin_chime` for prediction submission is the reference case; check what a sound already means elsewhere in the app before reusing it for a new, different event.
 - **A debossed/embossed shadow pair for a tactile toggle should keep the "recede" state neutral/un-tinted and reserve identity color for the "elevated" state only.** `DEBOSS_SHADOW` is shared across all tiers on purpose — only `emboss` carries per-tier color, so selection state (not idle color) is what a user's eye tracks.
+
+---
+
+## 36. The Prestige Standings — Leaderboard & Group Tables Overhaul (V4 Sprint 21)
+
+A tactile/data-viz pass on GoalBet's own competitive leaderboard and — where it genuinely applies — the Stats page's ESPN league standings table. The brief conflated the two tables' data models; most of this sprint's mandates only make sense for one of them.
+
+### Corrections made before writing code
+
+**"Leaderboard and Stats Standings tables" are two different data models — most mandates apply to only one.** `StandingsTable.tsx` renders real ESPN football team standings (P/W/D/L/GF/GA/GD/pts) — a team has no bet slips, no coin distribution, no win streak, no resolved predictions. Sparklines, bet-slip accordions, and rank-delta badges are GoalBet-*user* concepts. **Scope split**: `LeaderboardTable.tsx`/`LeaderboardRow.tsx` gets the full mandate set; `StandingsTable.tsx` gets only the row-swap physics and typography polish that generalize to any tabular data.
+
+**"Accordion morphing on row click" directly conflicted with an existing, deliberate, documented interaction.** `LeaderboardPage.tsx` already wires row clicks to two real, working modals — own row → `UserMatchHistoryModal`, other row → `H2HModal` — explicitly called out in §21 Common Pitfalls as *intentional*, not an oversight. Replacing this with an inline accordion would have meant either destroying the H2H comparison view (can't be meaningfully compressed into a row-height expansion) or creating an ambiguous double-meaning tap target. **Resolution**: kept both modals as the row's primary click target, added a *separate* chevron (its own tap target, `stopPropagation`) that reveals a lighter, faster in-place preview — sparkline, streak/accuracy recap, last-5 bet-slip mini team-badge pairs — without replacing either modal.
+
+**Weekly rank-delta has no data source in this schema — but is fully derivable from data already fetched.** No table ever persists a rank; rank is always computed client-side by sorting (confirmed in `useLeaderboard.ts`). The fix, zero new migration: `useLeaderboard`'s `weekly` view already fetches `last_week_points` per entry — re-sort the *same already-fetched* `entries` array by `last_week_points` to derive a comparable "last week's rank" ordering, diff it against the current `weekly_points`-sorted rank. Stated as an approximation in the code (can't account for someone joining the group mid-week), not hidden.
+
+### Row-swap springs
+
+`LeaderboardTable.tsx`'s rows and `StandingsTable.tsx`'s rows (converted from plain `<tr>` to `motion.tr`, keeping real table semantics — `getBoundingClientRect` works fine on `<tr>` in every evergreen browser, so `layout` measures correctly despite the table layout algorithm) both get `layout` + a shared `LayoutGroup`. A sort-order change — a prediction resolving, a tab switch, live points shifting rank, an ESPN standings sync — now animates rows sliding to their new position via Framer's FLIP measurement instead of a silent re-render in the new order. Tuned tighter (`stiffness: 380, damping: 32`) than the existing hover transition so a rank swap reads as decisive.
+
+### Sparklines + in-place preview, batched (not N+1)
+
+`LeaderboardRowSparkline.tsx` reuses `smoothPath()` (`lib/svgPath.ts`, extracted in Sprint 15 specifically so every hand-built chart shares one spline implementation) rather than hand-rolling new curve math. Deliberately static — no Framer draw-on — since a leaderboard can render many of these simultaneously, unlike `Sparkline.tsx`'s single big Profile-page instance. Slope-driven color reuses the existing CVD-safe ice-blue/red-pink brand pair.
+
+Data: one batched query in `LeaderboardPage.tsx` (matches-in-window, then predictions for those matches, aggregated client-side into `Map<user_id, RecentPrediction[]>`) mirroring the file's own pre-existing `periodStatsMap` fetch shape — avoids the exact N+1 pattern §30 already forbids for this codebase. `RecentPrediction` carries `{ matchId, points }`, not just points, so the row's *lazy* bet-slip fetch (team names/badges, only on expand, `fetchedRef`-guarded) can reuse the same match IDs without a second "which matches did this user play" query.
+
+`LeaderboardTable.tsx` owns `expandedUserId` state; each row's chevron (separate `onClick` + `stopPropagation` from the row's own modal-opening click) toggles an `AnimatePresence` height-expand preview. Sibling rows' `layout` prop (from the row-swap commit) means they smoothly reflow rather than jump when one row's height changes — answering "avoid pushing/squishing neighbors" for free, without extra plumbing.
+
+### Rank-delta badge and OKLCH discipline
+
+Computed in `LeaderboardPage.tsx` per the correction above (re-sort `entries` by `last_week_points`, diff against current rank), only rendered on the `weekly` tab, only when nonzero. Color comes from `lib/oklch.ts`'s existing `interpolateDiverging()` — **not** a hardcoded `oklch(...)` string (an early draft of this exact badge hardcoded two OKLCH values directly, which the codebase's own established rule already forbids — caught and fixed before shipping). Low-alpha background via `color-mix(in oklch, ${color} 16%, var(--color-bg-card))`, the same technique `Toast.tsx` (§32) already established for "a resolved color at low opacity, blended into the surface."
+
+### Prestige styling
+
+Breathing gold halo behind the #1 avatar: a Framer Motion `animate` opacity/scale loop (not a CSS keyframe) behind a `relative isolate` wrapper. Deliberately Framer here, unlike Sprint 19's live-clock badge or the World Cup aurora blobs — those can render dozens of simultaneous instances across a feed, driving the CSS-only choice; exactly one #1 row ever renders per leaderboard, so the "many simultaneous instances" cost concern doesn't apply. Reuses `--risk-gold` (Sprint 20's Risk Meter token) rather than introducing a third gold custom property. Respects `prefers-reduced-motion` (static opacity, no loop).
+
+Rank number, points, rank-delta, and bet-slip point chips all moved to `font-mono tabular-nums` (was `font-bebas` for points — the same CLS-motivated swap already made for match-card scores in §34). `StandingsTable.tsx` needed no typography change — it was already `font-mono` at the table level from before this sprint.
+
+### Rules
+
+- **Before applying a sprint's mandates to "every table/list of a similar shape," check whether they actually share a data model.** ESPN team standings and GoalBet user standings look alike (both are ranked tables) but have completely different underlying entities — a mandate written for one can be structurally inapplicable to the other, not just stylistically different.
+- **A new "expand in place" interaction must never silently replace an existing, working, documented interaction on the same element.** Add a new affordance (a dedicated toggle, its own tap target) alongside the old one rather than overloading a single click to mean two different things depending on some other state.
+- **A "derive it from data already fetched" solution beats a new migration whenever the derivation is honest about being an approximation.** The rank-delta badge needed no schema change because the two numbers it compares (`weekly_points`, `last_week_points`) were already being fetched for an unrelated reason — check what's already in hand before reaching for a new persisted column.
+- **`layout` on sibling list items automatically solves "don't squish my neighbors" for a height-changing expand/accordion** — no extra height-reservation or manual reflow logic needed once the siblings already have `layout` from an unrelated row-reordering feature. The two capabilities compose for free.
+- **Every new OKLCH-driven UI element must resolve its color through the codebase's existing live-token functions (`interpolateDiverging`, `interpolateRisk`), never a hardcoded `oklch(...)` literal** — this was caught and fixed in this same sprint, on the very rule it violates (§21's OKLCH pitfall), which is itself the reminder to actually check newly-written code against standing rules before considering a commit done, not just before writing it.
