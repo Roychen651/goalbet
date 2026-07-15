@@ -98,7 +98,9 @@ export function interpolateDiverging(ratio: number): DivergingColor {
 // of the team name is the honest, zero-network-call substitute: same team
 // always renders the same hue, no per-card image sampling (expensive across
 // a whole feed), no risk of an unverified ESPN field being absent at runtime.
-function hashTeamHue(name: string): number {
+// Sprint 26 — exported so EntityBadge.tsx's fallback-gradient math shares
+// this exact hash instead of a second, duplicated implementation.
+export function hashTeamHue(name: string): number {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = (hash * 31 + name.charCodeAt(i)) | 0;
