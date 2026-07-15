@@ -1307,7 +1307,7 @@ export const translations = {
     statsNoLeadersInCategory: 'אין עדיין נתונים בקטגוריה זו',
 
     // V4 Sprint 27 — Interactive Team Sheets
-    statsFormGuide: 'מצב כושר',
+    statsFormGuide: 'פורמה אחרונה',
     statsTeamStats: 'נתוני קבוצה',
     statsGoalsPerMatch: 'שערים למשחק',
     statsCornersPerMatch: 'קרנות למשחק',
