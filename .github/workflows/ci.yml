@@ -97,6 +97,14 @@ jobs:
       - name: Setup Supabase CLI
         if: steps.secrets.outputs.ok == 'true'
         uses: supabase/setup-cli@v1
+        env:
+          # supabase/setup-cli resolves "latest" via GitHub's releases API.
+          # Unauthenticated Actions-runner calls to that API share a 60/hr
+          # rate limit across everyone hitting it from the same egress IP
+          # range, which this run just tripped. Passing the auto-provided
+          # GITHUB_TOKEN authenticates those calls (5000/hr instead), same
+          # fix GitHub recommends for any setup-* action that calls their API.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           version: latest
 
