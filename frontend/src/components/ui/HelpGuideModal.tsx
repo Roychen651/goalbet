@@ -7,6 +7,18 @@ import { GlassCard } from './GlassCard';
 import { CoinIcon } from './CoinIcon';
 import { POINTS, COIN_COSTS } from '../../lib/constants';
 import { TIER_COLORS } from '../../lib/tierVisuals';
+import { haptic } from '../../lib/haptics';
+import { playSound } from '../../lib/sensoryAudio';
+
+// Sprint 25 Commit 4 — every new tappable surface in this modal gets the
+// same haptic('selection') + playSound('toggle_click') pairing already
+// established for GenderSelector's chips (Sprint 24) — a genuinely new
+// interactive surface should get the same tactile treatment every other
+// tappable control in this app already has, not silence.
+function tapFeedback(): void {
+  haptic('selection');
+  playSound('toggle_click');
+}
 
 interface Props { onClose: () => void }
 
@@ -65,7 +77,7 @@ function GameLoopCard({ isHe }: { isHe: boolean }) {
           return (
             <button
               key={i}
-              onClick={() => setOpenStep(isOpen ? null : i)}
+              onClick={() => { tapFeedback(); setOpenStep(isOpen ? null : i); }}
               className="relative z-10 flex flex-col items-center gap-1.5 group"
               aria-expanded={isOpen}
             >
@@ -139,7 +151,7 @@ function TierLedgerCard({ isHe }: { isHe: boolean }) {
           return (
             <button
               key={i}
-              onClick={() => setSelected(isSelected ? null : i)}
+              onClick={() => { tapFeedback(); setSelected(isSelected ? null : i); }}
               className={cn(
                 'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border transition-colors text-start',
                 isSelected ? 'bg-white/8 border-white/15' : 'bg-transparent border-transparent hover:bg-white/4'
@@ -250,7 +262,7 @@ function FaqCard({ isHe }: { isHe: boolean }) {
             return (
               <motion.div key={i} layout className="rounded-lg overflow-hidden">
                 <button
-                  onClick={() => setOpenId(isOpen ? null : i)}
+                  onClick={() => { tapFeedback(); setOpenId(isOpen ? null : i); }}
                   className="w-full flex items-center gap-2 py-1.5 text-start"
                   aria-expanded={isOpen}
                 >
