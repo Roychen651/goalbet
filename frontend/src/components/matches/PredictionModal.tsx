@@ -121,7 +121,7 @@ export function PredictionModal({ matches, predictions, onSave, savingMatchId, e
                   </Drawer.Title>
                   <span className="truncate text-[10px] text-text-muted opacity-60">
                     {tLeagueName(match.league_id, match.league_name, lang)}
-                    {match.round ? ` · R${match.round}` : ''}
+                    {match.round ? ` · ${lang === 'he' ? `מח' ${match.round}` : `R${match.round}`}` : ''}
                   </span>
                 </div>
                 <button

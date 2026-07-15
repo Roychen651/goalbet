@@ -37,6 +37,15 @@ export function formatKickoffTime(kickoffTime: string, lang: 'en' | 'he' = 'en')
     hour12: false,
   });
 
+  // V4 Sprint 24 — compact day/hour/minute unit labels. Hebrew has no
+  // single-letter time-unit convention the way English does ("d"/"h"/"m"),
+  // so these use the apostrophe-abbreviation shape ("ימ'"/"שע'"/"דק'")
+  // already common in Hebrew UI copy, kept just as compact as the English
+  // originals since this renders inside a small badge.
+  const dUnit = lang === 'he' ? "ימ'" : 'd';
+  const hUnit = lang === 'he' ? "שע'" : 'h';
+  const mUnit = lang === 'he' ? "דק'" : 'm';
+
   let relative = '';
   let countdown: string | null = null;
 
@@ -48,13 +57,13 @@ export function formatKickoffTime(kickoffTime: string, lang: 'en' | 'he' = 'en')
     relative = 'Tomorrow';
   } else if (diffHours >= 1) {
     relative = `In ${diffHours}h ${diffMins % 60}m`;
-    countdown = `${diffHours}h ${diffMins % 60}m`;
+    countdown = `${diffHours}${hUnit} ${diffMins % 60}${mUnit}`;
   } else if (diffMins > 0) {
     relative = `In ${diffMins}m`;
-    countdown = `${diffMins}m`;
+    countdown = `${diffMins}${mUnit}`;
   } else {
     relative = 'Starting now';
-    countdown = 'Now';
+    countdown = lang === 'he' ? 'עכשיו' : 'Now';
   }
 
   // Lock countdown = time until 15 min before kickoff
@@ -67,11 +76,11 @@ export function formatKickoffTime(kickoffTime: string, lang: 'en' | 'he' = 'en')
     const lockDays = Math.floor(lockHours / 24);
     const remainHours = lockHours % 24;
     if (lockDays >= 1) {
-      lockCountdown = remainHours > 0 ? `${lockDays}d ${remainHours}h` : `${lockDays}d`;
+      lockCountdown = remainHours > 0 ? `${lockDays}${dUnit} ${remainHours}${hUnit}` : `${lockDays}${dUnit}`;
     } else if (lockHours >= 1) {
-      lockCountdown = `${lockHours}h ${lockMins % 60}m`;
+      lockCountdown = `${lockHours}${hUnit} ${lockMins % 60}${mUnit}`;
     } else {
-      lockCountdown = `${lockMins}m`;
+      lockCountdown = `${lockMins}${mUnit}`;
     }
   }
 

@@ -1250,7 +1250,7 @@ function GroupFixtureCard({ match, dayDateFmt, delay, t }: {
         <TeamLine team={match.home} />
         <div className="flex items-center gap-2 my-2 md:my-1.5">
           <span className="flex-1 h-px bg-[#FFC94A]/15" />
-          <span className="text-[9px] font-bold uppercase tracking-[0.22em] wc-gold-muted">vs</span>
+          <span className="text-[9px] font-bold uppercase tracking-[0.22em] wc-gold-muted">{t('vsLabel')}</span>
           <span className="flex-1 h-px bg-[#FFC94A]/15" />
         </div>
         <TeamLine team={match.away} />
@@ -1625,7 +1625,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="cool"
             style={{ gridColumn: 1, gridRow: `${i * 2 + 1} / span 2` }}
           >
-            <BracketTreeCard match={m} round="r32" />
+            <BracketTreeCard match={m} round="r32" t={t} />
           </div>
         ))}
         {r16Left.map((m, i) => (
@@ -1638,7 +1638,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="cool"
             style={{ gridColumn: 2, gridRow: `${i * 4 + 1} / span 4` }}
           >
-            <BracketTreeCard match={m} round="r16" />
+            <BracketTreeCard match={m} round="r16" t={t} />
           </div>
         ))}
         {qfLeft.map((m, i) => (
@@ -1651,7 +1651,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="warm"
             style={{ gridColumn: 3, gridRow: `${i * 8 + 1} / span 8` }}
           >
-            <BracketTreeCard match={m} round="qf" />
+            <BracketTreeCard match={m} round="qf" t={t} />
           </div>
         ))}
         <div
@@ -1662,7 +1662,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
           data-tone="warmer"
           style={{ gridColumn: 4, gridRow: '1 / span 16' }}
         >
-          <BracketTreeCard match={sfLeft} round="sf" />
+          <BracketTreeCard match={sfLeft} round="sf" t={t} />
         </div>
 
         {/* ─────────── CENTER — FINAL ─────────── */}
@@ -1683,7 +1683,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
           data-tone="warmer"
           style={{ gridColumn: 6, gridRow: '1 / span 16' }}
         >
-          <BracketTreeCard match={sfRight} round="sf" />
+          <BracketTreeCard match={sfRight} round="sf" t={t} />
         </div>
         {qfRight.map((m, i) => (
           <div
@@ -1695,7 +1695,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="warm"
             style={{ gridColumn: 7, gridRow: `${i * 8 + 1} / span 8` }}
           >
-            <BracketTreeCard match={m} round="qf" />
+            <BracketTreeCard match={m} round="qf" t={t} />
           </div>
         ))}
         {r16Right.map((m, i) => (
@@ -1708,7 +1708,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="cool"
             style={{ gridColumn: 8, gridRow: `${i * 4 + 1} / span 4` }}
           >
-            <BracketTreeCard match={m} round="r16" />
+            <BracketTreeCard match={m} round="r16" t={t} />
           </div>
         ))}
         {r32Right.map((m, i) => (
@@ -1720,7 +1720,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
             data-tone="cool"
             style={{ gridColumn: 9, gridRow: `${i * 2 + 1} / span 2` }}
           >
-            <BracketTreeCard match={m} round="r32" />
+            <BracketTreeCard match={m} round="r32" t={t} />
           </div>
         ))}
           </div>
@@ -1739,7 +1739,7 @@ function BracketTreeSymmetric({ t, shortDateFmt }: { t: T; shortDateFmt: Intl.Da
           </span>
         </div>
         <div className="mx-auto max-w-md">
-          <BracketTreeCard match={WC2026_THIRD} round="third" />
+          <BracketTreeCard match={WC2026_THIRD} round="third" t={t} />
         </div>
       </div>
     </div>
@@ -1864,9 +1864,10 @@ const ROUND_TONES: Record<BracketRound, {
 };
 
 /* ────── COMPACT tree card (desktop bracket grid) ────── */
-function BracketTreeCard({ match, round }: {
+function BracketTreeCard({ match, round, t }: {
   match: WCKnockoutMatch;
   round: BracketRound;
+  t: T;
 }) {
   if (round === 'final') return null;
   const tone = ROUND_TONES[round];
@@ -1975,7 +1976,7 @@ function BracketMatchCard({ match, round, shortDateFmt, delay = 0, t }: {
         <BracketSlot label={match.home} tone={tone} />
         <div className="flex items-center gap-2 my-1.5">
           <span className="flex-1 h-px bg-white/5" />
-          <span className={cn('text-[8px] font-extrabold uppercase tracking-[0.2em]', tone.accentText, 'opacity-60')}>vs</span>
+          <span className={cn('text-[8px] font-extrabold uppercase tracking-[0.2em]', tone.accentText, 'opacity-60')}>{t?.('vsLabel') ?? 'vs'}</span>
           <span className="flex-1 h-px bg-white/5" />
         </div>
         <BracketSlot label={match.away} tone={tone} />
@@ -2146,7 +2147,7 @@ function FinalApex({ t, match, shortDateFmt }: {
         <BracketSlot label={match.home} tone={toneFinal} />
         <div className="flex items-center gap-1.5">
           <span className="flex-1 h-px bg-[#FFC94A]/30" />
-          <span className="text-[8.5px] font-extrabold uppercase tracking-[0.2em] text-[#FFC94A]/85">vs</span>
+          <span className="text-[8.5px] font-extrabold uppercase tracking-[0.2em] text-[#FFC94A]/85">{t('vsLabel')}</span>
           <span className="flex-1 h-px bg-[#FFC94A]/30" />
         </div>
         <BracketSlot label={match.away} tone={toneFinal} />

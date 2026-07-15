@@ -58,7 +58,7 @@ export function PredictionCardDesktop({
                 {lang === 'he' ? `${tTeam(match.home_team)} נגד ${tTeam(match.away_team)}` : `${match.home_team} vs ${match.away_team}`}
               </h2>
               <span className="truncate text-[10px] text-text-muted opacity-60">
-                {tLeagueName(match.league_id, match.league_name, lang)}{match.round ? ` · R${match.round}` : ''}
+                {tLeagueName(match.league_id, match.league_name, lang)}{match.round ? ` · ${lang === 'he' ? `מח' ${match.round}` : `R${match.round}`}` : ''}
               </span>
             </div>
             <button

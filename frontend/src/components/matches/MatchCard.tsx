@@ -427,7 +427,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
         <div className="flex items-center justify-between mb-3">
           <span className="text-text-muted text-xs truncate me-2">
             {tLeagueName(match.league_id, match.league_name, lang)}
-            {match.round && ` · R${match.round}`}
+            {match.round && ` · ${lang === 'he' ? `מח' ${match.round}` : `R${match.round}`}`}
           </span>
           <div className="flex items-center gap-2 shrink-0">
             {hasPrediction && isFinished && prediction?.is_resolved && (
