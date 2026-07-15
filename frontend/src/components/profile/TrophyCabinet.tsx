@@ -149,32 +149,47 @@ export function TrophyCabinet({ stats }: { stats: TrophyCabinetStats }) {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {badges.map(badge => (
-          <GlassCard
-            key={badge.key}
-            tactile
-            className="p-3 flex flex-col items-center text-center gap-1"
-          >
-            <div
-              className="w-10 h-10 flex items-center justify-center"
-              style={{
-                color: badge.earned ? badge.accent : 'var(--color-text-muted)',
-                filter: badge.earned ? `drop-shadow(0 0 6px ${badge.accent})` : 'none',
-                opacity: badge.earned ? 1 : 0.35,
-              }}
-            >
-              <badge.Icon className="w-full h-full" />
-            </div>
-            <span className={`font-display text-xs font-semibold truncate max-w-full ${badge.earned ? 'text-white' : 'text-text-muted'}`}>
-              {t(badge.nameKey)}
-            </span>
-            <span className="text-[9px] leading-tight text-text-muted opacity-70 line-clamp-2">
-              {t(badge.descKey)}
-            </span>
-            {!badge.earned && (
-              <span className="mt-0.5 inline-flex items-center gap-0.5 text-[8px] text-text-muted/60 uppercase tracking-wide">
-                <Lock size={8} /> {t('trophyLocked')}
+          <GlassCard key={badge.key} tactile className="p-3">
+            {/* GlassCard's `tactile`-only render branch wraps {children} in
+                its own `<div className="relative z-10">` — layout classes
+                passed via GlassCard's `className` land on the outer Tag,
+                not as a direct flex parent of these children, so an extra
+                level of block flow sits between them. That gap doesn't
+                matter for most call sites (a single block child just fills
+                the wrapper), but it broke centering here: the icon div (a
+                plain block box with a fixed width) has no flex/auto-margin
+                centering of its own, so it defaulted to the block-start
+                edge (right in RTL) instead of the middle — reported live,
+                visibly off-center in a screenshot. `text-center` alone
+                doesn't fix a block-level box's own position, only inline
+                text within it, which is why the name/description looked
+                fine while the icon didn't. Wrapping the actual content in
+                its own flex container here — a direct child of whatever
+                GlassCard renders, regardless of extra wrapper divs —
+                fixes it unconditionally. */}
+            <div className="flex flex-col items-center text-center gap-1">
+              <div
+                className="w-10 h-10 flex items-center justify-center"
+                style={{
+                  color: badge.earned ? badge.accent : 'var(--color-text-muted)',
+                  filter: badge.earned ? `drop-shadow(0 0 6px ${badge.accent})` : 'none',
+                  opacity: badge.earned ? 1 : 0.35,
+                }}
+              >
+                <badge.Icon className="w-full h-full" />
+              </div>
+              <span className={`font-display text-xs font-semibold truncate max-w-full ${badge.earned ? 'text-white' : 'text-text-muted'}`}>
+                {t(badge.nameKey)}
               </span>
-            )}
+              <span className="text-[9px] leading-tight text-text-muted opacity-70 line-clamp-2">
+                {t(badge.descKey)}
+              </span>
+              {!badge.earned && (
+                <span className="mt-0.5 inline-flex items-center gap-0.5 text-[8px] text-text-muted/60 uppercase tracking-wide">
+                  <Lock size={8} /> {t('trophyLocked')}
+                </span>
+              )}
+            </div>
           </GlassCard>
         ))}
       </div>

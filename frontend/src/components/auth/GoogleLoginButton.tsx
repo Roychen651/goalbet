@@ -71,7 +71,8 @@ function SetupModal({ onClose }: { onClose: () => void }) {
     >
       <GlassCard
         variant="elevated"
-        className="w-full max-w-sm p-6 space-y-4 animate-slide-up"
+        className="w-full max-w-sm p-6 animate-slide-up"
+        contentClassName="space-y-4"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

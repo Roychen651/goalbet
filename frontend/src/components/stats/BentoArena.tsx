@@ -131,7 +131,8 @@ export function BentoArena() {
           interactive
           tactile
           allowGyroscope={gyroscopeEnabled}
-          className="h-full p-5 flex flex-col justify-between relative overflow-hidden"
+          className="h-full p-5 relative overflow-hidden"
+          contentClassName="h-full flex flex-col justify-between"
         >
           {!reduceMotion && (
             <motion.div
@@ -141,11 +142,11 @@ export function BentoArena() {
               transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
             />
           )}
-          <div className="relative z-10">
+          <div>
             <CardHeader icon={TrendingUp} title={t('arenaHeroTitle')} />
             <p className="text-text-muted text-xs mt-1.5 ms-8">{t('arenaHeroSubtitle')}</p>
           </div>
-          <div className="relative z-10">
+          <div>
             {isLoading || !heroCell ? (
               <CardSkeleton />
             ) : (
@@ -166,7 +167,7 @@ export function BentoArena() {
         whileHover={reduceMotion ? undefined : cardHover}
         className="sm:col-span-2 sm:row-span-2"
       >
-        <GlassCard variant="elevated" grain interactive tactile className="h-full p-5 flex flex-col gap-3">
+        <GlassCard variant="elevated" grain interactive tactile className="h-full p-5" contentClassName="h-full flex flex-col gap-3">
           <CardHeader icon={Grid3x3} title={t('arenaHeatmapTitle')} />
           {isLoading ? <CardSkeleton /> : <PredictionHeatmap cells={data?.heatmap ?? []} />}
         </GlassCard>
@@ -178,7 +179,7 @@ export function BentoArena() {
         whileHover={reduceMotion ? undefined : cardHover}
         className="sm:col-span-2"
       >
-        <GlassCard variant="elevated" grain interactive tactile className="h-full p-5 flex flex-col gap-3">
+        <GlassCard variant="elevated" grain interactive tactile className="h-full p-5" contentClassName="h-full flex flex-col gap-3">
           <CardHeader icon={Gauge} title={t('arenaDistributionTitle')} />
           {isLoading || !distribution ? (
             <CardSkeleton />
@@ -203,7 +204,7 @@ export function BentoArena() {
       {/* Streak tile — the one tile whose value literally increments on a
           win, so it's the anchor for the Sprint 18 celebration burst. */}
       <motion.div ref={streakCardRef} variants={reduceMotion ? undefined : cardVariants} whileHover={reduceMotion ? undefined : cardHover}>
-        <GlassCard variant="elevated" grain interactive tactile className="h-full p-4 flex flex-col justify-between">
+        <GlassCard variant="elevated" grain interactive tactile className="h-full p-4" contentClassName="h-full flex flex-col justify-between">
           <CardHeader icon={Flame} title={t('arenaStreakTile')} />
           {isLoading || !distribution ? (
             <CardSkeleton />
@@ -219,7 +220,7 @@ export function BentoArena() {
 
       {/* Risk score tile */}
       <motion.div variants={reduceMotion ? undefined : cardVariants} whileHover={reduceMotion ? undefined : cardHover}>
-        <GlassCard variant="elevated" grain interactive tactile className="h-full p-4 flex flex-col justify-between">
+        <GlassCard variant="elevated" grain interactive tactile className="h-full p-4" contentClassName="h-full flex flex-col justify-between">
           <CardHeader icon={Gauge} title={t('arenaRiskTile')} />
           {isLoading || !distribution ? (
             <CardSkeleton />
@@ -233,7 +234,7 @@ export function BentoArena() {
 
       {/* H2H — interactive opponent picker, zero new network calls per switch */}
       <motion.div variants={reduceMotion ? undefined : cardVariants} whileHover={reduceMotion ? undefined : cardHover} className="sm:col-span-4">
-        <GlassCard variant="elevated" grain interactive tactile className="h-full p-5 flex flex-col gap-2">
+        <GlassCard variant="elevated" grain interactive tactile className="h-full p-5" contentClassName="h-full flex flex-col gap-2">
           <CardHeader icon={Users} title={t('arenaH2HTitle')} />
           {isLoading ? <CardSkeleton /> : <H2HMatrix matrix={data?.h2h_matrix ?? []} />}
         </GlassCard>
