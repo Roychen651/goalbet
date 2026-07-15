@@ -35,6 +35,7 @@ export const translations = {
     settings: 'Settings',
     leaderboard: 'Leaderboard',
     myProfile: 'My Profile',
+    helpGuideAria: 'Help',
 
     // Home
     matchDay: 'Match Day',
@@ -759,6 +760,7 @@ export const translations = {
     settings: 'הגדרות',
     leaderboard: 'דירוג',
     myProfile: 'הפרופיל שלי',
+    helpGuideAria: 'עזרה',
 
     // Home
     matchDay: 'יום משחק',

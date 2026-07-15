@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Swords, Trophy, BarChart3, MessageCircle, User, Settings } from 'lucide-react';
+import { Swords, Trophy, BarChart3, MessageCircle, User, Settings, HelpCircle } from 'lucide-react';
 import { ROUTES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { useGroupStore } from '../../stores/groupStore';
@@ -115,6 +115,26 @@ export function Sidebar() {
           markRead={markRead}
           dismiss={dismiss}
         />
+      </div>
+
+      {/* Help — Sprint 25. Sidebar had zero help affordance anywhere before
+          this; TopBar's mobile equivalent already existed. Circular on
+          purpose (the one round affordance in an otherwise rounded-xl
+          sidebar) so it reads as a distinct "meta" action, not a nav item.
+          whileTap mirrors Sprint 18's established elastic-overshoot tap
+          spring for singular, non-repeated buttons — not a new spring
+          tuned from scratch. */}
+      <div className="mx-2 mb-2 flex justify-center">
+        <motion.button
+          onClick={() => openModal('helpGuide')}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.94, rotate: -2 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-white/6 border border-white/10 backdrop-blur-glass text-text-muted hover:bg-white/10 hover:text-white transition-colors"
+          aria-label={t('helpGuideAria')}
+        >
+          <HelpCircle size={16} />
+        </motion.button>
       </div>
 
       {/* Coin balance */}

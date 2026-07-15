@@ -157,13 +157,19 @@ export function TopBar() {
 
           {/* ── Utility cluster: Help · Lang · Theme ── */}
           <div className="flex items-stretch h-9 rounded-xl bg-white/6 border border-white/10 overflow-hidden shrink-0">
-            <button
+            {/* Sprint 25 — whileTap only, no whileHover: this row is inside a
+                sm:hidden (touch-primary) header, so a hover state that can
+                never fire on the device it ships to is dead code, not
+                coverage. */}
+            <motion.button
               onClick={() => openModal('helpGuide')}
+              whileTap={{ scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 15 }}
               className="flex items-center justify-center w-9 hover:bg-white/8 active:bg-white/15 transition-colors border-e border-white/10"
-              aria-label="Help"
+              aria-label={t('helpGuideAria')}
             >
               <HelpCircle size={14} className="text-text-muted" />
-            </button>
+            </motion.button>
             {/* Flag emoji (previous impl) and font-rendered emoji both have
                 inconsistent glyph metrics across platforms — flexbox centers
                 the line box, not the glyph's own ink, so different emoji
