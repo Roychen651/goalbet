@@ -542,8 +542,8 @@ function MatchCardCore({ match, prediction, predictors = [] }: MatchCardProps) {
                   <div className="flex items-center gap-1.5">
                     <span
                       className={cn(
-                        'text-xs font-mono font-bold tabular-nums animate-pulse',
-                        ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status) ? 'text-amber-400' : 'text-accent-green'
+                        'text-xs font-mono font-bold tabular-nums',
+                        ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status) ? 'live-clock-pulse-amber' : 'live-clock-pulse-green'
                       )}
                     >
                       {liveClock}
