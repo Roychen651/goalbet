@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { LeaderboardEntryWithProfile, supabase } from '../../lib/supabase';
 import { Avatar } from '../ui/Avatar';
@@ -42,6 +42,7 @@ const PODIUM_STYLES: Record<number, { ring: string; shadow: string; avatarSize: 
 
 export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick, recentPredictions, rankDelta, expanded, onToggleExpand }: LeaderboardRowProps) {
   const { t } = useLangStore();
+  const reduceMotion = useReducedMotion();
   // Points / picks / accuracy: on period tabs read EVERY number from periodStat so the
   // row, KPI card, and Insights always agree. Fall back to the entry row only on the
   // 'total' tab. Never read entry.weekly_points / entry.last_week_points here — those
@@ -128,12 +129,30 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
         })()}
       </div>
 
-      <Avatar
-        src={entry.avatar_url}
-        name={entry.username}
-        size={podium ? podium.avatarSize : 'md'}
-        className={cn(podium?.ring, podium?.shadow)}
-      />
+      {/* Prestige gold halo — #1 only. Exactly one instance ever renders per
+          leaderboard (unlike a match feed where a "live clock" style effect
+          could repeat dozens of times), so a Framer Motion loop is the right
+          tool here, not a CSS keyframe — the "many simultaneous instances"
+          cost concern that drives CSS-only choices elsewhere doesn't apply
+          to a single #1 row. Reuses --risk-gold (Sprint 20) rather than a
+          third gold token. */}
+      <div className="relative isolate shrink-0">
+        {entry.rank === 1 && (
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute -z-10 -inset-3 rounded-full blur-lg"
+            style={{ background: 'radial-gradient(circle, var(--risk-gold) 0%, transparent 70%)' }}
+            animate={reduceMotion ? { opacity: 0.55 } : { opacity: [0.4, 0.75, 0.4], scale: [1, 1.1, 1] }}
+            transition={reduceMotion ? undefined : { duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        )}
+        <Avatar
+          src={entry.avatar_url}
+          name={entry.username}
+          size={podium ? podium.avatarSize : 'md'}
+          className={cn(podium?.ring, podium?.shadow)}
+        />
+      </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
