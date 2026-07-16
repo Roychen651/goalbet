@@ -138,6 +138,20 @@ function buildDisplayClock(statusName: string, state: string, displayClock: stri
   return null;
 }
 
+// V4 Sprint 29 — extracted to module scope (was a local closure redefined on
+// every loop iteration inside fetchLeagueMatches) the moment a second real
+// consumer (fetchMatchTeamStatsFromSummary, below) needed the identical
+// extraction logic. Same "extract on the second real consumer" precedent
+// already established repeatedly on the frontend side of this engagement,
+// applied here on the backend for the first time.
+function getStat(competitor: Record<string, unknown>, name: string): number | null {
+  const stats = (competitor.statistics as Record<string, unknown>[] | undefined) ?? [];
+  const s = stats.find(st => st.name === name);
+  if (!s) return null;
+  const v = parseInt(String(s.displayValue ?? s.value ?? ''), 10);
+  return isNaN(v) ? null : v;
+}
+
 /**
  * Fetch full per-period linescores from the ESPN event summary endpoint.
  * Returns halftime, regulation (90-min), ET info and penalty detection.
@@ -418,6 +432,67 @@ export async function fetchMatchKeyEvents(
   }
 }
 
+export interface MatchTeamStatsSummary {
+  home_stats_raw: Record<string, unknown>[] | null;
+  away_stats_raw: Record<string, unknown>[] | null;
+  home_corners: number | null;
+  away_corners: number | null;
+  home_red_cards: number | null;
+  away_red_cards: number | null;
+  home_yellow_cards: number | null;
+  away_yellow_cards: number | null;
+}
+
+/**
+ * V4 Sprint 29 — retroactive backfill support. Re-fetches a single
+ * historical match's team stats from the ESPN summary endpoint (the same
+ * endpoint fetchMatchKeyEvents already uses, same competitor-lookup shape:
+ * data.header.competitions[0].competitors[]).
+ *
+ * WHETHER the summary endpoint's competitor objects expose `.statistics[]`
+ * in the same shape the live scoreboard endpoint does is UNVERIFIED — this
+ * sandbox cannot reach ESPN to confirm (same constraint as every other
+ * best-effort ESPN field added in this engagement). If it doesn't, every
+ * field below comes back null and the caller (the backfill script) records
+ * that match as `unavailable` rather than fabricating a value — never
+ * throws, matching this codebase's standing "never throw from an ESPN
+ * integration" discipline.
+ */
+export async function fetchMatchTeamStatsFromSummary(
+  externalId: string,
+  leagueId: number,
+): Promise<MatchTeamStatsSummary | null> {
+  const slug = LEAGUE_ESPN_MAP[leagueId];
+  if (!slug) return null;
+  const eventId = externalId.replace(/^espn_/, '');
+  if (!eventId || !/^\d+$/.test(eventId)) return null;
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
+  try {
+    const { data } = await axios.get(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+
+    const comp = data?.header?.competitions?.[0];
+    const competitors = (comp?.competitors as Record<string, unknown>[] | undefined) ?? [];
+    const home = competitors.find(c => (c as Record<string, unknown>).homeAway === 'home') as Record<string, unknown> | undefined;
+    const away = competitors.find(c => (c as Record<string, unknown>).homeAway === 'away') as Record<string, unknown> | undefined;
+    if (!home || !away) return null;
+
+    return {
+      home_stats_raw: (home.statistics as Record<string, unknown>[] | undefined) ?? null,
+      away_stats_raw: (away.statistics as Record<string, unknown>[] | undefined) ?? null,
+      home_corners: getStat(home, 'wonCorners'),
+      away_corners: getStat(away, 'wonCorners'),
+      home_red_cards: getStat(home, 'redCards'),
+      away_red_cards: getStat(away, 'redCards'),
+      home_yellow_cards: getStat(home, 'yellowCards'),
+      away_yellow_cards: getStat(away, 'yellowCards'),
+    };
+  } catch (err) {
+    logger.debug(`[ESPN] Team stats backfill fetch failed for ${externalId}: ${err}`);
+    return null;
+  }
+}
+
 export async function fetchLeagueMatches(
   leagueId: number,
   daysBack = 7,
@@ -600,13 +675,6 @@ export async function fetchLeagueMatches(
         }
 
         // Extract corners from ESPN statistics (only available for finished/in-progress matches)
-        const getStat = (competitor: Record<string, unknown>, name: string): number | null => {
-          const stats = (competitor.statistics as Record<string, unknown>[] | undefined) ?? [];
-          const s = stats.find(st => st.name === name);
-          if (!s) return null;
-          const v = parseInt(String(s.displayValue ?? s.value ?? ''), 10);
-          return isNaN(v) ? null : v;
-        };
         const homeCorners = getStat(home, 'wonCorners');
         const awayCorners = getStat(away, 'wonCorners');
         const cornersTotal = homeCorners !== null && awayCorners !== null
