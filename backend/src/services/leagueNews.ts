@@ -15,8 +15,8 @@
  * caching mandate for every statistics-adjacent query.
  */
 
-import axios from 'axios';
 import { logger } from '../lib/logger';
+import { espnGet } from '../lib/espnHttp';
 import { LEAGUE_ESPN_MAP } from './espn';
 
 export interface NewsArticle {
@@ -74,7 +74,7 @@ export async function getLeagueNews(leagueId: number): Promise<LeagueNewsRespons
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/news`;
 
   try {
-    const { data } = await axios.get(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+    const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
     const rawArticles = (data?.articles as Record<string, unknown>[] | undefined) ?? [];
 
     const articles = rawArticles

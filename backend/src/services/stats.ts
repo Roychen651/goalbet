@@ -8,8 +8,8 @@
  * so the Stats page stays fast and we never hammer ESPN.
  */
 
-import axios from 'axios';
 import { logger } from '../lib/logger';
+import { espnGet } from '../lib/espnHttp';
 import { LEAGUE_ESPN_MAP } from './espn';
 
 export interface StandingsRow {
@@ -91,7 +91,7 @@ function pickLogo(logos: Record<string, unknown>[] | undefined): string | null {
 
 async function fetchStandings(slug: string): Promise<StandingsRow[]> {
   const url = `https://site.web.api.espn.com/apis/v2/sports/soccer/${slug}/standings`;
-  const { data } = await axios.get(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+  const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
 
   // Primary league table usually sits at children[0].standings.entries
   const children = (data?.children as Record<string, unknown>[] | undefined) ?? [];
@@ -168,7 +168,7 @@ function mapLeaderList(list: Record<string, unknown>[] | undefined): LeaderRow[]
 async function fetchLeaders(slug: string, season: number): Promise<LeagueLeaders | null> {
   const url = `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${slug}/statistics?season=${season}`;
   try {
-    const { data } = await axios.get(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+    const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
     const stats = (data?.stats as Record<string, unknown>[] | undefined) ?? [];
     if (stats.length === 0) return null;
 
@@ -306,7 +306,7 @@ export async function getTeamForm(leagueId: number, teamId: string): Promise<Tea
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=200&dates=${dateRange}`;
 
   try {
-    const { data } = await axios.get(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+    const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
     const events = (data?.events as Record<string, unknown>[] | undefined) ?? [];
 
     const teamMatches: TeamFormMatch[] = [];
