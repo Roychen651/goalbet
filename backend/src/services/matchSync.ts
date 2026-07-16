@@ -10,6 +10,12 @@ export interface SyncResult {
   inserted: number;
   updated: number;
   errors: number;
+  // V4 Sprint 31 — additive: the actual failure message, not just the
+  // errors:0|1 count, so scheduler.ts's sync_run_log telemetry wrapper (and
+  // the admin dashboard reading it) can show WHY a league's sync failed, not
+  // just that it did. Populated in the same catch block that already set
+  // errors++ — no control-flow change.
+  errorMessage?: string;
 }
 
 async function upsertMatches(matches: DBMatchWithClock[]): Promise<{ inserted: number; updated: number; idsByExternalId: Map<string, string> }> {
@@ -96,6 +102,7 @@ export async function syncLeague(leagueId: number): Promise<SyncResult> {
   logger.info(`[matchSync] Syncing league ${leagueId}`);
   let inserted = 0;
   let errors = 0;
+  let errorMessage: string | undefined;
 
   try {
     // World Cup 4480: use a wide back-window so the whole tournament (group stage
@@ -124,9 +131,10 @@ export async function syncLeague(leagueId: number): Promise<SyncResult> {
   } catch (error) {
     logger.error(`[matchSync] Failed to sync league ${leagueId}:`, error);
     errors++;
+    errorMessage = error instanceof Error ? error.message : String(error);
   }
 
-  return { leagueId, inserted, updated: 0, errors };
+  return { leagueId, inserted, updated: 0, errors, errorMessage };
 }
 
 // Get all distinct league IDs that are active in any group
