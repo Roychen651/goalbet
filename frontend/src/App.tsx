@@ -9,11 +9,9 @@ import { supabase } from './lib/supabase';
 import { useAuthStore } from './stores/authStore';
 import { useGroupStore } from './stores/groupStore';
 import { useCoinsStore } from './stores/coinsStore';
-import { useUIStore } from './stores/uiStore';
-import { haptic } from './lib/haptics';
-import { unlockAudio, playSound } from './lib/sensoryAudio';
-import { useLangStore } from './stores/langStore';
+import { unlockAudio } from './lib/sensoryAudio';
 import { AppShell } from './components/layout/AppShell';
+import { RealtimeProvider } from './components/providers/RealtimeProvider';
 import { LoginPage } from './pages/LoginPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { HomePage } from './pages/HomePage';
@@ -108,14 +106,6 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   const { user, init } = useAuthStore();
   const { fetchGroups, activeGroupId } = useGroupStore();
   const initCoins = useCoinsStore(s => s.initCoins);
-  // Sprint 17 — coin-deposit sensory coalescing state. A coalescing window,
-  // not a naive trailing debounce: sound/haptic fire on the leading edge (the
-  // first deposit in a burst feels instant), the toast waits for the
-  // trailing edge so it reports one true combined total instead of several
-  // "+X coins" toasts stacking on top of each other when e.g. one match-sync
-  // tick resolves three predictions in the same few hundred ms.
-  const pendingCoinDeltaRef = useRef(0);
-  const coinCoalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Lenis smooth scrolling — exponential easing for premium liquid feel
   useEffect(() => {
@@ -162,9 +152,9 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
 
   // Init coins whenever user or active group changes. The daily bonus is no
   // longer claimed here — it's deposited proactively by the pg_cron
-  // distribute_daily_allowance() sweep (V4 Sprint 12); the Realtime channel
-  // below is what picks up a midnight deposit live, so there's no
-  // midnight-crossing recheck to do on this end anymore.
+  // distribute_daily_allowance() sweep (V4 Sprint 12); RealtimeProvider's
+  // Group Channel (V5 Sprint 35) is what picks up a midnight deposit live,
+  // so there's no midnight-crossing recheck to do on this end anymore.
   useEffect(() => {
     if (!user || !activeGroupId) return;
     initCoins(user.id, activeGroupId);
@@ -174,53 +164,6 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
     supabase.rpc('touch_last_active').then(({ error }) => {
       if (error) console.warn('[AppInitializer] touch_last_active failed:', error.message);
     });
-
-    // Realtime: a cron-deposited balance change lands here live, without a
-    // hard refresh. Filtered by group_id (single-column filter, mirroring
-    // useGroupEvents.ts's convention) — the user_id check happens client-side
-    // since Realtime doesn't support compound filters on one subscription.
-    // Per rule 4.4, the group_members UPDATE handler always re-fetches rather
-    // than trusting the (possibly partial) payload directly.
-    const channel = supabase
-      .channel(`coins_${user.id}_${activeGroupId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'group_members', filter: `group_id=eq.${activeGroupId}` },
-        (payload) => {
-          if ((payload.new as { user_id?: string }).user_id !== user.id) return;
-          useCoinsStore.getState().fetchCoins(user.id, activeGroupId);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'coin_transactions', filter: `group_id=eq.${activeGroupId}` },
-        (payload) => {
-          const row = payload.new as { user_id?: string; type?: string; amount?: number };
-          if (row.user_id !== user.id || !row.amount || row.amount <= 0) return;
-
-          pendingCoinDeltaRef.current += row.amount;
-          if (coinCoalesceTimerRef.current) return; // a window is already open — just accumulate
-
-          // Leading edge — fires immediately so the first deposit in a burst
-          // feels instant, not delayed behind a debounce waiting to see if
-          // more arrive.
-          haptic('coin_drop');
-          playSound('coin_chime');
-
-          coinCoalesceTimerRef.current = setTimeout(() => {
-            const total = pendingCoinDeltaRef.current;
-            pendingCoinDeltaRef.current = 0;
-            coinCoalesceTimerRef.current = null;
-            if (total > 0) {
-              const { t } = useLangStore.getState();
-              useUIStore.getState().addToast(t('coinsDepositToast').replace('{0}', String(total)), 'success');
-            }
-          }, 500);
-        },
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, [user?.id, activeGroupId]);
 
   return <>{children}</>;
@@ -231,6 +174,12 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AppInitializer>
+        {/* V5 Sprint 35 — mounted once, inside AppInitializer (so `user`
+            has already started resolving) and above every route that
+            calls useRealtimeSubscription(). Owns the Group Channel;
+            individual pages/hooks never touch supabase.channel() directly
+            for group-scoped tables anymore. */}
+        <RealtimeProvider>
           <Routes>
             {/* Public routes */}
             <Route path={ROUTES.LOGIN} element={<LoginPage />} />
@@ -270,6 +219,7 @@ export default function App() {
             {/* Fallback */}
             <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
           </Routes>
+        </RealtimeProvider>
         </AppInitializer>
       </BrowserRouter>
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}

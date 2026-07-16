@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase, LeaderboardEntryWithProfile, Match, Prediction } from '../lib/supabase';
 import { useGroupStore } from '../stores/groupStore';
 import { calcLiveBreakdown } from '../lib/utils';
+import { useRealtimeSubscription } from '../components/providers/RealtimeProvider';
 
 export type LeaderboardType = 'total' | 'weekly' | 'lastWeek';
 
@@ -192,7 +193,6 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
   const [entries, setEntries] = useState<LeaderboardEntryWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const { activeGroupId } = useGroupStore();
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchLeaderboard = useCallback(async () => {
     if (!activeGroupId) {
@@ -213,37 +213,31 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
     }
   }, [activeGroupId, type]);
 
-  const subscribeToLeaderboard = useCallback(() => {
-    if (!activeGroupId) return;
-    channelRef.current?.unsubscribe();
-    // Only subscribe to leaderboard row changes (real points awarded by backend).
-    // Do NOT subscribe to match updates — the backend polls every 30s and fires
-    // dozens of match UPDATEs which would cause constant re-fetches and re-renders.
-    channelRef.current = supabase
-      .channel(`leaderboard-${activeGroupId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'leaderboard',
-        filter: `group_id=eq.${activeGroupId}`,
-      }, () => { fetchLeaderboard(); })
-      .subscribe();
-  }, [activeGroupId, fetchLeaderboard]);
+  // V5 Sprint 35 — this table's Realtime binding now lives on
+  // RealtimeProvider's shared Group Channel, not a locally-owned channel.
+  // Only subscribe to leaderboard row changes (real points awarded by
+  // backend) — matches the pre-Sprint-35 `event: '*'` behavior exactly
+  // (payload content is ignored; any row change in the active group just
+  // re-fetches the whole list). Do NOT subscribe to match updates — the
+  // backend polls every 30s and fires dozens of match UPDATEs which would
+  // cause constant re-fetches and re-renders.
+  useRealtimeSubscription('leaderboard', () => { fetchLeaderboard(); });
 
   useEffect(() => {
     fetchLeaderboard();
-    subscribeToLeaderboard();
 
+    // Tab restore: the underlying Group Channel re-subscribes itself
+    // (RealtimeProvider), so this only needs to cover the data-staleness
+    // side — a silent re-fetch in case an update landed while backgrounded.
     const handleVisibilityChange = () => {
-      if (!document.hidden) { fetchLeaderboard(); subscribeToLeaderboard(); }
+      if (!document.hidden) fetchLeaderboard();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      channelRef.current?.unsubscribe();
     };
-  }, [fetchLeaderboard, subscribeToLeaderboard]);
+  }, [fetchLeaderboard]);
 
   return { entries, loading, refetch: fetchLeaderboard };
 }
