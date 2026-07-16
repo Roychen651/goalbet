@@ -542,12 +542,20 @@ export function resolveEffectiveTier(leagueId: number, leaguesWithLiveMatch: Set
   return base === 'live_tier1' ? 'tier1' : 'tier2';
 }
 
-export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Promise<{ checked: number; resolved: number }> {
+// V4 Sprint 31 — errors is a purely additive widening of this function's
+// return shape: a {scope, message}[] array accumulated at the same catch
+// sites that already existed (each already called logger.error() before
+// this sprint; this just also records the message for scheduler.ts's new
+// sync_run_log telemetry wrapper). No existing caller reads this field, so
+// nothing changes for anyone who ignores it — and the function's control
+// flow is otherwise completely untouched, per this sprint's own "don't
+// restructure a delicate, coin-resolution-critical function" discipline.
+export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Promise<{ checked: number; resolved: number; errors: { scope: string; message: string }[] }> {
   const pendingMatches = await getPendingMatches();
 
   if (pendingMatches.length === 0) {
     logger.debug('[scoreUpdater] No matches pending score update');
-    return { checked: 0, resolved: 0 };
+    return { checked: 0, resolved: 0, errors: [] };
   }
 
   logger.info(`[scoreUpdater] Checking ${pendingMatches.length} pending matches`);
@@ -599,6 +607,12 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
   const matchesInScope = [...byLeague.values()].reduce((sum, list) => sum + list.length, 0);
 
   let totalResolved = 0;
+  // V4 Sprint 31 — accumulated across the batched per-league loop below the
+  // same way totalResolved already is; concurrent Array#push from
+  // processBatched's callbacks within one batch is safe for the identical
+  // reason totalResolved += already is (synchronous, non-preemptible JS
+  // mutations even under async interleaving).
+  const errors: { scope: string; message: string }[] = [];
 
   // V4 Sprint 28 Commit 4 — bounded batching replaces the old unbounded
   // sequential loop here too, same primitive and same reasoning as
@@ -766,6 +780,7 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
       }
     } catch (err) {
       logger.error(`[scoreUpdater] Error checking league ${leagueId}:`, err);
+      errors.push({ scope: `league:${leagueId}`, message: err instanceof Error ? err.message : String(err) });
     }
   });
 
@@ -822,6 +837,7 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
 
         if (claimErr) {
           logger.error(`[scoreUpdater] Corners re-score claim failed for ${pred.id}: ${claimErr.message}`);
+          errors.push({ scope: `corners_claim:${pred.id}`, message: claimErr.message });
           continue;
         }
         if (!claimed || claimed.length === 0) {
@@ -861,7 +877,9 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
           p_created_at: cornersMatchEndAt,
         });
         if (coinError) {
-          logger.error(`[scoreUpdater] Corners re-score coin award failed for ${pred.id}: ${coinError.message ?? JSON.stringify(coinError)}`);
+          const msg = coinError.message ?? JSON.stringify(coinError);
+          logger.error(`[scoreUpdater] Corners re-score coin award failed for ${pred.id}: ${msg}`);
+          errors.push({ scope: `corners_coin_award:${pred.id}`, message: msg });
         } else {
           logger.info(`[scoreUpdater] Corners re-score awarded ${coinsToAward} coins to user ${pred.user_id}`);
         }
@@ -870,6 +888,7 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
     }
   } catch (err) {
     logger.error('[scoreUpdater] Corners re-score error:', err);
+    errors.push({ scope: 'corners_rescore_pass', message: err instanceof Error ? err.message : String(err) });
   }
 
   // ── Catch-up: resolve FT matches that still have unresolved predictions ──
@@ -912,11 +931,12 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
     }
   } catch (err) {
     logger.error('[scoreUpdater] Catch-up resolution error:', err);
+    errors.push({ scope: 'catchup_pass', message: err instanceof Error ? err.message : String(err) });
   }
 
   await flushRankDropNotifications(tracker);
 
-  return { checked: matchesInScope, resolved: totalResolved };
+  return { checked: matchesInScope, resolved: totalResolved, errors };
 }
 
 // ── Rank-drop notification flush (V4 Sprint 11) ──────────────────────────────

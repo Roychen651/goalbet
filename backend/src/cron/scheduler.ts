@@ -8,6 +8,21 @@ import { lockExpiredMicroQuestions, resolveLockedMicroQuestions } from '../servi
 import { refreshCornersSupportFlags } from '../services/leagueStatCapability';
 import { refreshEspnLeagueMap } from '../services/espn';
 import { logger } from '../lib/logger';
+import { withSyncTelemetry } from '../lib/syncTelemetry';
+import { SyncResult } from '../services/matchSync';
+
+// V4 Sprint 31 — shared by the daily/noon/startup sync steps: turns a
+// SyncResult[] (matchSync.ts's per-league return shape) into the counts
+// shape withSyncTelemetry() expects. Extracted once rather than duplicated
+// at the 3 call sites that all need the identical mapping.
+function syncResultsToCounts(results: SyncResult[]): { leaguesChecked: number; errors: { scope: string; message: string }[] } {
+  return {
+    leaguesChecked: results.length,
+    errors: results
+      .filter(r => r.errorMessage)
+      .map(r => ({ scope: `league:${r.leagueId}`, message: r.errorMessage as string })),
+  };
+}
 
 // V4 Sprint 28 — small closure-based re-entrancy guard, factored out of the
 // 3 module-level booleans (livePollerRunning/momentumLockRunning/
@@ -47,24 +62,52 @@ export function startScheduler(): void {
   // blocked or empty sync. checkAndUpdateScores() here is called with NO
   // tier filter deliberately — a "just woke up, catch up on everything"
   // pass must check every pending league, not just the fast tier.
-  setTimeout(async () => {
-    logger.info('[scheduler] Running startup catch-up sync & score check');
-    try {
-      await refreshEspnLeagueMap();
-    } catch (err) {
-      logger.error('[scheduler] Startup league registry refresh failed:', err);
-    }
-    try {
-      await syncAllActiveLeagues();
-    } catch (err) {
-      logger.error('[scheduler] Startup sync failed:', err);
-    }
-    try {
-      const result = await checkAndUpdateScores();
-      logger.info(`[scheduler] Startup score check: checked=${result.checked} resolved=${result.resolved}`);
-    } catch (err) {
-      logger.error('[scheduler] Startup score check failed:', err);
-    }
+  setTimeout(() => {
+    // V4 Sprint 31 — the 3 steps below still each keep their own try/catch
+    // (unchanged behavior: one step's failure never blocks the next), but
+    // now collect into a shared errors[] instead of only logging, so the
+    // withSyncTelemetry wrapper around the whole block can see everything
+    // that happened and write ONE honest sync_run_log row for this run —
+    // never rethrowing internally, so this stays functionally identical to
+    // the pre-Sprint-31 unguarded setTimeout callback.
+    void withSyncTelemetry<{ leaguesChecked: number; matchesResolved: number; errors: { scope: string; message: string }[] }>(
+      'startup_catchup',
+      null,
+      async () => {
+        logger.info('[scheduler] Running startup catch-up sync & score check');
+        const errors: { scope: string; message: string }[] = [];
+        let leaguesChecked = 0;
+        let matchesResolved = 0;
+
+        try {
+          await refreshEspnLeagueMap();
+        } catch (err) {
+          logger.error('[scheduler] Startup league registry refresh failed:', err);
+          errors.push({ scope: 'startup_registry_refresh', message: err instanceof Error ? err.message : String(err) });
+        }
+        try {
+          const syncResults = await syncAllActiveLeagues();
+          const counts = syncResultsToCounts(syncResults);
+          leaguesChecked = counts.leaguesChecked;
+          errors.push(...counts.errors);
+        } catch (err) {
+          logger.error('[scheduler] Startup sync failed:', err);
+          errors.push({ scope: 'startup_sync', message: err instanceof Error ? err.message : String(err) });
+        }
+        try {
+          const result = await checkAndUpdateScores();
+          matchesResolved = result.resolved;
+          logger.info(`[scheduler] Startup score check: checked=${result.checked} resolved=${result.resolved}`);
+          errors.push(...result.errors);
+        } catch (err) {
+          logger.error('[scheduler] Startup score check failed:', err);
+          errors.push({ scope: 'startup_score_check', message: err instanceof Error ? err.message : String(err) });
+        }
+
+        return { leaguesChecked, matchesResolved, errors };
+      },
+      (r) => r,
+    ).catch(err => logger.error('[scheduler] Startup telemetry wrapper threw unexpectedly:', err));
   }, 5_000);
 
   // League registry refresh — every 10 min. Cheap (one indexed, RLS-public
@@ -74,9 +117,11 @@ export function startScheduler(): void {
 
   // Daily match sync at 00:05 UTC — fetch upcoming and recent matches for all active leagues
   cron.schedule('5 0 * * *', async () => {
-    logger.info('[scheduler] Running daily match sync');
     try {
-      await syncAllActiveLeagues();
+      await withSyncTelemetry('daily_sync', null, async () => {
+        logger.info('[scheduler] Running daily match sync');
+        return syncAllActiveLeagues();
+      }, syncResultsToCounts);
     } catch (err) {
       logger.error('[scheduler] Daily sync failed:', err);
     }
@@ -95,7 +140,11 @@ export function startScheduler(): void {
   // cadence — zero regression versus pre-Sprint-28 behavior for any league
   // that's actually live right now.
   setInterval(guarded('Tier-1 live poll', async () => {
-    const result = await checkAndUpdateScores('tier1');
+    const result = await withSyncTelemetry('live_poll', 'tier1', () => checkAndUpdateScores('tier1'), (r) => ({
+      matchesChecked: r.checked,
+      matchesResolved: r.resolved,
+      errors: r.errors,
+    }));
     if (result.checked > 0) {
       logger.info(`[scheduler] Tier-1 poll: checked=${result.checked} resolved=${result.resolved}`);
     }
@@ -111,7 +160,11 @@ export function startScheduler(): void {
   // qualifier match still gets the full 30s Tier-1 cadence, not a ~12h wait
   // for the next daily sync.
   setInterval(guarded('Tier-2 poll', async () => {
-    const result = await checkAndUpdateScores('tier2');
+    const result = await withSyncTelemetry('live_poll', 'tier2', () => checkAndUpdateScores('tier2'), (r) => ({
+      matchesChecked: r.checked,
+      matchesResolved: r.resolved,
+      errors: r.errors,
+    }));
     if (result.checked > 0) {
       logger.info(`[scheduler] Tier-2 poll: checked=${result.checked} resolved=${result.resolved}`);
     }
@@ -140,9 +193,11 @@ export function startScheduler(): void {
 
   // Additional sync at noon UTC to catch mid-day schedule updates
   cron.schedule('0 12 * * *', async () => {
-    logger.info('[scheduler] Running midday match sync');
     try {
-      await syncAllActiveLeagues();
+      await withSyncTelemetry('daily_sync', null, async () => {
+        logger.info('[scheduler] Running midday match sync');
+        return syncAllActiveLeagues();
+      }, syncResultsToCounts);
     } catch (err) {
       logger.error('[scheduler] Midday sync failed:', err);
     }
