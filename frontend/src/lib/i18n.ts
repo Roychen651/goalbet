@@ -1213,7 +1213,7 @@ export const translations = {
     oracleTitle: 'האורקל',
     oracleSubtitle: '10 המשחקים האחרונים',
     oracleOver25Label: 'מעל 2.5',
-    oracleBttsLabel: 'שתיהן כובשות',
+    oracleBttsLabel: 'שתיהן מבקיעות',
     oracleNarrationTitle: 'קריאת האורקל',
     microPredictionRow: 'ניחוש-בזק',
     microPredictionWonRow: 'ניחוש-בזק זכה',
