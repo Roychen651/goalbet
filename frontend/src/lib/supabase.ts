@@ -159,6 +159,8 @@ export type Database = {
           coins_bet: number;
           is_resolved: boolean;
           created_at: string;
+          is_parlay: boolean;
+          parlay_linked_tiers: ('result' | 'score' | 'corners' | 'btts' | 'ou')[] | null;
         };
         Insert: Omit<Database['public']['Tables']['predictions']['Row'], 'id' | 'created_at' | 'points_earned' | 'streak_bonus_earned' | 'halftime_pts_earned' | 'is_resolved'>;
         Update: Partial<Database['public']['Tables']['predictions']['Insert']>;
