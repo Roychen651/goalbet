@@ -3,8 +3,8 @@
  * https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/scoreboard
  */
 
-import axios from 'axios';
 import { logger } from '../lib/logger';
+import { espnGet } from '../lib/espnHttp';
 import { DBMatch } from './sportsdb';
 import { FALLBACK_LEAGUE_MAP, refreshLeagueRegistry } from './leagueRegistry';
 
@@ -184,7 +184,7 @@ async function fetchMatchLinescoreDetails(
 
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
   try {
-    const { data } = await axios.get(url, { timeout: 8_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+    const data = await espnGet<any>(url, { timeout: 8_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
 
     const comp = data?.header?.competitions?.[0];
     const competitors = (comp?.competitors as Record<string, unknown>[] | undefined) ?? [];
@@ -273,7 +273,7 @@ export async function fetchMatchHalftimeScore(
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
 
   try {
-    const { data } = await axios.get(url, {
+    const data = await espnGet<any>(url, {
       timeout: 8_000,
       headers: { 'User-Agent': 'GoalBet/1.0' },
     });
@@ -331,7 +331,7 @@ export async function fetchMatchKeyEvents(
 
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
   try {
-    const { data } = await axios.get(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+    const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
 
     // Determine home/away team IDs from the competitors list
     const comp = data?.header?.competitions?.[0];
@@ -469,7 +469,7 @@ export async function fetchMatchTeamStatsFromSummary(
 
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
   try {
-    const { data } = await axios.get(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+    const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
 
     const comp = data?.header?.competitions?.[0];
     const competitors = (comp?.competitors as Record<string, unknown>[] | undefined) ?? [];
@@ -516,7 +516,7 @@ export async function fetchLeagueMatches(
   logger.info(`[ESPN][debug] GET league=${leagueId} slug=${slug} → ${url}`);
 
   try {
-    const { data } = await axios.get(url, {
+    const data = await espnGet<any>(url, {
       timeout: 10_000,
       headers: { 'User-Agent': 'GoalBet/1.0' },
     });
