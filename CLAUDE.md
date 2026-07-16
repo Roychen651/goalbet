@@ -55,6 +55,7 @@ Read this before touching any file. Everything here reflects the live codebase.
 46. [Failover, Telemetry Logging & Self-Healing Sync (V4 Sprint 31)](#46-failover-telemetry-logging--self-healing-sync-v4-sprint-31)
 47. [The Live Pressure Cooker — Attacking Momentum Flow (V5 Sprint 32)](#47-the-live-pressure-cooker--attacking-momentum-flow-v5-sprint-32)
 48. [The Analytics Oracle — Statistical Probability Dial & AI Narration (V5 Sprint 33)](#48-the-analytics-oracle--statistical-probability-dial--ai-narration-v5-sprint-33)
+49. [The Prediction Matrix — Same-Match Parlays (V5 Sprint 34)](#49-the-prediction-matrix--same-match-parlays-v5-sprint-34)
 
 ---
 
@@ -868,7 +869,7 @@ window.dispatchEvent(new Event('goalbet:synced'))
 | 4 | Both Teams To Score — Yes / No | **+2** |
 | 5 | Over / Under 2.5 goals | **+3** |
 
-**Maximum: 19 points per match.**
+**Maximum: 19 points per match — without a parlay.** V5 Sprint 34 (§49) deliberately raises this ceiling for parlay-eligible predictions: a same-match parlay adds a compounding bonus on top of the independent tier scores when every linked tier is correct. This is an intentional, audited change — see §49 for exactly which downstream consumers were checked against it (none break; `COIN_COSTS.MAX_PER_MATCH` is a coin-cost cap, not a points cap, and is unaffected).
 
 No streak bonus (removed — `streak_bonus` column still exists in DB for backward compat, always 0).
 
@@ -3242,3 +3243,81 @@ CLAUDE.md §48 documentation (this section).
 - **The Narrator Pattern (an LLM narrates numbers a deterministic system already computed, never computes them itself) should be enforced structurally, not just by prompt instruction** — build the prompt payload so it can *only* contain pre-computed values, and verify in a smoke test that those exact values appear in the outgoing request body, not just that the instruction text says to cite them.
 - **An AI batch function whose non-AI half (pure computation) has independent value from its AI half (narration) should gate the key check at the narration call site, not at the top of the whole function** — every other sibling batch in this codebase gates at the top because their *entire* output is AI-generated; Oracle's stats are useful with zero narration, so gating the whole function would have silently withheld real, already-computed data behind an unrelated Groq API key.
 - **Before writing new user-facing copy in a language this codebase already has established vocabulary for, grep for how the same concept is phrased elsewhere first.** The BTTS grammar/verb mismatch would have shipped as a second, subtly different Hebrew phrasing for the exact same concept (`CoinGuide.tsx`/`ScoringGuide.tsx` already had it right) if the existing components hadn't been checked before finalizing new copy.
+
+---
+
+## 49. The Prediction Matrix — Same-Match Parlays (V5 Sprint 34)
+
+First sprint of a new feature class in this economy: chaining 2-3 of a single prediction's own 5 tiers into a same-match parlay, paying a compounding bonus when every linked tier is individually correct. Four commits: schema + points math, frontend chaining state, the Parlay Slip drawer, display surfaces + docs. Read the actual schema, RPC, and resolution engine before drafting the blueprint — several parts of the original brief needed correcting against what was really there.
+
+### Corrections made before writing code
+
+**"CREATE TABLE IF NOT EXISTS migration syntax" for adding columns to an existing table was a real technical error in the brief, not a stylistic quibble.** Every migration in this codebase since 046 that adds a nullable column uses `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` — fixed before drafting the migration.
+
+**Postgres identifies a function by name + parameter TYPE LIST, not by name alone — a real bug caught while writing the migration, not from a blueprint review.** Adding two new parameters to `submit_prediction()` and wrapping the whole thing in `CREATE OR REPLACE FUNCTION` (the established "extend in place" pattern from 040→049) does **not** replace the old 9-parameter function — it creates a **second, overloaded** function sitting alongside the original, silently leaving the old signature reachable with none of this sprint's parlay validation. The fix: an explicit `DROP FUNCTION IF EXISTS submit_prediction(<old 9-arg signature>)` before the `CREATE OR REPLACE` — the same "a deprecated signature must be dropped, not just abandoned" rule this codebase already applied once to `place_prediction_bet`/`adjust_prediction_bet` (§27, migration 040). Any future RPC extension that **adds** parameters (not just changes a body) needs this same explicit drop; extensions that keep the exact same signature (like 049 itself) don't.
+
+**"Any linked tier incorrect = Total loss of 0 points" was re-scoped to mean the parlay *bonus* is 0 — never a clawback of points/coins a tier already earned on its own.** `coins_bet` (`submit_prediction()`) is computed purely from which tiers have a value, completely independent of chaining — a user who links Result+Corners+BTTS and gets two of three right already paid for all three. Zeroing out the two correct tiers because of an unrelated miss would mean losing coins on tiers actually predicted correctly, purely because the user opted into chaining them — a punitive trap, not the "lucrative upside" this feature is meant to be. The corrected, shipped design: every tier — chained or not — is still scored exactly as `pointsEngine.ts` always has, unconditionally; the parlay bonus is a pure addition on top, paid only when every linked tier hits.
+
+**The multiplier formula collapses once "bonus only fires when all k are correct" is applied.** "Sum of base weights of *correct* tiers" is ambiguous until you notice the bonus only ever pays out when *all* linked tiers are correct by definition — at that one moment, "correct tiers" and "linked tiers" are the same set. `bonus = ROUND(linkedBaseSum * 0.25 * (k-1))`, k ∈ {2,3}. `ROUND()` matters: every point value in this scoring system (`POINTS.*`, `predictions.points_earned INTEGER`) is an integer — an un-rounded multiplier would have introduced this scoring system's first-ever fractional point value.
+
+**The single biggest architectural decision: fold the parlay bonus into the existing `calculatePoints()` call's `breakdown.total`, and let the existing atomic-claim → `increment_coins` → leaderboard-upsert pipeline carry it through completely unmodified.** Two facts made this the obvious choice, both confirmed by reading the actual code, not assumed: (1) `get_stats_arena_payload`'s heatmap (migration 044) recomputes "correct" directly from `predicted_outcome` vs. the actual result — it never reads `points_earned` at all, so it's structurally unaffected by a parlay bonus with zero code changes needed; (2) `scoreUpdater.ts`'s leaderboard upsert does `total_points: existingLB.total_points + finalPoints` where `finalPoints = breakdown.total` — folding the bonus into that one value means the leaderboard, weekly points, rank-drop notifications, and every profile stat derived from `total_points` pick it up automatically, with **zero new code** anywhere in that layer. The alternative (a second `coin_transactions` row, a second RPC, a parallel points ledger) would have meant touching `scoreUpdater.ts`'s resolution loop — the single most guarded, atomic-claim-critical file in this codebase (rule 4.14) — for no real benefit.
+
+**The documented "Maximum: 19 points per match" (§10) is deliberately raised for parlay-eligible predictions — audited, not silently broken.** Checked every place that treats 19 as a hard ceiling: `COIN_COSTS.MAX_PER_MATCH` is a **coin cost** cap, not a points cap, completely untouched (chaining is free — it links existing selections, it doesn't add a new stake). `RiskRadarChart.tsx`'s Volatility axis clamps to `[0,1]` regardless of the raw value, so a parlay-boosted outlier just clamps, no crash. The Chronicles gate (`finalPoints >= 10`) stays a `>=` check — a parlay-boosted total still clears it correctly. Nothing in the schema enforces 19 as a hard cap (`predictions.points_earned integer default 0`, no `CHECK`, confirmed against `001_initial_schema.sql`).
+
+**`PredictionForm.tsx` has no single unified list of all 5 tiers — the chain-toggle UI had to attach to two different render paths.** Tiers 1-3 (Result/Score/Corners) render via a `tiers.map()` array through `TierRow`; BTTS and Over/Under render as two **separate** `InlineBoolTier` calls further down the component. The chain-link icon is a component (`ChainLinkToggle`) shared by both, keyed off one canonical tier-key scheme rather than assuming a single array covers everything.
+
+**`prevent_late_prediction()` and `predictions_read_group` (migration 037) needed zero changes.** Both are row-level and column-agnostic — the kickoff-lock trigger fires on the whole row regardless of which columns changed, and the privacy RLS policy hides/shows the entire row based on match status, not specific columns. `is_parlay`/`parlay_linked_tiers` inherit both protections automatically.
+
+### Commit 1 — Schema + points engine (migration 054, additive-only)
+
+`predictions.is_parlay BOOLEAN NOT NULL DEFAULT false` + `parlay_linked_tiers TEXT[]`, CHECK-constrained to 2-3 elements from the five canonical keys `{result,score,corners,btts,ou}` — the exact same keys `frontend/src/lib/utils.ts`'s `calcBreakdown()` already emits, reused rather than a second invented vocabulary.
+
+`pointsEngine.ts`'s `calculatePoints()` computes the existing five tier scores byte-identically to before, then — only if `is_parlay` and every linked tier's own base score is nonzero — adds `ROUND(linkedBaseSum * 0.25 * (k-1))` to `breakdown.total` and records it separately in the new `breakdown.parlay_bonus` field (always present, `0` when not applicable, so the UI never has to re-derive it).
+
+`submit_prediction()` (extended in place per the DROP-then-CREATE correction above) validates server-side that **every linked tier actually has a non-null value in the same call** — a client can never claim a tier is linked that was never predicted. Never trusts client-side chaining validity, same §11/§27 discipline as every coin-adjacent RPC in this codebase.
+
+`scoreUpdater.ts`: one call site changes (the `Prediction` interface gains the two new fields, both existing `.select('*')` sites already fetch them) — the atomic claim, `increment_coins`, notifications, leaderboard upsert, Chronicles trigger, and the corners re-score loop all pick up the bonus automatically via the same `calculatePoints()` call, with zero structural changes. The corners re-score loop in particular now correctly recomputes a full parlay bonus retroactively if a linked corners tier's data arrives late (`corners_total` entered after initial resolution) — a real, meaningful correctness property that fell out of the "one calculatePoints() call for everything" design for free, not something built separately.
+
+Verified with a throwaway unit-level smoke test (pure `calculatePoints()` calls, no DB — this is the pure function the whole feature's safety rests on): non-parlay baseline unchanged, 2-tier/3-tier all-correct bonus math, and the critical safety case — one wrong linked tier producing exactly zero bonus while every other tier's own score (linked or not) stays completely untouched.
+
+### Commit 2 — Frontend chaining state
+
+`usePredictions.ts`: `PredictionInput`/optimistic row/RPC call all gain `is_parlay`/`parlay_linked_tiers`. `lib/constants.ts` gains `calcParlayBonusPreview()`, the client-side mirror of the backend formula (same "keep both in sync" discipline as `calcPredictionCost()`/`submit_prediction()`).
+
+`PredictionForm.tsx`: `linkedTiers: Set<ParlayTierKey>` state, capped at 3, a `toggleLink()` handler gated on the tier actually having a value (mirrors the RPC's own linkage validation), and an auto-prune effect that silently drops a linked tier from the set the moment its value is cleared — mirrors the existing `cornersDisabled` cleanup effect exactly, so a stale link can never cause a save to be rejected by the server-side check.
+
+Verified with a throwaway Playwright harness: all 5 chain icons start disabled with zero predictions made; picking a value enables exactly its own tier's icon; toggling sets `aria-pressed` correctly; zero overflow at 320/375px in EN/HE; correct RTL mirroring with zero `isRTL` branching (pure logical flex ordering).
+
+### Commit 3 — "כרטיס השילוב שלי" (My Parlay Slip) drawer
+
+`ParlaySlipDrawer.tsx` — deliberately **not** a second full-screen modal with its own backdrop: `PredictionForm` already lives inside its own sheet (Vaul on mobile / centered dialog on desktop, §35), and stacking a second independent modal on top would be a heavy "sheet inside a sheet" UX. It's an inline, sticky-bottom floating panel within the form's own existing flow, entering via `AnimatePresence` with the spring the brief specified (`stiffness:180, damping:18`).
+
+Designed from the start around the WebKit blur+transform trap this codebase has shipped twice already (`PredictionModal`'s Vaul sheet once, §21/§34; `NotificationCenter`'s drawer solved it again, §38): the glass blur lives on the panel's own static `card-elevated` surface, never on the same element carrying the entrance `y`/`opacity` transform.
+
+Locking the parlay is a pure client-side confirmation — `is_parlay` is already `true` the moment 2+ tiers are linked (Commit 2); the drawer's lock button triggers zero network calls, only `haptic('bet_lock')` + `playSound('lock_thud')` (the same pairing this app already uses for Momentum Bets locking) and a visual collapse to a compact "armed" pill.
+
+New `--parlay-low`/`--parlay-high` OKLCH token pair (both themes) — a fourth, deliberately distinct two-stop scale from `--arena-*` (performance), `--risk-*` (balance at stake), and `--oracle-*` (historical frequency). `parlayIntensityColor()` in `lib/oklch.ts` follows the same plain-lookup shape as `streakTierColor()` rather than `interpolateRisk`'s live-read/caching machinery, since `k` (linked-tier count) is a fixed 2-value set, not a continuous ratio.
+
+Verified with a throwaway Playwright harness: drawer appears exactly once 2 tiers are linked (not before); multiplier math correct (x1.25 for k=2 on a 3+2 base sum, +1pt bonus); the lock button collapses to the confirmed pill; zero overflow at 320/375px in EN/HE; correct RTL mirroring.
+
+### Commit 4 — Display surfaces + Hebrew + verification
+
+`MatchCard.tsx`'s existing "✓ Predicted" badge (both render sites) gains a small chain-link glyph when `prediction.is_parlay` — the home-feed answer to "does this surface everywhere it should," a conditional icon on an already-existing badge, not a new component.
+
+`scoreUpdater.ts`'s coin-award description gains a `🔗+N` marker when `breakdown.parlay_bonus > 0` — no new `coin_transactions.type` value, no new column: the description string already flows straight into the ledger row and into `CoinHistoryModal`'s existing render, and the dedup index (`coin_transactions_bet_won_unique`, migration 032) keys on this exact string for this one resolution regardless of what text it contains.
+
+`TrophyCabinet.tsx` gains a 7th badge, "Parlay Master" (`parlaysPlaced >= 3`) — deliberately **behavioral** (parlays *placed*), not outcome-based (parlays *won*): there's no separate `parlay_bonus` column on `predictions` to isolate a specific winning bonus from a tier's own points (by design — see Commit 1's architecture decision), so an outcome-based badge wasn't honestly derivable from data already in hand. `parlaysPlaced` is computed the same way every other Trophy Cabinet stat is — from `ProfilePage.tsx`'s already-fetched `history` array, zero new query, same discipline as the other 6 badges (§37).
+
+Hebrew: "שילוב" (parlay/combo) and "לשרשר" (to chain) — the terms the user's own brief already supplied, confirmed as the genuine Israeli sports-betting vocabulary rather than translated fresh. The gender-ambiguous Trophy Cabinet description uses the established slash-notation (`שרשר/ה`, §39) since the badge addresses an unknown reader.
+
+Final verification pass covered the full chain end to end: linking, the drawer, locking, and the home-feed badge, in both languages at 320/375px, plus the backend unit test's rounding/safety guarantees — all consistent with every other sprint's verification discipline in this engagement.
+
+### Rules
+
+- **When extending an RPC's signature (not just its body) with `CREATE OR REPLACE FUNCTION`, explicitly `DROP FUNCTION IF EXISTS` the old parameter-type signature first.** Postgres treats a changed parameter list as a distinct overload, not a replacement — the old signature otherwise stays silently reachable with none of the new validation. This only applies when parameters are added/removed; a same-signature body change (like migration 049) doesn't need it.
+- **A "total loss" or "all-or-nothing" mechanic layered on top of an existing independent-scoring system should default to additive-only unless explicitly required otherwise** — check whether the punishment case would claw back value (points, coins, anything already earned) a user legitimately obtained on a component that wasn't itself at fault. If the economy already treats sub-components independently (this codebase's 5 tiers, each individually priced and scored), a new "combo" mechanic bolted on top should add a bonus for the combo succeeding, never subtract for a *different* component's failure.
+- **Before designing a new derived-value feature (a bonus, a multiplier, a modifier), check how the existing pipeline that consumes the base value actually works** — folding a new value into an already-flowing field (`breakdown.total` → `finalPoints` → `leaderboard.total_points`) can make an entire feature "just work" across every downstream consumer with zero new code, versus inventing a parallel path that requires updating every consumer by hand.
+- **Raising a previously-documented hard limit is a legitimate design change when audited, not a silent regression** — enumerate every place that treats the old limit as authoritative, confirm each one degrades safely (clamps, stays a `>=` check, or is a genuinely different kind of cap like a coin cost vs. a points cap), and update the documentation to state the new reality explicitly rather than let two numbers quietly disagree.
+- **A UI element with no single unified backing list (tiers split across two different render paths) needs its cross-cutting feature (a toggle, a badge, a link) built as a shared component keyed off one canonical identity scheme, not assumed to live in one `.map()` call.**
+- **A "slide up" panel that's a sub-feature of an already-open sheet should not automatically get its own second full-screen modal treatment** — check whether the enclosing surface is already a modal before stacking a second independent one on top of it; an inline panel within the existing sheet's flow is often the less heavy, more consistent choice.
+- **A behavioral badge (counts an action taken) is more honestly derivable from existing data than an outcome-based one (counts a specific successful result) when the schema doesn't separately persist the signal needed to isolate that outcome.** Check what's actually queryable before designing a badge/achievement's exact threshold condition — the honest, currently-derivable metric beats a more "impressive"-sounding one that would require guessing or a new column.

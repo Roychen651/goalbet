@@ -7,6 +7,7 @@ import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
 import { CoinIcon } from '../ui/CoinIcon';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import { OracleStatsPanel } from './OracleStatsPanel';
+import { ParlaySlipDrawer } from './ParlaySlipDrawer';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, POINTS, COIN_COSTS, calcPredictionCost, calcParlayBonusPreview, type ParlayTierKey } from '../../lib/constants';
 import { interpolateRisk } from '../../lib/oklch';
@@ -45,6 +46,20 @@ export interface PredictionData {
 }
 
 type OutcomeOption = 'H' | 'D' | 'A';
+
+// V5 Sprint 34 — static base point weight per canonical tier, mirroring
+// pointsEngine.ts's own tierScore map exactly (tier1_outcome/tier2_exact_score/
+// tier3_corners/tier5_btts/tier6_over_under). Used only for the Parlay Slip's
+// PREVIEW multiplier — before resolution there's no "earned" signal yet, so
+// the preview shows "if every linked tier hits, here's what you'd get" off
+// each tier's base weight, same as calcParlayBonusPreview()'s own contract.
+const PARLAY_TIER_BASE_POINTS: Record<ParlayTierKey, number> = {
+  result: POINTS.TIER1_OUTCOME,
+  score: POINTS.TIER2_EXACT_SCORE,
+  corners: POINTS.TIER3_CORNERS,
+  btts: POINTS.TIER5_BTTS,
+  ou: POINTS.TIER6_OVER_UNDER,
+};
 
 // TIER_COLORS / DEBOSS_SHADOW moved to lib/tierVisuals.ts (Sprint 25) — the
 // Bento Almanac's Tier Ledger card needed the same 5-color system as a
@@ -417,6 +432,8 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           onToggleLink={toggleLink}
         />
       </LockedTier>
+
+      <ParlaySlipDrawer linkedTiers={linkedTiers} tierPoints={PARLAY_TIER_BASE_POINTS} onUnlink={toggleLink} />
 
       {/* Coin cost bar + submit */}
       <AnimatePresence>

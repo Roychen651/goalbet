@@ -388,12 +388,20 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
       // A try/catch does NOT catch Supabase errors. Must destructure { error }.
       if (finalPoints > 0) {
         const coinsToAward = finalPoints * 2;
+        // V5 Sprint 34 — a parlay-boosted payout gets a distinct marker in
+        // the description string so it reads distinctly in CoinHistoryModal
+        // without any new coin_transactions.type value or new column: the
+        // description already flows straight from this one string into the
+        // ledger row, and the dedup index (coin_transactions_bet_won_unique,
+        // migration 032) keys on this exact string for THIS resolution
+        // regardless of what text it contains.
+        const parlayMarker = breakdown.parlay_bonus > 0 ? ` 🔗+${breakdown.parlay_bonus}` : '';
         const { error: coinError } = await supabaseAdmin.rpc('increment_coins', {
           p_user_id: prediction.user_id,
           p_group_id: prediction.group_id,
           p_match_id: matchId,
           p_amount: coinsToAward,
-          p_description: `Won ${finalPoints} pts → ${coinsToAward} coins`,
+          p_description: `Won ${finalPoints} pts${parlayMarker} → ${coinsToAward} coins`,
           p_created_at: matchEndAt,  // ← coin transaction reflects match end, not server clock
         });
         if (coinError) {

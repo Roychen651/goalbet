@@ -86,6 +86,19 @@ function IconHighRoller({ className }: TrophyIconProps) {
   );
 }
 
+// V5 Sprint 34 — two interlocked chain links, matching the same
+// hand-drawn stroke-SVG language as the other six badges (never a lucide
+// import dropped in directly — this cabinet's whole visual identity is
+// consistent hand-drawn currentColor strokes).
+function IconParlayMaster({ className }: TrophyIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <rect x="3" y="8" width="9" height="8" rx="4" stroke="currentColor" strokeWidth="1.6" transform="rotate(-20 7.5 12)" />
+      <rect x="12" y="8" width="9" height="8" rx="4" stroke="currentColor" strokeWidth="1.6" transform="rotate(-20 16.5 12)" />
+    </svg>
+  );
+}
+
 interface BadgeDef {
   key: string;
   nameKey: TranslationKey;
@@ -103,6 +116,7 @@ export interface TrophyCabinetStats {
   exactScoreCount: number;
   resolvedCount: number;
   boldnessRatio: number; // 0..1, already computed for the radar's Boldness axis
+  parlaysPlaced: number; // V5 Sprint 34 — behavioral (placed, not necessarily won)
 }
 
 export function TrophyCabinet({ stats }: { stats: TrophyCabinetStats }) {
@@ -138,6 +152,11 @@ export function TrophyCabinet({ stats }: { stats: TrophyCabinetStats }) {
       key: 'highRoller', nameKey: 'trophyHighRollerName', descKey: 'trophyHighRollerDesc',
       earned: stats.boldnessRatio >= 0.7,
       accent: 'var(--risk-warning)', Icon: IconHighRoller,
+    },
+    {
+      key: 'parlayMaster', nameKey: 'trophyParlayMasterName', descKey: 'trophyParlayMasterDesc',
+      earned: stats.parlaysPlaced >= 3,
+      accent: 'var(--parlay-high)', Icon: IconParlayMaster,
     },
   ];
 

@@ -198,6 +198,10 @@ export const translations = {
     cornersUnsupportedTooltip: 'This stat isn\'t tracked for this match',
     parlayChainToggle: 'Chain to Parlay',
     parlayChainToggleDisabled: 'Predict this tier first to chain it',
+    parlaySlipTitle: 'My Parlay Slip',
+    parlaySlipArmed: 'Parlay armed',
+    parlaySlipLock: 'Lock In Parlay',
+    parlayUnlink: 'Remove from parlay',
     streakTooltip: 'On a {0}-match winning streak',
     pushTitle: 'Match reminders',
     pushSubtitle: 'Get a heads-up 15 min before kickoff',
@@ -735,6 +739,8 @@ export const translations = {
     trophyVeteranDesc: '25+ resolved predictions',
     trophyHighRollerName: 'High Roller',
     trophyHighRollerDesc: 'Consistently bets big',
+    trophyParlayMasterName: 'Parlay Master',
+    trophyParlayMasterDesc: 'Chained 3+ same-match parlays',
 
     // Gender-context copy (V4 Sprint 24) — English has no verb-gender
     // agreement for these, so _male/_female/_unspecified are identical text.
@@ -952,6 +958,10 @@ export const translations = {
     cornersUnsupportedTooltip: 'סטטיסטיקה זו אינה נתמכת למשחק זה',
     parlayChainToggle: 'שרשור לשילוב',
     parlayChainToggleDisabled: 'נחשו את הקטגוריה הזו קודם כדי לשרשר',
+    parlaySlipTitle: 'כרטיס השילוב שלי',
+    parlaySlipArmed: 'השילוב נעול',
+    parlaySlipLock: 'נעילת השילוב',
+    parlayUnlink: 'הסרה מהשילוב',
     streakTooltip: 'רצף של {0} ניחושים נכונים ברציפות',
     pushTitle: 'תזכורות למשחקים',
     pushSubtitle: 'קבלו התראה 15 דקות לפני שריקת הפתיחה',
@@ -1489,6 +1499,8 @@ export const translations = {
     trophyVeteranDesc: '25+ ניחושים שהוכרעו',
     trophyHighRollerName: 'מהמר גדול',
     trophyHighRollerDesc: 'מהמר בגדול, שוב ושוב',
+    trophyParlayMasterName: 'אלוף השילובים',
+    trophyParlayMasterDesc: 'שרשר/ה 3 שילובים או יותר באותו משחק',
 
     // Gender-context copy (V4 Sprint 24)
     activityPredictionLocked: 'הניחוש ננעל! מחזיקים אצבעות 🤞',

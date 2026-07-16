@@ -201,6 +201,14 @@ export function ProfilePage() {
 
   const resolved = history.filter(p => p.is_resolved);
   const totalPoints = resolved.reduce((sum, p) => sum + p.points_earned, 0);
+  // V5 Sprint 34 — "Parlay Master" badge is behavioral (parlays PLACED),
+  // not outcome-based (parlays won) — there's no separate parlay_bonus
+  // column to isolate a specific winning bonus from a tier's own points,
+  // so this stays honestly derivable from is_parlay alone, same "derive
+  // from already-fetched data" discipline as every other Trophy Cabinet
+  // stat here (all computed from the existing `history` fetch, zero new
+  // query).
+  const parlaysPlaced = history.filter(p => p.is_parlay).length;
 
   // Hit rate: only FT Result predictions (predicted_outcome must be set, match must be FT)
   const ftPredictions = resolved.filter(p => p.match.status === 'FT' && p.predicted_outcome !== null);
@@ -697,6 +705,7 @@ export function ProfilePage() {
               exactScoreCount,
               resolvedCount: resolved.length,
               boldnessRatio: clamp01(avgStake / COIN_COSTS.MAX_PER_MATCH),
+              parlaysPlaced,
             }}
           />
         </motion.div>
