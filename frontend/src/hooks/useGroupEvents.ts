@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
+import { useRealtimeSubscription, useRealtimeReconnect } from '../components/providers/RealtimeProvider';
 
 export interface GroupEvent {
   id: string;
@@ -86,30 +87,16 @@ export function useGroupEvents() {
     fetchEvents();
   }, [fetchEvents]);
 
-  // Realtime subscription — re-fetch on new inserts
-  useEffect(() => {
-    if (!activeGroupId) return;
+  // V5 Sprint 35 — this table's Realtime binding now lives on
+  // RealtimeProvider's shared Group Channel. Payload content is ignored
+  // (matches the pre-Sprint-35 behavior exactly) — a new event always needs
+  // the profiles/matches join, which a Realtime payload never carries.
+  useRealtimeSubscription('group_events', () => fetchEvents());
 
-    const channel = supabase
-      .channel(`group_events_${activeGroupId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'group_events',
-          filter: `group_id=eq.${activeGroupId}`,
-        },
-        () => {
-          fetchEvents();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [activeGroupId, fetchEvents]);
+  // A dropped-then-recovered channel could have missed an INSERT entirely
+  // (Realtime doesn't replay missed events on reconnect) — reconcile with a
+  // fresh fetch the moment the underlying channel comes back.
+  useRealtimeReconnect(() => fetchEvents());
 
   return { events, loading, refetch: fetchEvents };
 }
