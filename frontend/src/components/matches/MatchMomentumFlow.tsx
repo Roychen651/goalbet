@@ -72,6 +72,7 @@ export function MatchMomentumFlow({ match }: MatchMomentumFlowProps) {
     <div className="mt-2 px-3 py-2.5 rounded-xl border border-white/6 bg-white/[0.02]">
       <div className="flex items-center justify-between mb-1.5">
         <p className="text-[9px] uppercase tracking-widest text-white/30">{t('pressureFlowTitle')}</p>
+        <p className="text-[9px] text-white/20">{t('pressureFlowSubtitle')}</p>
       </div>
 
       {/* direction pinned to ltr regardless of page direction — the x-axis
@@ -106,11 +107,19 @@ export function MatchMomentumFlow({ match }: MatchMomentumFlowProps) {
         {/* soft zero-line the two gradients meet at */}
         <line x1="0" y1={ZERO_Y} x2={VIEWBOX_WIDTH} y2={ZERO_Y} stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
 
+        {/* initial={false}: on first mount there's no "previous" shape to
+            morph from, so the very first paint should snap to the correct
+            path immediately, not animate from nothing. Setting BOTH a
+            static `d` prop and `animate.d` (an earlier draft did this)
+            leaves Framer uncertain which one seeds the pre-animation DOM
+            value and produced a real "undefined" path-data console error
+            on first mount — caught during this sprint's own verification.
+            `animate` alone, with `initial={false}`, is unambiguous. */}
         <g clipPath={`url(#${clipAboveId})`}>
-          <motion.path d={areaD} animate={{ d: areaD }} transition={PATH_TRANSITION} fill={`url(#${homeGradId})`} stroke="none" />
+          <motion.path initial={false} animate={{ d: areaD }} transition={PATH_TRANSITION} fill={`url(#${homeGradId})`} stroke="none" />
         </g>
         <g clipPath={`url(#${clipBelowId})`}>
-          <motion.path d={areaD} animate={{ d: areaD }} transition={PATH_TRANSITION} fill={`url(#${awayGradId})`} stroke="none" />
+          <motion.path initial={false} animate={{ d: areaD }} transition={PATH_TRANSITION} fill={`url(#${awayGradId})`} stroke="none" />
         </g>
       </svg>
 
