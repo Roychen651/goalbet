@@ -84,6 +84,16 @@
   --pressure-home-end: oklch(85% 0.16 85);
   --pressure-away-start: oklch(58% 0.18 300);
   --pressure-away-end: oklch(52% 0.15 260);
+
+  /* Sprint 33 — Analytics Oracle gauge. A third, deliberately distinct
+     two-stop scale: not --arena-cold/hot ("performance" vs. a neutral
+     midpoint) and not --risk-gold/warning ("how much of a balance is at
+     stake") — this one means "how often did this actually happen,"
+     read live via getComputedStyle at draw time in OracleDial.tsx,
+     same discipline as every other OKLCH pair in this file. low = a
+     rare historical occurrence, high = a frequent one. */
+  --oracle-low: oklch(60% 0.03 240);
+  --oracle-high: oklch(80% 0.17 190);
 }
 
 /* ─── Light mode — "Frost" ─── */
@@ -148,6 +158,12 @@ html.light {
   --pressure-home-end: oklch(68% 0.17 85);
   --pressure-away-start: oklch(48% 0.19 300);
   --pressure-away-end: oklch(42% 0.16 260);
+
+  /* Sprint 33 — Oracle gauge, light surface variant. Same hue anchors
+     (240 low / 190 high) as dark, darker + more saturated for contrast
+     on near-white cards — same discipline as every pair above. */
+  --oracle-low: oklch(45% 0.03 240);
+  --oracle-high: oklch(56% 0.19 190);
 }
 
 /* ============================================================
