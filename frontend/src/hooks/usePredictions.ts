@@ -24,6 +24,38 @@ interface PredictionInput {
 // Stable empty reference so consumers don't re-render when there are no predictions.
 const EMPTY: Map<string, Prediction> = new Map();
 
+// V5 Sprint 35 Commit 3 — race-hardening for a `predictions` Realtime
+// channel that does NOT exist yet (deliberately deferred — see CLAUDE.md
+// §50 for the exact verification required before RealtimeProvider is ever
+// extended to bind this table). Built now, unused until that channel
+// ships, so the guard is already in place the moment it's needed instead
+// of being an afterthought bolted on under time pressure later.
+//
+// Module-level (not per-hook-instance): `usePredictions()` can be mounted
+// several times simultaneously with different `matchIds` args (e.g.
+// HomePage's whole feed vs. a single expanded PredictionForm), each with
+// its own independent TanStack query-cache entry — a Set scoped to one
+// hook instance couldn't answer "is *any* submission for this match
+// in-flight right now" for a payload a completely different instance
+// might receive.
+const pendingSubmitMatchIds = new Set<string>();
+
+/**
+ * True while an optimistic submit_prediction mutation for this match is
+ * between onMutate and onSettled. A future `predictions` Realtime handler
+ * MUST check this before merging/invalidating anything for a given
+ * match_id — an out-of-order payload arriving mid-mutation must defer to
+ * the mutation's own onSuccess/onError reconcile (which always has the
+ * authoritative RPC response) rather than racing it with a second,
+ * independent write to the same cache entry. This is rule 4.4's "never
+ * trust a partial Realtime payload" taken one step further: don't even
+ * apply a FULL payload if a known-more-authoritative write is already in
+ * flight for the same row.
+ */
+export function isPredictionSubmitInFlight(matchId: string): boolean {
+  return pendingSubmitMatchIds.has(matchId);
+}
+
 type PredictionMap = Map<string, Prediction>;
 
 // Everything the mutation lifecycle needs, computed once in savePrediction so the
@@ -121,6 +153,7 @@ export function usePredictions(matchIds?: string[]) {
     // ── Optimistic: instant UI, before any network ──────────────────────────
     onMutate: async (vars) => {
       setSaving(vars.input.match_id);
+      pendingSubmitMatchIds.add(vars.input.match_id);
       await queryClient.cancelQueries({ queryKey: vars.queryKey });
 
       const previousMap = queryClient.getQueryData<PredictionMap>(vars.queryKey);
@@ -230,8 +263,9 @@ export function usePredictions(matchIds?: string[]) {
     },
 
     // ── Always: clear saving + pull DB source of truth ──────────────────────
-    onSettled: () => {
+    onSettled: (_data, _error, vars) => {
       setSaving(null);
+      pendingSubmitMatchIds.delete(vars.input.match_id);
       queryClient.invalidateQueries({ queryKey: ['predictions'] });
     },
   });
