@@ -73,6 +73,17 @@
   --streak-bronze: oklch(45% 0.04 240);
   --streak-silver: oklch(80% 0.08 220);
   --streak-ember: oklch(70% 0.22 35);
+
+  /* Sprint 32 — Live Pressure Cooker home/away gradient. Fixed anchors, not
+     team-hash-derived like teamHaloColor() — this graph encodes "which
+     side", a stable scoreboard-like visual language, not per-team
+     branding. Read live via getComputedStyle at draw time (MatchMomentumFlow.tsx),
+     same discipline as --arena-cold/hot / --risk-gold/warning — never a
+     hardcoded second copy of these values in JS. */
+  --pressure-home-start: oklch(72% 0.16 145);
+  --pressure-home-end: oklch(85% 0.16 85);
+  --pressure-away-start: oklch(58% 0.18 300);
+  --pressure-away-end: oklch(52% 0.15 260);
 }
 
 /* ─── Light mode — "Frost" ─── */
@@ -128,6 +139,15 @@ html.light {
   --streak-bronze: oklch(35% 0.03 240);
   --streak-silver: oklch(48% 0.10 220);
   --streak-ember: oklch(58% 0.20 35);
+
+  /* Sprint 32 — Pressure gradient, light surface variant. Same hue anchors
+     (145/85 home, 300/260 away) as dark, darker + more saturated for
+     contrast on near-white cards — same discipline as every other
+     dark/light OKLCH pair in this file. */
+  --pressure-home-start: oklch(58% 0.17 145);
+  --pressure-home-end: oklch(68% 0.17 85);
+  --pressure-away-start: oklch(48% 0.19 300);
+  --pressure-away-end: oklch(42% 0.16 260);
 }
 
 /* ============================================================

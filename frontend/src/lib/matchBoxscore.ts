@@ -130,7 +130,9 @@ const WEIGHT_SHOTS_ON_TARGET = 3;
 const WEIGHT_SHOTS = 1.5;
 const WEIGHT_CORNERS = 2;
 const WEIGHT_POSSESSION = 0.3;
-const PRESSURE_CLAMP = 10;
+// Exported so MatchMomentumFlow.tsx can map the same [-CLAMP,+CLAMP] range
+// to its SVG y-coordinates without a second hardcoded copy of the number.
+export const PRESSURE_CLAMP = 10;
 
 /**
  * Returns a pressure value in [-PRESSURE_CLAMP, +PRESSURE_CLAMP]. Positive
