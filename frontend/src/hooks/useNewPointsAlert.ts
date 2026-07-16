@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
+import { useRealtimeSubscription } from '../components/providers/RealtimeProvider';
 
 const STORAGE_KEY = 'goalbet_last_seen_points';
 
@@ -38,27 +39,25 @@ export function useNewPointsAlert(): NewPointsAlert {
       .then(({ data }) => {
         if (data) setCurrentPoints(data.total_points);
       });
-
-    // Real-time subscription — fires when backend resolves predictions and updates leaderboard
-    const channel = supabase
-      .channel(`leaderboard-alert-${user.id}-${activeGroupId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'leaderboard',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const pts = (payload.new as { total_points: number }).total_points;
-          setCurrentPoints(pts);
-        }
-      )
-      .subscribe();
-
-    return () => { channel.unsubscribe(); };
   }, [user?.id, activeGroupId]);
+
+  // V5 Sprint 35 — this table's Realtime binding now lives on
+  // RealtimeProvider's shared Group Channel (folded together with
+  // useLeaderboard.ts's own binding — see CLAUDE.md §50). That channel's
+  // filter is group_id-scoped, not user_id-scoped like this hook's old
+  // standalone channel was — so both the event-type filter (old channel
+  // only ever bound `event: 'UPDATE'`) and the own-row check now have to
+  // happen client-side. This also fixes a latent bug the old user_id-only
+  // filter had: it could fire (and corrupt `currentPoints`) for a
+  // leaderboard row in a group the user wasn't currently viewing, since
+  // nothing scoped it to activeGroupId server-side. The shared channel can
+  // only ever fire for the active group.
+  useRealtimeSubscription('leaderboard', (payload) => {
+    if (payload.eventType !== 'UPDATE') return;
+    const row = payload.new as { user_id?: string; total_points?: number };
+    if (row.user_id !== user?.id || row.total_points === undefined) return;
+    setCurrentPoints(row.total_points);
+  });
 
   const hasNew = currentPoints !== null && currentPoints > lastSeen;
   const newPoints = hasNew ? currentPoints - lastSeen : 0;
