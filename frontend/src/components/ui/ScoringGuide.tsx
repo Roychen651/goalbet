@@ -188,6 +188,23 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
             </div>
           </motion.div>
 
+          {/* V5 Sprint 34 Hotfix — Parlays explanation. Reported live: no
+              cost/payout/all-or-nothing explanation existed anywhere, and
+              the chain icon's only tooltip (a native `title` attribute)
+              never shows on mobile touch. This is the canonical answer to
+              "what does this do" — same card language as the ET note below. */}
+          <div className="mx-4 mb-3 px-3.5 py-2.5 rounded-xl bg-purple-500/6 border border-purple-500/20">
+            <p className="text-purple-300 text-xs font-semibold mb-1 flex items-center gap-1">
+              <span>🔗</span>
+              <span>{isHe ? 'שילובים' : 'Parlays'}</span>
+            </p>
+            <p className="text-white/60 text-[11px] leading-snug">
+              {isHe
+                ? 'שרשרו 2-3 קטגוריות באותו ניחוש — בחינם, בלי עלות נוספת. אם כולן יוצאות נכון, מקבלים בונוס נקודות (פי 1.25 לשתיים, פי 1.5 לשלוש) על גבי הנקודות שלהן, שגם הופך למטבעות ביחס הרגיל של פי 2. אם קטגוריה אחת מפספסת — מפסידים רק את הבונוס; כל קטגוריה עדיין סופרת את הנקודות שלה בנפרד, תמיד.'
+                : 'Chain 2-3 tiers on the same prediction — free, no extra cost. If every linked tier hits, you get a bonus (x1.25 for 2, x1.5 for 3) on top of their points, which also converts to coins at the usual 2x rate. If one tier misses, you only lose the bonus — every tier always keeps its own points independently.'}
+            </p>
+          </div>
+
           {/* ET note */}
           <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-amber-500/8 border border-amber-500/20 flex items-center gap-2">
             <span className="text-amber-400 text-sm shrink-0">⏱</span>
@@ -207,6 +224,7 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
             <div className="flex items-center gap-1 text-xs">
               <span className="text-white/30">{isHe ? 'מקס' : 'Max'}</span>
               <span className="font-bebas text-lg text-accent-green leading-none">{isHe ? '19 נק׳' : '19 pts'}</span>
+              <span className="text-white/25 text-[10px]">{isHe ? '(+שילוב)' : '(+parlay)'}</span>
             </div>
           </div>
         </div>
