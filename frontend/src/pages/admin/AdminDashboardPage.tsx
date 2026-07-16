@@ -11,6 +11,24 @@ interface Stats {
   total_coins_circulating: number;
 }
 
+// V4 Sprint 31 — sync_run_log row shape, mirrors migration 052's table exactly.
+interface SyncRunLogRow {
+  id: string;
+  run_type: 'live_poll' | 'daily_sync' | 'startup_catchup';
+  tier: 'tier1' | 'tier2' | null;
+  started_at: string;
+  completed_at: string | null;
+  leagues_checked: number | null;
+  matches_checked: number | null;
+  matches_resolved: number | null;
+  errors: { scope: string; message: string }[];
+  duration_ms: number | null;
+}
+
+function fmtSyncTime(iso: string) {
+  return new Intl.DateTimeFormat('en-IL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(iso));
+}
+
 interface BentoCardProps {
   icon: string;
   label: string;
@@ -43,6 +61,10 @@ export function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  // V4 Sprint 31 — pure additive read, zero changes to the 3 existing sync
+  // buttons above. undefined = still loading, null = failed to load (RPC
+  // error or migration 052 not applied yet), [] = loaded, genuinely empty.
+  const [syncLog, setSyncLog] = useState<SyncRunLogRow[] | null | undefined>(undefined);
 
   useEffect(() => {
     supabase.rpc('admin_get_stats').then(({ data, error }) => {
@@ -50,6 +72,10 @@ export function AdminDashboardPage() {
         setStats(data[0] as Stats);
       }
       setLoading(false);
+    });
+
+    supabase.rpc('admin_get_sync_log', { p_limit: 20 }).then(({ data, error }) => {
+      setSyncLog(!error && Array.isArray(data) ? (data as SyncRunLogRow[]) : null);
     });
   }, []);
 
@@ -142,6 +168,81 @@ export function AdminDashboardPage() {
             {syncResult}
           </motion.pre>
         )}
+
+        {/* V4 Sprint 31 — sync_run_log telemetry, read-only, admin-only via
+            admin_get_sync_log RPC. Pure additive UI read — the 3 buttons
+            above are completely untouched. */}
+        <div className="mt-6">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-widest text-white/40">Recent Sync Runs</h3>
+          <p className="mb-3 text-xs text-white/25">Last 20 automated sync/score-check runs (Sprint 31 telemetry).</p>
+
+          {syncLog === undefined ? (
+            <div className="overflow-hidden rounded-2xl border border-white/8">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-10 animate-pulse border-b border-white/[0.04] bg-white/5 last:border-0" />
+              ))}
+            </div>
+          ) : syncLog === null ? (
+            <p className="rounded-xl border border-white/8 bg-white/[0.02] px-5 py-6 text-center text-xs text-white/25">
+              Couldn't load sync log — the migration may not be applied yet, or you're not signed in as the super admin.
+            </p>
+          ) : syncLog.length === 0 ? (
+            <p className="rounded-xl border border-white/8 bg-white/[0.02] px-5 py-6 text-center text-xs text-white/25">
+              No sync runs recorded yet.
+            </p>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-white/8">
+              <div className="overflow-x-auto">
+                <table className="w-full font-mono text-xs">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] bg-white/[0.025] uppercase tracking-wider text-white/30">
+                      <th className="sticky top-0 px-4 py-2.5 text-start font-medium">Type</th>
+                      <th className="sticky top-0 px-4 py-2.5 text-start font-medium">Started</th>
+                      <th className="sticky top-0 px-4 py-2.5 text-center font-medium">Duration</th>
+                      <th className="sticky top-0 px-4 py-2.5 text-center font-medium">Checked</th>
+                      <th className="sticky top-0 px-4 py-2.5 text-center font-medium">Resolved</th>
+                      <th className="sticky top-0 px-4 py-2.5 text-center font-medium">Errors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {syncLog.map((row) => {
+                      const checked = row.matches_checked ?? row.leagues_checked;
+                      const hasErrors = row.errors.length > 0;
+                      const crashed = row.completed_at === null;
+                      return (
+                        <tr key={row.id} className="border-b border-white/[0.04] transition-colors hover:bg-white/[0.025]">
+                          <td className="px-4 py-2.5 text-white/70">
+                            {row.run_type}{row.tier ? `/${row.tier}` : ''}
+                          </td>
+                          <td className="px-4 py-2.5 text-white/40">{fmtSyncTime(row.started_at)}</td>
+                          <td className="px-4 py-2.5 text-center tabular-nums text-white/50">
+                            {row.duration_ms !== null ? `${row.duration_ms}ms` : '—'}
+                          </td>
+                          <td className="px-4 py-2.5 text-center tabular-nums text-white/50">{checked ?? '—'}</td>
+                          <td className="px-4 py-2.5 text-center tabular-nums text-white/50">{row.matches_resolved ?? '—'}</td>
+                          <td className="px-4 py-2.5 text-center">
+                            {crashed ? (
+                              <span className="rounded-md bg-red-500/15 px-2 py-0.5 font-medium text-red-400" title="Run crashed before completing">crashed</span>
+                            ) : hasErrors ? (
+                              <span
+                                className="rounded-md bg-red-500/10 px-2 py-0.5 font-medium text-red-400"
+                                title={row.errors.map(e => `${e.scope}: ${e.message}`).join('\n')}
+                              >
+                                {row.errors.length}
+                              </span>
+                            ) : (
+                              <span className="text-white/20">0</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Quick Links */}
