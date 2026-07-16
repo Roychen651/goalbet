@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Link2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
@@ -491,6 +491,10 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
                   {t('predicted')}
+                  {/* V5 Sprint 34 — Prediction Matrix: surface a parlayed pick
+                      on the home feed itself, not just inside the prediction
+                      form. Cheap: a conditional icon on an existing badge. */}
+                  {prediction?.is_parlay && <Link2 size={10} strokeWidth={2.5} className="text-purple-400" />}
                 </motion.span>
               );
             })()}
@@ -502,6 +506,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
                 {t('predicted')}
+                {prediction?.is_parlay && <Link2 size={10} strokeWidth={2.5} className="text-purple-400" />}
               </motion.span>
             )}
             <MatchStatusBadge
