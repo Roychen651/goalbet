@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
-import { fetchLeagueMatches, LEAGUE_ESPN_MAP } from './espn';
+import { fetchLeagueMatches, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
 import { DBMatch } from './sportsdb';
 import { logger } from '../lib/logger';
 import { processBatched } from '../lib/batch';
@@ -12,13 +12,21 @@ export interface SyncResult {
   errors: number;
 }
 
-async function upsertMatches(matches: DBMatch[]): Promise<{ inserted: number; updated: number }> {
-  if (matches.length === 0) return { inserted: 0, updated: 0 };
+async function upsertMatches(matches: DBMatchWithClock[]): Promise<{ inserted: number; updated: number; idsByExternalId: Map<string, string> }> {
+  if (matches.length === 0) return { inserted: 0, updated: 0, idsByExternalId: new Map() };
 
   // Don't send null for these fields on upsert — it would overwrite previously captured values.
   // Only include them when ESPN actually returned data.
   const rows = matches.map(m => {
-    const row: Partial<DBMatch> & { external_id: string } = { ...m };
+    // V4 Sprint 29 — the 6 match_team_stats-only fields are explicitly
+    // destructured OUT here, never spread into the `matches` upsert payload.
+    // `matches` has no columns for these; object spread copies every
+    // enumerable runtime property regardless of the TS type annotation
+    // below, so leaving them in `m` would have sent an unknown-column
+    // upsert that PostgREST rejects outright. upsertTeamStats() (below)
+    // is what actually persists them, into match_team_stats.
+    const { home_stats_raw: _hsr, away_stats_raw: _asr, home_corners: _hc, away_corners: _ac, home_yellow_cards: _hyc, away_yellow_cards: _ayc, ...matchFields } = m;
+    const row: Partial<DBMatch> & { external_id: string } = { ...matchFields };
     if (row.corners_total === null) delete row.corners_total;
     if (row.regulation_home === null) delete row.regulation_home;
     if (row.regulation_away === null) delete row.regulation_away;
@@ -42,7 +50,7 @@ async function upsertMatches(matches: DBMatch[]): Promise<{ inserted: number; up
       onConflict: 'external_id',
       ignoreDuplicates: false,
     })
-    .select('id');
+    .select('id, external_id');
 
   if (error) {
     // TEMP DEBUG: surface the exact PostgREST error (schema/constraint issues
@@ -53,7 +61,35 @@ async function upsertMatches(matches: DBMatch[]): Promise<{ inserted: number; up
 
   // TEMP DEBUG: rows sent vs rows the DB acknowledged.
   logger.info(`[matchSync][debug] upsert ok: sent=${rows.length} acknowledged=${data?.length ?? 0}`);
-  return { inserted: data?.length ?? 0, updated: 0 };
+  const idsByExternalId = new Map((data ?? []).map(r => [r.external_id as string, r.id as string]));
+  return { inserted: data?.length ?? 0, updated: 0, idsByExternalId };
+}
+
+// V4 Sprint 29 — writes the per-team stats split (raw_stats archive +
+// promoted corners/red_cards/yellow_cards) into match_team_stats, 2 rows
+// per match (home + away). Deliberately non-throwing: a team_stats write
+// failure must never block or roll back the matches upsert it depends on —
+// same "the primary record succeeds even if secondary enrichment fails"
+// discipline already applied to ensurePostMatchSummary/ensureChronicle
+// being fire-and-forget elsewhere in this codebase.
+async function upsertTeamStats(matches: DBMatchWithClock[], idsByExternalId: Map<string, string>): Promise<void> {
+  const rows = matches.flatMap(m => {
+    const matchId = idsByExternalId.get(m.external_id);
+    if (!matchId) return [];
+    return [
+      { match_id: matchId, team_side: 'home', raw_stats: m.home_stats_raw ?? [], corners: m.home_corners, red_cards: m.red_cards_home, yellow_cards: m.home_yellow_cards },
+      { match_id: matchId, team_side: 'away', raw_stats: m.away_stats_raw ?? [], corners: m.away_corners, red_cards: m.red_cards_away, yellow_cards: m.away_yellow_cards },
+    ];
+  });
+  if (rows.length === 0) return;
+
+  const { error } = await supabaseAdmin
+    .from('match_team_stats')
+    .upsert(rows, { onConflict: 'match_id,team_side' });
+
+  if (error) {
+    logger.error(`[matchSync] team_stats upsert failed for ${rows.length} rows: ${error.message}`);
+  }
 }
 
 export async function syncLeague(leagueId: number): Promise<SyncResult> {
@@ -73,6 +109,15 @@ export async function syncLeague(leagueId: number): Promise<SyncResult> {
       const result = await upsertMatches(matches);
       inserted = result.inserted;
       logger.info(`[matchSync] League ${leagueId}: upserted ${matches.length} matches`);
+
+      // V4 Sprint 29 — best-effort, never throws. A team_stats write
+      // failure must never fail syncLeague() or roll back the matches
+      // upsert above, which already succeeded.
+      try {
+        await upsertTeamStats(matches, result.idsByExternalId);
+      } catch (err) {
+        logger.error(`[matchSync] team_stats upsert threw for league ${leagueId}:`, err);
+      }
     } else {
       logger.info(`[matchSync] League ${leagueId}: no matches from ESPN (league may not be covered)`);
     }
