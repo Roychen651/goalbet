@@ -6,6 +6,7 @@ import { Match, Prediction } from '../../lib/supabase';
 import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
 import { CoinIcon } from '../ui/CoinIcon';
 import { AIScoutCard } from '../ui/AIScoutCard';
+import { OracleStatsPanel } from './OracleStatsPanel';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
 import { LIVE_STATUSES, POINTS, COIN_COSTS, calcPredictionCost } from '../../lib/constants';
 import { interpolateRisk } from '../../lib/oklch';
@@ -291,6 +292,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           <AIScoutCard title="aiScoutPreMatchTitle" text={preMatchInsight} tone="pre" />
         </div>
       )}
+      <OracleStatsPanel match={match} />
       {tiers.map((tier, i) => (
         <motion.div
           key={tier.key}

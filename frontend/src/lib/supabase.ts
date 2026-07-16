@@ -7,6 +7,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Check your .env.local file.');
 }
 
+// V5 Sprint 33 — mirrors backend/src/services/matchOracle.ts's TeamForm/
+// OracleStats shape exactly. The JSONB column has no DB-enforced schema, so
+// this type is a trust boundary: it describes what compute_team_recent_form()
+// (migration 053) actually writes, not something Postgres itself guarantees.
+export interface OracleTeamForm {
+  wins: number;
+  draws: number;
+  losses: number;
+  over25_pct: number;
+  btts_pct: number;
+  sample_size: number;
+}
+
+export interface OracleStats {
+  home: OracleTeamForm;
+  away: OracleTeamForm;
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -94,6 +112,9 @@ export type Database = {
           ai_post_match_summary_he: string | null;
           ai_ht_insight: string | null;
           ai_ht_insight_he: string | null;
+          oracle_stats: OracleStats | null;
+          ai_oracle_insight: string | null;
+          ai_oracle_insight_he: string | null;
         };
         Insert: never;
         Update: never;
