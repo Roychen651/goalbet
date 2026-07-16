@@ -29,11 +29,11 @@ function StatBar({ stat }: { stat: StatRow }) {
   const tied = stat.home === stat.away;
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       {/* Label + values */}
       <div className="flex items-center justify-between">
         <span className={cn(
-          'text-xs tabular-nums font-bold w-10 text-start',
+          'text-xs font-mono tabular-nums font-bold w-10 text-start',
           homeWins ? 'text-accent-green' : 'text-text-muted',
         )}>
           {stat.pct ? `${stat.home}%` : stat.home}
@@ -42,39 +42,40 @@ function StatBar({ stat }: { stat: StatRow }) {
           {t(stat.label)}
         </span>
         <span className={cn(
-          'text-xs tabular-nums font-bold w-10 text-end',
+          'text-xs font-mono tabular-nums font-bold w-10 text-end',
           awayWins ? 'text-accent-green' : 'text-text-muted',
         )}>
           {stat.pct ? `${stat.away}%` : stat.away}
         </span>
       </div>
 
-      {/* Comparative bar */}
-      <div className="flex items-center gap-0.5 h-[6px]">
-        {/* Home bar — grows from right */}
-        <div className="flex-1 flex justify-end">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${homePct}%` }}
-            transition={{ duration: 0.6, ease: 'easeOut' as const }}
+      {/* Comparative bar — glassmorphic track + CSS-transitioned fill.
+          Native CSS `transition-[width]` instead of a Framer motion.div:
+          width is a layout-triggering property whether CSS or JS drives it,
+          so there's no compositing win to keep Framer here — a plain
+          transition is simpler and removes a spring/tween dependency this
+          spot never needed (V4 Sprint 32). */}
+      <div className="flex items-center gap-0.5 h-[7px]">
+        {/* Home bar — grows from right, glass track behind it */}
+        <div className="flex-1 flex justify-end h-full rounded-s-full bg-white/[0.04] overflow-hidden">
+          <div
+            style={{ width: `${homePct}%` }}
             className={cn(
-              'h-full rounded-s-full',
+              'h-full rounded-s-full transition-[width] duration-500 ease-out',
               homeWins
-                ? 'bg-accent-green shadow-[0_0_8px_rgba(189,232,245,0.25)]'
+                ? 'bg-accent-green shadow-[0_0_8px_rgba(189,232,245,0.35)] ring-1 ring-inset ring-accent-green/50'
                 : tied ? 'bg-text-muted/30' : 'bg-text-muted/20',
             )}
           />
         </div>
-        {/* Away bar — grows from left */}
-        <div className="flex-1">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${awayPct}%` }}
-            transition={{ duration: 0.6, ease: 'easeOut' as const }}
+        {/* Away bar — grows from left, glass track behind it */}
+        <div className="flex-1 h-full rounded-e-full bg-white/[0.04] overflow-hidden">
+          <div
+            style={{ width: `${awayPct}%` }}
             className={cn(
-              'h-full rounded-e-full',
+              'h-full rounded-e-full transition-[width] duration-500 ease-out',
               awayWins
-                ? 'bg-accent-green shadow-[0_0_8px_rgba(189,232,245,0.25)]'
+                ? 'bg-accent-green shadow-[0_0_8px_rgba(189,232,245,0.35)] ring-1 ring-inset ring-accent-green/50'
                 : tied ? 'bg-text-muted/30' : 'bg-text-muted/20',
             )}
           />
@@ -96,9 +97,9 @@ function StatsSkeleton() {
             <div className="w-16 h-3 rounded bg-white/6 animate-pulse" />
             <div className="w-6 h-3 rounded bg-white/6 animate-pulse" />
           </div>
-          <div className="flex gap-0.5 h-[6px]">
-            <div className="flex-1 rounded-s-full bg-white/6 animate-pulse" />
-            <div className="flex-1 rounded-e-full bg-white/6 animate-pulse" />
+          <div className="flex gap-0.5 h-[7px]">
+            <div className="flex-1 rounded-s-full bg-white/[0.04] animate-pulse" />
+            <div className="flex-1 rounded-e-full bg-white/[0.04] animate-pulse" />
           </div>
         </div>
       ))}
