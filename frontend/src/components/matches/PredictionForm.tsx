@@ -370,6 +370,20 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         </div>
       )}
       <OracleStatsPanel match={match} />
+
+      {/* V5 Sprint 34 Hotfix — a real, reported gap: the chain-link icon's
+          only explanation was a native `title` attribute, which never
+          shows on touch (no hover state) — invisible to the ~96% of this
+          app's traffic that's mobile (§38). This is the actual, always-
+          visible, tap-to-open explanation via InfoTip (already the
+          established mobile-friendly pattern everywhere else in this
+          app), not a one-time dismissible tip that could get missed. */}
+      <div className="flex items-center gap-1 px-1 -mb-0.5">
+        <Link2 size={11} className="text-white/25" strokeWidth={2.5} />
+        <span className="text-[10px] text-white/35 uppercase tracking-wider">{t('parlayHintLabel')}</span>
+        <InfoTip text={t('parlayHintDetail')} />
+      </div>
+
       {tiers.map((tier, i) => (
         <motion.div
           key={tier.key}

@@ -9,6 +9,7 @@ import { calcParlayBonusPreview, type ParlayTierKey } from '../../lib/constants'
 import { TIER_COLORS } from '../../lib/tierVisuals';
 import { cn } from '../../lib/utils';
 import type { TranslationKey } from '../../lib/i18n';
+import { InfoTip } from '../ui/InfoTip';
 
 // V5 Sprint 34 — "The Prediction Matrix". "כרטיס השילוב שלי" (My Parlay
 // Slip). Deliberately NOT a second full-screen modal with its own backdrop:
@@ -122,8 +123,9 @@ export function ParlaySlipDrawer({ linkedTiers, tierPoints, onUnlink }: ParlaySl
                 className="p-3 space-y-2.5"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-headline uppercase tracking-wider text-text-primary">
+                  <span className="flex items-center text-[11px] font-headline uppercase tracking-wider text-text-primary">
                     {t('parlaySlipTitle')}
+                    <InfoTip text={t('parlaySlipDrawerHint')} />
                   </span>
                   <span
                     className="text-[10px] font-mono font-bold tabular-nums px-2 py-0.5 rounded-full shrink-0"
