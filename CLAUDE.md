@@ -356,6 +356,39 @@ WHERE user_id = p_user_id AND group_id = p_group_id;
 -- ❌ Do not read totals from user_coins for balance display
 ```
 
+### 4.17 A `FOR UPDATE`/`FOR SHARE`-protected transaction must never span an unbounded-duration operation
+
+**Audited V4 Sprint 30 Commit 3** — every `FOR UPDATE`/`FOR SHARE` site in this schema was cross-checked against every `net.http_post`/`net.http_get` site (the *only* way Postgres can make an HTTP call in this codebase — `pg_net`, no other extension is installed):
+
+| Row-lock sites (`FOR UPDATE`/`FOR SHARE`) | HTTP-call sites (`net.http_post`) |
+|---|---|
+| `020_coins.sql` (coin-spend/adjust balance lock) | `036_setup_pg_cron_sync.sql` — `trigger_sync_heartbeat()` only |
+| `040_secure_prediction_cost.sql` — `submit_prediction()` balance lock | |
+| `041_autonomous_economy.sql` — `distribute_daily_allowance()`, `FOR UPDATE OF gm SKIP LOCKED` | |
+| `042_micro_predictions.sql` — question lock + balance lock | |
+| `049_submit_prediction_corners_guard.sql` — balance lock | |
+
+**Zero overlap.** No coin-spending or bet-placing RPC holds a row lock while making or waiting on an HTTP call, and `trigger_sync_heartbeat()` (the only function that calls `net.http_post`) never acquires a `FOR UPDATE`/`FOR SHARE` lock. This is a structural property, not luck: `net.http_post` is **async/fire-and-forget** — it queues the request via a `pg_net` background worker and the calling transaction continues immediately, never blocking on a response (see migration `036`'s own comment). Postgres has no synchronous HTTP client anywhere in this stack, so a PL/pgSQL function holding a lock while *literally* waiting on an HTTP response can't happen today.
+
+The rule below is deliberately broader than "no HTTP calls" — that's the enforceable version that actually prevents a *future* regression, since the risk isn't only HTTP:
+
+```sql
+-- ❌ Never let a locked transaction span an operation whose duration
+-- isn't bounded by Postgres itself — an unbounded loop, a call into an
+-- extension with its own I/O, a recursive CTE with no real limit, etc.
+BEGIN
+  SELECT coins INTO v_coins FROM group_members WHERE ... FOR UPDATE;
+  -- any operation here whose worst-case duration Postgres doesn't control
+  ...
+END;
+
+-- ✅ Every FOR UPDATE-protected transaction in this schema today is
+-- short, synchronous, single-purpose: lock the row, read/compute, write,
+-- release. Keep every future one the same shape.
+```
+
+Every coin-spending RPC already follows this shape as a side effect of rule §11's "compute the cost inside the RPC, one atomic function" discipline — this rule exists to keep it that way as new `SECURITY DEFINER` functions are added, not because a violation currently exists.
+
 ---
 
 ## 5. File & Folder Map
