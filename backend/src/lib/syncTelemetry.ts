@@ -66,6 +66,57 @@ export async function withSyncTelemetry<T>(
   return result;
 }
 
+// V4 Sprint 31 Commit 3 — read-side helpers for the self-healing watchdog
+// and consecutive-failure alerting in scheduler.ts. Both are read-only,
+// non-throwing (return a safe default on any failure — including the table
+// not existing yet), and never block anything they're consulted from.
+
+// Most recent COMPLETED live_poll row for the given tier, or null if none
+// exists yet (table empty, or migration 052 not yet applied). null is the
+// correct "treat as stale" signal for the watchdog either way.
+export async function getLastCompletedLivePoll(tier: SyncTier): Promise<{ completedAt: Date } | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('sync_run_log')
+      .select('completed_at')
+      .eq('run_type', 'live_poll')
+      .eq('tier', tier)
+      .not('completed_at', 'is', null)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data?.completed_at) return null;
+    return { completedAt: new Date(data.completed_at as string) };
+  } catch (err) {
+    logger.warn('[syncTelemetry] getLastCompletedLivePoll query threw:', err);
+    return null;
+  }
+}
+
+// The N most recent live_poll rows (any tier), newest first — used to check
+// for a sustained failure streak. Returns [] on any failure, which reads as
+// "no evidence of a streak" — never a false alert from a query error.
+export async function getRecentLivePollRuns(limit: number): Promise<{ completedAt: string | null; errors: unknown[] }[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('sync_run_log')
+      .select('completed_at, errors')
+      .eq('run_type', 'live_poll')
+      .order('started_at', { ascending: false })
+      .limit(limit);
+
+    if (error || !data) return [];
+    return data.map(row => ({
+      completedAt: row.completed_at as string | null,
+      errors: (row.errors as unknown[]) ?? [],
+    }));
+  } catch (err) {
+    logger.warn('[syncTelemetry] getRecentLivePollRuns query threw:', err);
+    return [];
+  }
+}
+
 async function writeRow(
   runType: SyncRunType,
   tier: SyncTier | null,

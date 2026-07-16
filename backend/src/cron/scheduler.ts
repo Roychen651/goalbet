@@ -8,8 +8,13 @@ import { lockExpiredMicroQuestions, resolveLockedMicroQuestions } from '../servi
 import { refreshCornersSupportFlags } from '../services/leagueStatCapability';
 import { refreshEspnLeagueMap } from '../services/espn';
 import { logger } from '../lib/logger';
-import { withSyncTelemetry } from '../lib/syncTelemetry';
+import { withSyncTelemetry, getLastCompletedLivePoll, getRecentLivePollRuns } from '../lib/syncTelemetry';
 import { SyncResult } from '../services/matchSync';
+
+// V4 Sprint 31 Commit 3 — self-healing watchdog + alerting thresholds.
+const WATCHDOG_INTERVAL_MS = 60_000;
+const TIER1_STALENESS_THRESHOLD_MS = 90_000; // 3x the 30s Tier-1 cadence
+const CONSECUTIVE_FAILURE_THRESHOLD = 5;
 
 // V4 Sprint 31 — shared by the daily/noon/startup sync steps: turns a
 // SyncResult[] (matchSync.ts's per-league return shape) into the counts
@@ -169,6 +174,57 @@ export function startScheduler(): void {
       logger.info(`[scheduler] Tier-2 poll: checked=${result.checked} resolved=${result.resolved}`);
     }
   }), 90_000);
+
+  // Self-healing watchdog + consecutive-failure alerting (V4 Sprint 31
+  // Commit 3) — every 60s. Two independent checks share one tick since both
+  // read from the same sync_run_log table and neither is expensive.
+  setInterval(guarded('Sync watchdog', async () => {
+    // Gate: never act in the first 90s after boot. A cold start (this app's
+    // NORMAL operating mode — Render's free tier sleeps after ~15 min idle)
+    // guarantees "last successful poll" looks stale, since the server was
+    // genuinely asleep — that's not a missed tick, it's expected, and the
+    // existing unconditional startup catch-up above already handles it.
+    // Applying the staleness check here too would just fire it a second
+    // time, redundantly, on every single wake.
+    if (process.uptime() < 90) return;
+
+    // ── Staleness check: has Tier-1 actually stopped succeeding? ──────────
+    // This is the failure mode the brief actually describes — the process
+    // is awake and ticking, but the 30s interval itself silently stopped
+    // producing successful runs (a real hang/bug), not "we just woke up."
+    const last = await getLastCompletedLivePoll('tier1');
+    const staleMs = last ? Date.now() - last.completedAt.getTime() : null;
+    const isStale = staleMs === null || staleMs > TIER1_STALENESS_THRESHOLD_MS;
+
+    if (isStale) {
+      logger.warn(`[scheduler] Self-healing: last successful Tier-1 live_poll is ${staleMs === null ? 'missing entirely' : `${staleMs}ms old`} (threshold ${TIER1_STALENESS_THRESHOLD_MS}ms) — triggering out-of-cycle catch-up`);
+      // Self-limiting by construction: a successful out-of-cycle run here
+      // immediately produces a fresh sync_run_log row, resetting the
+      // staleness clock until the NEXT genuine gap — this can't spam-fire
+      // every 60s just because one catch-up already ran.
+      const result = await withSyncTelemetry('live_poll', 'tier1', () => checkAndUpdateScores('tier1'), (r) => ({
+        matchesChecked: r.checked,
+        matchesResolved: r.resolved,
+        errors: r.errors,
+      }));
+      logger.info(`[scheduler] Self-healing catch-up: checked=${result.checked} resolved=${result.resolved}`);
+    }
+
+    // ── Consecutive-failure alerting ──────────────────────────────────────
+    // A single greppable log line — no webhook, no external dependency (none
+    // exists anywhere in this codebase today, and a "dummy" webhook calling
+    // nowhere real would be fake infrastructure). This is the natural hook
+    // point for host-level log alerting (Render, or a future dedicated
+    // webhook sprint) without fabricating one now. Never fires on an
+    // isolated blip — only when EVERY one of the last 5 live_poll runs
+    // failed or crashed; one clean run anywhere in that window resets it.
+    const recent = await getRecentLivePollRuns(CONSECUTIVE_FAILURE_THRESHOLD);
+    const allFailed = recent.length === CONSECUTIVE_FAILURE_THRESHOLD
+      && recent.every(r => r.completedAt === null || r.errors.length > 0);
+    if (allFailed) {
+      logger.error(`[SRE_ALERT_SYNC_DOWN] ${CONSECUTIVE_FAILURE_THRESHOLD} consecutive live_poll failures — see sync_run_log`);
+    }
+  }), WATCHDOG_INTERVAL_MS);
 
   // Momentum Bets lock sweep — runs every 5 seconds. A 60-second betting
   // window can't tolerate the 30s live-poll cadence (up to half the window's
