@@ -16,6 +16,23 @@ export type DBMatchWithClock = DBMatch & {
   regulation_away: number | null;
   // True when the match was decided by a penalty shootout (STATUS_FINAL_PK).
   went_to_penalties: boolean;
+  // V4 Sprint 29 — the full raw ESPN competitor.statistics[] array per team,
+  // verbatim, for match_team_stats.raw_stats. Was being read (via getStat())
+  // for just 2 named fields and then discarded; now returned in full instead
+  // of thrown away after parsing. null when ESPN's statistics array is
+  // absent for this competitor (e.g. a not-yet-played match).
+  home_stats_raw: Record<string, unknown>[] | null;
+  away_stats_raw: Record<string, unknown>[] | null;
+  // Per-team corners — matches.corners_total only ever stores the SUM of
+  // these two (irreversible once summed), so this is the first place the
+  // real per-team split is captured. yellow_cards is a genuinely new
+  // extraction, not previously read anywhere in this codebase — same
+  // "unverified field name, degrades to null gracefully" caveat as every
+  // other best-effort ESPN field this engagement has added (see Sprint 27).
+  home_corners: number | null;
+  away_corners: number | null;
+  home_yellow_cards: number | null;
+  away_yellow_cards: number | null;
 };
 
 // Map our internal TheSportsDB league IDs → ESPN league slugs.
@@ -599,6 +616,14 @@ export async function fetchLeagueMatches(
         const homeRedCards = getStat(home, 'redCards');
         const awayRedCards = getStat(away, 'redCards');
 
+        // V4 Sprint 29 — yellow cards, a genuinely new extraction (never
+        // read anywhere in this codebase before). Field name is a best-
+        // effort guess (parallel construction to the confirmed 'redCards'),
+        // unverifiable from this sandbox — degrades to null gracefully via
+        // the same getStat() helper if ESPN doesn't expose it.
+        const homeYellowCards = getStat(home, 'yellowCards');
+        const awayYellowCards = getStat(away, 'yellowCards');
+
         matches.push({
           external_id: `espn_${event.id}`,
           league_id: leagueId,
@@ -624,6 +649,12 @@ export async function fetchLeagueMatches(
           penalty_away: wentToPenalties ? penAway : null,
           red_cards_home: homeRedCards,
           red_cards_away: awayRedCards,
+          home_stats_raw: (home.statistics as Record<string, unknown>[] | undefined) ?? null,
+          away_stats_raw: (away.statistics as Record<string, unknown>[] | undefined) ?? null,
+          home_corners: homeCorners,
+          away_corners: awayCorners,
+          home_yellow_cards: homeYellowCards,
+          away_yellow_cards: awayYellowCards,
         });
       } catch (err) {
         logger.debug(`[ESPN] Skipped event ${(event as Record<string, unknown>).id}: ${err}`);
