@@ -4,7 +4,7 @@ import { supabase, Prediction } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useCoinsStore } from '../stores/coinsStore';
-import { calcPredictionCost } from '../lib/constants';
+import { calcPredictionCost, type ParlayTierKey } from '../lib/constants';
 
 interface PredictionInput {
   match_id: string;
@@ -17,6 +17,8 @@ interface PredictionInput {
   predicted_corners?: 'under9' | 'ten' | 'over11' | null;
   predicted_btts?: boolean | null;
   predicted_over_under?: 'over' | 'under' | null;
+  is_parlay?: boolean;
+  parlay_linked_tiers?: ParlayTierKey[] | null;
 }
 
 // Stable empty reference so consumers don't re-render when there are no predictions.
@@ -64,6 +66,8 @@ function buildOptimistic(vars: SaveVars, existing: Prediction | undefined): Pred
     coins_bet: 0,
     is_resolved: false,
     created_at: new Date().toISOString(),
+    is_parlay: false,
+    parlay_linked_tiers: null,
   };
   return {
     ...base,
@@ -77,6 +81,8 @@ function buildOptimistic(vars: SaveVars, existing: Prediction | undefined): Pred
     predicted_over_under: vars.input.predicted_over_under ?? null,
     predicted_corners: vars.input.predicted_corners ?? null,
     coins_bet: vars.newCost,
+    is_parlay: vars.input.is_parlay ?? false,
+    parlay_linked_tiers: vars.input.parlay_linked_tiers ?? null,
   };
 }
 
@@ -149,6 +155,8 @@ export function usePredictions(matchIds?: string[]) {
         p_predicted_corners: vars.input.predicted_corners ?? null,
         p_predicted_btts: vars.input.predicted_btts ?? null,
         p_predicted_over_under: vars.input.predicted_over_under ?? null,
+        p_is_parlay: vars.input.is_parlay ?? false,
+        p_parlay_linked_tiers: vars.input.parlay_linked_tiers ?? null,
       });
 
       if (rpcError) {
@@ -205,6 +213,8 @@ export function usePredictions(matchIds?: string[]) {
             predicted_over_under: vars.input.predicted_over_under ?? null,
             predicted_corners: vars.input.predicted_corners ?? null,
             coins_bet: data.coins_bet, // authoritative — from the RPC's own row, not the optimistic guess
+            is_parlay: data.is_parlay,
+            parlay_linked_tiers: data.parlay_linked_tiers,
             tiers_count: [
               vars.input.predicted_outcome,
               (vars.input.predicted_home_score != null && vars.input.predicted_away_score != null) ? true : null,

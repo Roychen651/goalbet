@@ -1,6 +1,6 @@
 import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Link2 } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Match, Prediction } from '../../lib/supabase';
 import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
@@ -8,7 +8,7 @@ import { CoinIcon } from '../ui/CoinIcon';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import { OracleStatsPanel } from './OracleStatsPanel';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
-import { LIVE_STATUSES, POINTS, COIN_COSTS, calcPredictionCost } from '../../lib/constants';
+import { LIVE_STATUSES, POINTS, COIN_COSTS, calcPredictionCost, calcParlayBonusPreview, type ParlayTierKey } from '../../lib/constants';
 import { interpolateRisk } from '../../lib/oklch';
 
 // International Friendlies: hundreds of matches per week, corners never tracked
@@ -40,6 +40,8 @@ export interface PredictionData {
   predicted_corners: 'under9' | 'ten' | 'over11' | null;
   predicted_btts: boolean | null;
   predicted_over_under: 'over' | 'under' | null;
+  is_parlay?: boolean;
+  parlay_linked_tiers?: ParlayTierKey[] | null;
 }
 
 type OutcomeOption = 'H' | 'D' | 'A';
@@ -107,6 +109,12 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   const [btts, setBtts] = useState<boolean | null>(existingPrediction?.predicted_btts ?? null);
   const [overUnder, setOverUnder] = useState<'over' | 'under' | null>(existingPrediction?.predicted_over_under ?? null);
   const [saved, setSaved] = useState(!!existingPrediction);
+  // V5 Sprint 34 — "The Prediction Matrix". A Set, not an array: toggling is
+  // naturally idempotent (link/unlink) and membership checks are O(1) for
+  // every tier row's `linked` prop on every render.
+  const [linkedTiers, setLinkedTiers] = useState<Set<ParlayTierKey>>(
+    new Set(existingPrediction?.is_parlay ? existingPrediction.parlay_linked_tiers ?? [] : []),
+  );
 
   // Sync form values only when the prediction ID changes (new prediction loaded).
   const predId = existingPrediction?.id;
@@ -118,6 +126,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       setCornersValue(existingPrediction.predicted_corners ?? null);
       setBtts(existingPrediction.predicted_btts ?? null);
       setOverUnder(existingPrediction.predicted_over_under ?? null);
+      setLinkedTiers(new Set(existingPrediction.is_parlay ? existingPrediction.parlay_linked_tiers ?? [] : []));
       setSaved(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,6 +178,54 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cornersDisabled]);
 
+  // V5 Sprint 34 — "The Prediction Matrix". Per-tier active state, using
+  // the same canonical keys the backend's submit_prediction() validates
+  // against (migration 054) and calcBreakdown() already emits — one
+  // vocabulary, not a second one invented for this UI.
+  const tierActive: Record<ParlayTierKey, boolean> = {
+    result: outcome !== null || hasExactScore,
+    score: hasExactScore,
+    corners: cornersValue !== null,
+    btts: btts !== null,
+    ou: overUnder !== null,
+  };
+
+  const toggleLink = (key: ParlayTierKey) => {
+    if (!tierActive[key]) return; // mirrors the RPC's own linkage validation
+    setLinkedTiers((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        if (next.size >= 3) return prev; // capped at 3 — no-op, never silently evicts an existing link
+        next.add(key);
+      }
+      return next;
+    });
+    haptic('selection');
+    playSound('toggle_click');
+    setSaved(false);
+  };
+
+  // A linked tier whose value gets cleared (by the user, or by one of the
+  // auto-clear effects above) can no longer be part of a valid parlay —
+  // mirrors the cornersDisabled cleanup effect immediately above: silently
+  // drop it from the link set rather than letting the next save fail
+  // submit_prediction()'s server-side linkage check.
+  useEffect(() => {
+    setLinkedTiers((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const key of prev) {
+        if (!tierActive[key]) { next.delete(key); changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tierActive.result, tierActive.score, tierActive.corners, tierActive.btts, tierActive.ou]);
+
+  const isParlayArmed = linkedTiers.size >= 2;
+
   const handleSubmit = async () => {
     await onSave({
       match_id: match.id,
@@ -178,6 +235,8 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       predicted_corners: cornersValue,
       predicted_btts: btts,
       predicted_over_under: overUnder,
+      is_parlay: isParlayArmed,
+      parlay_linked_tiers: isParlayArmed ? Array.from(linkedTiers) : null,
     });
     // lock_thud, not coin_chime — coin_chime already means "you received
     // coins" everywhere else in the app (daily bonus, prediction wins).
@@ -229,6 +288,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   const tiers = [
     {
       key: 'tier1',
+      parlayKey: 'result' as ParlayTierKey,
       label: t('fullTimeResult'),
       pts: POINTS.TIER1_OUTCOME,
       active: outcome !== null,
@@ -246,6 +306,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
     },
     {
       key: 'tier2',
+      parlayKey: 'score' as ParlayTierKey,
       label: t('exactScore'),
       pts: POINTS.TIER2_EXACT_SCORE,  // +7 — stacks with Result's +3 = +10 when correct
       ptsNote: t('scoreStacksNote'),
@@ -268,6 +329,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       // 4=O-U) instead of shifting depending on whether corners is
       // excluded for this particular match's league.
       key: 'tier3',
+      parlayKey: 'corners' as ParlayTierKey,
       label: t('totalCorners'),
       pts: POINTS.TIER3_CORNERS,
       active: cornersValue !== null,
@@ -308,6 +370,10 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
             color={TIER_COLORS[i]}
             disabled={tier.disabled}
             disabledTooltip={tier.disabled ? t('cornersUnsupportedTooltip') : undefined}
+            linkKey={tier.parlayKey}
+            linked={linkedTiers.has(tier.parlayKey)}
+            canLink={tierActive[tier.parlayKey]}
+            onToggleLink={toggleLink}
           >
             <LockedTier locked={!!isNewUser && tier.key !== 'tier1'}>{tier.content}</LockedTier>
           </TierRow>
@@ -327,6 +393,10 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           noLabel={t('no')}
           impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
           delay={tiers.length * 0.05}
+          linkKey="btts"
+          linked={linkedTiers.has('btts')}
+          canLink={tierActive.btts}
+          onToggleLink={toggleLink}
         />
       </LockedTier>
       <LockedTier locked={!!isNewUser}>
@@ -341,6 +411,10 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           noLabel="U 2.5"
           impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
           delay={(tiers.length + 1) * 0.05}
+          linkKey="ou"
+          linked={linkedTiers.has('ou')}
+          canLink={tierActive.ou}
+          onToggleLink={toggleLink}
         />
       </LockedTier>
 
@@ -410,8 +484,47 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
 // Sub-components
 // ============================================================
 
+// V5 Sprint 34 — "The Prediction Matrix". A small chain-link toggle shared
+// by TierRow (tiers 1-3) and InlineBoolTier (BTTS, O/U) — the two separate
+// render paths a canonical tier can come from (PredictionForm has no single
+// unified list of all 5 tiers). Only interactive when the tier currently
+// has an active value (mirrors the RPC's own linkage validation, migration
+// 054); an inactive tier's icon renders dimmed and non-interactive rather
+// than just being absent — the same "a disabled element must look
+// disabled" rule already applied to the Corners guard (§21/§41).
+function ChainLinkToggle({
+  linked, canLink, onToggle, color,
+}: {
+  linked: boolean;
+  canLink: boolean;
+  onToggle: () => void;
+  color: typeof TIER_COLORS[number];
+}) {
+  const { t } = useLangStore();
+  return (
+    <button
+      type="button"
+      onClick={canLink ? onToggle : undefined}
+      disabled={!canLink}
+      aria-pressed={linked}
+      title={canLink ? t('parlayChainToggle') : t('parlayChainToggleDisabled')}
+      className={cn(
+        'shrink-0 flex items-center justify-center w-6 h-6 rounded-full border transition-all duration-200 active:scale-90',
+        !canLink
+          ? 'opacity-25 cursor-not-allowed bg-white/3 border-white/6 text-text-muted'
+          : linked
+            ? cn('border-current text-current bg-current/15', color.pts)
+            : 'bg-white/4 border-white/10 text-text-muted hover:bg-white/8 hover:text-text-primary',
+      )}
+    >
+      <Link2 size={12} strokeWidth={2.5} />
+    </button>
+  );
+}
+
 function TierRow({
   label, pts, ptsNote, active, color, children, disabled, disabledTooltip,
+  linkKey, linked, canLink, onToggleLink,
 }: {
   label: string;
   pts: number;
@@ -427,6 +540,12 @@ function TierRow({
       CLAUDE.md §21). */
   disabled?: boolean;
   disabledTooltip?: string;
+  /** V5 Sprint 34 — omit linkKey entirely to keep a tier out of parlay
+      chaining altogether (not used today, but keeps the prop optional). */
+  linkKey?: ParlayTierKey;
+  linked?: boolean;
+  canLink?: boolean;
+  onToggleLink?: (key: ParlayTierKey) => void;
 }) {
   const { t } = useLangStore();
   return (
@@ -444,13 +563,21 @@ function TierRow({
           <span className="text-text-primary text-xs sm:text-[13px] font-headline uppercase tracking-wider leading-none">{label}</span>
           {disabled && disabledTooltip && <InfoTip text={disabledTooltip} />}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {ptsNote && (
             <span className="text-text-muted text-[9px] font-display italic opacity-40">{ptsNote}</span>
           )}
           <span className={cn('text-[10px] font-display font-semibold tabular-nums', !disabled && active ? color.pts : 'text-text-muted opacity-35')}>
             +{pts} {t('pts')}
           </span>
+          {linkKey && !disabled && onToggleLink && (
+            <ChainLinkToggle
+              linked={!!linked}
+              canLink={!!canLink}
+              onToggle={() => onToggleLink(linkKey)}
+              color={color}
+            />
+          )}
         </div>
       </div>
       {children}
@@ -460,6 +587,7 @@ function TierRow({
 
 function InlineBoolTier({
   label, pts, active, color, value, onChange, yesLabel, noLabel, impossibleValue, delay,
+  linkKey, linked, canLink, onToggleLink,
 }: {
   label: string;
   pts: number;
@@ -471,6 +599,10 @@ function InlineBoolTier({
   noLabel: string;
   impossibleValue?: boolean;
   delay?: number;
+  linkKey?: ParlayTierKey;
+  linked?: boolean;
+  canLink?: boolean;
+  onToggleLink?: (key: ParlayTierKey) => void;
 }) {
   const { t } = useLangStore();
   return (
@@ -488,6 +620,14 @@ function InlineBoolTier({
       <span className={cn('text-[10px] font-display font-semibold tabular-nums shrink-0', active ? color.pts : 'text-text-muted opacity-35')}>
         +{pts} {t('pts')}
       </span>
+      {linkKey && onToggleLink && (
+        <ChainLinkToggle
+          linked={!!linked}
+          canLink={!!canLink}
+          onToggle={() => onToggleLink(linkKey)}
+          color={color}
+        />
+      )}
       <div className="flex gap-1 shrink-0">
         {([true, false] as const).map((v) => {
           const isImpossible = impossibleValue !== undefined && impossibleValue === v;

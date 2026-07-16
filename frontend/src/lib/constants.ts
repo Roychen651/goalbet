@@ -94,6 +94,30 @@ export function calcPredictionCost(data: {
   return cost;
 }
 
+// V5 Sprint 34 — "The Prediction Matrix" (same-match parlays). Reuses the
+// same 5 canonical tier keys calcBreakdown() (lib/utils.ts) already emits —
+// one vocabulary for "which of the 5 tiers", not a second parallel one.
+export type ParlayTierKey = 'result' | 'score' | 'corners' | 'btts' | 'ou';
+
+/**
+ * Client-side PREVIEW of the parlay bonus — never authoritative. Mirrors
+ * backend/src/services/pointsEngine.ts's calculatePoints() parlay branch
+ * exactly (same "keep both in sync" discipline as calcPredictionCost() /
+ * submit_prediction()): if every linked tier's own base points value is
+ * nonzero, bonus = ROUND(linkedBaseSum * 0.25 * (k-1)). Used only to show
+ * a live "potential multiplier" figure before submission — the RPC's
+ * response is always what actually gets saved and displayed after.
+ */
+export function calcParlayBonusPreview(
+  linkedTiers: ParlayTierKey[],
+  tierPoints: Partial<Record<ParlayTierKey, number>>,
+): number {
+  if (linkedTiers.length < 2) return 0;
+  const k = linkedTiers.length;
+  const linkedBaseSum = linkedTiers.reduce((sum, key) => sum + (tierPoints[key] ?? 0), 0);
+  return Math.round(linkedBaseSum * 0.25 * (k - 1));
+}
+
 // Match status labels
 export const MATCH_STATUS_LABEL: Record<string, string> = {
   NS: 'Upcoming',
