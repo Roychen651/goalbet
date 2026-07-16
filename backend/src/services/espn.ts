@@ -6,6 +6,7 @@
 import axios from 'axios';
 import { logger } from '../lib/logger';
 import { DBMatch } from './sportsdb';
+import { FALLBACK_LEAGUE_MAP, refreshLeagueRegistry } from './leagueRegistry';
 
 export type DBMatchWithClock = DBMatch & {
   display_clock: string | null;
@@ -17,24 +18,25 @@ export type DBMatchWithClock = DBMatch & {
   went_to_penalties: boolean;
 };
 
-// Map our internal TheSportsDB league IDs → ESPN league slugs
-export const LEAGUE_ESPN_MAP: Record<number, string> = {
-  4328: 'eng.1',            // Premier League
-  4335: 'esp.1',            // La Liga
-  4331: 'ger.1',            // Bundesliga
-  4332: 'ita.1',            // Serie A
-  4334: 'fra.1',            // Ligue 1
-  4346: 'uefa.champions',   // Champions League
-  4399: 'uefa.europa',      // Europa League
-  4877: 'uefa.europa.conf', // Conference League
-  9001: 'eng.fa',           // FA Cup
-  9002: 'eng.league_cup',   // League Cup (Carabao)
-  9003: 'esp.copa_del_rey', // Copa del Rey
-  4396: 'fifa.friendly',    // International Friendlies (men's)
-  4635: 'uefa.nations',     // UEFA Nations League
-  5000: 'uefa.worldq',      // UEFA World Cup Qualifiers 2026
-  4480: 'fifa.world',       // FIFA World Cup 2026 (ESPN league id 606)
-};
+// Map our internal TheSportsDB league IDs → ESPN league slugs.
+//
+// V4 Sprint 28 — this is now a DERIVED VIEW over the `league_registry` table
+// (leagueRegistry.ts), refreshed every 10 minutes by refreshEspnLeagueMap()
+// below (called from scheduler.ts's startup + interval, same pattern as
+// every other cron-driven sweep). It's seeded here from FALLBACK_LEAGUE_MAP
+// (a shallow copy, so mutating this object never touches the fallback
+// itself) so it's never empty even before the first DB read resolves.
+//
+// CRITICAL: this binding is never reassigned, only mutated in place (see
+// leagueRegistry.ts's module doc comment for exactly why) — every one of the
+// ~15 files across this backend that does `import { LEAGUE_ESPN_MAP } from
+// './espn'` keeps working unchanged, because they all hold a reference to
+// this SAME object, which just gets fresher keys over time.
+export const LEAGUE_ESPN_MAP: Record<number, string> = { ...FALLBACK_LEAGUE_MAP };
+
+export async function refreshEspnLeagueMap(): Promise<void> {
+  await refreshLeagueRegistry(LEAGUE_ESPN_MAP);
+}
 
 function mapEspnStatus(statusName: string, period: number, state: string): string {
   switch (statusName) {
