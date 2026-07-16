@@ -7,6 +7,7 @@ import { useUIStore } from '../stores/uiStore';
 import { useLangStore } from '../stores/langStore';
 import { haptic } from '../lib/haptics';
 import { playSound } from '../lib/sensoryAudio';
+import { useRealtimeSubscription, useRealtimeReconnect } from '../components/providers/RealtimeProvider';
 
 export interface MicroQuestion {
   id: string;
@@ -91,18 +92,16 @@ export function useMicroPrediction() {
     prevStatusRef.current = curr;
   }, [question?.status, myBet]);
 
-  useEffect(() => {
-    if (!activeGroupId) return;
-    const channel = supabase
-      .channel(`micro-questions-${activeGroupId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'micro_prediction_questions', filter: `group_id=eq.${activeGroupId}` },
-        () => fetchActive(),
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [activeGroupId, fetchActive]);
+  // V5 Sprint 35 — this table's Realtime binding now lives on
+  // RealtimeProvider's shared Group Channel. Payload content is ignored
+  // (matches the pre-Sprint-35 `event: '*'` behavior exactly) — re-fetches
+  // the active question regardless of what actually changed.
+  useRealtimeSubscription('micro_prediction_questions', () => fetchActive());
+
+  // A dropped-then-recovered channel could have missed a lock/resolve
+  // transition entirely — reconcile with a fresh fetch the moment the
+  // underlying channel comes back.
+  useRealtimeReconnect(() => fetchActive());
 
   // Resolution reveal — the question disappears the instant it flips to
   // 'resolved'/'canceled' (fetchActive only ever selects open/locked), so
@@ -114,33 +113,30 @@ export function useMicroPrediction() {
   // this table doesn't have). Silent on a genuine loss (is_winner === false)
   // — a loss toast every 10 minutes for every micro-bet would be noise, not
   // feedback, the same restraint the main prediction economy already applies.
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel(`micro-bet-results-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'micro_prediction_bets', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const row = payload.new as { settled_at?: string | null; is_winner?: boolean | null; coins_staked?: number };
-          if (!row.settled_at) return;
-          // Read current language/toast-store state at fire time, not
-          // subscription time — a stale closure here would show the toast in
-          // whatever language was active minutes ago when the bet was placed.
-          const { t } = useLangStore.getState();
-          const { addToast } = useUIStore.getState();
-          const stake = row.coins_staked ?? 2;
-          if (row.is_winner === true) {
-            haptic('success');
-            addToast(t('momentumWonToast').replace('{0}', String(stake * 2)), 'success');
-          } else if (row.is_winner === null) {
-            addToast(t('momentumRefundToast').replace('{0}', String(stake)), 'info');
-          }
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user?.id]);
+  //
+  // V5 Sprint 35 — this table's Realtime binding now lives on
+  // RealtimeProvider's shared User Channel (not the Group Channel — a bet's
+  // own settlement must still notify the user even if they've since
+  // switched to viewing a different group). No useRealtimeReconnect() here:
+  // a missed settlement toast during a drop isn't silently lost — the
+  // coin_transactions row it always comes with (won or refunded) still
+  // fires its own toast/haptic via the Group Channel's existing binding.
+  useRealtimeSubscription('micro_prediction_bets', (payload) => {
+    const row = payload.new as { settled_at?: string | null; is_winner?: boolean | null; coins_staked?: number };
+    if (!row.settled_at) return;
+    // Read current language/toast-store state at fire time, not
+    // subscription time — a stale closure here would show the toast in
+    // whatever language was active minutes ago when the bet was placed.
+    const { t } = useLangStore.getState();
+    const { addToast } = useUIStore.getState();
+    const stake = row.coins_staked ?? 2;
+    if (row.is_winner === true) {
+      haptic('success');
+      addToast(t('momentumWonToast').replace('{0}', String(stake * 2)), 'success');
+    } else if (row.is_winner === null) {
+      addToast(t('momentumRefundToast').replace('{0}', String(stake)), 'info');
+    }
+  });
 
   const submitBet = useCallback(async (choice: 'yes' | 'no') => {
     if (!user || !activeGroupId || !question) return;

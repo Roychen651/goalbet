@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
-import { useRealtimeSubscription } from '../components/providers/RealtimeProvider';
+import { useRealtimeSubscription, useRealtimeReconnect } from '../components/providers/RealtimeProvider';
 
 const STORAGE_KEY = 'goalbet_last_seen_points';
 
@@ -26,20 +26,23 @@ export function useNewPointsAlert(): NewPointsAlert {
   const [currentPoints, setCurrentPoints] = useState<number | null>(null);
   const [lastSeen, setLastSeenState] = useState(getLastSeen());
 
-  useEffect(() => {
+  const fetchCurrentPoints = useCallback(async () => {
     if (!user || !activeGroupId) return;
-
-    // Initial fetch
-    supabase
+    const { data } = await supabase
       .from('leaderboard')
       .select('total_points')
       .eq('user_id', user.id)
       .eq('group_id', activeGroupId)
-      .single()
-      .then(({ data }) => {
-        if (data) setCurrentPoints(data.total_points);
-      });
+      .single();
+    if (data) setCurrentPoints(data.total_points);
   }, [user?.id, activeGroupId]);
+
+  useEffect(() => { fetchCurrentPoints(); }, [fetchCurrentPoints]);
+
+  // A dropped-then-recovered channel could have missed the UPDATE entirely
+  // — reconcile with a fresh fetch the moment the underlying channel comes
+  // back.
+  useRealtimeReconnect(() => fetchCurrentPoints());
 
   // V5 Sprint 35 — this table's Realtime binding now lives on
   // RealtimeProvider's shared Group Channel (folded together with

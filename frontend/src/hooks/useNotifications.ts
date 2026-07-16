@@ -7,9 +7,10 @@
  * - Provides markAllRead() which calls the mark_notifications_read RPC.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
+import { useRealtimeSubscription, useRealtimeReconnect } from '../components/providers/RealtimeProvider';
 
 export interface AppNotification {
   id: string;
@@ -57,11 +58,6 @@ export function useNotifications(): UseNotificationsReturn {
   const { user } = useAuthStore();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  // Unique per hook instance — prevents channel name collisions when both
-  // Sidebar and TopBar mount simultaneously (same channel name → Supabase
-  // deduplicates, and one cleanup removes the channel for the other).
-  const instanceId = useRef(Math.random().toString(36).slice(2, 8));
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -101,46 +97,30 @@ export function useNotifications(): UseNotificationsReturn {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // Realtime: prepend new notifications instantly
-  useEffect(() => {
-    if (!user) return;
+  // V5 Sprint 35 — this table's Realtime binding now lives on
+  // RealtimeProvider's shared User Channel, not a per-instance channel.
+  // The old per-instance-id channel-name suffix existed specifically to
+  // avoid collisions when Sidebar and TopBar both mounted their own
+  // useNotifications() simultaneously (CSS-toggled by breakpoint, not
+  // conditionally rendered) — the shared registry's Set<handler> supports
+  // multiple simultaneous listeners on the same table natively, so that
+  // workaround is gone: prepend new notifications instantly.
+  useRealtimeSubscription('notifications', (payload) => {
+    const newNotif = payload.new as AppNotification;
+    setNotifications(prev => {
+      // Avoid duplicates (Realtime can double-fire, and concurrent score
+      // syncs can insert multiple rows for the same match)
+      if (prev.some(n => n.id === newNotif.id)) return prev;
+      const matchId = newNotif.metadata?.match_id;
+      if (matchId && prev.some(n => n.type === newNotif.type && n.metadata?.match_id === matchId && n.user_id === newNotif.user_id)) return prev;
+      return [newNotif, ...prev].slice(0, MAX_NOTIFICATIONS);
+    });
+  });
 
-    // Clean up any existing channel
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
-
-    const channel = supabase
-      .channel(`notifications:${user.id}:${instanceId.current}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const newNotif = payload.new as AppNotification;
-          setNotifications(prev => {
-            // Avoid duplicates (Realtime can double-fire, and concurrent
-            // score syncs can insert multiple rows for the same match)
-            if (prev.some(n => n.id === newNotif.id)) return prev;
-            const matchId = newNotif.metadata?.match_id;
-            if (matchId && prev.some(n => n.type === newNotif.type && n.metadata?.match_id === matchId && n.user_id === newNotif.user_id)) return prev;
-            return [newNotif, ...prev].slice(0, MAX_NOTIFICATIONS);
-          });
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      supabase.removeChannel(channel);
-      channelRef.current = null;
-    };
-  }, [user?.id]);
+  // A dropped-then-recovered channel could have missed an INSERT entirely
+  // — reconcile with a fresh fetch (which also re-applies the dedup pass)
+  // the moment the underlying channel comes back.
+  useRealtimeReconnect(() => fetchNotifications());
 
   const markAllRead = useCallback(async () => {
     if (!user) return;

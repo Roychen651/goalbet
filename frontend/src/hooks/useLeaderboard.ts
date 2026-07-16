@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, LeaderboardEntryWithProfile, Match, Prediction } from '../lib/supabase';
 import { useGroupStore } from '../stores/groupStore';
 import { calcLiveBreakdown } from '../lib/utils';
-import { useRealtimeSubscription } from '../components/providers/RealtimeProvider';
+import { useRealtimeSubscription, useRealtimeReconnect } from '../components/providers/RealtimeProvider';
 
 export type LeaderboardType = 'total' | 'weekly' | 'lastWeek';
 
@@ -222,6 +222,11 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
   // backend polls every 30s and fires dozens of match UPDATEs which would
   // cause constant re-fetches and re-renders.
   useRealtimeSubscription('leaderboard', () => { fetchLeaderboard(); });
+
+  // A dropped-then-recovered channel could have missed a row change
+  // entirely (Realtime doesn't replay missed events) — this is the genuine
+  // replacement for what visibilitychange was only ever a proxy for.
+  useRealtimeReconnect(() => fetchLeaderboard());
 
   useEffect(() => {
     fetchLeaderboard();
