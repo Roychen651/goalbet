@@ -5,6 +5,7 @@ import { logger } from '../lib/logger';
 import { ensurePostMatchSummary, ensureChronicle } from './aiScout';
 import { sendPushToUser } from './pushSender';
 import { getLeagueTier } from './leagueRegistry';
+import { processBatched } from '../lib/batch';
 
 interface PendingMatch {
   id: string;
@@ -599,11 +600,22 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
 
   let totalResolved = 0;
 
-  for (const [leagueId, matches] of byLeague) {
+  // V4 Sprint 28 Commit 4 — bounded batching replaces the old unbounded
+  // sequential loop here too, same primitive and same reasoning as
+  // matchSync.ts's syncAllActiveLeagues(). The loop body below is
+  // unchanged verbatim from before this commit — only the loop header/
+  // closer changed, from a plain `for...of` to a batched callback — so
+  // every existing behavior (HT layer inference, ET/PEN resolution, the
+  // RankTracker, totalResolved accumulation via closure) is preserved
+  // exactly. `results.push`/`totalResolved +=`-style mutations from
+  // concurrent callbacks within one batch are safe: JS array/number
+  // mutations are synchronous and non-preemptible even when the
+  // surrounding async functions interleave.
+  await processBatched([...byLeague.entries()], async ([leagueId, matches]) => {
     // Skip leagues ESPN doesn't cover — those matches won't auto-resolve via API
     if (!(leagueId in LEAGUE_ESPN_MAP)) {
       logger.debug(`[scoreUpdater] League ${leagueId} not in ESPN map, skipping auto-resolve`);
-      continue;
+      return;
     }
 
     try {
@@ -755,7 +767,7 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
     } catch (err) {
       logger.error(`[scoreUpdater] Error checking league ${leagueId}:`, err);
     }
-  }
+  });
 
   // ── Corners re-score: fix predictions scored before corners_total was set ──
   // corners_total is entered manually after the match. If predictions were already
