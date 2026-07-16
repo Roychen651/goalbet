@@ -13,77 +13,9 @@ import { BarChart3, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { LEAGUE_ESPN_SLUG, LIVE_STATUSES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
-import type { TranslationKey } from '../../lib/i18n';
 import type { Match } from '../../lib/supabase';
 import { AIScoutCard } from '../ui/AIScoutCard';
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-interface StatRow {
-  key: string;
-  label: TranslationKey;
-  home: number;
-  away: number;
-  /** Display as percentage (e.g. possession) */
-  pct?: boolean;
-}
-
-// Stat names from ESPN → our i18n keys + extraction helpers
-const STAT_MAP: { espn: string; label: TranslationKey; pct?: boolean }[] = [
-  { espn: 'possessionPct', label: 'possession', pct: true },
-  { espn: 'totalShots',    label: 'totalShots' },
-  { espn: 'shotsOnTarget', label: 'shotsOnTarget' },
-  { espn: 'wonCorners',    label: 'cornersStats' },
-  { espn: 'foulsCommitted', label: 'fouls' },
-  { espn: 'offsides',      label: 'offsides' },
-  { espn: 'yellowCards',   label: 'yellowCards' },
-  { espn: 'redCards',      label: 'redCardsStat' },
-];
-
-// ── ESPN Fetch ───────────────────────────────────────────────────────────────
-
-async function fetchMatchStats(externalId: string, leagueId: number): Promise<StatRow[]> {
-  const slug = LEAGUE_ESPN_SLUG[leagueId];
-  if (!slug) return [];
-
-  const eventId = externalId.replace(/^espn_/, '');
-  if (!eventId || !/^\d+$/.test(eventId)) return [];
-
-  try {
-    const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = await res.json() as Record<string, unknown>;
-
-    const boxscore = data?.boxscore as Record<string, unknown> | undefined;
-    const teams = (boxscore?.teams as Record<string, unknown>[]) ?? [];
-    if (teams.length < 2) return [];
-
-    const homeStat = (teams[0]?.statistics as Record<string, unknown>[]) ?? [];
-    const awayStat = (teams[1]?.statistics as Record<string, unknown>[]) ?? [];
-
-    const getVal = (stats: Record<string, unknown>[], name: string): number => {
-      const found = stats.find(s => s.name === name);
-      if (!found) return 0;
-      const dv = found.displayValue ?? found.value;
-      const n = typeof dv === 'string' ? parseFloat(dv.replace('%', '')) : typeof dv === 'number' ? dv : 0;
-      return isNaN(n) ? 0 : n;
-    };
-
-    const rows: StatRow[] = [];
-    for (const m of STAT_MAP) {
-      const h = getVal(homeStat, m.espn);
-      const a = getVal(awayStat, m.espn);
-      // Only include stats that have data (at least one side > 0), except possession
-      if (h === 0 && a === 0 && !m.pct) continue;
-      rows.push({ key: m.espn, label: m.label, home: h, away: a, pct: m.pct });
-    }
-
-    return rows;
-  } catch {
-    return [];
-  }
-}
+import { fetchMatchStats, type StatRow } from '../../lib/matchBoxscore';
 
 // ── Stat Bar ─────────────────────────────────────────────────────────────────
 
