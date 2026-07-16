@@ -795,8 +795,8 @@ async function generateOracleNarration(ctx: OracleContext, lang: 'en' | 'he'): P
     const user =
       `משחק: ${ctx.homeTeam} מול ${ctx.awayTeam}\n` +
       `תחרות: ${league}\n` +
-      `${ctx.homeTeam} (${home.sample_size} משחקים אחרונים): ${home.wins} נצחונות, ${home.draws} תיקו, ${home.losses} הפסדים. מעל 2.5 שערים: ${home.over25_pct}%. שני הקבוצות כובשות: ${home.btts_pct}%.\n` +
-      `${ctx.awayTeam} (${away.sample_size} משחקים אחרונים): ${away.wins} נצחונות, ${away.draws} תיקו, ${away.losses} הפסדים. מעל 2.5 שערים: ${away.over25_pct}%. שני הקבוצות כובשות: ${away.btts_pct}%.\n\n` +
+      `${ctx.homeTeam} (${home.sample_size} משחקים אחרונים): ${home.wins} נצחונות, ${home.draws} תיקו, ${home.losses} הפסדים. מעל 2.5 שערים: ${home.over25_pct}%. שתי הקבוצות מבקיעות: ${home.btts_pct}%.\n` +
+      `${ctx.awayTeam} (${away.sample_size} משחקים אחרונים): ${away.wins} נצחונות, ${away.draws} תיקו, ${away.losses} הפסדים. מעל 2.5 שערים: ${away.over25_pct}%. שתי הקבוצות מבקיעות: ${away.btts_pct}%.\n\n` +
       `כתוב משפט אחד שמצטט אחד מהמספרים האלה בדיוק, בעברית תקנית.`;
     return callGroq(
       [
