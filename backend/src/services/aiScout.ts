@@ -14,6 +14,7 @@ import axios from 'axios';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { logger } from './../lib/logger';
 import { fetchMatchKeyEvents, type MatchKeyEvent } from './espn';
+import { computeOracleStats, type OracleStats } from './matchOracle';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
@@ -218,7 +219,9 @@ type InsightColumn =
   | 'ai_post_match_summary'
   | 'ai_post_match_summary_he'
   | 'ai_ht_insight'
-  | 'ai_ht_insight_he';
+  | 'ai_ht_insight_he'
+  | 'ai_oracle_insight'
+  | 'ai_oracle_insight_he';
 
 async function writeInsight(matchId: string, column: InsightColumn, text: string): Promise<void> {
   const { error } = await supabaseAdmin
@@ -751,5 +754,138 @@ export async function ensureChronicle(seed: ChronicleSeed): Promise<void> {
     logger.info(`[aiScout] Chronicle written for ${username} — ${seed.homeTeam} ${seed.finalHome}-${seed.finalAway} ${seed.awayTeam}`);
   } catch (err) {
     logger.warn(`[aiScout] ensureChronicle crashed for user ${seed.userId} match ${seed.matchId}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// ── Analytics Oracle narration ───────────────────────────────────────────────
+//
+// V5 Sprint 33. The Narrator Pattern, enforced structurally, not just by
+// instruction: Groq NEVER computes a percentage. The prompt payload below IS
+// the already-computed numbers from matchOracle.ts's computeOracleStats()
+// (which itself is pure PL/pgSQL, migration 053, and knows nothing about
+// Groq) — the model never sees raw match history, only the aggregated
+// result, so it has no path to inventing a statistic even if it wanted to.
+//
+// Deliberately does NOT gate the whole batch on getApiKey() the way every
+// other function in this file does — computing oracle_stats is desired and
+// runs regardless of whether Groq is configured; only the narration half is
+// skipped without a key.
+
+interface OracleContext {
+  matchId: string;
+  homeTeam: string;
+  awayTeam: string;
+  leagueName: string | null;
+  stats: OracleStats;
+}
+
+const ORACLE_SYSTEM_EN = `You are a sharp sports analytics narrator.
+Given ONLY the pre-computed historical statistics below, write ONE concise sentence (≤ 25 words) citing ONE of the real numbers given.
+Never invent a percentage, count, or fact not explicitly given. Never wrap in quotes. Output the sentence only.`;
+
+const ORACLE_SYSTEM_HE = `אתה קריין אנליטיקת ספורט חד.
+בהינתן אך ורק הנתונים הסטטיסטיים המחושבים מראש למטה, כתוב משפט אחד תמציתי (עד 25 מילים) המצטט אחד מהמספרים האמיתיים שניתנו.
+לעולם אל תמציא אחוז, ספירה או עובדה שלא ניתנה במפורש. לעולם אל תעטוף במרכאות. החזר את המשפט בלבד, בעברית תקנית.`;
+
+async function generateOracleNarration(ctx: OracleContext, lang: 'en' | 'he'): Promise<string | null> {
+  const { home, away } = ctx.stats;
+
+  if (lang === 'he') {
+    const league = ctx.leagueName ?? 'ליגה בכירה';
+    const user =
+      `משחק: ${ctx.homeTeam} מול ${ctx.awayTeam}\n` +
+      `תחרות: ${league}\n` +
+      `${ctx.homeTeam} (${home.sample_size} משחקים אחרונים): ${home.wins} נצחונות, ${home.draws} תיקו, ${home.losses} הפסדים. מעל 2.5 שערים: ${home.over25_pct}%. שני הקבוצות כובשות: ${home.btts_pct}%.\n` +
+      `${ctx.awayTeam} (${away.sample_size} משחקים אחרונים): ${away.wins} נצחונות, ${away.draws} תיקו, ${away.losses} הפסדים. מעל 2.5 שערים: ${away.over25_pct}%. שני הקבוצות כובשות: ${away.btts_pct}%.\n\n` +
+      `כתוב משפט אחד שמצטט אחד מהמספרים האלה בדיוק, בעברית תקנית.`;
+    return callGroq(
+      [
+        { role: 'system', content: ORACLE_SYSTEM_HE },
+        { role: 'user', content: user },
+      ],
+      140,
+    );
+  }
+
+  const league = ctx.leagueName ?? 'a top-flight league';
+  const user =
+    `Match: ${ctx.homeTeam} vs ${ctx.awayTeam}\n` +
+    `Competition: ${league}\n` +
+    `${ctx.homeTeam} (last ${home.sample_size} matches): ${home.wins}W ${home.draws}D ${home.losses}L. Over 2.5 goals: ${home.over25_pct}%. BTTS: ${home.btts_pct}%.\n` +
+    `${ctx.awayTeam} (last ${away.sample_size} matches): ${away.wins}W ${away.draws}D ${away.losses}L. Over 2.5 goals: ${away.over25_pct}%. BTTS: ${away.btts_pct}%.\n\n` +
+    `Write one sentence citing exactly one of these real numbers.`;
+
+  return callGroq(
+    [
+      { role: 'system', content: ORACLE_SYSTEM_EN },
+      { role: 'user', content: user },
+    ],
+    100,
+  );
+}
+
+/**
+ * Fetch up to `limit` upcoming matches (next 24h) missing oracle_stats and/or
+ * its narration, compute+persist the stats (always, regardless of Groq key),
+ * then narrate from them (only if a Groq key is configured). Errors are
+ * logged and swallowed — never throws.
+ */
+export async function runOracleBatch(limit = 2): Promise<void> {
+  try {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    const { data: rows, error } = await supabaseAdmin
+      .from('matches')
+      .select('id, home_team, away_team, league_name, kickoff_time, oracle_stats, ai_oracle_insight, ai_oracle_insight_he')
+      .eq('status', 'NS')
+      .or('oracle_stats.is.null,ai_oracle_insight.is.null,ai_oracle_insight_he.is.null')
+      .gte('kickoff_time', now.toISOString())
+      .lte('kickoff_time', cutoff.toISOString())
+      .order('kickoff_time', { ascending: true })
+      .limit(limit);
+
+    if (error) {
+      logger.warn(`[aiScout] Oracle batch query failed: ${error.message}`);
+      return;
+    }
+    if (!rows || rows.length === 0) return;
+
+    logger.info(`[aiScout] Processing Oracle stats for ${rows.length} match(es)`);
+
+    for (const row of rows) {
+      let stats = row.oracle_stats as OracleStats | null;
+      if (!stats) {
+        stats = await computeOracleStats(row.id);
+      }
+      if (!stats) continue; // computation failed — skip narration, retried next cycle
+
+      if (!getApiKey()) continue; // stats already persisted; narration alone needs Groq
+
+      const ctx: OracleContext = {
+        matchId: row.id,
+        homeTeam: row.home_team,
+        awayTeam: row.away_team,
+        leagueName: row.league_name,
+        stats,
+      };
+
+      if (!row.ai_oracle_insight) {
+        const en = await generateOracleNarration(ctx, 'en');
+        if (en) {
+          await writeInsight(row.id, 'ai_oracle_insight', en);
+          logger.info(`[aiScout] Oracle EN narration saved for ${row.home_team} vs ${row.away_team}`);
+        }
+      }
+      if (!row.ai_oracle_insight_he) {
+        const he = await generateOracleNarration(ctx, 'he');
+        if (he) {
+          await writeInsight(row.id, 'ai_oracle_insight_he', he);
+          logger.info(`[aiScout] Oracle HE narration saved for ${row.home_team} vs ${row.away_team}`);
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn(`[aiScout] runOracleBatch crashed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
