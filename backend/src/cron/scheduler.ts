@@ -6,11 +6,13 @@ import { runProvocateurBatch } from '../services/aiProvocateur';
 import { sendStreakExpiryWarnings } from '../services/streakGuardian';
 import { lockExpiredMicroQuestions, resolveLockedMicroQuestions } from '../services/momentumBets';
 import { refreshCornersSupportFlags } from '../services/leagueStatCapability';
+import { refreshEspnLeagueMap } from '../services/espn';
 import { logger } from '../lib/logger';
 
 let livePollerRunning = false;
 let momentumLockRunning = false;
 let momentumResolveRunning = false;
+let registryRefreshRunning = false;
 
 export function startScheduler(): void {
   logger.info('[scheduler] Starting cron jobs...');
@@ -18,8 +20,21 @@ export function startScheduler(): void {
   // Startup catch-up — runs once 5 s after server start.
   // Ensures stale matches (e.g. while the server was sleeping on a free tier)
   // get their scores refreshed and unresolved predictions resolved immediately.
+  //
+  // V4 Sprint 28 — the league registry refresh runs FIRST, so the very first
+  // sync/score-check of a fresh boot already has whatever's actually enabled
+  // in `league_registry` rather than waiting a full 10-min cycle. It's a
+  // no-op-safe call either way: LEAGUE_ESPN_MAP is already seeded from
+  // FALLBACK_LEAGUE_MAP at module load, so a slow/failed registry read here
+  // just means the sync below runs against the fallback instead — never a
+  // blocked or empty sync.
   setTimeout(async () => {
     logger.info('[scheduler] Running startup catch-up sync & score check');
+    try {
+      await refreshEspnLeagueMap();
+    } catch (err) {
+      logger.error('[scheduler] Startup league registry refresh failed:', err);
+    }
     try {
       await syncAllActiveLeagues();
     } catch (err) {
@@ -32,6 +47,21 @@ export function startScheduler(): void {
       logger.error('[scheduler] Startup score check failed:', err);
     }
   }, 5_000);
+
+  // League registry refresh — every 10 min. Cheap (one indexed, RLS-public
+  // SELECT), and league tier/enabled changes made via the registry table
+  // don't need a code deploy to take effect — just this refresh cycle.
+  setInterval(async () => {
+    if (registryRefreshRunning) return;
+    registryRefreshRunning = true;
+    try {
+      await refreshEspnLeagueMap();
+    } catch (err) {
+      logger.error('[scheduler] League registry refresh failed:', err);
+    } finally {
+      registryRefreshRunning = false;
+    }
+  }, 10 * 60_000);
 
   // Daily match sync at 00:05 UTC — fetch upcoming and recent matches for all active leagues
   cron.schedule('5 0 * * *', async () => {
