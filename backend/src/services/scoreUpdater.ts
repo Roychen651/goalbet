@@ -4,6 +4,7 @@ import { calculatePoints } from './pointsEngine';
 import { logger } from '../lib/logger';
 import { ensurePostMatchSummary, ensureChronicle } from './aiScout';
 import { sendPushToUser } from './pushSender';
+import { getLeagueTier } from './leagueRegistry';
 
 interface PendingMatch {
   id: string;
@@ -512,7 +513,35 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
   return resolved;
 }
 
-export async function checkAndUpdateScores(): Promise<{ checked: number; resolved: number }> {
+// V4 Sprint 28 — "currently live" for tier-promotion purposes. Matches
+// AET (extra time just ended, awaiting pens/final confirmation) is included
+// deliberately: that transition is exactly when a match needs fast polling
+// most, not less.
+const CURRENTLY_LIVE_STATUSES = new Set(['1H', 'HT', '2H', 'ET1', 'ET2', 'AET', 'PEN']);
+
+// A league's effective tier for THIS invocation. Live-match promotion is
+// checked FIRST and UNCONDITIONALLY — it always wins over base tier,
+// including over 'low_frequency'. This is deliberate, not an oversight: a
+// low_frequency league (International Friendlies, World Cup Qualifiers) is
+// slow-tiered because it's USUALLY dormant, not because a real live match in
+// it deserves worse treatment than any other live match. Excluding a live
+// low_frequency match from fast polling would mean its score — and every
+// prediction riding on it — could sit unresolved for up to ~12h until the
+// next daily/noon sync, a real regression from today's uniform 30s polling.
+// 'low_frequency' only produces 'tier3' when that league has NO live match
+// right now — that's the actual "inactive/off-season" case Tier 3 exists for.
+//
+// Pure and synchronous — leaguesWithLiveMatch is derived from pendingMatches,
+// data ALREADY fetched by getPendingMatches() above. This costs zero extra
+// Supabase queries and zero extra ESPN calls.
+export function resolveEffectiveTier(leagueId: number, leaguesWithLiveMatch: Set<number>): 'tier1' | 'tier2' | 'tier3' {
+  if (leaguesWithLiveMatch.has(leagueId)) return 'tier1';
+  const base = getLeagueTier(leagueId);
+  if (base === 'low_frequency') return 'tier3';
+  return base === 'live_tier1' ? 'tier1' : 'tier2';
+}
+
+export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Promise<{ checked: number; resolved: number }> {
   const pendingMatches = await getPendingMatches();
 
   if (pendingMatches.length === 0) {
@@ -533,6 +562,40 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
     list.push(match);
     byLeague.set(match.league_id, list);
   }
+
+  // V4 Sprint 28 — tier filtering. `tierFilter` is only ever passed by
+  // scheduler.ts's two tiered live-poll intervals; every other call site
+  // (the public/internal HTTP sync routes, manualSync/forceSync scripts,
+  // the startup catch-up) calls this with no argument and keeps checking
+  // every pending league exactly as before this sprint — a resolve-
+  // everything-now pathway must never silently skip a league because of its
+  // tier. Filtering is applied ONLY to this per-league ESPN-fetch loop, not
+  // to the corners re-score / catch-up passes further down — those are pure
+  // DB-state sweeps with no ESPN call to save, so tiering them would only
+  // delay correctness for zero throughput benefit.
+  if (tierFilter) {
+    const leaguesWithLiveMatch = new Set(
+      pendingMatches.filter(m => CURRENTLY_LIVE_STATUSES.has(m.status)).map(m => m.league_id)
+    );
+    for (const leagueId of [...byLeague.keys()]) {
+      if (resolveEffectiveTier(leagueId, leaguesWithLiveMatch) !== tierFilter) {
+        byLeague.delete(leagueId);
+      }
+    }
+    // Deliberately NO early return when byLeague ends up empty here — the
+    // corners re-score and catch-up passes further down in this function
+    // must still run every tick regardless of tier filtering (they're pure
+    // DB-state sweeps, not ESPN calls, so there's nothing to save by
+    // skipping them). An empty byLeague just means the per-league loop
+    // immediately below iterates zero times, which it already does safely.
+  }
+
+  // Honest `checked` count for logging: matches whose league actually stayed
+  // in scope this tick, not the full pre-filter pendingMatches.length —
+  // otherwise a tiered tick would log e.g. "checked=40" while only having
+  // ESPN-queried a handful of leagues. Equals pendingMatches.length exactly
+  // when tierFilter is unset (byLeague is untouched in that case).
+  const matchesInScope = [...byLeague.values()].reduce((sum, list) => sum + list.length, 0);
 
   let totalResolved = 0;
 
@@ -841,7 +904,7 @@ export async function checkAndUpdateScores(): Promise<{ checked: number; resolve
 
   await flushRankDropNotifications(tracker);
 
-  return { checked: pendingMatches.length, resolved: totalResolved };
+  return { checked: matchesInScope, resolved: totalResolved };
 }
 
 // ── Rank-drop notification flush (V4 Sprint 11) ──────────────────────────────
