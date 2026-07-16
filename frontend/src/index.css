@@ -94,6 +94,18 @@
      rare historical occurrence, high = a frequent one. */
   --oracle-low: oklch(60% 0.03 240);
   --oracle-high: oklch(80% 0.17 190);
+
+  /* Sprint 34 — Prediction Matrix parlay multiplier badge. A fourth,
+     deliberately distinct two-stop scale: not --arena-cold/hot
+     ("performance"), not --risk-gold/warning ("balance at stake"), not
+     --oracle-low/high ("historical frequency") — this one means "parlay
+     payoff intensity" (how many tiers are chained / how large the
+     multiplier is). Reusing any of the other three would bleed one
+     scale's meaning into another's. low = 2-tier (x1.25), high = 3-tier
+     (x1.5) — read live via getComputedStyle at draw time, same as every
+     other OKLCH pair in this file. */
+  --parlay-low: oklch(75% 0.15 305);
+  --parlay-high: oklch(70% 0.24 340);
 }
 
 /* ─── Light mode — "Frost" ─── */
@@ -164,6 +176,12 @@ html.light {
      on near-white cards — same discipline as every pair above. */
   --oracle-low: oklch(45% 0.03 240);
   --oracle-high: oklch(56% 0.19 190);
+
+  /* Sprint 34 — Parlay badge, light surface variant. Same hue anchors
+     (305 low / 340 high) as dark, darker + more saturated for contrast
+     on near-white cards — same discipline as every pair above. */
+  --parlay-low: oklch(58% 0.16 305);
+  --parlay-high: oklch(52% 0.22 340);
 }
 
 /* ============================================================

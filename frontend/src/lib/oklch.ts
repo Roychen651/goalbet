@@ -165,3 +165,11 @@ export function streakTierColor(streak: number): { token: string; tier: StreakTi
   if (streak >= 4) return { token: 'var(--streak-silver)', tier: 'silver' };
   return { token: 'var(--streak-bronze)', tier: 'bronze' };
 }
+
+// Sprint 34 — Parlay multiplier badge. k (linked-tier count) is only ever
+// 2 or 3 — a fixed 2-value set, not a continuous ratio — so same shape as
+// streakTierColor() above: a plain lookup handing back a var() reference,
+// no getComputedStyle/caching machinery needed.
+export function parlayIntensityColor(linkedTierCount: number): string {
+  return linkedTierCount >= 3 ? 'var(--parlay-high)' : 'var(--parlay-low)';
+}
