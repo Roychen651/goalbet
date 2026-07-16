@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, fetchMatchHalftimeScore, fetchMatchLinescoreRepair, fetchMatchKeyEvents, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
-import { calculatePoints } from './pointsEngine';
+import { calculatePoints, type ParlayTierKey } from './pointsEngine';
 import { logger } from '../lib/logger';
 import { ensurePostMatchSummary, ensureChronicle } from './aiScout';
 import { sendPushToUser } from './pushSender';
@@ -38,6 +38,8 @@ interface Prediction {
   predicted_corners: 'under9' | 'ten' | 'over11' | null;
   predicted_btts: boolean | null;
   predicted_over_under: 'over' | 'under' | null;
+  is_parlay: boolean | null;
+  parlay_linked_tiers: ParlayTierKey[] | null;
 }
 
 // ── Rank-drop tracking (V4 Sprint 11) ────────────────────────────────────────
@@ -438,6 +440,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
                 away_score:   matchResult.regulation_away ?? matchResult.away_score,
                 points_earned: finalPoints,
                 coins_earned:  coinsToAward,
+                parlay_bonus:  breakdown.parlay_bonus,
               },
             });
           if (notifError) {
