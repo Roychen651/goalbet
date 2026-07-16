@@ -8,6 +8,7 @@ import { LockedPrediction } from './PredictionForm';
 import { MatchTimeline } from './MatchTimeline';
 import { MatchStats } from './MatchStats';
 import { MatchMomentumPulse } from './MatchMomentumPulse';
+import { MatchMomentumFlow } from './MatchMomentumFlow';
 import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
 import { EntityBadge } from '../ui/EntityBadge';
@@ -851,6 +852,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                   )}
                   {/* Match Center — Stats, Timeline, Rosters (Live + FT) */}
                   {(isFinished || isLive) && <MatchStats match={match} />}
+                  {isLive && <MatchMomentumFlow match={match} />}
                   {isLive && <MatchMomentumPulse match={match} />}
                   {isFinished && <MatchTimeline match={match} />}
                   {(isFinished || isLive) && <MatchRosters match={match} />}
