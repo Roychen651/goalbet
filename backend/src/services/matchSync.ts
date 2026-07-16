@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { fetchLeagueMatches, LEAGUE_ESPN_MAP } from './espn';
 import { DBMatch } from './sportsdb';
 import { logger } from '../lib/logger';
+import { processBatched } from '../lib/batch';
 import { runPreMatchBatch, runPostMatchBatch, runHTInsightBatch } from './aiScout';
 
 export interface SyncResult {
@@ -118,13 +119,20 @@ export async function syncAllActiveLeagues(): Promise<SyncResult[]> {
 
   logger.info(`[matchSync] Syncing ${leagueIds.length} leagues: ${leagueIds.join(', ')}`);
 
+  // V4 Sprint 28 Commit 4 — bounded batching replaces the old unbounded
+  // sequential loop (which, at 40+ leagues, risked a single sync cycle
+  // taking longer than the interval that triggers the next one). syncLeague
+  // never throws (its own try/catch already turns a failure into an
+  // `errors: 1` result), so Promise.allSettled's rejection path is a pure
+  // backstop here — every real failure still shows up in `results` exactly
+  // as before. Batches of 5, sequential, with the same 500ms polite gap this
+  // loop already used — just applied between batches instead of every
+  // single league.
   const results: SyncResult[] = [];
-  for (const leagueId of leagueIds) {
+  await processBatched(leagueIds, async (leagueId) => {
     const result = await syncLeague(leagueId);
     results.push(result);
-    // Small delay between API calls to be polite
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
+  });
 
   const totalInserted = results.reduce((sum, r) => sum + r.inserted, 0);
   const totalErrors = results.reduce((sum, r) => sum + r.errors, 0);
