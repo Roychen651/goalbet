@@ -9,10 +9,27 @@ import { refreshCornersSupportFlags } from '../services/leagueStatCapability';
 import { refreshEspnLeagueMap } from '../services/espn';
 import { logger } from '../lib/logger';
 
-let livePollerRunning = false;
-let momentumLockRunning = false;
-let momentumResolveRunning = false;
-let registryRefreshRunning = false;
+// V4 Sprint 28 — small closure-based re-entrancy guard, factored out of the
+// 3 module-level booleans (livePollerRunning/momentumLockRunning/
+// momentumResolveRunning) this file used to hand-roll one at a time. Same
+// behavior (skip a tick if the previous run of THIS SAME interval is still
+// in flight, log-and-continue on error), now shared instead of copy-pasted —
+// a non-behavioral cleanup that falls out naturally now that a 4th and 5th
+// guarded interval (the two tiered pollers) are being added.
+function guarded(label: string, fn: () => Promise<void>): () => Promise<void> {
+  let running = false;
+  return async () => {
+    if (running) return;
+    running = true;
+    try {
+      await fn();
+    } catch (err) {
+      logger.error(`[scheduler] ${label} failed:`, err);
+    } finally {
+      running = false;
+    }
+  };
+}
 
 export function startScheduler(): void {
   logger.info('[scheduler] Starting cron jobs...');
@@ -27,7 +44,9 @@ export function startScheduler(): void {
   // no-op-safe call either way: LEAGUE_ESPN_MAP is already seeded from
   // FALLBACK_LEAGUE_MAP at module load, so a slow/failed registry read here
   // just means the sync below runs against the fallback instead — never a
-  // blocked or empty sync.
+  // blocked or empty sync. checkAndUpdateScores() here is called with NO
+  // tier filter deliberately — a "just woke up, catch up on everything"
+  // pass must check every pending league, not just the fast tier.
   setTimeout(async () => {
     logger.info('[scheduler] Running startup catch-up sync & score check');
     try {
@@ -51,17 +70,7 @@ export function startScheduler(): void {
   // League registry refresh — every 10 min. Cheap (one indexed, RLS-public
   // SELECT), and league tier/enabled changes made via the registry table
   // don't need a code deploy to take effect — just this refresh cycle.
-  setInterval(async () => {
-    if (registryRefreshRunning) return;
-    registryRefreshRunning = true;
-    try {
-      await refreshEspnLeagueMap();
-    } catch (err) {
-      logger.error('[scheduler] League registry refresh failed:', err);
-    } finally {
-      registryRefreshRunning = false;
-    }
-  }, 10 * 60_000);
+  setInterval(guarded('League registry refresh', refreshEspnLeagueMap), 10 * 60_000);
 
   // Daily match sync at 00:05 UTC — fetch upcoming and recent matches for all active leagues
   cron.schedule('5 0 * * *', async () => {
@@ -73,54 +82,51 @@ export function startScheduler(): void {
     }
   });
 
-  // Live score poller — runs every 30 seconds using setInterval.
-  // Polls ESPN for any match that has kicked off and isn't finished yet.
-  // This gives ~30s latency on live score updates.
-  setInterval(async () => {
-    if (livePollerRunning) return; // skip if previous run still in progress
-    livePollerRunning = true;
-    try {
-      const result = await checkAndUpdateScores();
-      if (result.checked > 0) {
-        logger.info(`[scheduler] Live poll: checked=${result.checked} resolved=${result.resolved}`);
-      }
-    } catch (err) {
-      logger.error('[scheduler] Live poll failed:', err);
-    } finally {
-      livePollerRunning = false;
+  // ── Tiered live-score pollers (V4 Sprint 28) ────────────────────────────
+  // Replaces the old single flat 30s poller. Tier is resolved per-league,
+  // per-tick, inside checkAndUpdateScores() itself — from league_registry's
+  // priority_tier PLUS live-match promotion (any league with a currently
+  // live match is always treated as Tier 1, regardless of its base tier).
+  // See scoreUpdater.ts's resolveEffectiveTier() for the exact logic; it
+  // costs zero extra Supabase queries and zero extra ESPN calls, since it's
+  // computed from data checkAndUpdateScores() already fetches for itself.
+  //
+  // Tier 1 (marquee leagues OR anything currently live): unchanged 30s
+  // cadence — zero regression versus pre-Sprint-28 behavior for any league
+  // that's actually live right now.
+  setInterval(guarded('Tier-1 live poll', async () => {
+    const result = await checkAndUpdateScores('tier1');
+    if (result.checked > 0) {
+      logger.info(`[scheduler] Tier-1 poll: checked=${result.checked} resolved=${result.resolved}`);
     }
-  }, 30_000);
+  }), 30_000);
+
+  // Tier 2 (active in a group, no live match right now): 90s — still
+  // responsive, at roughly a third of the request rate Tier 1 leagues get.
+  // Tier 3 (low_frequency AND no live match right now) is never touched by
+  // either interval — covered only by the daily 00:05 / noon
+  // syncAllActiveLeagues() crons. A low_frequency league WITH a live match
+  // is NOT Tier 3 — live-match promotion overrides base tier unconditionally
+  // (resolveEffectiveTier() checks it first), so a real live friendly/
+  // qualifier match still gets the full 30s Tier-1 cadence, not a ~12h wait
+  // for the next daily sync.
+  setInterval(guarded('Tier-2 poll', async () => {
+    const result = await checkAndUpdateScores('tier2');
+    if (result.checked > 0) {
+      logger.info(`[scheduler] Tier-2 poll: checked=${result.checked} resolved=${result.resolved}`);
+    }
+  }), 90_000);
 
   // Momentum Bets lock sweep — runs every 5 seconds. A 60-second betting
   // window can't tolerate the 30s live-poll cadence (up to half the window's
   // precision lost); this is deliberately its own tighter, ESPN-call-free
   // interval — it only reads/writes already-stored DB state.
-  setInterval(async () => {
-    if (momentumLockRunning) return;
-    momentumLockRunning = true;
-    try {
-      await lockExpiredMicroQuestions();
-    } catch (err) {
-      logger.error('[scheduler] Momentum lock sweep failed:', err);
-    } finally {
-      momentumLockRunning = false;
-    }
-  }, 5_000);
+  setInterval(guarded('Momentum lock sweep', async () => { await lockExpiredMicroQuestions(); }), 5_000);
 
   // Momentum Bets resolution sweep — every 15s. Looser than the lock sweep
   // since a resolution a few seconds late doesn't affect fairness (the
   // outcome window is already fixed at lock time either way).
-  setInterval(async () => {
-    if (momentumResolveRunning) return;
-    momentumResolveRunning = true;
-    try {
-      await resolveLockedMicroQuestions();
-    } catch (err) {
-      logger.error('[scheduler] Momentum resolution sweep failed:', err);
-    } finally {
-      momentumResolveRunning = false;
-    }
-  }, 15_000);
+  setInterval(guarded('Momentum resolution sweep', async () => { await resolveLockedMicroQuestions(); }), 15_000);
 
   // Weekly points reset every Sunday at 00:00 UTC (week = Sun 00:00 → Sat 23:59 UTC)
   cron.schedule('0 0 * * 0', async () => {
