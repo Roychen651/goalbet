@@ -15,10 +15,20 @@ import { InfoTip } from '../ui/InfoTip';
 // Slip). Deliberately NOT a second full-screen modal with its own backdrop:
 // PredictionForm already lives inside its own sheet (Vaul on mobile /
 // centered dialog on desktop, §35) — stacking a second independent modal
-// on top would be a heavy "sheet inside a sheet" UX. This is an inline,
-// sticky-bottom floating panel within the existing form's own flow,
-// entering/exiting via AnimatePresence with the organic spring the brief
-// asked for.
+// on top would be a heavy "sheet inside a sheet" UX. This is an inline
+// panel within the existing form's own flow, entering/exiting via
+// AnimatePresence with the organic spring the brief asked for.
+//
+// V5 Sprint 36 Hotfix — a real bug, reported live: this panel is NOT the
+// last element in PredictionForm's list (Sprint 36's "Start a Shared Pool"
+// button, plus the coin summary/submit button, all render after it). A
+// `position: sticky` element doesn't reserve space at its pinned position —
+// it paints on top of whatever else is scrolling underneath once its
+// sticky threshold triggers, which is exactly what made this drawer visibly
+// overlap the Total Goals tier row on a real device (screenshot evidence).
+// Sticky is the wrong tool for "float above the current scroll position"
+// when there's more real content below it in the same flow — plain in-flow
+// positioning (no `sticky`) is what actually guarantees zero overlap.
 //
 // The WebKit blur+transform trap this codebase has shipped twice already
 // (PredictionModal's Vaul sheet once, §21/§34; solved again for
@@ -86,7 +96,7 @@ export function ParlaySlipDrawer({ linkedTiers, tierPoints, onUnlink }: ParlaySl
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 16, scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 180, damping: 18 }}
-        className="sticky bottom-2 z-10 mt-2"
+        className="mt-2"
       >
         <div
           className="rounded-2xl border overflow-hidden card-elevated"
