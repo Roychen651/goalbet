@@ -9,7 +9,7 @@ import { useGroupStore } from '../stores/groupStore';
 import { useLangStore } from '../stores/langStore';
 import { useCoinsStore } from '../stores/coinsStore';
 import { supabase, Prediction, Match } from '../lib/supabase';
-import { Avatar } from '../components/ui/Avatar';
+import { CosmeticAvatar } from '../components/ui/CosmeticAvatar';
 import { GlassCard } from '../components/ui/GlassCard';
 import { NeonButton } from '../components/ui/NeonButton';
 import { PageLoader } from '../components/ui/LoadingSpinner';
@@ -416,21 +416,28 @@ export function ProfilePage() {
                   halo, LeaderboardRow.tsx). Colors resolve live via the
                   three --streak-* CSS custom properties (index.css) —
                   streakTierColor() only ever hands back a var() reference,
-                  never a hardcoded literal. */}
-              {(() => {
-                const { token, tier } = streakTierColor(currentStreak);
-                const m = HALO_MOTION[tier];
-                return (
-                  <motion.div
-                    aria-hidden
-                    className="pointer-events-none absolute -z-10 -inset-3 rounded-full blur-lg"
-                    style={{ background: `radial-gradient(circle, ${token} 0%, transparent 70%)` }}
-                    animate={reduceMotion ? { opacity: m.staticOpacity } : { opacity: m.opacity, scale: m.scale }}
-                    transition={reduceMotion ? undefined : { duration: m.duration, repeat: Infinity, ease: 'easeInOut' }}
-                  />
-                );
-              })()}
-              <Avatar src={profile.avatar_url} name={profile.username} size="xl" />
+                  never a hardcoded literal. V5 Sprint 37 — now passed as
+                  CosmeticAvatar's `fallbackHalo`: a purchased cosmetic halo
+                  always wins over this auto-derived one. */}
+              <CosmeticAvatar
+                src={profile.avatar_url}
+                name={profile.username}
+                size="xl"
+                activeCosmetics={profile.active_cosmetics}
+                fallbackHalo={(() => {
+                  const { token, tier } = streakTierColor(currentStreak);
+                  const m = HALO_MOTION[tier];
+                  return (
+                    <motion.div
+                      aria-hidden
+                      className="pointer-events-none absolute -z-10 -inset-3 rounded-full blur-lg"
+                      style={{ background: `radial-gradient(circle, ${token} 0%, transparent 70%)` }}
+                      animate={reduceMotion ? { opacity: m.staticOpacity } : { opacity: m.opacity, scale: m.scale }}
+                      transition={reduceMotion ? undefined : { duration: m.duration, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+                  );
+                })()}
+              />
               {/* avatar-edit-overlay's :hover trigger lives in index.css,
                   gated to (hover: hover) and (pointer: fine) — same reason
                   as GlassCard's .glass-spotlight: a bare group-hover here

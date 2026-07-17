@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, Users, Swords } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
 import { useGroupEvents, type GroupEvent } from '../../hooks/useGroupEvents';
-import { Avatar } from '../ui/Avatar';
+import { CosmeticAvatar } from '../ui/CosmeticAvatar';
 import { EmptyState } from '../ui/EmptyState';
 import { cn, timeAgo } from '../../lib/utils';
 import { CoinIcon } from '../ui/CoinIcon';
@@ -203,10 +203,11 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
             <Swords size={14} style={{ color: 'var(--battle-challenger)' }} />
           </div>
         ) : (
-          <Avatar
+          <CosmeticAvatar
             src={event.avatar_url}
             name={event.username ?? '?'}
             size="sm"
+            activeCosmetics={event.active_cosmetics}
             className="shrink-0"
           />
         )}
