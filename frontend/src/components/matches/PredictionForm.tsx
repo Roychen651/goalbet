@@ -268,41 +268,74 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   const { activeGroupId } = useGroupStore();
   const { addToast } = useUIStore();
   const [poolSubmitting, setPoolSubmitting] = useState(false);
+  // Persistent, in-place confirmation — mirrors the main submit button's
+  // `saved` pattern (line ~126). A toast alone (the original hotfix) fades
+  // after 4s and left zero trace inside the sheet itself; reported live as
+  // "nothing happened" even when the RPC actually succeeded, since the only
+  // visible proof of a pool existing lives on a different page (Locker
+  // Room). This button now shows its own unmistakable "done" state.
+  const [poolCreated, setPoolCreated] = useState(false);
   // Matches create_syndicate_pool()'s actual validation (migration 055) —
   // NOT "any tier filled". A BTTS-only or O/U-only pick would pass a looser
   // check here but get silently rejected as invalid_prediction by the RPC.
   const canStartPool = outcome !== null || hasExactScore;
+
+  // A pool-relevant pick changing after a successful creation means the
+  // confirmed pool no longer reflects the form — same "stale confirmation"
+  // reasoning ParlaySlipDrawer's own confirmed-state re-arm effect uses.
+  useEffect(() => {
+    setPoolCreated(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcome, homeScore, awayScore, cornersValue, btts, overUnder]);
 
   const handleStartPool = async () => {
     if (!activeGroupId || !user || poolSubmitting) return;
     setPoolSubmitting(true);
     haptic('selection');
     playSound('toggle_click');
+    // V5 Sprint 36 Hotfix — a hung network request (dropped connection,
+    // backgrounded tab, anything short of a real error response) previously
+    // left poolSubmitting stuck true forever, since nothing else ever
+    // resolves the promise — the button froze in its loading state
+    // permanently (reported live, confirmed via screenshot). A 15s
+    // AbortController timeout, matching this codebase's own established
+    // "never let a fetch hang unbounded" discipline (AppShell's sync
+    // fetches, rule in §9/§21), guarantees the button always recovers.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     try {
-      const { data, error } = await supabase.rpc('create_syndicate_pool', {
-        p_group_id: activeGroupId,
-        p_match_id: match.id,
-        p_target_prediction: {
-          predicted_outcome: outcome,
-          predicted_home_score: homeScore !== '' ? parseInt(homeScore) : null,
-          predicted_away_score: awayScore !== '' ? parseInt(awayScore) : null,
-          predicted_corners: cornersValue,
-          predicted_btts: btts,
-          predicted_over_under: overUnder,
-        },
-      });
+      const { data, error } = await supabase
+        .rpc('create_syndicate_pool', {
+          p_group_id: activeGroupId,
+          p_match_id: match.id,
+          p_target_prediction: {
+            predicted_outcome: outcome,
+            predicted_home_score: homeScore !== '' ? parseInt(homeScore) : null,
+            predicted_away_score: awayScore !== '' ? parseInt(awayScore) : null,
+            predicted_corners: cornersValue,
+            predicted_btts: btts,
+            predicted_over_under: overUnder,
+          },
+        })
+        .abortSignal(controller.signal);
       if (error) throw error;
       const result = data as { success: boolean; pool_id?: string; error?: string };
       if (!result.success) {
+        // pool_already_exists means the goal state (a pool exists for this
+        // match) is already true — treat it as a confirmation, not a dead
+        // end that leaves the button re-clickable into the same error.
+        if (result.error === 'pool_already_exists') setPoolCreated(true);
         addToast(t(POOL_CREATE_ERROR_KEY[result.error ?? ''] ?? 'poolCreateErrorGeneric'), 'error');
         return;
       }
       haptic('success');
       playSound('coin_chime');
       addToast(t('poolCreateSuccess'), 'success');
-    } catch {
-      addToast(t('poolCreateErrorGeneric'), 'error');
+      setPoolCreated(true);
+    } catch (err) {
+      addToast(t((err as Error)?.name === 'AbortError' ? 'poolCreateErrorTimeout' : 'poolCreateErrorGeneric'), 'error');
     } finally {
+      clearTimeout(timeoutId);
       setPoolSubmitting(false);
     }
   };
@@ -580,11 +613,16 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
               <button
                 type="button"
                 onClick={handleStartPool}
-                disabled={poolSubmitting}
-                className="w-full h-10 rounded-xl border border-accent-green/25 bg-gradient-to-r from-accent-green/10 to-accent-green/5 backdrop-blur-sm text-accent-green text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-transform shadow-[0_0_14px_rgba(var(--color-accent-green-rgb,189,232,245),0.12)]"
+                disabled={poolSubmitting || poolCreated}
+                className={cn(
+                  'w-full h-10 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-70 active:scale-95 transition-transform',
+                  poolCreated
+                    ? 'border-accent-green/40 bg-accent-green/15 text-accent-green'
+                    : 'border-accent-green/25 bg-gradient-to-r from-accent-green/10 to-accent-green/5 backdrop-blur-sm text-accent-green shadow-[0_0_14px_rgba(var(--color-accent-green-rgb,189,232,245),0.12)]',
+                )}
               >
                 <Users size={15} />
-                {poolSubmitting ? '···' : t('startSharedPool')}
+                {poolSubmitting ? t('poolCreating') : poolCreated ? `✓ ${t('poolCreatedConfirmed')}` : t('startSharedPool')}
               </button>
             )}
           </motion.div>
