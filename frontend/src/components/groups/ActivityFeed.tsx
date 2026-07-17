@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Users, Swords } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
 import { useGroupEvents, type GroupEvent } from '../../hooks/useGroupEvents';
 import { Avatar } from '../ui/Avatar';
@@ -8,6 +9,19 @@ import { cn, timeAgo } from '../../lib/utils';
 import { CoinIcon } from '../ui/CoinIcon';
 import { tg, type TranslationKey } from '../../lib/i18n';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
+import { triggerCoinsRain } from '../effects/CoinsRainCanvas';
+
+// V5 Sprint 36 — module-level, session-lifetime set of WON_COINS event ids
+// that have already fired the coins-rain celebration. A per-render trigger
+// (inside a plain useEffect keyed on event.id) would replay the rain on
+// every mount/re-render of an already-seen event; this bounds it to "once
+// per genuinely new pool-payout event this browser tab has ever rendered" —
+// the same "don't replay feedback that already fired" restraint CLAUDE.md
+// §33 established for CelebrationManager, applied here without needing a
+// second persisted watermark (a pool payout is a rare, occasional event —
+// unlike streak wins, there's no risk of this set growing unbounded within
+// one session).
+const celebratedPoolPayouts = new Set<string>();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -114,7 +128,21 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
 
   const isPrediction = event.event_type === 'PREDICTION_LOCKED';
   const isWon = event.event_type === 'WON_COINS';
+  const isPoolContribution = event.event_type === 'POOL_CONTRIBUTION';
+  const isBattleProgress = event.event_type === 'BATTLE_PROGRESS';
   const meta = event.metadata;
+  const isPoolPayout = isWon && meta.is_pool_payout === true;
+
+  // V5 Sprint 36 — the moment a genuinely new pool-payout WON_COINS event
+  // renders for the first time, fire the coins-rain celebration. Bounded by
+  // the module-level `celebratedPoolPayouts` set (see its own comment
+  // above) so re-renders/re-mounts of an already-seen event never replay it.
+  useEffect(() => {
+    if (isPoolPayout && !celebratedPoolPayouts.has(event.id)) {
+      celebratedPoolPayouts.add(event.id);
+      triggerCoinsRain();
+    }
+  }, [isPoolPayout, event.id]);
 
   // Match info from joined data (matches table) — preferred over metadata
   const homeTeamEn = event.home_team || String(meta.home_team ?? '');
@@ -130,14 +158,22 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
     ? 'shadow-[0_0_15px_rgba(96,165,250,0.18)] border-blue-400/20'
     : isWon
       ? 'shadow-[0_0_20px_rgba(var(--color-accent-green-rgb,189,232,245),0.25)] border-accent-green/30'
-      : 'shadow-[0_0_15px_rgba(168,85,247,0.18)] border-purple-400/20';
+      : isPoolContribution
+        ? 'shadow-[0_0_15px_rgba(245,197,24,0.20)] border-amber-400/20'
+        : isBattleProgress
+          ? 'shadow-[0_0_15px_rgba(114,144,255,0.20)] border-[color:var(--battle-challenger)]/25'
+          : 'shadow-[0_0_15px_rgba(168,85,247,0.18)] border-purple-400/20';
 
   // Dot color
   const dotClass = isPrediction
     ? 'bg-blue-400 border-blue-400/50 shadow-[0_0_8px_rgba(96,165,250,0.4)]'
     : isWon
       ? 'bg-accent-green border-accent-green/50 shadow-[0_0_8px_rgba(var(--color-accent-green-rgb,189,232,245),0.5)]'
-      : 'bg-purple-400 border-purple-400/50 shadow-[0_0_8px_rgba(168,85,247,0.4)]';
+      : isPoolContribution
+        ? 'bg-amber-400 border-amber-400/50 shadow-[0_0_8px_rgba(245,197,24,0.4)]'
+        : isBattleProgress
+          ? 'bg-[color:var(--battle-challenger)] border-[color:var(--battle-challenger)]/50 shadow-[0_0_8px_rgba(114,144,255,0.4)]'
+          : 'bg-purple-400 border-purple-400/50 shadow-[0_0_8px_rgba(168,85,247,0.4)]';
 
   return (
     <motion.div
@@ -154,17 +190,29 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
       {/* Timeline dot */}
       <div className={cn('absolute start-3.5 top-5 w-3 h-3 rounded-full border-2 z-10', dotClass)} />
 
-      {/* Header: avatar + name + time */}
+      {/* Header — BATTLE_PROGRESS is a system event (user_id is always null,
+          same as AI_BANTER/MICRO_BANTER — no group member "did" a score
+          refresh), so it gets a Swords icon in place of a human Avatar
+          rather than rendering "Unknown" with a blank avatar. */}
       <div className="flex items-center gap-2.5 mb-2">
-        <Avatar
-          src={event.avatar_url}
-          name={event.username ?? '?'}
-          size="sm"
-          className="shrink-0"
-        />
+        {isBattleProgress ? (
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+            style={{ background: 'color-mix(in oklch, var(--battle-challenger) 20%, var(--color-bg-card))' }}
+          >
+            <Swords size={14} style={{ color: 'var(--battle-challenger)' }} />
+          </div>
+        ) : (
+          <Avatar
+            src={event.avatar_url}
+            name={event.username ?? '?'}
+            size="sm"
+            className="shrink-0"
+          />
+        )}
         <div className="flex-1 min-w-0">
           <span className="text-sm font-semibold text-text-primary">
-            {event.username}
+            {isBattleProgress ? t('battleTitle') : event.username}
           </span>
           <span className="text-text-muted text-xs ms-2">
             {timeAgo(event.created_at, t)}
@@ -246,6 +294,11 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
         <div className="space-y-2">
           <p className="text-sm text-text-primary/80">
             💰 {tg(t, 'activityWonCoins', event.gender).replace('{0}', String(meta.points ?? 0)).replace('{1}', String(meta.coins ?? 0))}
+            {isPoolPayout && (
+              <span className="inline-flex items-center gap-1 ms-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-400/15 text-amber-300 border border-amber-400/25 align-middle">
+                <Users size={10} /> {t('poolPayoutBadge')}
+              </span>
+            )}
           </p>
 
           {/* Match strip */}
@@ -270,6 +323,57 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
         <p className="text-sm text-text-primary/80">
           📈 {tg(t, 'activityClimbedRank', event.gender).replace('{0}', String(meta.rank ?? '?'))}
         </p>
+      )}
+
+      {/* ── POOL_CONTRIBUTION ──────────────────────────────────────────────
+          A real user (event.user_id/username) contributing to (or raising
+          their stake in) a Syndicate Pool — a public, cooperative activity
+          by design (migration 055's RLS note: pool contributions are
+          visible to the whole group immediately, not hidden until kickoff
+          like individual predictions). */}
+      {isPoolContribution && (
+        <div className="space-y-2">
+          <p className="text-sm text-text-primary/80">
+            <Users size={13} className="inline-block align-[-2px] me-1 text-amber-400" />
+            {tg(t, 'activityPoolContribution', event.gender)
+              .replace('{0}', String(meta.amount ?? 0))
+              .replace('{1}', String(meta.total_staked ?? 0))}
+          </p>
+          {hasMatch && (
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-amber-400/5 border border-amber-400/10">
+              {homeBadge && (
+                <img src={homeBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
+              )}
+              <span className="text-xs font-medium text-text-primary truncate">{homeTeam}</span>
+              <span className="text-text-muted text-[10px] font-barlow uppercase">{isHe ? 'נגד' : 'vs'}</span>
+              <span className="text-xs font-medium text-text-primary truncate">{awayTeam}</span>
+              {awayBadge && (
+                <img src={awayBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── BATTLE_PROGRESS ────────────────────────────────────────────────
+          System event (user_id null) — 'started' when the defender accepts
+          a challenge, 'final' once the battle window closes (backend
+          scheduler, every 30 min — CLAUDE.md §51). Both milestones share
+          this one block; only the copy + score line differ. */}
+      {isBattleProgress && (
+        <div className="space-y-1.5">
+          <p className="text-sm text-text-primary/80">
+            <Swords size={13} className="inline-block align-[-2px] me-1" style={{ color: 'var(--battle-challenger)' }} />
+            {meta.milestone === 'final' ? t('activityBattleFinal') : t('activityBattleStarted')}
+          </p>
+          {meta.milestone === 'final' && meta.challenger_score != null && meta.defender_score != null && (
+            <p className="text-xs font-mono tabular-nums text-text-muted">
+              <span style={{ color: 'var(--battle-challenger)' }}>{Number(meta.challenger_score).toFixed(1)}</span>
+              {' — '}
+              <span style={{ color: 'var(--battle-defender)' }}>{Number(meta.defender_score).toFixed(1)}</span>
+            </p>
+          )}
+        </div>
       )}
     </motion.div>
   );
