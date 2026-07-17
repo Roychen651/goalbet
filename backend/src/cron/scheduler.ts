@@ -7,6 +7,7 @@ import { sendStreakExpiryWarnings } from '../services/streakGuardian';
 import { lockExpiredMicroQuestions, resolveLockedMicroQuestions } from '../services/momentumBets';
 import { refreshCornersSupportFlags } from '../services/leagueStatCapability';
 import { refreshEspnLeagueMap } from '../services/espn';
+import { refreshActiveBattleScores } from '../services/groupBattles';
 import { logger } from '../lib/logger';
 import { withSyncTelemetry, getLastCompletedLivePoll, getRecentLivePollRuns } from '../lib/syncTelemetry';
 import { SyncResult } from '../services/matchSync';
@@ -304,6 +305,18 @@ export function startScheduler(): void {
       await sendStreakExpiryWarnings();
     } catch (err) {
       logger.error('[scheduler] Streak expiry warnings failed:', err);
+    }
+  });
+
+  // Group Battles score refresh (V5 Sprint 36) — same 30-min cadence as
+  // streak-expiry warnings, for the same reason: a battle runs over hours
+  // or days, so a tight poll would be wasted load for a signal that only
+  // moves this slowly.
+  cron.schedule('*/30 * * * *', async () => {
+    try {
+      await refreshActiveBattleScores();
+    } catch (err) {
+      logger.error('[scheduler] Group Battles score refresh failed:', err);
     }
   });
 
