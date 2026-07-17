@@ -765,6 +765,36 @@ export const translations = {
     genderMale: 'Male',
     genderFemale: 'Female',
     genderUnspecified: "I'd rather not say",
+
+    // V5 Sprint 36 — "The Social Syndicate": Cooperative Pools
+    poolTitle: 'Syndicate Pool',
+    poolTotalStaked: 'total staked',
+    poolContributorsCount: '{0} contributors',
+    poolDecreaseStake: 'Decrease stake',
+    poolIncreaseStake: 'Increase stake',
+    poolJoinPool: 'Join Pool',
+    poolUpdateStake: 'Update Stake',
+    poolContributeSuccess: 'Staked into the pool — good luck!',
+    poolPayoutBadge: 'Pool win',
+    poolErrorClosed: 'This pool just closed',
+    poolErrorInsufficientCoins: 'Not enough coins',
+    poolErrorInvalidAmount: 'Invalid amount',
+    poolErrorGeneric: 'Could not update your stake',
+    activityPoolContribution_male: 'Staked {0} coins into the pool (now {1} total)',
+    activityPoolContribution_female: 'Staked {0} coins into the pool (now {1} total)',
+    activityPoolContribution_unspecified: 'Staked {0} coins into the pool (now {1} total)',
+
+    // V5 Sprint 36 — Group Battles
+    battleTitle: 'Group Battle',
+    battlePendingChallenge: 'A rival group has challenged you',
+    battleAwaitingResponse: 'Waiting for the other group to respond…',
+    battleAccept: 'Accept',
+    battleDecline: 'Decline',
+    battleAccepted: 'Battle accepted — good luck!',
+    battleDeclined: 'Battle declined',
+    battleErrorGeneric: 'Could not respond to the battle',
+    activityBattleStarted: 'The battle has begun! ⚔️',
+    activityBattleFinal: 'The battle is over!',
   },
 
   he: {
@@ -1525,6 +1555,36 @@ export const translations = {
     genderMale: 'זכר',
     genderFemale: 'נקבה',
     genderUnspecified: 'מעדיף/ה שלא לציין',
+
+    // V5 Sprint 36 — "The Social Syndicate": קופה משותפת (Cooperative Pools)
+    poolTitle: 'קופה משותפת',
+    poolTotalStaked: 'סה"כ בקופה',
+    poolContributorsCount: '{0} תורמים',
+    poolDecreaseStake: 'הפחת סטייק',
+    poolIncreaseStake: 'הגדל סטייק',
+    poolJoinPool: 'הצטרף לקופה',
+    poolUpdateStake: 'עדכן סטייק',
+    poolContributeSuccess: 'תרמת לקופה — בהצלחה!',
+    poolPayoutBadge: 'זכייה מהקופה',
+    poolErrorClosed: 'הקופה נסגרה זה עתה',
+    poolErrorInsufficientCoins: 'אין מספיק מטבעות',
+    poolErrorInvalidAmount: 'סכום לא תקין',
+    poolErrorGeneric: 'לא ניתן היה לעדכן את הסטייק',
+    activityPoolContribution_male: 'תרם {0} מטבעות לקופה המשותפת (סה"כ {1})',
+    activityPoolContribution_female: 'תרמה {0} מטבעות לקופה המשותפת (סה"כ {1})',
+    activityPoolContribution_unspecified: 'תרם/ה {0} מטבעות לקופה המשותפת (סה"כ {1})',
+
+    // V5 Sprint 36 — קרב קבוצות (Group Battles)
+    battleTitle: 'קרב קבוצות',
+    battlePendingChallenge: 'קבוצה יריבה אתגרה אתכם',
+    battleAwaitingResponse: 'ממתינים לתשובת הקבוצה השנייה…',
+    battleAccept: 'קבל אתגר',
+    battleDecline: 'דחה',
+    battleAccepted: 'האתגר התקבל — בהצלחה!',
+    battleDeclined: 'האתגר נדחה',
+    battleErrorGeneric: 'לא ניתן היה להגיב לאתגר',
+    activityBattleStarted: 'הקרב התחיל! ⚔️',
+    activityBattleFinal: 'הקרב הסתיים!',
   },
 } as const;
 

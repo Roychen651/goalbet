@@ -182,6 +182,60 @@ export type Database = {
         Insert: never;
         Update: never;
       };
+      // V5 Sprint 36 — "The Social Syndicate". All three tables below are
+      // RPC-managed only (contribute_to_pool / create_syndicate_pool /
+      // challenge_group / respond_to_battle, or the backend service role) —
+      // Insert/Update are `never` here, same convention as `leaderboard`.
+      syndicate_pools: {
+        Row: {
+          id: string;
+          match_id: string;
+          group_id: string;
+          created_by: string;
+          target_prediction: {
+            predicted_outcome: 'H' | 'D' | 'A' | null;
+            predicted_home_score: number | null;
+            predicted_away_score: number | null;
+            predicted_corners: 'under9' | 'ten' | 'over11' | null;
+            predicted_btts: boolean | null;
+            predicted_over_under: 'over' | 'under' | null;
+            is_parlay?: boolean | null;
+            parlay_linked_tiers?: ('result' | 'score' | 'corners' | 'btts' | 'ou')[] | null;
+          };
+          total_staked: number;
+          status: 'open' | 'locked' | 'resolved' | 'refunded';
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+      };
+      pool_contributions: {
+        Row: {
+          id: string;
+          pool_id: string;
+          user_id: string;
+          amount: number;
+          settled_at: string | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+      };
+      group_battles: {
+        Row: {
+          id: string;
+          challenger_group_id: string;
+          defender_group_id: string;
+          start_time: string;
+          end_time: string;
+          status: 'pending' | 'active' | 'declined' | 'completed';
+          challenger_score: number | null;
+          defender_score: number | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+      };
     };
   };
 };
@@ -192,6 +246,9 @@ export type GroupMember = Database['public']['Tables']['group_members']['Row'];
 export type Match = Database['public']['Tables']['matches']['Row'];
 export type Prediction = Database['public']['Tables']['predictions']['Row'];
 export type LeaderboardEntry = Database['public']['Tables']['leaderboard']['Row'];
+export type SyndicatePool = Database['public']['Tables']['syndicate_pools']['Row'];
+export type PoolContribution = Database['public']['Tables']['pool_contributions']['Row'];
+export type GroupBattle = Database['public']['Tables']['group_battles']['Row'];
 export type Chronicle = Database['public']['Tables']['user_chronicles']['Row'];
 
 export interface LeaderboardEntryWithProfile extends LeaderboardEntry {
