@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Globe, Palette, Zap, Mail, Lock, LogOut, Users, Copy, Check,
   UserPlus, Plus, RefreshCw, Trophy, Shield, Trash2, RotateCcw,
-  BookOpen, ChevronRight,
+  BookOpen, ChevronRight, Swords,
 } from 'lucide-react';
 import { useGroupStore } from '../stores/groupStore';
 import { useAuthStore } from '../stores/authStore';
@@ -16,6 +16,7 @@ import { PushToggle } from '../components/ui/PushToggle';
 import { TiltModeToggle } from '../components/ui/TiltModeToggle';
 import { NeonButton } from '../components/ui/NeonButton';
 import { GroupMembersList } from '../components/groups/GroupMembersList';
+import { ChallengeGroupModal } from '../components/groups/ChallengeGroupModal';
 import { PolicyModal } from '../components/ui/PolicyModal';
 import { PasswordStrength } from '../components/auth-v2/PasswordStrength';
 import { isPasswordValid } from '../lib/authSchema';
@@ -123,6 +124,7 @@ export function SettingsPage() {
   const [passwordError, setPasswordError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [challengeModalOpen, setChallengeModalOpen] = useState(false);
 
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const isAdmin = !!user && !!activeGroup && user.id === activeGroup.created_by;
@@ -387,7 +389,24 @@ export function SettingsPage() {
               </button>
             </div>
           </div>
+
+          {/* V5 Sprint 36 Hotfix — "Challenge a Group" entry point for
+              challenge_group() (migration 056), live since Commit 3 but
+              with no UI until now. */}
+          <button
+            onClick={() => setChallengeModalOpen(true)}
+            className="w-full mt-3 h-10 rounded-xl border border-[color:var(--battle-challenger)]/25 bg-gradient-to-r from-[color:var(--battle-challenger)]/10 to-transparent backdrop-blur-sm text-[color:var(--battle-challenger)] text-sm font-semibold flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            <Swords size={15} />
+            {t('challengeAGroup')}
+          </button>
         </GlassCard>
+
+        <AnimatePresence>
+          {challengeModalOpen && (
+            <ChallengeGroupModal onClose={() => setChallengeModalOpen(false)} />
+          )}
+        </AnimatePresence>
 
         {/* Group Members */}
         <div className="mb-4">
