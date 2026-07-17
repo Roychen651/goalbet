@@ -265,4 +265,6 @@ export interface LeaderboardEntryWithProfile extends LeaderboardEntry {
   avatar_url: string | null;
   accuracy: number;
   live_points?: number; // potential points from unresolved live predictions right now
+  // V5 Sprint 37 — joined from profiles alongside username/avatar_url.
+  active_cosmetics?: Profile['active_cosmetics'] | null;
 }

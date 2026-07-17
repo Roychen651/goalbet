@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { LeaderboardEntryWithProfile, supabase } from '../../lib/supabase';
-import { Avatar } from '../ui/Avatar';
+import { CosmeticAvatar } from '../ui/CosmeticAvatar';
 import { LeaderboardRowSparkline } from './LeaderboardRowSparkline';
 import { cn } from '../../lib/utils';
 import { haptic } from '../../lib/haptics';
@@ -129,30 +129,29 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
         })()}
       </div>
 
-      {/* Prestige gold halo — #1 only. Exactly one instance ever renders per
-          leaderboard (unlike a match feed where a "live clock" style effect
-          could repeat dozens of times), so a Framer Motion loop is the right
-          tool here, not a CSS keyframe — the "many simultaneous instances"
-          cost concern that drives CSS-only choices elsewhere doesn't apply
-          to a single #1 row. Reuses --risk-gold (Sprint 20) rather than a
-          third gold token. */}
-      <div className="relative isolate shrink-0">
-        {entry.rank === 1 && (
-          <motion.div
-            aria-hidden
-            className="pointer-events-none absolute -z-10 -inset-3 rounded-full blur-lg"
-            style={{ background: 'radial-gradient(circle, var(--risk-gold) 0%, transparent 70%)' }}
-            animate={reduceMotion ? { opacity: 0.55 } : { opacity: [0.4, 0.75, 0.4], scale: [1, 1.1, 1] }}
-            transition={reduceMotion ? undefined : { duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        )}
-        <Avatar
-          src={entry.avatar_url}
-          name={entry.username}
-          size={podium ? podium.avatarSize : 'md'}
-          className={cn(podium?.ring, podium?.shadow)}
-        />
-      </div>
+      {/* Prestige gold halo — #1 only, exactly one instance per leaderboard
+          (Framer, not CSS — see the "single instance" precedent, §37). Now
+          an explicit CosmeticAvatar `fallbackHalo`: a purchased cosmetic
+          halo (V5 Sprint 37) always wins over this auto-derived one — see
+          CosmeticAvatar.tsx's own header comment for why. */}
+      <CosmeticAvatar
+        src={entry.avatar_url}
+        name={entry.username}
+        size={podium ? podium.avatarSize : 'md'}
+        activeCosmetics={entry.active_cosmetics}
+        className={cn(podium?.ring, podium?.shadow)}
+        fallbackHalo={
+          entry.rank === 1 ? (
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute -z-10 -inset-3 rounded-full blur-lg"
+              style={{ background: 'radial-gradient(circle, var(--risk-gold) 0%, transparent 70%)' }}
+              animate={reduceMotion ? { opacity: 0.55 } : { opacity: [0.4, 0.75, 0.4], scale: [1, 1.1, 1] }}
+              transition={reduceMotion ? undefined : { duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          ) : undefined
+        }
+      />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">

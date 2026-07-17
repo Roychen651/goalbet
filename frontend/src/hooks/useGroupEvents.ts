@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, Profile } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useRealtimeSubscription, useRealtimeReconnect } from '../components/providers/RealtimeProvider';
@@ -21,6 +21,10 @@ export interface GroupEvent {
   // undefined until then; tg() resolves that to the honest "unspecified"
   // phrasing, not a silent male default.
   gender?: 'male' | 'female' | 'unspecified' | null;
+  // V5 Sprint 37 — joined alongside username/avatar_url/gender, feeds
+  // ActivityFeed's CosmeticAvatar so equipped frames/halos/badges show up
+  // on human event cards, not just the leaderboard and profile page.
+  active_cosmetics?: Profile['active_cosmetics'] | null;
   // joined from matches
   home_team?: string;
   away_team?: string;
@@ -45,7 +49,7 @@ export function useGroupEvents() {
     try {
       const { data, error } = await supabase
         .from('group_events')
-        .select('*, profiles(username, avatar_url, gender), matches(home_team, away_team, home_team_badge, away_team_badge)')
+        .select('*, profiles(username, avatar_url, gender, active_cosmetics), matches(home_team, away_team, home_team_badge, away_team_badge)')
         .eq('group_id', activeGroupId)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -56,7 +60,7 @@ export function useGroupEvents() {
       }
 
       const mapped: GroupEvent[] = (data ?? []).map((row: Record<string, unknown>) => {
-        const profile = row.profiles as { username?: string; avatar_url?: string | null; gender?: 'male' | 'female' | 'unspecified' | null } | null;
+        const profile = row.profiles as { username?: string; avatar_url?: string | null; gender?: 'male' | 'female' | 'unspecified' | null; active_cosmetics?: Profile['active_cosmetics'] | null } | null;
         const match = row.matches as { home_team?: string; away_team?: string; home_team_badge?: string | null; away_team_badge?: string | null } | null;
         return {
           id: row.id as string,
@@ -69,6 +73,7 @@ export function useGroupEvents() {
           username: profile?.username ?? 'Unknown',
           avatar_url: profile?.avatar_url ?? null,
           gender: profile?.gender ?? 'unspecified',
+          active_cosmetics: profile?.active_cosmetics ?? null,
           home_team: match?.home_team,
           away_team: match?.away_team,
           home_team_badge: match?.home_team_badge,

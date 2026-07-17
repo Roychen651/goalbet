@@ -42,7 +42,7 @@ async function fetchGroupLeaderboard(
 
   // 2. Fetch profiles + leaderboard rows in parallel
   const [profilesRes, lbRes] = await Promise.all([
-    supabase.from('profiles').select('id, username, avatar_url').in('id', userIds),
+    supabase.from('profiles').select('id, username, avatar_url, active_cosmetics').in('id', userIds),
     supabase.from('leaderboard').select('*').eq('group_id', groupId),
   ]);
   if (profilesRes.error) throw profilesRes.error;
@@ -104,6 +104,7 @@ async function fetchGroupLeaderboard(
       group_id: groupId,
       username: profile.username,
       avatar_url: profile.avatar_url,
+      active_cosmetics: (profile as { active_cosmetics?: LeaderboardEntryWithProfile['active_cosmetics'] }).active_cosmetics ?? null,
       total_points: lb?.total_points ?? 0,
       weekly_points: computedWeekly,
       last_week_points: computedLastWeek,
