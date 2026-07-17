@@ -6,6 +6,7 @@ import { ensurePostMatchSummary, ensureChronicle } from './aiScout';
 import { sendPushToUser } from './pushSender';
 import { getLeagueTier } from './leagueRegistry';
 import { processBatched } from '../lib/batch';
+import { resolvePoolsForMatch } from './syndicatePools';
 
 interface PendingMatch {
   id: string;
@@ -726,6 +727,21 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
             totalResolved += count;
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
 
+            // V5 Sprint 36 — Cooperative Pool Engine. Same 90-minute
+            // regulation score already computed above; a pool is
+            // one-per-(match, group), so this loops per pool once, never
+            // per-prediction.
+            const poolMatchEndAt = match.kickoff_time
+              ? new Date(new Date(match.kickoff_time).getTime() + 105 * 60 * 1000).toISOString()
+              : new Date().toISOString();
+            const poolResult = await resolvePoolsForMatch(match.id, {
+              home_score: effectiveData.regulation_home ?? effectiveData.home_score,
+              away_score: effectiveData.regulation_away ?? effectiveData.away_score,
+              corners_total: effectiveData.corners_total ?? match.corners_total,
+            }, poolMatchEndAt);
+            totalResolved += poolResult.resolved;
+            errors.push(...poolResult.errors);
+
             // Post-match AI Scout — generates a witty summary once, then served infinitely
             // from the DB. Silent no-op if Groq isn't configured or the call fails.
             await ensurePostMatchSummary(match.id);
@@ -781,6 +797,19 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
                 totalResolved += count;
                 logger.info(`[scoreUpdater] ET match ${match.id}: resolved ${count} predictions at 90-min score ${regulationHome}-${regulationAway}`);
               }
+
+              // V5 Sprint 36 — pools score off the same locked 90-minute
+              // result, at the same moment individual predictions do.
+              const etPoolMatchEndAt = match.kickoff_time
+                ? new Date(new Date(match.kickoff_time).getTime() + 105 * 60 * 1000).toISOString()
+                : new Date().toISOString();
+              const etPoolResult = await resolvePoolsForMatch(match.id, {
+                home_score: regulationHome,
+                away_score: regulationAway!,
+                corners_total: match.corners_total,
+              }, etPoolMatchEndAt);
+              totalResolved += etPoolResult.resolved;
+              errors.push(...etPoolResult.errors);
             }
           } else {
             // Still in regular time — update live score
@@ -938,6 +967,19 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
           totalResolved += count;
           logger.info(`[scoreUpdater] Catch-up resolved ${count} stuck predictions for FT match ${m.id}`);
         }
+
+        // V5 Sprint 36 — a pool stuck behind the same catch-up condition
+        // (a prior resolution attempt failed) gets swept here too.
+        const catchupPoolMatchEndAt = m.kickoff_time
+          ? new Date(new Date(m.kickoff_time).getTime() + 105 * 60 * 1000).toISOString()
+          : new Date().toISOString();
+        const catchupPoolResult = await resolvePoolsForMatch(m.id, {
+          home_score: m.regulation_home ?? m.home_score,
+          away_score: m.regulation_away ?? m.away_score,
+          corners_total: m.corners_total,
+        }, catchupPoolMatchEndAt);
+        totalResolved += catchupPoolResult.resolved;
+        errors.push(...catchupPoolResult.errors);
       }
     }
   } catch (err) {
