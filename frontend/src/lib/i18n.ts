@@ -831,6 +831,23 @@ export const translations = {
     battleNoDataYet: 'No resolved predictions yet — check back once matches finish.',
     battleTied: "It's currently tied.",
     battleLeaderLabel: '{0} is currently ahead.',
+
+    // V5 Sprint 37 — Profile Prestige & Cosmetics
+    prestigeShopTitle: 'Prestige Shop',
+    prestigeShopSubtitle: 'Purchases spend from {0}\'s balance',
+    slotFrame: 'Frames',
+    slotHalo: 'Halos',
+    slotBadge: 'Prestige Badges',
+    cosmeticBuy: 'Buy',
+    cosmeticEquip: 'Equip',
+    cosmeticUnequip: 'Unequip',
+    cosmeticPurchaseSuccess: 'Unlocked! Head to Equip to wear it.',
+    cosmeticEquipSuccess: 'Equipped!',
+    cosmeticUnequipSuccess: 'Unequipped',
+    cosmeticErrorGeneric: 'Could not complete that action',
+    cosmeticErrorAlreadyUnlocked: 'You already own this item',
+    cosmeticErrorInsufficientCoins: 'Not enough coins',
+    cosmeticErrorNotUnlocked: 'Unlock this item first',
   },
 
   he: {
@@ -1653,6 +1670,23 @@ export const translations = {
     battleNoDataYet: 'עדיין אין ניחושים שנפתרו — בדקו שוב אחרי שהמשחקים יסתיימו.',
     battleTied: 'כרגע תיקו.',
     battleLeaderLabel: '{0} מובילה כרגע.',
+
+    // V5 Sprint 37 — יוקרה ופריטי עיצוב
+    prestigeShopTitle: 'חנות היוקרה',
+    prestigeShopSubtitle: 'הרכישה תתבצע מהיתרה של {0}',
+    slotFrame: 'מסגרות',
+    slotHalo: 'הילות',
+    slotBadge: 'תגי יוקרה',
+    cosmeticBuy: 'קנייה',
+    cosmeticEquip: 'צייד',
+    cosmeticUnequip: 'הסר',
+    cosmeticPurchaseSuccess: 'נפתח! עברו ל"ציוד" כדי לענוד את זה.',
+    cosmeticEquipSuccess: 'צויד!',
+    cosmeticUnequipSuccess: 'הוסר',
+    cosmeticErrorGeneric: 'לא ניתן היה לבצע את הפעולה',
+    cosmeticErrorAlreadyUnlocked: 'הפריט הזה כבר ברשותכם',
+    cosmeticErrorInsufficientCoins: 'אין מספיק מטבעות',
+    cosmeticErrorNotUnlocked: 'צריך לפתוח את הפריט קודם',
   },
 } as const;
 
