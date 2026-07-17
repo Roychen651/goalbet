@@ -266,6 +266,8 @@ function FaqCard({ isHe }: { isHe: boolean }) {
     { icon: '🔒', title: 'זמן נעילה', desc: 'ניבויים ננעלים 15 דקות לפני הקיקאוף. ניתן לעדכן את הניבוי בכל עת עד לנעילה — רק העדכון האחרון נספר.' },
     { icon: '✏️', title: 'עריכת ניבוי', desc: 'כן — אפשר לשנות כל שלב שכבר בחרת כל עוד המשחק לא ננעל, ללא הגבלת מספר פעמים.' },
     { icon: '🏆', title: 'מקסימום נקודות', desc: '19 נקודות למשחק בודד — כל 5 השלבים במלואם, כולל בונוס התוצאה המדויקת.' },
+    { icon: '👥', title: 'קופה משותפת', desc: 'בקצה מסך הניחוש תוכלו לפתוח קופה משותפת עם הניחוש שבחרתם. כל חבר קבוצה יכול לתרום מטבעות — אם הניחוש יוצא נכון, הזכייה מתחלקת בין כל התורמים לפי אחוז התרומה שלהם.' },
+    { icon: '⚔️', title: 'קרב קבוצות', desc: 'בהגדרות אפשר לאתגר קבוצה יריבה עם קוד ההזמנה שלה, לתקופה של סוף שבוע או שבוע. הניצחון נקבע לפי ממוצע 5 הניחושים הכי טובים של כל קבוצה באותה תקופה.' },
   ] : [
     { icon: '🟢', title: 'Live updates', desc: 'Live matches refresh every 30 seconds, pulled directly from ESPN.' },
     { icon: '⚽', title: 'Extra time & penalties', desc: 'Predictions always use the 90-minute score only. Goals in extra time and penalty shootouts never count toward points.' },
@@ -274,6 +276,8 @@ function FaqCard({ isHe }: { isHe: boolean }) {
     { icon: '🔒', title: 'Lock time', desc: 'Predictions lock 15 minutes before kickoff. You can update your pick any number of times before then — only the last save counts.' },
     { icon: '✏️', title: 'Can I edit a prediction?', desc: "Yes — change any tier you've already picked as many times as you like, right up until the lock." },
     { icon: '🏆', title: 'Maximum points', desc: '19 points on a single match — all 5 tiers correct, including the exact-score stacking bonus.' },
+    { icon: '👥', title: 'Shared Pools', desc: 'From the prediction sheet, start a Shared Pool with your picked tiers. Any group member can contribute coins — if the pick is fully correct, the winnings split among all contributors by their share of the total stake.' },
+    { icon: '⚔️', title: 'Group Battles', desc: "From Settings, challenge a rival group using their invite code, over a weekend or a full week. The winner is whichever group's top 5 point-scoring predictions in that window average higher." },
   ];
 
   return (
