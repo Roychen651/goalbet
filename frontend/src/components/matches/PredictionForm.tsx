@@ -1,8 +1,8 @@
 import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus, Link2 } from 'lucide-react';
+import { Minus, Plus, Link2, Users } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
-import { Match, Prediction } from '../../lib/supabase';
+import { Match, Prediction, supabase } from '../../lib/supabase';
 import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
 import { CoinIcon } from '../ui/CoinIcon';
 import { AIScoutCard } from '../ui/AIScoutCard';
@@ -16,11 +16,26 @@ import { interpolateRisk } from '../../lib/oklch';
 const LEAGUES_WITHOUT_CORNERS = new Set([4396]);
 import { useLangStore } from '../../stores/langStore';
 import { useCoinsStore } from '../../stores/coinsStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useGroupStore } from '../../stores/groupStore';
+import { useUIStore } from '../../stores/uiStore';
 import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { TIER_COLORS, DEBOSS_SHADOW } from '../../lib/tierVisuals';
 import { InfoTip } from '../ui/InfoTip';
+import type { TranslationKey } from '../../lib/i18n';
+
+// V5 Sprint 36 Hotfix — "The Social Syndicate" pool-creation entry point.
+// Maps create_syndicate_pool()'s real error codes (migration 055) to their
+// own translated toast — the same "never one generic message" discipline
+// §29 established for every coin-spending RPC's client-side error handling.
+const POOL_CREATE_ERROR_KEY: Record<string, TranslationKey> = {
+  locked: 'poolCreateErrorLocked',
+  invalid_prediction: 'poolCreateErrorInvalidPrediction',
+  pool_already_exists: 'poolCreateErrorAlreadyExists',
+  match_not_found: 'poolCreateErrorGeneric',
+};
 
 interface PredictionFormProps {
   match: Match;
@@ -240,6 +255,57 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   }, [tierActive.result, tierActive.score, tierActive.corners, tierActive.btts, tierActive.ou]);
 
   const isParlayArmed = linkedTiers.size >= 2;
+
+  // V5 Sprint 36 Hotfix — "Start a Shared Pool" entry point. Independent of
+  // the individual submit flow (no onSave call, no coins_bet involved for
+  // the creator) — a direct create_syndicate_pool() RPC call reusing the
+  // form's own local state. Deliberately excludes linkedTiers/parlay
+  // chaining from the pool's target_prediction: whether a shared pool's
+  // payout should also compound the parlay bonus (scaling the whole
+  // group's payout, not just one bettor's) is a real, un-reasoned-through
+  // interaction — out of scope for this hotfix.
+  const { user } = useAuthStore();
+  const { activeGroupId } = useGroupStore();
+  const { addToast } = useUIStore();
+  const [poolSubmitting, setPoolSubmitting] = useState(false);
+  // Matches create_syndicate_pool()'s actual validation (migration 055) —
+  // NOT "any tier filled". A BTTS-only or O/U-only pick would pass a looser
+  // check here but get silently rejected as invalid_prediction by the RPC.
+  const canStartPool = outcome !== null || hasExactScore;
+
+  const handleStartPool = async () => {
+    if (!activeGroupId || !user || poolSubmitting) return;
+    setPoolSubmitting(true);
+    haptic('selection');
+    playSound('toggle_click');
+    try {
+      const { data, error } = await supabase.rpc('create_syndicate_pool', {
+        p_group_id: activeGroupId,
+        p_match_id: match.id,
+        p_target_prediction: {
+          predicted_outcome: outcome,
+          predicted_home_score: homeScore !== '' ? parseInt(homeScore) : null,
+          predicted_away_score: awayScore !== '' ? parseInt(awayScore) : null,
+          predicted_corners: cornersValue,
+          predicted_btts: btts,
+          predicted_over_under: overUnder,
+        },
+      });
+      if (error) throw error;
+      const result = data as { success: boolean; pool_id?: string; error?: string };
+      if (!result.success) {
+        addToast(t(POOL_CREATE_ERROR_KEY[result.error ?? ''] ?? 'poolCreateErrorGeneric'), 'error');
+        return;
+      }
+      haptic('success');
+      playSound('coin_chime');
+      addToast(t('poolCreateSuccess'), 'success');
+    } catch {
+      addToast(t('poolCreateErrorGeneric'), 'error');
+    } finally {
+      setPoolSubmitting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     await onSave({
@@ -504,6 +570,23 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
             >
               {saving ? '···' : saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
             </MagneticButtonV2>
+
+            {/* V5 Sprint 36 Hotfix — glass "Start a Shared Pool" entry point.
+                Independent of the individual submit above (own RPC, own
+                coins path — nothing here is charged to the creator until
+                other members contribute). Enabled per canStartPool's real
+                RPC-matching validation, not "any tier filled". */}
+            {canStartPool && (
+              <button
+                type="button"
+                onClick={handleStartPool}
+                disabled={poolSubmitting}
+                className="w-full h-10 rounded-xl border border-accent-green/25 bg-gradient-to-r from-accent-green/10 to-accent-green/5 backdrop-blur-sm text-accent-green text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-transform shadow-[0_0_14px_rgba(var(--color-accent-green-rgb,189,232,245),0.12)]"
+              >
+                <Users size={15} />
+                {poolSubmitting ? '···' : t('startSharedPool')}
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

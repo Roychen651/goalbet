@@ -6,9 +6,12 @@
 // full challenge-creation flow (out of scope here, same reasoning as
 // SyndicatePoolCard's pool-creation deferral).
 //
-// No Realtime subscription — fetch on mount + refetch after responding
-// only, matching SyndicatePoolCard's stated scope (RealtimeProvider's
-// RealtimeTable union was not extended for group_battles this commit).
+// V5 Sprint 36 Hotfix — now Realtime-subscribed via RealtimeProvider's two
+// group_battles bindings (challenger-side + defender-side, since the
+// active group can be either and Realtime's filter syntax has no OR — see
+// RealtimeProvider.tsx). A pending challenge now appears for the defender
+// group live, and a status change (accept/decline/completion) refreshes
+// both sides without a manual reload.
 
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -20,6 +23,7 @@ import { useLangStore } from '../../stores/langStore';
 import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
 import { GlassCard } from '../ui/GlassCard';
+import { useRealtimeSubscription, useRealtimeReconnect } from '../providers/RealtimeProvider';
 
 interface Battle {
   id: string;
@@ -66,6 +70,9 @@ export function BattleMeter() {
   }, [activeGroupId]);
 
   useEffect(() => { fetchBattle(); }, [fetchBattle]);
+
+  useRealtimeSubscription('group_battles', () => fetchBattle());
+  useRealtimeReconnect(() => fetchBattle());
 
   const respond = useCallback(async (accept: boolean) => {
     if (!battle || responding) return;

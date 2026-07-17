@@ -36,13 +36,34 @@ import { playSound } from '../../lib/sensoryAudio';
 // `predictions` is deliberately NOT bound here either, despite already
 // sitting in the `supabase_realtime` publication (migration 003) — see
 // CLAUDE.md §50's documented prerequisite before that table is ever added.
-
+//
+// V5 Sprint 36 Hotfix — `syndicate_pools`/`group_battles` added to the
+// Group Channel. Both are group_id-scoped (a pool/battle belongs to one or
+// two groups, never a single user), so they follow the exact same "Group
+// Channel, not User Channel" placement as `leaderboard`/`group_events`/
+// `micro_prediction_questions` above. This is what makes
+// SyndicatePoolCard/BattleMeter genuinely live for every group member —
+// Commit 4 shipped them fetch-once/refetch-after-own-mutation only,
+// deliberately deferring this wiring (see CLAUDE.md §51).
+//
+// `pool_contributions` is deliberately NOT bound directly — it has no
+// `group_id` column of its own (only `pool_id`), so Realtime's single-
+// equality `filter` syntax can't scope it to the active group without an
+// unfiltered, app-wide subscription. `contribute_to_pool()` (migration 055)
+// already bumps `syndicate_pools.total_staked` on every contribution — a
+// group_id-filtered `syndicate_pools` UPDATE binding fires on exactly that
+// signal, which is what SyndicatePoolCard's single `fetchPool()` function
+// already re-fetches both the pool row AND its contributor list from, so
+// no separate `pool_contributions` binding is needed to keep the
+// contributor bar live.
 type RealtimeTable =
   | 'leaderboard'
   | 'group_events'
   | 'micro_prediction_questions'
   | 'notifications'
-  | 'micro_prediction_bets';
+  | 'micro_prediction_bets'
+  | 'syndicate_pools'
+  | 'group_battles';
 type RealtimeHandler = (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => void;
 
 interface RealtimeContextValue {
@@ -238,6 +259,33 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'micro_prediction_questions', filter: `group_id=eq.${activeGroupId}` },
         (payload) => dispatch('micro_prediction_questions', payload as RealtimePostgresChangesPayload<Record<string, unknown>>),
+      )
+      // V5 Sprint 36 Hotfix — syndicate_pools. event: '*' covers both a
+      // brand-new pool (INSERT, from create_syndicate_pool) and an existing
+      // pool's total_staked bump (UPDATE, from every contribute_to_pool
+      // call) — see the file-header comment above for why this single
+      // binding is sufficient to keep the contributor bar live too.
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'syndicate_pools', filter: `group_id=eq.${activeGroupId}` },
+        (payload) => dispatch('syndicate_pools', payload as RealtimePostgresChangesPayload<Record<string, unknown>>),
+      )
+      // V5 Sprint 36 Hotfix — group_battles. TWO bindings, not one: the
+      // active group can be EITHER side of a battle (challenger or
+      // defender), and Realtime's postgres_changes filter only supports a
+      // single column=eq.value equality — there's no OR. Both dispatch to
+      // the same 'group_battles' table handler; BattleMeter's own fetch
+      // already queries both sides via its own `.or(...)`, so either
+      // trigger firing is equally sufficient to make it refetch.
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'group_battles', filter: `challenger_group_id=eq.${activeGroupId}` },
+        (payload) => dispatch('group_battles', payload as RealtimePostgresChangesPayload<Record<string, unknown>>),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'group_battles', filter: `defender_group_id=eq.${activeGroupId}` },
+        (payload) => dispatch('group_battles', payload as RealtimePostgresChangesPayload<Record<string, unknown>>),
       )
       .subscribe(handleChannelStatus('group'));
 

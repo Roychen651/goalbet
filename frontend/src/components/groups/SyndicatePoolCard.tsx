@@ -8,13 +8,14 @@
 // try to also cover; this component's job is showing a pool that already
 // exists and letting the group pile coins into it.
 //
-// No Realtime subscription — RealtimeProvider's RealtimeTable union
-// (CLAUDE.md §50) deliberately was not extended for syndicate_pools/
-// pool_contributions in this commit (out of scope, stated plainly rather
-// than silently omitted). This fetches once on mount and refetches only
-// after its own successful contribution — the same "fetch on mount +
-// refetch after own mutation" shape BentoArena/H2HMatrix already use for
-// data that isn't wired to live Realtime.
+// V5 Sprint 36 Hotfix — now Realtime-subscribed via RealtimeProvider's
+// `syndicate_pools` binding (Group Channel, group_id-filtered). A single
+// event: '*' binding covers both a brand-new pool landing (INSERT) and any
+// contribution bumping total_staked (UPDATE) — see RealtimeProvider.tsx's
+// own comment for why pool_contributions itself isn't bound directly. This
+// is what makes the card genuinely live for every group member, not just
+// the creator on their next mount (CLAUDE.md §51's original Commit 4 scope
+// note is now superseded by this addendum).
 
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -34,6 +35,7 @@ import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { DEBOSS_SHADOW } from '../../lib/tierVisuals';
 import { cn } from '../../lib/utils';
 import type { TranslationKey } from '../../lib/i18n';
+import { useRealtimeSubscription, useRealtimeReconnect } from '../providers/RealtimeProvider';
 
 interface PoolMatch {
   home_team: string;
@@ -143,6 +145,14 @@ export function SyndicatePoolCard() {
   }, [activeGroupId, user?.id]);
 
   useEffect(() => { fetchPool(); }, [fetchPool]);
+
+  // V5 Sprint 36 Hotfix — payload content is ignored (matches the
+  // established idiom every other Realtime-migrated hook in this codebase
+  // uses, per rule 4.4): any change on this group's syndicate_pools rows
+  // just re-runs the full fetch, since a new pool needs the matches join
+  // and a total_staked bump needs the contributors re-query anyway.
+  useRealtimeSubscription('syndicate_pools', () => fetchPool());
+  useRealtimeReconnect(() => fetchPool());
 
   const contribute = useCallback(async () => {
     if (!pool || submitting) return;
