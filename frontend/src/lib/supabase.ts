@@ -50,6 +50,14 @@ export type Database = {
           // V4 Sprint 24 — migration 047. Default 'unspecified'; drives
           // tg()'s gendered copy across notifications/Locker Room/AI text.
           gender: 'male' | 'female' | 'unspecified';
+          // V5 Sprint 37 — migration 057. unlocked_cosmetics is populated
+          // ONLY by purchase_cosmetic_item(); active_cosmetics ONLY by
+          // equip_cosmetic() — both columns are REVOKEd from direct client
+          // UPDATE (see the migration's own comment), so Update below
+          // must never actually be used for these two fields even though
+          // the type doesn't statically forbid it.
+          unlocked_cosmetics: string[];
+          active_cosmetics: { frame?: string | null; halo?: string | null; badge?: string | null };
         };
         Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'created_at'>;
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
