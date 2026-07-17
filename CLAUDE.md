@@ -58,6 +58,7 @@ Read this before touching any file. Everything here reflects the live codebase.
 49. [The Prediction Matrix — Same-Match Parlays (V5 Sprint 34)](#49-the-prediction-matrix--same-match-parlays-v5-sprint-34)
 50. [The Realtime Hub — Multiplexed Channels & Reconnect Reconciliation (V5 Sprint 35)](#50-the-realtime-hub--multiplexed-channels--reconnect-reconciliation-v5-sprint-35)
 51. [The Social Syndicate — Shared Coin Pools & Group Battles (V5 Sprint 36)](#51-the-social-syndicate--shared-coin-pools--group-battles-v5-sprint-36)
+52. [Profile Prestige & Cosmetics (V5 Sprint 37)](#52-profile-prestige--cosmetics-v5-sprint-37)
 
 ---
 
@@ -3516,3 +3517,84 @@ Live report, in plain terms: pressing the buttons "did something," but the imple
 - **A feature can be mechanically correct and still fail completely from the user's seat if the app's established "how this works" surfaces never mention it.** `SyndicatePoolCard`/`BattleMeter` had correct RPCs, correct Realtime wiring, correct payout math running server-side — none of it was legible from the UI. Ship the explanatory layer (`InfoTip`, a computed-and-labeled number, a `HelpGuideModal` entry) in the same pass as the mechanic itself when the codebase already has an established convention for explaining every other mechanic — don't treat it as a later polish pass.
 - **A displayed reward/payout number must be computed from the same source-of-truth constants the actual scoring engine uses (`POINTS`, `pointsEngine.ts`'s real tier-stacking shape), and must be honestly labeled as a ceiling if the underlying engine doesn't guarantee it.** Never show a bare number that looks like a promise when the real system scores independently per tier.
 - **A raw comparison (two scores, two percentages) should ship with a plain-language interpretation alongside it, not just the numbers.** `8.4 vs 5.1` requires the reader to do their own comparison; `"X is currently ahead"` (or the tied/no-data variants) answers the actual question the numbers exist to answer.
+
+---
+
+## 52. Profile Prestige & Cosmetics (V5 Sprint 37)
+
+A coin-spending cosmetics system: frames, halos, and prestige badges, purchasable in a Prestige Shop and equippable one-per-slot, rendered on the avatar wherever it appears throughout the app. Four commits — schema, catalog + shop UI, render layer, Hebrew/verification pass.
+
+### Corrections made before writing code
+
+**The brief's RPC signature (`purchase_cosmetic_item(p_item_id, p_cost)`) reintroduced the exact client-trusted-cost vulnerability this codebase already found and fixed once (§11/§27).** A client passing its own `p_cost` could buy any cosmetic for 1 coin. Caught before any code was written, against this codebase's own standing rule: never trust a client-supplied cost for a coin-spending RPC. Fixed by dropping `p_cost` entirely and adding a `cosmetic_catalog` DB table — the RPC looks up the true price itself, the same shape as `submit_prediction()`/`submit_micro_prediction()`/`contribute_to_pool()`.
+
+**The brief's RPC had no group context, but coins only exist per-group (rule 4.12).** A cosmetic *unlock* is profile-wide (one `profiles.unlocked_cosmetics` array), but the coins that pay for it have to come from somewhere — there is no global wallet. Added an explicit `p_group_id UUID` parameter; the Shop UI states plainly which group's balance a purchase debits from ("Purchases spend from {0}'s balance"), the same up-front honesty §36's pool-contribution UI already established for a structurally identical global-concept/per-group-payment mismatch.
+
+**`profiles`' existing blanket `auth.uid() = id` UPDATE policy would have let any user self-grant free cosmetics via a direct client `.update()` call.** Verified via a research pass before writing the migration: migration 002's `profiles_update_own` policy has no column restriction at all. `unlocked_cosmetics`/`active_cosmetics` are the first columns on this table that must never be client-writable directly — closed with `REVOKE UPDATE (unlocked_cosmetics, active_cosmetics) ON public.profiles FROM authenticated`, a column-level Postgres grant, distinct from and layered underneath the row-level RLS policy. `SECURITY DEFINER` RPCs bypass this (they execute as the function owner), which is exactly why `purchase_cosmetic_item()`/`equip_cosmetic()` are the only write path.
+
+**`coin_transactions.type`'s CHECK constraint (migration 020) would have silently rejected every cosmetic purchase.** It only allows `'join_bonus'|'daily_bonus'|'bet_placed'|'bet_won'` with no later widening anywhere in the migration history. Verified via research before writing the ledger insert. Fixed by dropping and re-adding the constraint with `'cosmetic_purchase'` added, using the exact same auto-generated-name `DROP CONSTRAINT IF EXISTS` idempotent shape already proven for `group_events_event_type_check` across migrations 039/042/055/056.
+
+**The brief's mandate to render cosmetics on `TeamBlock.tsx` was a factual error, not a design choice to accept.** `TeamBlock` (`MatchCard.tsx`) renders a football team's crest — it has zero concept of a logged-in user or an `Avatar`. Corrected the actual Commit 3 target to the three places a user's own avatar genuinely renders: `LeaderboardRow.tsx`, `ProfilePage.tsx`'s hero avatar, and `ActivityFeed.tsx`'s human-event avatar.
+
+**`equip_cosmetic()`'s unequip path had a real `to_jsonb`/`jsonb_set` NULL-propagation bug, caught during drafting, before the SQL was ever shown to the user.** `to_jsonb(NULL::text)` returns SQL NULL, not the JSON `null` literal — and `jsonb_set(target, path, NULL)` returns NULL for the *entire* `target`, not just the targeted key. An unequip call (`p_item_id = NULL`) would have wiped all of `active_cosmetics` and then failed the column's `NOT NULL` constraint outright. Fixed with `COALESCE(to_jsonb(p_item_id), 'null'::jsonb)` so the JSON `null` literal is written into the object at that one key, never the whole column.
+
+**"Badge" already meant two different, unrelated, un-persisted things in this codebase before this sprint.** `LeaderboardRow.tsx`'s `badgeHot`/`badgeSniper` pills and `TrophyCabinet.tsx`'s computed-on-the-fly achievement badges (§37) are both real, shipped concepts with that exact name. A third, genuinely DB-persisted, purchasable "badge" would have been a real naming collision. Named "Prestige Badge"/"תג יוקרה" everywhere in code and copy instead — distinct enough that none of the three concepts get confused for each other.
+
+**A DOM/render-layer change should avoid widening the blast radius of a component used at a dozen+ call sites.** `Avatar.tsx` is imported broadly across the codebase; adding frame/halo/badge props directly to it would have touched every call site's type surface for a feature only 3 of them need. Built `CosmeticAvatar.tsx` as a wrapper instead — `Avatar.tsx` itself is untouched.
+
+**Two pre-existing derived halos already lived on the exact avatars this sprint targets — `LeaderboardRow`'s rank-1 gold halo and `ProfilePage`'s streak-tier halo (§37) — and stacking a second halo on top would have looked broken, not additive.** Resolved by design, not left ambiguous: an explicitly *purchased* cosmetic halo always wins over an *auto-derived* one. `CosmeticAvatar` takes the pre-existing halo as a `fallbackHalo` prop, rendered only when no cosmetic halo is equipped — the two call sites' own halo-computation logic (rank check, `streakTierColor()`) stays exactly where it already lived; `CosmeticAvatar` only owns the "which one wins" decision.
+
+### Commit 1 — Secure DB cosmetics ledger (migration 057)
+
+`profiles` gains `unlocked_cosmetics TEXT[] DEFAULT '{}'` + `active_cosmetics JSONB DEFAULT '{}'`, both REVOKEd from direct client UPDATE (see Corrections above). `cosmetic_catalog` (`item_id` PK, `slot` CHECK IN `('frame','halo','badge')`, `cost`, `enabled`) is public-read, service-role-write, seeded with 8 launch items (3 frames, 3 halos, 2 prestige badges).
+
+`purchase_cosmetic_item(p_item_id, p_group_id)`: `auth.uid()` first, looks up `cost` from `cosmetic_catalog` (never a client parameter), checks the item isn't already unlocked, `FOR UPDATE`s the `group_members` balance row (same lock-first-then-debit shape as every other coin-spending RPC), inserts a `coin_transactions` row typed `'cosmetic_purchase'`, then does the actual unlock via a self-guarding `UPDATE profiles SET unlocked_cosmetics = array_append(...) WHERE ... AND NOT (item = ANY(unlocked_cosmetics))`. If that final UPDATE matches zero rows — a concurrent purchase already won the race — it `RAISE EXCEPTION`s, rolling back the *entire* transaction including the coin debit already performed earlier in the same call. No `ON CONFLICT DO NOTHING` here (§29's rule: never suppress a uniqueness violation once a prior step already moved money — let it roll back the whole thing).
+
+`equip_cosmetic(p_slot, p_item_id)`: validates the slot, checks the item is actually unlocked when equipping (never when unequipping — `p_item_id = NULL` always succeeds), writes via `jsonb_set` with the NULL-propagation fix from Corrections above.
+
+Migration held back from commit until the user pasted-and-ran the SQL in Supabase's SQL Editor and gave unambiguous confirmation ("Success. No rows returned") — the standing discipline this engagement has enforced since §14, reinforced twice more in this same sprint when automated stop-hook nudges arrived before real confirmation and were correctly not treated as consent.
+
+### Commit 2 — Static catalog + Prestige Shop UI
+
+`lib/cosmeticsCatalog.ts` is presentation-only metadata (display names EN/HE, colors) keyed by the same `item_id` the DB table uses for price — stated explicitly in the file's own header comment that if the two ever drift, the RPC's number is what's actually charged, the same "shared key, never a trusted client copy" discipline as `COIN_COSTS`/migration 040 (§11).
+
+`components/profile/CosmeticsShopSheet.tsx` reuses `CoinGuide.tsx`'s exact swipe-to-close shell (rule 4.13) rather than inventing a new one, grouped by slot. Every `purchase_cosmetic_item`/`equip_cosmetic` RPC error code maps to its own translated toast (`insufficient_coins`, `already_unlocked`, `not_unlocked`, ...) — never one generic message, the standing rule this codebase learned live once already for Momentum Bets (§29's "a failed coin-spending RPC call must surface its actual reason code").
+
+Wired into `ProfilePage.tsx` via a new Sparkles entry-point button beside the existing Share button.
+
+### Commit 3 — CosmeticAvatar render layer
+
+`components/ui/CosmeticAvatar.tsx` wraps `Avatar.tsx` with three layers:
+
+- **Frame**: a rotating conic-gradient ring — a bigger colored circle positioned behind the avatar's own opaque disc (`Avatar` given `relative z-10` via its `className` prop so it paints on top), the exact "ring via occlusion" technique `AiBanterCard`/`HTAnalystCard`/`MomentumBanner`/`ChronicleCard` already use for their borders. No mask/clip-path needed — the same trick as a static Tailwind `ring-2`, just animated.
+- **Halo**: generalizes `LeaderboardRow`'s existing rank-1-only breathing halo (opacity/scale only, GPU-safe, Framer Motion since exactly one instance ever renders per avatar — the same "single instance → Framer, many simultaneous instances → CSS" split this codebase already applied twice, §31/§34). A purchased cosmetic halo always wins over an auto-derived one — see Corrections above.
+- **Badge**: a small corner pill at logical `-end-0.5` (rule 4.10) — mirrors correctly under RTL without any `isRTL` branch.
+
+Wired into `LeaderboardRow.tsx` (own+other rows, cosmetic halo overriding the rank-1 gold fallback), `ProfilePage.tsx`'s hero avatar (cosmetic halo overriding the streak-tier fallback), and `ActivityFeed.tsx`'s human-event avatar (no fallback halo needed there — a small "sm" list-row avatar never had one). `active_cosmetics` threaded through `useLeaderboard.ts`'s and `useGroupEvents.ts`'s existing single profiles-join fetch paths — no new query added for either.
+
+### Commit 4 — Hebrew vocabulary audit + verification + docs
+
+A genuine audit, not a rubber-stamp, caught two real issues in the copy shipped in Commits 1–2:
+
+- **`cosmeticPurchaseSuccess`'s Hebrew referenced a UI label that didn't exist.** It read "עברו ל\"ציוד\"" ("go to 'Equipment'" — a noun), but the actual button renders `cosmeticEquip: 'צייד'` (the imperative verb "Equip!"). Fixed to reference the real label verbatim: "לחצו על \"צייד\"".
+- **`cosmeticErrorAlreadyUnlocked` was the only string in the entire cosmetics feature — and one of very few anywhere in the app — using plural 2nd-person address (`ברשותכם`).** Grepped every other `שלך`-style possessive in `i18n.ts` (leaderboard, coin history, momentum bets, pool contributions, battle self-challenge — over a dozen hits) and confirmed this app addresses the user consistently in the singular. Fixed to `ברשותך`.
+
+One grammar fix in `cosmeticsCatalog.ts`: `הילה פועמת אזמרגד` ("halo pulsing emerald") had the noun-adjective order backwards for a noun ("אזמרגד") being used descriptively — corrected to the construct-state form `הילת אזמרגד פועמת`, matching the sibling item's own `הילת להבה ארגמן` pattern exactly.
+
+One term confirmed correct by cross-reference, not guessed: `badge_sharpshooter`'s Hebrew ("תג צלף") reuses the exact "צלף" already established for "Sniper" in `insightSniper`/`badgeSniper`/`trophySniperName` — grepped before finalizing, not translated fresh (the same "check existing terminology before writing new copy" discipline §33's BTTS grammar check and §39's team-dictionary audits already established).
+
+Verified with three separate throwaway Playwright passes across Commits 2–4 (each deleted before its commit, `main.tsx` restored, `git status` confirmed clean): zero horizontal overflow at 320/375/390px in both EN and HE across the Shop sheet, `LeaderboardRow` with every cosmetic combination, and the corrected Hebrew toast copy; a cosmetic halo (crimson) visually confirmed overriding the rank-1 gold fallback halo; the badge's logical `-end-` position confirmed mirroring sides between EN and HE; the corrected purchase-success toast text confirmed rendering byte-for-byte against the real button label.
+
+### Rules
+
+- **A brief's RPC signature must be checked against this codebase's own standing coin-spending-RPC rules (§11/§27) before any code is written, not just before the migration is run.** A `p_cost` parameter is a vulnerability shape this codebase has already found and fixed once; recognize the pattern from the signature alone.
+- **A profile-wide unlock funded by a per-group coin balance needs an explicit group parameter and an explicit UI statement of which balance is being spent** — never leave the group context implicit when the underlying economy is genuinely group-scoped (rule 4.12) but the feature's *unlock* isn't.
+- **The first client-writable-looking column added to a table with a blanket `auth.uid() = id` UPDATE policy needs its own `REVOKE` audit before shipping.** `profiles`' policy had never needed a column-level restriction before this sprint — check whether a new column is safe to leave inside an existing broad policy, or whether it's the first one that genuinely needs to be pulled out.
+- **A new `coin_transactions.type` (or any CHECK-constrained enum column) must be verified against the actual constraint definition, not assumed open** — a silently-rejected insert on a coin-spending code path fails the whole transaction at the worst possible moment.
+- **A brief's factual claim about where a component renders (`TeamBlock` has a user avatar) must be checked against the component's actual code before accepting it as a target** — a match-card team crest and a user's own avatar are structurally different concepts that happened to share a "circular badge" visual vocabulary in the brief's own language.
+- **`to_jsonb()`/`jsonb_set()` NULL semantics are a real, repeatable bug class for any "clear this field" code path — verify the unequip/clear case explicitly, not just the set case.** `to_jsonb(NULL)` is SQL NULL, not JSON `null`; `jsonb_set(..., NULL)` nulls the whole target column, not just the key. `COALESCE(to_jsonb(x), 'null'::jsonb)` is the fix whenever a JSONB key needs to be explicitly clearable.
+- **Before naming a new persisted concept, grep for whether the name is already in use for something un-persisted or unrelated in this codebase.** "Badge" already meant two different things; a third meaning would have made every future reference ambiguous without a distinguishing qualifier.
+- **A render-layer addition for a feature that only a handful of call sites need should wrap the existing shared component, not widen it.** `CosmeticAvatar` wrapping the untouched `Avatar.tsx` kept this sprint's blast radius to exactly the 3 places that needed it.
+- **When a new cosmetic/decorative layer targets an avatar that already has an auto-derived visual state (a halo, a badge, a border), design the precedence explicitly before writing the render code — an explicit user choice should win over an automatic one, not stack awkwardly beside it.** `fallbackHalo` is the reference pattern: the pre-existing logic stays exactly where it lived, the new wrapper only owns the "which one renders" decision.
+- **A Hebrew string that references another UI label by name must be checked against that label's actual current text, not whatever it said in an earlier draft.** `cosmeticEquip` was corrected from a noun ("ציוד") to an imperative verb ("צייד") mid-sprint (Commit 2); the toast copy referencing it wasn't updated in the same pass and drifted — caught only by a dedicated audit commit, not by translation review alone.
+- **A single string using a different grammatical register (plural vs. singular address) than every other string in the file is worth grepping for before considering translation complete** — one inconsistent string is easy to miss reading top-to-bottom, trivial to catch by grepping the established pattern (`שלך`) across the whole file.

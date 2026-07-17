@@ -54,7 +54,7 @@ export const COSMETIC_CATALOG: CosmeticItem[] = [
     slot: 'halo',
     cost: 1000,
     nameEn: 'Emerald Pulse Halo',
-    nameHe: 'הילה פועמת אזמרגד',
+    nameHe: 'הילת אזמרגד פועמת',
     color: '#34D399',
   },
   {
