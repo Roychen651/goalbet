@@ -31,9 +31,11 @@ import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
 import { GlassCard } from '../ui/GlassCard';
 import { CoinIcon } from '../ui/CoinIcon';
+import { InfoTip } from '../ui/InfoTip';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { DEBOSS_SHADOW } from '../../lib/tierVisuals';
 import { cn } from '../../lib/utils';
+import { POINTS } from '../../lib/constants';
 import type { TranslationKey } from '../../lib/i18n';
 import { useRealtimeSubscription, useRealtimeReconnect } from '../providers/RealtimeProvider';
 
@@ -89,6 +91,28 @@ function outcomeLabel(outcome: TargetPrediction['predicted_outcome'], isHe: bool
   if (outcome === 'D') return isHe ? 'תיקו' : 'Draw';
   if (outcome === 'A') return isHe ? 'ניצחון חוץ' : 'Away Win';
   return '';
+}
+
+// The maximum points the pool's own target_prediction could score if every
+// picked tier resolves correctly — mirrors pointsEngine.ts's real scoring
+// shape (an exact score subsumes the Tier 1 result bonus, matching
+// HelpGuideModal's Tier Ledger card exactly), not a guessed number. This is
+// a CEILING, not a guarantee — pointsEngine scores each tier independently,
+// so a partial hit still earns partial points. Labeled "max" everywhere it
+// renders, the same honesty discipline this codebase applies to Oracle's
+// sample-size captions and GroupDistributionChart's modeled-curve note.
+function computeMaxPoints(target: TargetPrediction): number {
+  let pts = 0;
+  const hasExactScore = target.predicted_home_score != null && target.predicted_away_score != null;
+  if (hasExactScore) {
+    pts += POINTS.TIER2_EXACT_SCORE + POINTS.TIER2_EXACT_BONUS;
+  } else if (target.predicted_outcome) {
+    pts += POINTS.TIER1_OUTCOME;
+  }
+  if (target.predicted_corners) pts += POINTS.TIER3_CORNERS;
+  if (target.predicted_btts != null) pts += POINTS.TIER5_BTTS;
+  if (target.predicted_over_under) pts += POINTS.TIER6_OVER_UNDER;
+  return pts;
 }
 
 export function SyndicatePoolCard() {
@@ -204,6 +228,9 @@ export function SyndicatePoolCard() {
     targetChips.push(target.predicted_over_under === 'over' ? 'O2.5' : 'U2.5');
   }
 
+  const maxPoints = computeMaxPoints(target);
+  const myShare = myStake > 0 && pool.total_staked > 0 ? Math.round((myStake / pool.total_staked) * 100) : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -12 }}
@@ -219,8 +246,9 @@ export function SyndicatePoolCard() {
             <Users size={16} className="text-accent-green" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-text-muted font-bebas">
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] text-text-muted font-bebas">
               {t('poolTitle')}
+              <InfoTip text={t('poolExplainerTip')} />
             </div>
             {homeTeam && awayTeam && (
               <div className="text-sm font-semibold text-text-primary truncate">
@@ -250,6 +278,25 @@ export function SyndicatePoolCard() {
             ))}
           </div>
         )}
+
+        {/* Payout summary — the "formula and rewards" the card was missing:
+            a computed CEILING (never a guarantee — pointsEngine scores each
+            tier independently) on what a full hit is worth, plus the
+            caller's own live share of it if they've already contributed. */}
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/4 border border-white/6 text-[11px]">
+          <div className="text-text-muted">
+            {t('poolMaxPayoutLabel')}{' '}
+            <span className="font-mono font-bold text-accent-green tabular-nums">
+              {maxPoints} {t('pts')} → {maxPoints * 2}<CoinIcon size={10} className="inline-block align-[-1px] mx-0.5" />
+            </span>
+          </div>
+          {myStake > 0 && (
+            <div className="text-text-muted">
+              {t('poolYourShareLabel')}{' '}
+              <span className="font-mono font-bold text-text-primary tabular-nums">{myShare}%</span>
+            </div>
+          )}
+        </div>
 
         {/* Proportional contributor bar — segments, not a false "goal"
             progress bar, since no target amount exists anywhere in this

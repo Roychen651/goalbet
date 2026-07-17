@@ -23,6 +23,7 @@ import { useLangStore } from '../../stores/langStore';
 import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
 import { GlassCard } from '../ui/GlassCard';
+import { InfoTip } from '../ui/InfoTip';
 import { useRealtimeSubscription, useRealtimeReconnect } from '../providers/RealtimeProvider';
 
 interface Battle {
@@ -122,8 +123,9 @@ export function BattleMeter() {
             <Swords size={16} style={{ color: 'var(--battle-challenger)' }} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-text-muted font-bebas">
+            <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] text-text-muted font-bebas">
               {t('battleTitle')}
+              <InfoTip text={t('battleExplainerTip')} />
             </div>
             <div className="text-sm font-semibold text-text-primary truncate">
               {battle.challenger?.name ?? '?'} {isHe ? 'נגד' : 'vs'} {battle.defender?.name ?? '?'}
@@ -171,6 +173,19 @@ export function BattleMeter() {
                 style={{ background: 'var(--battle-defender)' }}
               />
             </div>
+            {/* Plain-language read of the numbers above — a raw score pair
+                alone left the "who's actually winning" question unanswered
+                (reported live). */}
+            <p className="mt-1.5 text-[11px] text-text-muted">
+              {total === 0
+                ? t('battleNoDataYet')
+                : challengerScore === defenderScore
+                  ? t('battleTied')
+                  : t('battleLeaderLabel').replace(
+                      '{0}',
+                      (challengerScore > defenderScore ? battle.challenger?.name : battle.defender?.name) ?? '?',
+                    )}
+            </p>
           </div>
         )}
       </GlassCard>

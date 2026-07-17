@@ -819,6 +819,18 @@ export const translations = {
     battleErrorInvalidWindow: 'Invalid battle window',
     battleErrorGroupNotFound: 'No group found with that invite code',
     battleErrorSelfChallenge: "You can't challenge your own group",
+
+    // Bug-report follow-up — explanatory copy the pool/battle cards were
+    // missing entirely (live report: "not clear what the implementation
+    // is... the formula/calculations/rewards don't look connected... no
+    // explanation, nothing"). See CLAUDE.md §51 Addendum 3.
+    poolExplainerTip: 'Everyone who contributes gets a share of the winnings proportional to their own stake — if the pool\'s pick is fully correct, the payout splits by contribution %.',
+    poolMaxPayoutLabel: 'Max pool payout:',
+    poolYourShareLabel: 'Your share:',
+    battleExplainerTip: 'Each group\'s top 5 point-scoring predictions in the battle window are averaged. Whichever group has the higher average wins.',
+    battleNoDataYet: 'No resolved predictions yet — check back once matches finish.',
+    battleTied: "It's currently tied.",
+    battleLeaderLabel: '{0} is currently ahead.',
   },
 
   he: {
@@ -1633,6 +1645,14 @@ export const translations = {
     battleErrorInvalidWindow: 'חלון זמן לא תקין',
     battleErrorGroupNotFound: 'לא נמצאה קבוצה עם קוד ההזמנה הזה',
     battleErrorSelfChallenge: 'אי אפשר לאתגר את הקבוצה שלך',
+
+    poolExplainerTip: 'כל מי שתורם לקופה מקבל חלק מהזכייה לפי גובה התרומה שלו — אם הניחוש של הקופה יוצא נכון במלואו, הזכייה מתחלקת לפי אחוז התרומה.',
+    poolMaxPayoutLabel: 'זכייה מקסימלית מהקופה:',
+    poolYourShareLabel: 'החלק שלך:',
+    battleExplainerTip: '5 הניחושים הכי טובים של כל קבוצה בחלון הזמן של הקרב מחושבים בממוצע. הקבוצה עם הממוצע הגבוה יותר מנצחת.',
+    battleNoDataYet: 'עדיין אין ניחושים שנפתרו — בדקו שוב אחרי שהמשחקים יסתיימו.',
+    battleTied: 'כרגע תיקו.',
+    battleLeaderLabel: '{0} מובילה כרגע.',
   },
 } as const;
 
