@@ -1,12 +1,12 @@
 /**
- * Shared ESPN boxscore fetch + pressure math — V4 Sprint 32 Commit 1.
- *
- * fetchMatchStats()/StatRow/STAT_MAP were previously module-private inside
- * MatchStats.tsx. Extracted the moment a second real consumer
- * (useMatchPressureFlow, this same commit) needed the identical ESPN
- * boxscore parsing — the "extract on the second real consumer" precedent
- * already established for lib/espnEvents.ts (Sprint 19). MatchStats.tsx now
- * imports from here instead of defining its own copy.
+ * Shared ESPN boxscore fetch — originally extracted (V4 Sprint 32 Commit 1)
+ * so both MatchStats.tsx and the since-removed Match Pressure Graph
+ * (MatchMomentumFlow.tsx, removed on live user feedback — "unnecessary,
+ * clutters the card") could share one ESPN boxscore parser instead of
+ * duplicating it. The pressure-delta math (BoxscoreSnapshot,
+ * extractSnapshot, computePressureSample, PRESSURE_CLAMP) that only that
+ * removed component used was removed alongside it — fetchMatchStats()/
+ * StatRow/STAT_MAP stay, MatchStats.tsx is still a real consumer.
  */
 
 import { LEAGUE_ESPN_SLUG } from './constants';
@@ -80,79 +80,3 @@ export async function fetchMatchStats(externalId: string, leagueId: number): Pro
   }
 }
 
-// ── Pressure math — V4 Sprint 32 ─────────────────────────────────────────────
-//
-// MatchMomentumPulse.tsx (Sprint 19) deliberately avoided a smoothed curve
-// because ESPN's keyEvents feed has no shot/possession data to back one —
-// only discrete goal/card markers. This is a genuinely different data
-// source: MatchStats' boxscore fields ARE a real time series (one honest
-// snapshot every 30s), so a curve here isn't fabricated precision, PROVIDED
-// it's built from deltas between snapshots, not raw cumulative totals.
-// Cumulative shots/corners only ever grow — a ratio computed directly from
-// them slowly flattens to one value and can never show a real back-and-forth
-// swing. The delta since the last poll is what actually says "who is
-// pressing right now."
-
-export interface BoxscoreSnapshot {
-  shotsHome: number;
-  shotsAway: number;
-  sotHome: number;
-  sotAway: number;
-  cornersHome: number;
-  cornersAway: number;
-  /** 0-100, home team's share */
-  possessionHome: number;
-}
-
-export function extractSnapshot(rows: StatRow[]): BoxscoreSnapshot | null {
-  const find = (key: string) => rows.find(r => r.key === key);
-  const shots = find('totalShots');
-  const sot = find('shotsOnTarget');
-  const corners = find('wonCorners');
-  const poss = find('possessionPct');
-  if (!shots && !sot && !corners && !poss) return null;
-
-  return {
-    shotsHome: shots?.home ?? 0,
-    shotsAway: shots?.away ?? 0,
-    sotHome: sot?.home ?? 0,
-    sotAway: sot?.away ?? 0,
-    cornersHome: corners?.home ?? 0,
-    cornersAway: corners?.away ?? 0,
-    possessionHome: poss?.home ?? 50,
-  };
-}
-
-// Hand-tuned weights, not a statistical model — stated plainly, same
-// "don't let a modeled value look more scientific than it is" discipline as
-// GroupDistributionChart's Gaussian-curve honesty note (Sprint 15).
-const WEIGHT_SHOTS_ON_TARGET = 3;
-const WEIGHT_SHOTS = 1.5;
-const WEIGHT_CORNERS = 2;
-const WEIGHT_POSSESSION = 0.3;
-// Exported so MatchMomentumFlow.tsx can map the same [-CLAMP,+CLAMP] range
-// to its SVG y-coordinates without a second hardcoded copy of the number.
-export const PRESSURE_CLAMP = 10;
-
-/**
- * Returns a pressure value in [-PRESSURE_CLAMP, +PRESSURE_CLAMP]. Positive
- * favors home, negative favors away. `previous` is null on the very first
- * sample of a match — returns 0 (an honest "no observed change yet"),
- * never a spike derived from cumulative totals at kickoff.
- */
-export function computePressureSample(current: BoxscoreSnapshot, previous: BoxscoreSnapshot | null): number {
-  if (!previous) return 0;
-
-  const dShots = (current.shotsHome - previous.shotsHome) - (current.shotsAway - previous.shotsAway);
-  const dSot = (current.sotHome - previous.sotHome) - (current.sotAway - previous.sotAway);
-  const dCorners = (current.cornersHome - previous.cornersHome) - (current.cornersAway - previous.cornersAway);
-  const possessionTilt = (current.possessionHome - 50) * WEIGHT_POSSESSION;
-
-  const raw =
-    dSot * WEIGHT_SHOTS_ON_TARGET +
-    dShots * WEIGHT_SHOTS +
-    dCorners * WEIGHT_CORNERS +
-    possessionTilt;
-
-  return Math.max(-PRESSURE_CLAMP, Math.min(PRESSURE_CLAMP, raw));
-}
