@@ -72,5 +72,13 @@ export function mapAuthError(message: string): string {
     return 'Connection error. Check your internet connection and try again.';
   if (m.includes('email address') && m.includes('invalid'))
     return 'That doesn\'t look like a valid email address.';
+  if (m === 'auth_timeout')
+    // Synthetic message from lib/asyncTimeout.ts's withAuthTimeout() — a
+    // Supabase auth call didn't settle within the timeout window (a hung
+    // connection, not a real rejection). Matches this file's existing
+    // English-only convention (mapAuthError has no lang branch anywhere
+    // else in this function — a genuine, separate, pre-existing gap, not
+    // something this timeout fix is scoped to address).
+    return 'Request timed out. Check your connection and try again.';
   return message; // fallback: show raw message
 }

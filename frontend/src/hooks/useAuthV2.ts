@@ -22,6 +22,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { mapAuthError } from '../lib/authSchema';
 import { useLangStore } from '../stores/langStore';
+import { withAuthTimeout } from '../lib/asyncTimeout';
 
 export type AuthView =
   | 'email'
@@ -76,8 +77,14 @@ export function useAuthV2(): UseAuthV2Return {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('type') === 'recovery') {
-      // Verify the session is valid before showing the password form
-      supabase.auth.getSession().then(({ data: { session } }) => {
+      // Verify the session is valid before showing the password form.
+      // Timeout-guarded (asyncTimeout.ts) — a hung call here used to leave
+      // a legitimate password-reset visitor stuck with no way forward.
+      // withAuthTimeout's synthetic timeout fallback carries only `error`,
+      // no `data` — read `data?.session` defensively rather than
+      // destructuring, so a timeout can never throw here.
+      withAuthTimeout(supabase.auth.getSession()).then((result) => {
+        const session = result.data?.session ?? null;
         if (session) {
           // Clean the URL so refreshing doesn't re-trigger this
           window.history.replaceState({}, '', window.location.pathname);
@@ -116,13 +123,13 @@ export function useAuthV2(): UseAuthV2Return {
     setLoading(true);
     setError(null);
     try {
-      const { error: err } = await supabase.auth.signInWithOtp({
+      const { error: err } = await withAuthTimeout(supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
           shouldCreateUser: true,
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
-      });
+      }));
       if (err) {
         setError(mapAuthError(err.message));
         return;
@@ -138,11 +145,11 @@ export function useAuthV2(): UseAuthV2Return {
     setLoading(true);
     setError(null);
     try {
-      const { error: err } = await supabase.auth.verifyOtp({
+      const { error: err } = await withAuthTimeout(supabase.auth.verifyOtp({
         email: email.trim(),
         token: code.trim(),
         type: 'email',
-      });
+      }));
       if (err) {
         setError(mapAuthError(err.message));
         return;
@@ -159,10 +166,10 @@ export function useAuthV2(): UseAuthV2Return {
     setLoading(true);
     setError(null);
     try {
-      const { error: err } = await supabase.auth.signInWithPassword({
+      const { error: err } = await withAuthTimeout(supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
-      });
+      }));
       if (err) {
         // "Invalid login credentials" can mean: wrong password OR Google-only account.
         // We cannot distinguish these without a server-side email lookup, so we show
@@ -182,7 +189,7 @@ export function useAuthV2(): UseAuthV2Return {
     setLoading(true);
     setError(null);
     try {
-      const { error: err } = await supabase.auth.signUp({
+      const { error: err } = await withAuthTimeout(supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -193,7 +200,7 @@ export function useAuthV2(): UseAuthV2Return {
             full_name: username.trim(),
           },
         },
-      });
+      }));
       if (err) {
         // "User already registered" (status 422) = email exists in Supabase Auth.
         // This is the definitive identity-collision signal → show OAuth merge screen.
@@ -225,10 +232,10 @@ export function useAuthV2(): UseAuthV2Return {
     setLoading(true);
     setError(null);
     try {
-      await supabase.auth.resetPasswordForEmail(email.trim(), {
+      await withAuthTimeout(supabase.auth.resetPasswordForEmail(email.trim(), {
         // Must land back on /login so useAuthV2 can detect ?type=recovery on mount
         redirectTo: `${window.location.origin}/login?type=recovery`,
-      });
+      }));
     } catch {
       // Intentionally swallowed — we always show success (anti-enumeration)
     } finally {
@@ -257,7 +264,7 @@ export function useAuthV2(): UseAuthV2Return {
     setLoading(true);
     setError(null);
     try {
-      const { error: err } = await supabase.auth.updateUser({ password });
+      const { error: err } = await withAuthTimeout(supabase.auth.updateUser({ password }));
       if (err) {
         setError(mapAuthError(err.message));
         return;
@@ -275,9 +282,9 @@ export function useAuthV2(): UseAuthV2Return {
     setLoading(true);
     setError(null);
     try {
-      await supabase.auth.resetPasswordForEmail(email.trim(), {
+      await withAuthTimeout(supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/login?type=recovery`,
-      });
+      }));
     } catch {
       // Swallowed — show success regardless
     } finally {
