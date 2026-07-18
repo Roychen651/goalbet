@@ -540,7 +540,18 @@ export async function fetchLeagueMatches(
         const competitors = comp.competitors as Record<string, unknown>[];
         const home = competitors.find(c => c.homeAway === 'home');
         const away = competitors.find(c => c.homeAway === 'away');
-        if (!home || !away) continue;
+        if (!home || !away) {
+          // Previously a silent `continue` — no log at all. A knockout
+          // bracket slot whose participants aren't determined yet can
+          // plausibly have an incomplete `competitors[]` shape on ESPN's
+          // side; if that same shape persists even after the earlier round
+          // resolves in real life, this event gets skipped on every single
+          // sync cycle with zero diagnostic trail. Elevated to a real log
+          // line (event id + how many competitors were actually present)
+          // so a recurrence is diagnosable instead of invisible.
+          logger.warn(`[ESPN] Event ${(event as Record<string, unknown>).id} missing home/away competitor (found ${competitors?.length ?? 0}) — skipped`);
+          continue;
+        }
 
         const status = comp.status as Record<string, unknown>;
         const statusType = status?.type as Record<string, unknown>;
@@ -548,8 +559,15 @@ export async function fetchLeagueMatches(
         const period = (status?.period as number) ?? 1;
         const state = (statusType?.state as string) ?? 'pre';
 
-        const homeTeam = home.team as Record<string, unknown>;
-        const awayTeam = away.team as Record<string, unknown>;
+        // A knockout bracket slot with an as-yet-undetermined participant
+        // is exactly the case most likely to have a partial/missing `team`
+        // sub-object on ESPN's side. Falling back to {} here means a
+        // missing team object degrades to the existing `?? 'Home'`/`'Away'`
+        // fallback further below for just that one field, instead of
+        // throwing and losing the entire event's other fields (kickoff
+        // time, status, score) for this sync cycle.
+        const homeTeam = (home.team as Record<string, unknown>) ?? {};
+        const awayTeam = (away.team as Record<string, unknown>) ?? {};
 
         const matchStatus = mapEspnStatus(statusName, period, state);
         const espnClock = (status?.displayClock as string | undefined);
@@ -725,7 +743,13 @@ export async function fetchLeagueMatches(
           away_yellow_cards: awayYellowCards,
         });
       } catch (err) {
-        logger.debug(`[ESPN] Skipped event ${(event as Record<string, unknown>).id}: ${err}`);
+        // Was logger.debug — typically invisible in production (Render's
+        // default log level). A single event's parse failure here means
+        // that match's row silently never gets upserted this cycle (its
+        // previous, possibly stale, DB row is left untouched) — elevated
+        // to warn with the actual error so a recurring failure for one
+        // specific match is diagnosable instead of silent forever.
+        logger.warn(`[ESPN] Skipped event ${(event as Record<string, unknown>).id}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
