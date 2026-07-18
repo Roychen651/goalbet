@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Globe, Palette, Zap, Mail, Lock, LogOut, Users, Copy, Check,
   UserPlus, Plus, RefreshCw, Trophy, Shield, Trash2, RotateCcw,
-  BookOpen, ChevronRight, Swords,
+  BookOpen, ChevronRight, Swords, Sparkles,
 } from 'lucide-react';
 import { useGroupStore } from '../stores/groupStore';
 import { useAuthStore } from '../stores/authStore';
@@ -647,6 +647,24 @@ export function SettingsPage() {
             <div className="text-start">
               <p className="text-text-primary text-sm font-medium">{t('userGuide')}</p>
               <p className="text-text-muted text-xs mt-0.5">{t('userGuideDesc')}</p>
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-text-muted group-hover:text-accent-green transition-colors" />
+        </button>
+      </GlassCard>
+
+      {/* ── What's New — Sprint 38. Redundant with the Sidebar/TopBar
+          Sparkles button by design, same discoverability precedent already
+          established for the User Guide card immediately above (§40). ── */}
+      <GlassCard className="p-4">
+        <button onClick={() => openModal('whatsNew')} className="w-full flex items-center justify-between gap-3 group">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-accent-green/10 border border-accent-green/20 flex items-center justify-center shrink-0">
+              <Sparkles size={15} className="text-accent-green" />
+            </div>
+            <div className="text-start">
+              <p className="text-text-primary text-sm font-medium">{t('whatsNewLabel')}</p>
+              <p className="text-text-muted text-xs mt-0.5">{t('whatsNewDesc')}</p>
             </div>
           </div>
           <ChevronRight size={16} className="text-text-muted group-hover:text-accent-green transition-colors" />

@@ -118,6 +118,20 @@
      parlayIntensityColor(). */
   --battle-challenger: oklch(72% 0.18 250);
   --battle-defender: oklch(70% 0.19 25);
+
+  /* Sprint 38 — Epoch Showcase era accents. Three fixed discrete hues, not
+     an interpolated scale (same "plain lookup" shape as --streak-bronze/
+     -silver/-ember — exactly 3 named eras, nothing continuous to
+     interpolate between). experience = ice-blue (matches the brand's own
+     primary accent family), analytics = violet (distinct from
+     --oracle-low/high's cyan and --parlay-low/high's magenta/pink),
+     social = warm gold (distinct from --risk-gold/--streak-ember/
+     --battle-defender's own gold/red-orange hues). Resolved via
+     color-mix(in oklch, var(--epoch-*) ...) inline in WhatsNewModal.tsx,
+     never a hardcoded second copy of these values in JS. */
+  --epoch-experience: oklch(75% 0.14 200);
+  --epoch-analytics: oklch(68% 0.19 280);
+  --epoch-social: oklch(78% 0.16 50);
 }
 
 /* ─── Light mode — "Frost" ─── */
@@ -200,6 +214,13 @@ html.light {
      contrast on near-white cards — same discipline as every pair above. */
   --battle-challenger: oklch(52% 0.19 250);
   --battle-defender: oklch(50% 0.20 25);
+
+  /* Sprint 38 — Epoch Showcase era accents, light surface variant. Same hue
+     anchors (200/280/50) as dark, darkened + more saturated for contrast
+     on near-white cards — same discipline as every pair above. */
+  --epoch-experience: oklch(55% 0.15 200);
+  --epoch-analytics: oklch(50% 0.20 280);
+  --epoch-social: oklch(58% 0.18 50);
 }
 
 /* ============================================================

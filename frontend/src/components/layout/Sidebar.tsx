@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Swords, Trophy, BarChart3, MessageCircle, User, Settings, HelpCircle } from 'lucide-react';
+import { Swords, Trophy, BarChart3, MessageCircle, User, Settings, HelpCircle, Sparkles } from 'lucide-react';
 import { ROUTES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { useGroupStore } from '../../stores/groupStore';
@@ -124,7 +124,7 @@ export function Sidebar() {
           whileTap mirrors Sprint 18's established elastic-overshoot tap
           spring for singular, non-repeated buttons — not a new spring
           tuned from scratch. */}
-      <div className="mx-2 mb-2 flex justify-center">
+      <div className="mx-2 mb-2 flex justify-center gap-2">
         <motion.button
           onClick={() => openModal('helpGuide')}
           whileHover={{ scale: 1.08 }}
@@ -134,6 +134,19 @@ export function Sidebar() {
           aria-label={t('helpGuideAria')}
         >
           <HelpCircle size={16} />
+        </motion.button>
+        {/* Sprint 38 — second circular icon button, same shell as Help
+            immediately above. Sparkles glyph reads as "what's new" without
+            needing a text label at this size. */}
+        <motion.button
+          onClick={() => openModal('whatsNew')}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.94, rotate: -2 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-white/6 border border-white/10 backdrop-blur-glass text-text-muted hover:bg-white/10 hover:text-white transition-colors"
+          aria-label={t('whatsNewAria')}
+        >
+          <Sparkles size={16} />
         </motion.button>
       </div>
 

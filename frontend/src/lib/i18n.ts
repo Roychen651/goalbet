@@ -36,6 +36,7 @@ export const translations = {
     leaderboard: 'Leaderboard',
     myProfile: 'My Profile',
     helpGuideAria: 'Help',
+    whatsNewAria: "What's New",
 
     // Home
     matchDay: 'Match Day',
@@ -305,6 +306,7 @@ export const translations = {
 
     // User Guide
     userGuide: 'User Guide',
+    whatsNewLabel: "What's New",
 
     // Match Center (Sprint 7)
     matchCenter: 'Match Center',
@@ -426,6 +428,7 @@ export const translations = {
     loadingMatches: 'Loading matches…',
     loadingSlow: 'Waking up the server… almost there',
     userGuideDesc: 'Scoring, coins, and how to play',
+    whatsNewDesc: 'Everything we shipped, in one place',
     removePrediction: 'Remove prediction',
 
     // Notification Center
@@ -887,6 +890,7 @@ export const translations = {
     leaderboard: 'דירוג',
     myProfile: 'הפרופיל שלי',
     helpGuideAria: 'עזרה',
+    whatsNewAria: 'מה חדש',
 
     // Home
     matchDay: 'יום משחק',
@@ -1156,6 +1160,7 @@ export const translations = {
 
     // User Guide
     userGuide: 'מדריך משתמש',
+    whatsNewLabel: 'מה חדש',
 
     // Match Center (Sprint 7)
     matchCenter: 'מרכז משחק',
@@ -1277,6 +1282,7 @@ export const translations = {
     loadingMatches: 'טוען משחקים…',
     loadingSlow: 'מעיר את השרת… עוד רגע',
     userGuideDesc: 'ניקוד, מטבעות ואיך לשחק',
+    whatsNewDesc: 'כל מה ששחררנו, במקום אחד',
     removePrediction: 'הסר ניחוש',
 
     // Notification Center

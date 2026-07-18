@@ -10,6 +10,8 @@ import { CreateGroupModal } from '../groups/CreateGroupModal';
 import { JoinGroupModal } from '../groups/JoinGroupModal';
 import { HelpGuideModal } from '../ui/HelpGuideModal';
 import { CoinHistoryModal } from '../ui/CoinHistoryModal';
+import { WhatsNewModal } from '../ui/WhatsNewModal';
+import { WhatsNewAutoTrigger } from '../ui/WhatsNewAutoTrigger';
 import { SyncProgressBar } from '../ui/SyncProgressBar';
 import { ErrorBoundary } from './ErrorBoundary';
 import { CoinsRainCanvas } from '../effects/CoinsRainCanvas';
@@ -170,8 +172,10 @@ export function AppShell() {
       <AnimatePresence>
         {activeModal === 'helpGuide' && <HelpGuideModal onClose={closeModal} />}
         {activeModal === 'coinHistory' && <CoinHistoryModal onClose={closeModal} />}
+        {activeModal === 'whatsNew' && <WhatsNewModal onClose={closeModal} />}
       </AnimatePresence>
       <WelcomeAnimation />
+      <WhatsNewAutoTrigger />
     </div>
   );
 }

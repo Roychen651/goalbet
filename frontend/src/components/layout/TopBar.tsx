@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, HelpCircle, ChevronDown, Moon, Sun } from 'lucide-react';
+import { Bell, HelpCircle, ChevronDown, Moon, Sun, Sparkles } from 'lucide-react';
 import { useGroupStore } from '../../stores/groupStore';
 import { useUIStore } from '../../stores/uiStore';
 import { Avatar } from '../ui/Avatar';
@@ -169,6 +169,17 @@ export function TopBar() {
               aria-label={t('helpGuideAria')}
             >
               <HelpCircle size={14} className="text-text-muted" />
+            </motion.button>
+            {/* Sprint 38 — same shell as Help immediately above, one more
+                segment in the same utility cluster row. */}
+            <motion.button
+              onClick={() => openModal('whatsNew')}
+              whileTap={{ scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+              className="flex items-center justify-center w-9 hover:bg-white/8 active:bg-white/15 transition-colors border-e border-white/10"
+              aria-label={t('whatsNewAria')}
+            >
+              <Sparkles size={14} className="text-text-muted" />
             </motion.button>
             {/* Flag emoji (previous impl) and font-rendered emoji both have
                 inconsistent glyph metrics across platforms — flexbox centers
