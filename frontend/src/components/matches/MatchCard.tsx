@@ -50,15 +50,15 @@ const PHASE_HE: Record<string, string> = {
   'Semi-Finals': 'חצי גמר',
   'Final': 'גמר',
   'Round of 16': 'שמינית גמר',
-  'Round of 32': 'סיבוב 32',
+  'Round of 32': '1/16 הגמר',
   'Group Stage': 'שלב הבתים',
-  'Knockout Round Playoffs': 'פלייאוף נוקאאוט',
+  'Knockout Round Playoffs': 'שלב הנוקאאוט',
   'Playoff Round': 'סיבוב פלייאוף',
   'League Phase': 'שלב הליגה',
-  '1st Leg': 'מחזור 1',
-  '2nd Leg': 'מחזור 2',
-  '1ST LEG': 'מחזור 1',
-  '2ND LEG': 'מחזור 2',
+  '1st Leg': 'משחק הלוך',
+  '2nd Leg': 'משחק חזור',
+  '1ST LEG': 'משחק הלוך',
+  '2ND LEG': 'משחק חזור',
 };
 function translatePhase(phase: string, lang: string): string {
   if (lang !== 'he') return phase;

@@ -46,7 +46,7 @@ export function ShareableRecapCard({ onClose }: ShareableRecapCardProps) {
         lang,
       });
       const shareText = isHe
-        ? `אני מקום #${mine.rank} בליגת הניחושים שלי ב-GoalBet 🔥 בוא/י תנסה לנחש אותי — goalbet.io`
+        ? `אני במקום #${mine.rank} בליגת הניחושים שלי ב-GoalBet 🔥 בוא/י תראה/י אם אתה/את מצליח/ה לעקוף אותי — goalbet.io`
         : `I'm #${mine.rank} in my GoalBet prediction league 🔥 Think you can beat me? — goalbet.io`;
 
       const outcome = await shareRecapCard(canvas, shareText, 'GoalBet');

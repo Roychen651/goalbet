@@ -58,7 +58,7 @@ function GameLoopCard({ isHe }: { isHe: boolean }) {
   const steps = isHe ? [
     { Icon: Users, title: 'הצטרפות', desc: 'צור קבוצה פרטית עם חברים או הצטרף עם קוד הזמנה בן 8 תווים.' },
     { Icon: Search, title: 'עיון', desc: 'משחקים מהליגות הפעילות שלך מופיעים בפיד. הוסף ליגות נוספות בהגדרות.' },
-    { Icon: Pencil, title: 'ניבוי', desc: 'בחר את התחזיות שלך לפני נעילה — 15 דקות לפני הקיקאוף.' },
+    { Icon: Pencil, title: 'ניחוש', desc: 'בחר את הניחושים שלך לפני נעילה — 15 דקות לפני הקיקאוף.' },
     { Icon: Trophy, title: 'ניקוד', desc: 'בסיום המשחק הנקודות מחושבות אוטומטית. הטבלה מתעדכנת בזמן אמת.' },
   ] : [
     { Icon: Users, title: 'Join', desc: 'Create a private group with friends or join one using an 8-character invite code.' },
@@ -128,7 +128,7 @@ function GameLoopCard({ isHe }: { isHe: boolean }) {
         <p className="text-accent-green text-[10px] font-medium mb-0.5">💡 {isHe ? 'טיפ' : 'Tip'}</p>
         <p className="text-white/70 text-[11px] leading-relaxed">
           {isHe
-            ? 'ניתן לעדכן ניבוי בכל עת כל עוד המשחק לא ננעל — רק העדכון האחרון נספר.'
+            ? 'ניתן לעדכן ניחוש בכל עת כל עוד המשחק לא ננעל — רק העדכון האחרון נספר.'
             : "You can update a prediction any time before it locks — only your last save counts."}
         </p>
       </div>
@@ -150,7 +150,7 @@ function TierLedgerCard({ isHe }: { isHe: boolean }) {
     { label: isHe ? 'תוצאה סופית' : 'Result', pts: POINTS.TIER1_OUTCOME, cost: COIN_COSTS.RESULT_ONLY },
     { label: isHe ? 'תוצאה מדויקת' : 'Exact Score', pts: POINTS.TIER2_EXACT_SCORE + POINTS.TIER2_EXACT_BONUS, cost: COIN_COSTS.SCORE },
     { label: isHe ? 'קרנות' : 'Corners', pts: POINTS.TIER3_CORNERS, cost: COIN_COSTS.CORNERS },
-    { label: isHe ? 'שתי קבוצות מבקיעות' : 'BTTS', pts: POINTS.TIER5_BTTS, cost: COIN_COSTS.BTTS },
+    { label: isHe ? 'שתי הקבוצות מבקיעות' : 'BTTS', pts: POINTS.TIER5_BTTS, cost: COIN_COSTS.BTTS },
     { label: isHe ? 'מעל / מתחת 2.5' : 'Over / Under', pts: POINTS.TIER6_OVER_UNDER, cost: COIN_COSTS.OVER_UNDER },
   ];
 
@@ -232,14 +232,14 @@ function CoinEconomyCard({ isHe }: { isHe: boolean }) {
         <CardHeader icon={<Wallet size={14} />} title={isHe ? 'כלכלת המטבעות' : 'The Coin Economy'} />
         <div>
           <InfoRow icon="📅" label={isHe ? 'בונוס יומי' : 'Daily bonus'} value={<>+30<CoinIcon size={11} /></>} />
-          <InfoRow icon="✅" label={isHe ? 'תביעת זכייה' : 'Winning claims'} value={isHe ? 'נק׳ × 2' : 'pts × 2'} />
+          <InfoRow icon="✅" label={isHe ? 'זכייה בניחוש' : 'Winning claims'} value={isHe ? 'נק׳ × 2' : 'pts × 2'} />
           <InfoRow icon="⚡" label={isHe ? 'הימור מיידי' : 'Instant-lock bets'} value={<>-2 / +4<CoinIcon size={11} /></>} valueClass="text-white/70" />
         </div>
         <div className="mt-2.5 p-2.5 rounded-lg bg-amber-500/8 border border-amber-500/15">
           <p className="text-amber-400 text-[10px] font-medium mb-0.5">💡 {isHe ? 'איך זה עובד' : 'How it works'}</p>
           <p className="text-white/70 text-[11px] leading-relaxed">
             {isHe
-              ? 'ניבאת את כל 5 השלבים — הימרת 19 מטבעות. פגעת בכולם — קיבלת 38 מטבעות בחזרה (× 2). היתרה תמיד ≥ 0, אין מספרים שליליים.'
+              ? 'ניחשת את כל 5 השלבים — הימרת 19 מטבעות. קלעת בכולם — קיבלת 38 מטבעות בחזרה (× 2). היתרה תמיד ≥ 0, אין מספרים שליליים.'
               : 'Bet all 5 tiers → stake 19 coins. Hit them all → earn 38 coins back (19 pts × 2). Balance is always ≥ 0 — no negatives ever.'}
           </p>
         </div>
@@ -260,11 +260,11 @@ function FaqCard({ isHe }: { isHe: boolean }) {
 
   const items = isHe ? [
     { icon: '🟢', title: 'עדכונים בזמן אמת', desc: 'משחקים חיים מתעדכנים כל 30 שניות ישירות מ-ESPN.' },
-    { icon: '⚽', title: 'הארכה ופנדלים', desc: 'ניבויים תמיד מתבססים על תוצאת 90 הדקות בלבד. שערים בהארכה ובפנדלים לא נספרים לניקוד.' },
-    { icon: '⚔️', title: 'ראש בראש', desc: 'ניבויי חברים בקבוצה נסתרים עד לקיקאוף. לאחר מכן, לחץ על שורה בטבלה לצפייה בהשוואה מלאה.' },
-    { icon: '📐', title: 'קרנות', desc: 'מספר הקרנות מוזן ידנית לאחר סיום המשחק. ברגע שהוזן, ניבויי הקרנות נפתרים אוטומטית.' },
-    { icon: '🔒', title: 'זמן נעילה', desc: 'ניבויים ננעלים 15 דקות לפני הקיקאוף. ניתן לעדכן את הניבוי בכל עת עד לנעילה — רק העדכון האחרון נספר.' },
-    { icon: '✏️', title: 'עריכת ניבוי', desc: 'כן — אפשר לשנות כל שלב שכבר בחרת כל עוד המשחק לא ננעל, ללא הגבלת מספר פעמים.' },
+    { icon: '⚽', title: 'הארכה ופנדלים', desc: 'ניחושים תמיד מתבססים על תוצאת 90 הדקות בלבד. שערים בהארכה ובפנדלים לא נספרים לניקוד.' },
+    { icon: '⚔️', title: 'ראש בראש', desc: 'ניחושי חברים בקבוצה נסתרים עד לקיקאוף. לאחר מכן, לחץ על שורה בטבלה לצפייה בהשוואה מלאה.' },
+    { icon: '📐', title: 'קרנות', desc: 'מספר הקרנות מוזן ידנית לאחר סיום המשחק. ברגע שהוזן, ניחושי הקרנות נפתרים אוטומטית.' },
+    { icon: '🔒', title: 'זמן נעילה', desc: 'ניחושים ננעלים 15 דקות לפני הקיקאוף. ניתן לעדכן את הניחוש בכל עת עד לנעילה — רק העדכון האחרון נספר.' },
+    { icon: '✏️', title: 'עריכת ניחוש', desc: 'כן — אפשר לשנות כל שלב שכבר בחרת כל עוד המשחק לא ננעל, ללא הגבלת מספר פעמים.' },
     { icon: '🏆', title: 'מקסימום נקודות', desc: '19 נקודות למשחק בודד — כל 5 השלבים במלואם, כולל בונוס התוצאה המדויקת.' },
     { icon: '👥', title: 'קופה משותפת', desc: 'בקצה מסך הניחוש תוכלו לפתוח קופה משותפת עם הניחוש שבחרתם. כל חבר קבוצה יכול לתרום מטבעות — אם הניחוש יוצא נכון, הזכייה מתחלקת בין כל התורמים לפי אחוז התרומה שלהם.' },
     { icon: '⚔️', title: 'קרב קבוצות', desc: 'בהגדרות אפשר לאתגר קבוצה יריבה עם קוד ההזמנה שלה, לתקופה של סוף שבוע או שבוע. הניצחון נקבע לפי ממוצע 5 הניחושים הכי טובים של כל קבוצה באותה תקופה.' },

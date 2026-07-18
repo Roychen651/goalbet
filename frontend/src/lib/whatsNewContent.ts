@@ -137,7 +137,7 @@ export const EPOCH_ERAS: EpochEra[] = [
     title: 'The Social Syndicate',
     titleHe: 'הסינדיקט',
     subtitle: 'Bet together, battle other groups, flex your style',
-    subtitleHe: 'הימרו ביחד, קרבו מול קבוצות אחרות, תציגו סטייל',
+    subtitleHe: 'הימרו ביחד, התמודדו מול קבוצות אחרות, תציגו סטייל',
     colorToken: '--epoch-social',
     features: [
       {

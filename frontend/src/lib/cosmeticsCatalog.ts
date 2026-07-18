@@ -70,7 +70,7 @@ export const COSMETIC_CATALOG: CosmeticItem[] = [
     slot: 'halo',
     cost: 1200,
     nameEn: 'Crimson Flare Halo',
-    nameHe: 'הילת להבה ארגמן',
+    nameHe: 'הילת להבת ארגמן',
     color: '#FF4D66',
   },
   {
