@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Sun, Trophy, Target, Gift, Wrench, Zap } from 'lucide-react';
+import { X, Sun, Trophy, Target, Gift, Wrench, Zap, Users, Award, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useGroupStore } from '../../stores/groupStore';
@@ -16,7 +16,14 @@ import { tTeam } from '../../lib/dictionaries/teamsHe';
 interface CoinTransaction {
   id: string;
   type: 'join_bonus' | 'daily_bonus' | 'bet_placed' | 'bet_won'
-      | 'micro_prediction' | 'micro_prediction_won' | 'micro_prediction_refund';
+      | 'micro_prediction' | 'micro_prediction_won' | 'micro_prediction_refund'
+      // V5 Sprint 36/37 — these existed in the DB (migrations 055/057) since
+      // those sprints shipped, but were never added here. Any transaction of
+      // these types silently fell through to the generic `?? {Wrench,
+      // adminAdjustRow}` fallback below — a real Syndicate Pool contribution
+      // or cosmetic purchase rendered as a scary, unlabeled "Admin
+      // Adjustment" row. This is the fix (post-Sprint-37 hotfix).
+      | 'pool_contribution' | 'pool_won' | 'cosmetic_purchase';
   amount: number;
   balance_after: number;
   description: string | null;
@@ -74,6 +81,24 @@ const TYPE_CONFIG: Record<CoinTransaction['type'], {
     labelKey: 'microPredictionRefundRow',
     iconBg: 'bg-white/10',
     iconColor: 'text-text-muted',
+  },
+  pool_contribution: {
+    Icon: Users,
+    labelKey: 'poolContributionRow',
+    iconBg: 'bg-violet-500/15',
+    iconColor: 'text-violet-400',
+  },
+  pool_won: {
+    Icon: Award,
+    labelKey: 'poolWonRow',
+    iconBg: 'bg-emerald-500/15',
+    iconColor: 'text-emerald-400',
+  },
+  cosmetic_purchase: {
+    Icon: Sparkles,
+    labelKey: 'cosmeticPurchaseRow',
+    iconBg: 'bg-amber-500/15',
+    iconColor: 'text-amber-400',
   },
 };
 
