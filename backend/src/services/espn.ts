@@ -509,7 +509,23 @@ export async function fetchLeagueMatches(
   const to = new Date(now.getTime() + daysAhead * 86_400_000);
   const dateRange = `${formatDate(from)}-${formatDate(to)}`;
 
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=100&dates=${dateRange}`;
+  // World Cup 2026 has exactly 104 total matches (72 group + 16 R32 + 8 R16
+  // + 4 QF + 2 SF + 1 third-place + 1 final — confirmed against
+  // lib/worldCup2026.ts's own match labels, which run 1-104). With
+  // daysBack=45/daysAhead=90 for league 4480, once the tournament reaches
+  // its later rounds the date-range query genuinely spans all ~102-104
+  // scheduled events. `limit=100` silently truncated ESPN's response at
+  // exactly 100 — the LAST couple of chronologically-latest events (the
+  // 3rd-place match and the Final) never appeared in `data.events` at all,
+  // on every single sync, forever, once the total crossed 100. This was a
+  // real, live bug: a user confirmed ESPN's own data already had the real
+  // qualified teams while our synced rows stayed stuck on ESPN's original
+  // bracket-slot placeholder names ("S1"/"S2") — a forced re-sync didn't
+  // help, because the truncation happens identically on every request, not
+  // a one-time staleness gap. 250 gives real headroom over any single
+  // league's real match count (World Cup is the largest by far) with
+  // negligible payload cost.
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=250&dates=${dateRange}`;
 
   // TEMP DEBUG (remove once sync is confirmed): log the exact URL requested so
   // we can see in Render logs precisely what window/slug we hit.
