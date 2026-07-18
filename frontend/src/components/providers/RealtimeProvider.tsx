@@ -9,6 +9,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useLangStore } from '../../stores/langStore';
 import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
+import type { Gender } from '../../lib/i18n';
 
 // V5 Sprint 35 — "The Realtime Hub". Before this sprint, 8 independent
 // Supabase Realtime channels existed across 7 files (App.tsx's coins
@@ -56,6 +57,49 @@ import { playSound } from '../../lib/sensoryAudio';
 // already re-fetches both the pool row AND its contributor list from, so
 // no separate `pool_contributions` binding is needed to keep the
 // contributor bar live.
+//
+// V5 Sprint 39 — "The Live Lobby": a genuinely different Realtime
+// primitive rides the SAME Group Channel object from here on —
+// `broadcast`, not `postgres_changes`. Floating micro-reactions on a live
+// Match Center are intentionally EPHEMERAL: never written to Postgres,
+// never persisted anywhere, gone the instant every viewer's browser tab
+// forgets them. `channel.send({type:'broadcast', event, payload})` /
+// `channel.on('broadcast', {event}, cb)` is a structurally different API
+// from everything else in this file (no `schema`/`table`/`eventType`/
+// `new`/`old` — just a bare `{event, payload}` envelope), so it cannot
+// ride the existing `RealtimeTable`/`registryRef` machinery, which is
+// typed strictly for `RealtimePostgresChangesPayload`. Rather than expose
+// the raw channel object to consumers (which would create a real
+// cross-component effect-ordering hazard — a MatchCard's own effect could
+// run either before or after this provider's own Group Channel
+// recreation on a group switch, React doesn't guarantee which), broadcast
+// gets its OWN registry (`broadcastRegistryRef`, keyed by `matchId` — see
+// below), mirroring `registryRef`'s exact shape. The registry itself is a
+// stable `useRef` that survives every channel churn untouched; only the
+// registered `.on('broadcast', ...)` binding lives inside the Group
+// Channel's own effect, registered atomically alongside every
+// `postgres_changes` binding in the same chain, so there's no ordering
+// hazard to reason about at all. Self-echo (`config.broadcast.self`) is
+// deliberately left at its default `false` — a sender renders its own
+// particle/ticker line optimistically at tap time (useLiveReactions.ts),
+// it never needs to hear its own broadcast come back. See CLAUDE.md §53.
+export interface LiveReactionPayload {
+  chip: string;
+  username: string;
+  gender: Gender;
+  matchId: string;
+  ts: number;
+  clientNonce: string;
+}
+type BroadcastHandler = (payload: LiveReactionPayload) => void;
+const LIVE_REACTION_EVENT = 'live_reaction';
+
+function genNonce(): string {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 type RealtimeTable =
   | 'leaderboard'
   | 'group_events'
@@ -68,6 +112,8 @@ type RealtimeHandler = (payload: RealtimePostgresChangesPayload<Record<string, u
 
 interface RealtimeContextValue {
   subscribe: (table: RealtimeTable, handler: RealtimeHandler) => () => void;
+  subscribeBroadcast: (matchId: string, handler: BroadcastHandler) => () => void;
+  sendReaction: (payload: Omit<LiveReactionPayload, 'ts' | 'clientNonce'>) => void;
 }
 
 const RECONNECT_EVENT = 'goalbet:realtime-reconnected';
@@ -119,6 +165,37 @@ export function useRealtimeReconnect(handler: () => void) {
   }, []);
 }
 
+/**
+ * V5 Sprint 39 — subscribes to broadcast `live_reaction` events scoped to
+ * one `matchId`, and returns a `send()` for firing one. Registration is a
+ * pure Map mutation against `broadcastRegistryRef` (see the file-header
+ * comment above) — it never touches the underlying Supabase channel
+ * object directly, so a group switch mid-mount can never leave this
+ * hook's listener silently unbound. `send()` is a thin pass-through to
+ * the provider's own `sendReaction`, which reads the live channel
+ * reference itself at call time; if the channel is momentarily
+ * unavailable (the brief group-switch recreation window), it's a silent,
+ * non-critical no-op — nothing here is persisted, so a missed tap during
+ * that narrow window is a UX nicety lost, never a correctness bug.
+ */
+export function useRealtimeBroadcast(matchId: string, onReaction: BroadcastHandler) {
+  const ctx = useContext(RealtimeContext);
+  const handlerRef = useRef(onReaction);
+  handlerRef.current = onReaction;
+
+  useEffect(() => {
+    if (!ctx) return;
+    return ctx.subscribeBroadcast(matchId, (payload) => handlerRef.current(payload));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx, matchId]);
+
+  const send = useCallback((chip: string, username: string, gender: Gender) => {
+    ctx?.sendReaction({ chip, username, gender, matchId });
+  }, [ctx, matchId]);
+
+  return { send };
+}
+
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuthStore();
   const { activeGroupId } = useGroupStore();
@@ -141,6 +218,38 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   const dispatch = useCallback((table: RealtimeTable, payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
     registryRef.current.get(table)?.forEach((h) => h(payload));
+  }, []);
+
+  // V5 Sprint 39 — broadcast registry, keyed by matchId rather than table
+  // name (many live MatchCards can be simultaneously mounted, each
+  // wanting only its OWN match's reactions). Survives every Group Channel
+  // recreation untouched — see the file-header comment above for why this
+  // is what makes the whole thing race-free across a group switch.
+  const broadcastRegistryRef = useRef<Map<string, Set<BroadcastHandler>>>(new Map());
+  const groupChannelRef = useRef<RealtimeChannel | null>(null);
+
+  const subscribeBroadcastFn = useCallback((matchId: string, handler: BroadcastHandler) => {
+    let set = broadcastRegistryRef.current.get(matchId);
+    if (!set) {
+      set = new Set();
+      broadcastRegistryRef.current.set(matchId, set);
+    }
+    set.add(handler);
+    return () => { broadcastRegistryRef.current.get(matchId)?.delete(handler); };
+  }, []);
+
+  const dispatchBroadcast = useCallback((payload: LiveReactionPayload) => {
+    broadcastRegistryRef.current.get(payload.matchId)?.forEach((h) => h(payload));
+  }, []);
+
+  const sendReactionFn = useCallback((payload: Omit<LiveReactionPayload, 'ts' | 'clientNonce'>) => {
+    const channel = groupChannelRef.current;
+    if (!channel) return; // no live channel right now — a non-critical miss, nothing here is persisted
+    void channel.send({
+      type: 'broadcast',
+      event: LIVE_REACTION_EVENT,
+      payload: { ...payload, ts: Date.now(), clientNonce: genNonce() },
+    });
   }, []);
 
   // Sprint 17's coin-deposit sensory coalescing state — ported verbatim
@@ -287,10 +396,28 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         { event: '*', schema: 'public', table: 'group_battles', filter: `defender_group_id=eq.${activeGroupId}` },
         (payload) => dispatch('group_battles', payload as RealtimePostgresChangesPayload<Record<string, unknown>>),
       )
+      // V5 Sprint 39 — live_reaction broadcast. Registered atomically in
+      // the same .on(...) chain as every postgres_changes binding above,
+      // on the SAME channel object — this is what makes it immune to the
+      // cross-effect ordering hazard described in the file-header comment.
+      // Dispatches into broadcastRegistryRef, filtered by matchId inside
+      // dispatchBroadcast itself (payload.matchId), not by a Realtime-side
+      // filter — broadcast has no server-side filter syntax at all, every
+      // subscriber on this channel receives every reaction for the whole
+      // group and dispatchBroadcast narrows it client-side to whichever
+      // MatchCard(s) are actually listening for that matchId right now.
+      .on('broadcast', { event: LIVE_REACTION_EVENT }, (msg) => {
+        dispatchBroadcast(msg.payload as LiveReactionPayload);
+      })
       .subscribe(handleChannelStatus('group'));
 
-    return () => { supabase.removeChannel(channel); };
-  }, [user?.id, activeGroupId, dispatch, handleChannelStatus]);
+    groupChannelRef.current = channel;
+
+    return () => {
+      groupChannelRef.current = null;
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, activeGroupId, dispatch, dispatchBroadcast, handleChannelStatus]);
 
   // ── User Channel — mounted once per logged-in user, survives group
   // switches. Holds the signals that must still land while the user is
@@ -330,7 +457,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, dispatch, handleChannelStatus]);
 
-  const value: RealtimeContextValue = { subscribe: subscribeFn };
+  const value: RealtimeContextValue = { subscribe: subscribeFn, subscribeBroadcast: subscribeBroadcastFn, sendReaction: sendReactionFn };
 
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
 }

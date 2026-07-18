@@ -856,6 +856,15 @@ export const translations = {
     cosmeticErrorAlreadyUnlocked: 'You already own this item',
     cosmeticErrorInsufficientCoins: 'Not enough coins',
     cosmeticErrorNotUnlocked: 'Unlock this item first',
+
+    // V5 Sprint 39 — "The Live Lobby": ephemeral, broadcast-only floating
+    // reactions on the live Match Center. Never persisted to Postgres —
+    // see CLAUDE.md §53.
+    liveLobbyTickerLabel: 'Live Feed',
+    liveLobbyChipRowLabel: 'Live Trash Talk',
+    liveLobbySentReaction_male: '{0} sent a {1} reaction',
+    liveLobbySentReaction_female: '{0} sent a {1} reaction',
+    liveLobbySentReaction_unspecified: '{0} sent a {1} reaction',
   },
 
   he: {
@@ -1703,6 +1712,14 @@ export const translations = {
     cosmeticErrorAlreadyUnlocked: 'כבר יש לך את הפריט הזה',
     cosmeticErrorInsufficientCoins: 'אין מספיק מטבעות',
     cosmeticErrorNotUnlocked: 'צריך לפתוח את הפריט קודם',
+
+    // V5 Sprint 39 — "הלובי החי": טראש טוק בלייב שצף ונעלם, אף פעם לא
+    // נשמר במסד הנתונים.
+    liveLobbyTickerLabel: 'צנרת אירועים',
+    liveLobbyChipRowLabel: 'טראש טוק בלייב',
+    liveLobbySentReaction_male: '{0} שלח תגובת {1}',
+    liveLobbySentReaction_female: '{0} שלחה תגובת {1}',
+    liveLobbySentReaction_unspecified: '{0} שלח/ה תגובת {1}',
   },
 } as const;
 

@@ -9,6 +9,7 @@ import { MatchTimeline } from './MatchTimeline';
 import { MatchStats } from './MatchStats';
 import { MatchMomentumPulse } from './MatchMomentumPulse';
 import { MatchMomentumFlow } from './MatchMomentumFlow';
+import { LiveLobby } from './LiveLobby';
 import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
 import { EntityBadge } from '../ui/EntityBadge';
@@ -859,6 +860,10 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                   {(isFinished || isLive) && <MatchStats match={match} />}
                   {isLive && <MatchMomentumFlow match={match} />}
                   {isLive && <MatchMomentumPulse match={match} />}
+                  {/* V5 Sprint 39 — "The Live Lobby": broadcast-only,
+                      never-persisted floating reactions + a 3-line ticker.
+                      See CLAUDE.md §53. */}
+                  {isLive && <LiveLobby matchId={match.id} />}
                   {isFinished && <MatchTimeline match={match} />}
                   {(isFinished || isLive) && <MatchRosters match={match} />}
                 </>
