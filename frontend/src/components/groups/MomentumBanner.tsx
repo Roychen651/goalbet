@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, Zap } from 'lucide-react';
+import { Lock, Zap, Check } from 'lucide-react';
 import { useMicroPrediction } from '../../hooks/useMicroPrediction';
 import { useCountdown } from '../../hooks/useCountdown';
 import { useLangStore } from '../../stores/langStore';
@@ -8,6 +8,7 @@ import { cn } from '../../lib/utils';
 import type { TranslationKey } from '../../lib/i18n';
 import { MomentumBetSheet } from './MomentumBetSheet';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
+import { InfoTip } from '../ui/InfoTip';
 
 const MILESTONE_KEY: Record<string, TranslationKey> = {
   kickoff: 'momentumMilestoneKickoff',
@@ -40,6 +41,12 @@ export function MomentumBanner() {
   const isHe = lang === 'he';
   const milestoneLabel = t(MILESTONE_KEY[question.milestone] ?? 'momentumMilestoneKickoff');
   const isLocked = question.status !== 'open';
+  // A bet the caller already placed is just as "inert" (nothing left to
+  // do here) while the question is still open as it is once locked — the
+  // dimmed/calm treatment CLAUDE.md already mandates for a disabled
+  // interactive element (§21 — "must look disabled, not just behave
+  // disabled") applies equally to this state, not only the locked one.
+  const isInert = isLocked || Boolean(myBet);
 
   return (
     <>
@@ -57,7 +64,7 @@ export function MomentumBanner() {
           // full-brightness "urgent, tappable" look even while inert —
           // dimming + a not-allowed cursor makes the disabled state legible
           // instead of looking like a broken button.
-          isLocked && 'opacity-70 cursor-default',
+          isInert && 'opacity-70 cursor-default',
         )}
         dir={isHe ? 'rtl' : 'ltr'}
         disabled={isLocked}
@@ -80,7 +87,7 @@ export function MomentumBanner() {
               ' rgba(255,77,102,0.0) 100%)',
           }}
           animate={{ rotate: 360 }}
-          transition={{ duration: isLocked ? 7 : 3.6, ease: 'linear', repeat: Infinity }}
+          transition={{ duration: isInert ? 7 : 3.6, ease: 'linear', repeat: Infinity }}
         />
 
         <div
@@ -93,10 +100,12 @@ export function MomentumBanner() {
           <motion.div
             className="w-9 h-9 rounded-xl bg-[#FF4D66]/15 flex items-center justify-center shrink-0"
             animate={{ scale: [1, 1.08, 1] }}
-            transition={{ duration: isLocked ? 2.4 : 1.4, repeat: Infinity, ease: 'easeInOut' }}
+            transition={{ duration: isInert ? 2.4 : 1.4, repeat: Infinity, ease: 'easeInOut' }}
           >
             {isLocked ? (
               <Lock size={16} className="text-[#FF4D66]" />
+            ) : myBet ? (
+              <Check size={16} className="text-[#FF4D66]" />
             ) : (
               <Zap size={18} className="text-[#FF4D66]" fill="currentColor" />
             )}
@@ -114,9 +123,27 @@ export function MomentumBanner() {
               )}
             </div>
             <div className="text-white font-semibold text-sm truncate">
-              {isLocked && myBet
+              {/* Bug fix (live report): this used to gate on `isLocked &&
+                  myBet` — while the question is still 'open' (the whole
+                  60s betting window), the banner looked IDENTICAL whether
+                  the user had already bet or not, since the title stayed
+                  generic until locking. That's exactly what invited the
+                  reported "I could press Yes again and again" loop — the
+                  confirmation must show the instant a bet lands, not only
+                  once the window closes. */}
+              {myBet
                 ? t('momentumAlreadyBet').replace('{0}', t(myBet.choice === 'yes' ? 'yes' : 'no'))
                 : t('momentumTitle')}
+              {/* Real user confusion, addressed directly: "a goal went in
+                  a minute after I bet and nothing happened." That's
+                  actually correct per §29's arbitrage-proof design — the
+                  outcome window is the FULL 10 minutes from lock, checked
+                  once at the end, never the instant a goal happens
+                  (changing that would reopen the exact race the whole
+                  mechanic exists to prevent). The fix here isn't the
+                  timing — it's explaining it, so the wait reads as
+                  "working as intended" instead of "broken." */}
+              {isLocked && myBet && <InfoTip text={t('momentumResolvesExplainer')} />}
             </div>
           </div>
 

@@ -5,6 +5,7 @@ import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { smoothPath, type PathPoint } from '../../lib/svgPath';
 import { PRESSURE_CLAMP } from '../../lib/matchBoxscore';
 import { useMatchPressureFlow } from '../../hooks/useMatchPressureFlow';
+import { InfoTip } from '../ui/InfoTip';
 import type { Match } from '../../lib/supabase';
 
 // V4 Sprint 32 — "The Live Pressure Cooker". A genuinely different case from
@@ -71,7 +72,15 @@ export function MatchMomentumFlow({ match }: MatchMomentumFlowProps) {
   return (
     <div className="mt-2 px-3 py-2.5 rounded-xl border border-white/6 bg-white/[0.02]">
       <div className="flex items-center justify-between mb-1.5">
-        <p className="text-[9px] uppercase tracking-widest text-white/30">{t('pressureFlowTitle')}</p>
+        <span className="flex items-center text-[9px] uppercase tracking-widest text-white/30">
+          {t('pressureFlowTitle')}
+          {/* Real user feedback: "not clear what this does, not intuitive."
+              A diverging area chart with no legend/explanation reads as
+              decorative noise, not data — dataviz skill's own rule 6
+              ("a legend is always present for >=2 series, identity never
+              color-alone") applies directly here. */}
+          <InfoTip text={t('pressureFlowExplainer')} />
+        </span>
         <p className="text-[9px] text-white/20">{t('pressureFlowSubtitle')}</p>
       </div>
 
@@ -123,11 +132,18 @@ export function MatchMomentumFlow({ match }: MatchMomentumFlowProps) {
         </g>
       </svg>
 
+      {/* Legend — per the dataviz skill's rule 6: a 2-series chart always
+          needs a legend, and identity is never color-alone. Before this,
+          the team names sat under the chart with no explicit tie back to
+          which gradient color was "theirs" — a real user couldn't tell
+          the two colors apart from the labels alone. */}
       <div className="flex items-center justify-between mt-1">
-        <span className="text-[9px] text-white/25 truncate max-w-[45%]" dir={isRTL ? 'rtl' : 'ltr'}>
+        <span className="flex items-center gap-1 text-[9px] text-white/25 truncate max-w-[45%]" dir={isRTL ? 'rtl' : 'ltr'}>
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--pressure-home-end)' }} aria-hidden />
           {(isRTL ? tTeam(match.home_team) : match.home_team).split(' ').pop()}
         </span>
-        <span className="text-[9px] text-white/25 truncate max-w-[45%]" dir={isRTL ? 'rtl' : 'ltr'}>
+        <span className="flex items-center gap-1 text-[9px] text-white/25 truncate max-w-[45%]" dir={isRTL ? 'rtl' : 'ltr'}>
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--pressure-away-end)' }} aria-hidden />
           {(isRTL ? tTeam(match.away_team) : match.away_team).split(' ').pop()}
         </span>
       </div>
