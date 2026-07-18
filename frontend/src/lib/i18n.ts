@@ -861,6 +861,7 @@ export const translations = {
     // reactions on the live Match Center. Never persisted to Postgres —
     // see CLAUDE.md §53.
     liveLobbyTickerLabel: 'Live Feed',
+    liveLobbyChipRowLabel: 'Live Trash Talk',
     liveLobbySentReaction_male: '{0} sent a {1} reaction',
     liveLobbySentReaction_female: '{0} sent a {1} reaction',
     liveLobbySentReaction_unspecified: '{0} sent a {1} reaction',
@@ -1715,6 +1716,7 @@ export const translations = {
     // V5 Sprint 39 — "הלובי החי": טראש טוק בלייב שצף ונעלם, אף פעם לא
     // נשמר במסד הנתונים.
     liveLobbyTickerLabel: 'צנרת אירועים',
+    liveLobbyChipRowLabel: 'טראש טוק בלייב',
     liveLobbySentReaction_male: '{0} שלח תגובת {1}',
     liveLobbySentReaction_female: '{0} שלחה תגובת {1}',
     liveLobbySentReaction_unspecified: '{0} שלח/ה תגובת {1}',

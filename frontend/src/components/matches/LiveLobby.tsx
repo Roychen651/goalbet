@@ -1,6 +1,7 @@
 import { useLiveReactions } from '../../hooks/useLiveReactions';
 import { ReactionEngine } from '../effects/ReactionEngine';
 import { LiveActivityTicker } from '../ui/LiveActivityTicker';
+import { ReactionChipRow } from '../ui/ReactionChipRow';
 
 interface LiveLobbyProps {
   matchId: string;
@@ -16,13 +17,9 @@ interface LiveLobbyProps {
  * Match Pressure Graph, §32) and MatchMomentumPulse. Nothing here is ever
  * written to Postgres — see RealtimeProvider.tsx's broadcast-transport
  * comment and CLAUDE.md §53.
- *
- * The ReactionChipRow (Commit 3) is the sole caller of `fireReaction` —
- * this component stays a pure display root plus the queue/ticker plumbing
- * until then.
  */
 export function LiveLobby({ matchId }: LiveLobbyProps) {
-  const { queueRef, tickerEvents } = useLiveReactions(matchId);
+  const { queueRef, tickerEvents, fireReaction } = useLiveReactions(matchId);
 
   return (
     <div className="relative mt-2" data-live-lobby-root>
@@ -37,6 +34,7 @@ export function LiveLobby({ matchId }: LiveLobbyProps) {
           viewport scope for a rarer, app-wide celebration). */}
       <ReactionEngine matchId={matchId} queueRef={queueRef} />
       <LiveActivityTicker events={tickerEvents} />
+      <ReactionChipRow onReact={fireReaction} />
     </div>
   );
 }
