@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
+import { withAuthTimeout, rejectOnTimeout } from '../lib/asyncTimeout';
 
 interface AuthState {
   user: User | null;
@@ -74,16 +75,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signInWithGoogle: async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    // rejectOnTimeout, not withAuthTimeout — this method already uses
+    // throw-on-error semantics (useAuthV2.handleGoogleSignIn already has
+    // a real try/catch around this exact call), so a rejection after 10s
+    // is caught there the same way any other failure already is, instead
+    // of leaving the button spinning forever with no recovery path.
+    const { error } = await rejectOnTimeout(
+      supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
-      },
-    });
+      }),
+    );
     if (error) throw error;
   },
 
@@ -138,11 +146,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { user } = get();
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+    // A logged-in user with a stuck fetchProfile() is stuck in a
+    // different but equally real way (session exists, profile stays null
+    // forever — every page that gates on `profile` hangs). Same timeout
+    // discipline as getSession()/signInWithGoogle() above; a genuine
+    // failure/timeout here just means the profile stays null and the
+    // (already-idempotent, safe-to-retry) fetch can be attempted again
+    // later — never an infinite await.
+    const { data, error } = await withAuthTimeout(
+      Promise.resolve(supabase.from('profiles').select('*').eq('id', user.id).single()),
+    );
 
     if (data) {
       set({ profile: data });
@@ -156,11 +169,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user.user_metadata?.name ||
         user.email?.split('@')[0] ||
         'player';
-      const { data: created } = await supabase
-        .from('profiles')
-        .insert({ id: user.id, username, avatar_url: user.user_metadata?.avatar_url ?? null })
-        .select()
-        .single();
+      const { data: created } = await withAuthTimeout(
+        Promise.resolve(
+          supabase
+            .from('profiles')
+            .insert({ id: user.id, username, avatar_url: user.user_metadata?.avatar_url ?? null })
+            .select()
+            .single(),
+        ),
+      );
       if (created) set({ profile: created });
     }
   },
