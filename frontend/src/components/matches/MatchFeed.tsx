@@ -98,7 +98,14 @@ export function MatchFeed({
       label: dateLabel(groups.get(key)![0].kickoff_time, lang),
       matches: groups.get(key)!,
     }));
-  }, [matches, activeTab, predictions]);
+    // `lang` is a real dependency here, not just an unused closure var —
+    // dateLabel() (line 98) is called with it on every group. Omitting it
+    // was a genuine bug: toggling the app language left the section-header
+    // date strings ("Sunday, July 19" / "יום ראשון, 19 ביולי") frozen at
+    // whatever language was active the last time this memo recomputed,
+    // since none of matches/activeTab/predictions change on a pure
+    // language toggle.
+  }, [matches, activeTab, predictions, lang]);
 
   if (loading) {
     // Show skeleton cards for live/all tabs; full page loader elsewhere
