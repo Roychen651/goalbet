@@ -7,8 +7,6 @@ import { MatchStatusBadge } from './MatchStatusBadge';
 import { LockedPrediction } from './PredictionForm';
 import { MatchTimeline } from './MatchTimeline';
 import { MatchStats } from './MatchStats';
-import { MatchMomentumPulse } from './MatchMomentumPulse';
-import { MatchMomentumFlow } from './MatchMomentumFlow';
 import { LiveLobby } from './LiveLobby';
 import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
@@ -858,8 +856,16 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                   )}
                   {/* Match Center — Stats, Timeline, Rosters (Live + FT) */}
                   {(isFinished || isLive) && <MatchStats match={match} />}
-                  {isLive && <MatchMomentumFlow match={match} />}
-                  {isLive && <MatchMomentumPulse match={match} />}
+                  {/* Match Pressure Graph (Sprint 32) and Attack Event
+                      Pulse (Sprint 19) were removed on live user feedback
+                      — real report: "unnecessary, clutters the card, I
+                      don't see it being special," after an earlier pass
+                      already added legends/InfoTip explainers and fixed a
+                      real "looks empty right after opening" bug. The user
+                      decision stood after those genuine improvements, so
+                      the feature was removed rather than polished further.
+                      See CLAUDE.md §32/§34/§53 for the (now historical)
+                      design rationale, kept for the record. */}
                   {/* V5 Sprint 39 — "The Live Lobby": broadcast-only,
                       never-persisted floating reactions + a 3-line ticker.
                       See CLAUDE.md §53. */}

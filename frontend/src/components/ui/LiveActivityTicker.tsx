@@ -8,9 +8,9 @@ interface LiveActivityTickerProps {
 }
 
 /**
- * V5 Sprint 39 — "צנרת אירועים" (Live Activity Ticker). Renders below
- * MatchMomentumFlow (the Match Pressure Graph, §32) inside MatchCard's
- * isLive block, via LiveLobby.tsx. In-memory-only, last 3 events — fed
+ * V5 Sprint 39 — "צנרת אירועים" (Live Activity Ticker). Renders inside
+ * MatchCard's isLive block, via LiveLobby.tsx. In-memory-only, last 3
+ * events — fed
  * straight from useLiveReactions' own component-scoped state, so it
  * resets for free the instant the match center closes (unmount), with no
  * separate clear-on-close code needed anywhere.

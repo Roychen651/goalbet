@@ -13,8 +13,9 @@ interface LiveLobbyProps {
  * owns the particle queue + ticker state for this MatchCard, mounted/
  * unmounted with the card itself — reset for free the moment the match
  * center closes, since there's nothing to explicitly clear. Rendered
- * `isLive`-gated in MatchCard.tsx, directly below MatchMomentumFlow (the
- * Match Pressure Graph, §32) and MatchMomentumPulse. Nothing here is ever
+ * `isLive`-gated in MatchCard.tsx (the Match Pressure Graph and Attack
+ * Event Pulse that used to render above this were removed on live user
+ * feedback — see MatchCard.tsx's own comment). Nothing here is ever
  * written to Postgres — see RealtimeProvider.tsx's broadcast-transport
  * comment and CLAUDE.md §53.
  */
