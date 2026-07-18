@@ -20,21 +20,27 @@ const STROKE = 9;
 const CIRCUMFERENCE = Math.PI * R;
 
 interface OracleDialProps {
-  value: number; // 0-100
+  value: number | null; // 0-100, or null when sample_size is 0 (migration 059 — never a fabricated 0%)
   label: string;
   sampleSize: number;
   color?: string;
+  noDataLabel: string;
 }
 
-export function OracleDial({ value, label, sampleSize, color }: OracleDialProps) {
+export function OracleDial({ value, label, sampleSize, color, noDataLabel }: OracleDialProps) {
   const uid = useId();
   const gradId = `od-grad-${uid}`;
-  const clamped = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
+  const hasData = value !== null && Number.isFinite(value);
+  const clamped = hasData ? Math.max(0, Math.min(100, value)) : 0;
   const offset = CIRCUMFERENCE * (1 - clamped / 100);
   const resolvedColor = color ?? `url(#${gradId})`;
 
   return (
-    <div className="flex flex-col items-center" role="img" aria-label={`${label}: ${clamped}%`}>
+    <div
+      className="flex flex-col items-center"
+      role="img"
+      aria-label={hasData ? `${label}: ${clamped}%` : `${label}: ${noDataLabel}`}
+    >
       <svg viewBox={`0 0 ${SIZE} ${SIZE / 2 + 6}`} className="w-full max-w-[92px]" style={{ direction: 'ltr' }}>
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
@@ -50,31 +56,35 @@ export function OracleDial({ value, label, sampleSize, color }: OracleDialProps)
           strokeWidth={STROKE}
           strokeLinecap="round"
         />
-        {/* value arc */}
-        <motion.path
-          d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
-          fill="none"
-          stroke={resolvedColor}
-          strokeWidth={STROKE}
-          strokeLinecap="round"
-          strokeDasharray={CIRCUMFERENCE}
-          initial={{ strokeDashoffset: CIRCUMFERENCE }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 0.9, ease: 'easeOut' as const }}
-        />
+        {/* value arc — omitted entirely when there's no real reading, so a
+            "no data" dial never draws even a hairline colored stroke that
+            could read as "0 of many, checked" */}
+        {hasData && (
+          <motion.path
+            d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+            fill="none"
+            stroke={resolvedColor}
+            strokeWidth={STROKE}
+            strokeLinecap="round"
+            strokeDasharray={CIRCUMFERENCE}
+            initial={{ strokeDashoffset: CIRCUMFERENCE }}
+            animate={{ strokeDashoffset: offset }}
+            transition={{ duration: 0.9, ease: 'easeOut' as const }}
+          />
+        )}
         <text
           x={CX}
           y={CY - 4}
           textAnchor="middle"
           className="font-mono font-bold tabular-nums"
-          style={{ fontSize: 18, fill: 'var(--color-text-primary)' }}
+          style={{ fontSize: hasData ? 18 : 14, fill: hasData ? 'var(--color-text-primary)' : 'rgba(255,255,255,0.35)' }}
         >
-          {clamped}%
+          {hasData ? `${clamped}%` : '—'}
         </text>
       </svg>
       <span className="text-[9px] uppercase tracking-wider text-white/40 -mt-0.5">{label}</span>
       <span className="text-[8px] text-white/25">
-        {sampleSize < 10 ? `n=${sampleSize}` : ''}
+        {!hasData ? noDataLabel : sampleSize < 10 ? `n=${sampleSize}` : ''}
       </span>
     </div>
   );

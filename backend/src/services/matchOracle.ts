@@ -17,12 +17,15 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { logger } from '../lib/logger';
 
+// Migration 059 — over25_pct/btts_pct are `null` (not `0`) at sample_size=0.
+// A real 0% (checked N matches, none qualified) and "zero matches to check"
+// are different facts; see the migration's own header comment.
 export interface TeamForm {
   wins: number;
   draws: number;
   losses: number;
-  over25_pct: number;
-  btts_pct: number;
+  over25_pct: number | null;
+  btts_pct: number | null;
   sample_size: number;
 }
 

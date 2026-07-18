@@ -11,12 +11,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // OracleStats shape exactly. The JSONB column has no DB-enforced schema, so
 // this type is a trust boundary: it describes what compute_team_recent_form()
 // (migration 053) actually writes, not something Postgres itself guarantees.
+// Migration 059 — over25_pct/btts_pct are `null` (not `0`) at sample_size=0:
+// a real 0% (checked N matches, none qualified) and "we have zero matches to
+// check at all" are different facts, and showing a confident "0%" gauge for
+// the latter is exactly the kind of false-precision this codebase's own
+// sample-size-honesty rule (§30/§33/§48) exists to prevent.
 export interface OracleTeamForm {
   wins: number;
   draws: number;
   losses: number;
-  over25_pct: number;
-  btts_pct: number;
+  over25_pct: number | null;
+  btts_pct: number | null;
   sample_size: number;
 }
 

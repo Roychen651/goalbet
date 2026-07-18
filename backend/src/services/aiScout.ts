@@ -787,6 +787,21 @@ const ORACLE_SYSTEM_HE = `אתה קריין אנליטיקת ספורט חד.
 בהינתן אך ורק הנתונים הסטטיסטיים המחושבים מראש למטה, כתוב משפט אחד תמציתי (עד 25 מילים) המצטט אחד מהמספרים האמיתיים שניתנו.
 לעולם אל תמציא אחוז, ספירה או עובדה שלא ניתנה במפורש. לעולם אל תעטוף במרכאות. החזר את המשפט בלבד, בעברית תקנית.`;
 
+// Migration 059 — over25_pct/btts_pct can now be `null` (sample_size=0,
+// genuinely zero matches to check — not a real "0%" reading). A team line
+// with no data at all gets an explicit "no recent matches" clause instead
+// of formatting `null` into the numeric slots (which would either print
+// "null%" or silently coerce to "0%", both wrong for different reasons).
+function formatTeamLineEn(name: string, form: OracleContext['stats']['home']): string {
+  if (form.sample_size === 0) return `${name}: no recent matches on record.`;
+  return `${name} (last ${form.sample_size} matches): ${form.wins}W ${form.draws}D ${form.losses}L. Over 2.5 goals: ${form.over25_pct}%. BTTS: ${form.btts_pct}%.`;
+}
+
+function formatTeamLineHe(name: string, form: OracleContext['stats']['home']): string {
+  if (form.sample_size === 0) return `${name}: אין משחקים אחרונים במאגר.`;
+  return `${name} (${form.sample_size} משחקים אחרונים): ${form.wins} נצחונות, ${form.draws} תיקו, ${form.losses} הפסדים. מעל 2.5 שערים: ${form.over25_pct}%. שתי הקבוצות מבקיעות: ${form.btts_pct}%.`;
+}
+
 async function generateOracleNarration(ctx: OracleContext, lang: 'en' | 'he'): Promise<string | null> {
   const { home, away } = ctx.stats;
 
@@ -795,9 +810,9 @@ async function generateOracleNarration(ctx: OracleContext, lang: 'en' | 'he'): P
     const user =
       `משחק: ${ctx.homeTeam} מול ${ctx.awayTeam}\n` +
       `תחרות: ${league}\n` +
-      `${ctx.homeTeam} (${home.sample_size} משחקים אחרונים): ${home.wins} נצחונות, ${home.draws} תיקו, ${home.losses} הפסדים. מעל 2.5 שערים: ${home.over25_pct}%. שתי הקבוצות מבקיעות: ${home.btts_pct}%.\n` +
-      `${ctx.awayTeam} (${away.sample_size} משחקים אחרונים): ${away.wins} נצחונות, ${away.draws} תיקו, ${away.losses} הפסדים. מעל 2.5 שערים: ${away.over25_pct}%. שתי הקבוצות מבקיעות: ${away.btts_pct}%.\n\n` +
-      `כתוב משפט אחד שמצטט אחד מהמספרים האלה בדיוק, בעברית תקנית.`;
+      `${formatTeamLineHe(ctx.homeTeam, home)}\n` +
+      `${formatTeamLineHe(ctx.awayTeam, away)}\n\n` +
+      `כתוב משפט אחד שמצטט אחד מהמספרים האמיתיים שניתנו, בעברית תקנית.`;
     return callGroq(
       [
         { role: 'system', content: ORACLE_SYSTEM_HE },
@@ -811,9 +826,9 @@ async function generateOracleNarration(ctx: OracleContext, lang: 'en' | 'he'): P
   const user =
     `Match: ${ctx.homeTeam} vs ${ctx.awayTeam}\n` +
     `Competition: ${league}\n` +
-    `${ctx.homeTeam} (last ${home.sample_size} matches): ${home.wins}W ${home.draws}D ${home.losses}L. Over 2.5 goals: ${home.over25_pct}%. BTTS: ${home.btts_pct}%.\n` +
-    `${ctx.awayTeam} (last ${away.sample_size} matches): ${away.wins}W ${away.draws}D ${away.losses}L. Over 2.5 goals: ${away.over25_pct}%. BTTS: ${away.btts_pct}%.\n\n` +
-    `Write one sentence citing exactly one of these real numbers.`;
+    `${formatTeamLineEn(ctx.homeTeam, home)}\n` +
+    `${formatTeamLineEn(ctx.awayTeam, away)}\n\n` +
+    `Write one sentence citing exactly one of the real numbers given.`;
 
   return callGroq(
     [
@@ -861,6 +876,19 @@ export async function runOracleBatch(limit = 2): Promise<void> {
       if (!stats) continue; // computation failed — skip narration, retried next cycle
 
       if (!getApiKey()) continue; // stats already persisted; narration alone needs Groq
+
+      // Migration 059 hotfix — a live user report ("this feels shallow,
+      // doesn't help decisions") traced to narration firing on razor-thin
+      // combined samples: the model faithfully cites the one real number it
+      // has ("England's last match resulted in 1 win"), which is TRUE but
+      // adds nothing over the WDL badges already on screen. Below this
+      // combined floor, skip narration outright — the numeric panel alone
+      // (with its own honest "no recent matches" state per team, see
+      // OracleStatsPanel.tsx) is more useful than a technically-correct but
+      // empty sentence. Matches OracleDial's own sample_size<10 caption
+      // threshold in spirit, just stricter — narration implies confident
+      // insight, a bar a raw stat display doesn't have to clear.
+      if (stats.home.sample_size + stats.away.sample_size < 3) continue;
 
       const ctx: OracleContext = {
         matchId: row.id,

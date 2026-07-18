@@ -55,6 +55,11 @@ function WDLBadges({ form }: { form: OracleTeamForm }) {
 function TeamOracleColumn({ teamName, form, isRTL }: { teamName: string; form: OracleTeamForm; isRTL: boolean }) {
   const { t } = useLangStore();
   const displayName = isRTL ? tTeam(teamName) : teamName;
+  // Migration 059 — at sample_size=0, "0W 0D 0L" reads as a real (if empty)
+  // record even though it actually means "we've never seen this team play."
+  // A single honest caption replaces the whole WDL+dial block instead of
+  // three technically-zero-but-misleading badges plus two "no data" gauges.
+  const hasHistory = form.sample_size > 0;
 
   return (
     <div className="flex flex-col items-center gap-1.5 min-w-0">
@@ -65,11 +70,17 @@ function TeamOracleColumn({ teamName, form, isRTL }: { teamName: string; form: O
       >
         {displayName}
       </span>
-      <WDLBadges form={form} />
-      <div className="flex gap-1.5">
-        <OracleDial value={form.over25_pct} label={t('oracleOver25Label')} sampleSize={form.sample_size} />
-        <OracleDial value={form.btts_pct} label={t('oracleBttsLabel')} sampleSize={form.sample_size} />
-      </div>
+      {hasHistory ? (
+        <>
+          <WDLBadges form={form} />
+          <div className="flex gap-1.5">
+            <OracleDial value={form.over25_pct} label={t('oracleOver25Label')} sampleSize={form.sample_size} noDataLabel={t('oracleNoDataDial')} />
+            <OracleDial value={form.btts_pct} label={t('oracleBttsLabel')} sampleSize={form.sample_size} noDataLabel={t('oracleNoDataDial')} />
+          </div>
+        </>
+      ) : (
+        <span className="text-[10px] text-white/30 text-center leading-snug px-1 py-3">{t('oracleNoRecentData')}</span>
+      )}
     </div>
   );
 }
@@ -84,7 +95,14 @@ export function OracleStatsPanel({ match }: OracleStatsPanelProps) {
   const stats = match.oracle_stats;
   const narration = (lang === 'he' && match.ai_oracle_insight_he) || match.ai_oracle_insight;
 
-  if (!stats) return null;
+  // Migration 059 — when NEITHER team has a single resolved match in this
+  // app's own history (both new/rarely-synced sides, e.g. a fresh World Cup
+  // knockout pairing), the panel has zero real signal to show at all. Hiding
+  // it entirely here matches this codebase's own "hidden until real data
+  // exists" convention (MatchTimeline/AIScoutCard/PulseFeed/HallOfFame
+  // Chronicles) rather than rendering two side-by-side "no data" captions
+  // that add visual weight without adding information.
+  if (!stats || (stats.home.sample_size === 0 && stats.away.sample_size === 0)) return null;
 
   return (
     <div className="mt-2 px-3 py-2.5 rounded-xl border border-white/6 bg-white/[0.02]">
