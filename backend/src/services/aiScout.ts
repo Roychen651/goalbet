@@ -481,7 +481,7 @@ async function generateHTInsight(ctx: HTContext, lang: 'en' | 'he'): Promise<str
       `תחרות: ${league}\n` +
       `תוצאת מחצית: ${score}\n` +
       `אירועי מחצית ראשונה: ${eventsSummary}\n\n` +
-      `קרא את המצב. כתוב משפט טקטי דחוף אחד שחוזה מה יקרה בחצי השני.`;
+      `קרא את המצב. כתוב משפט טקטי דחוף אחד שחוזה מה יקרה במחצית השנייה.`;
     return callGroq(
       [
         { role: 'system', content: HT_SYSTEM_HE },
@@ -632,7 +632,7 @@ async function generateChronicleText(ctx: ChronicleContext, lang: 'en' | 'he'): 
       `משתמש: ${ctx.username}\n` +
       `משחק: ${ctx.homeTeam} מול ${ctx.awayTeam}\n` +
       `תחרות: ${league}\n` +
-      `תוצאה סופית מנחשת במדויק: ${ctx.finalHome}-${ctx.finalAway}\n\n` +
+      `ניחוש מדויק לתוצאה הסופית: ${ctx.finalHome}-${ctx.finalAway}\n\n` +
       `${ctx.username} ${verb} את התוצאה המדויקת הבלתי נתפסת של המשחק הזה. כתוב סאגה מיתית בת שלושה משפטים, והמשך להטות פעלים המתארים את ${ctx.username} באותו מגדר דקדוקי כמו "${verb}" לעיל.`;
     return callGroq(
       [

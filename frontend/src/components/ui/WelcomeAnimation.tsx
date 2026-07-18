@@ -171,7 +171,7 @@ export function WelcomeAnimation() {
               style={{ color: `${ICE}0.55)` }}
               className="text-sm mt-2"
             >
-              {lang === 'he' ? 'מוכן לנבא?' : 'Ready to predict?'}
+              {lang === 'he' ? 'מוכנ/ה לנחש?' : 'Ready to predict?'}
             </motion.p>
 
             {/* Dismiss hint */}
@@ -182,7 +182,7 @@ export function WelcomeAnimation() {
               style={{ color: `${ICE}0.28)` }}
               className="text-xs mt-8"
             >
-              {lang === 'he' ? 'לחץ לדלג' : 'tap to skip'}
+              {lang === 'he' ? 'לחצ/י לדלג' : 'tap to skip'}
             </motion.p>
           </div>
         </motion.div>

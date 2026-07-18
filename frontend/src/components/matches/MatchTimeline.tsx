@@ -43,7 +43,7 @@ function periodTitle(period: number, he: boolean): string {
     case 3: return he ? 'הארכה 1' : '1st Extra Time';
     case 4: return he ? 'הארכה 2' : '2nd Extra Time';
     case 5: return he ? 'פנדלים' : 'Penalty Shootout';
-    default: return he ? `תקופה ${period}` : `Period ${period}`;
+    default: return he ? `שלב ${period}` : `Period ${period}`;
   }
 }
 
