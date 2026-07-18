@@ -109,6 +109,38 @@ export function ProfilePage() {
       .then(({ count }) => setMomentumBetCount(count ?? 0));
   }, [user?.id, activeGroupId]);
 
+  // Live bug fix (post-Sprint-37): `history` above is capped at the 50 most
+  // recently CREATED predictions (resolved + still-pending mixed together).
+  // Every all-time aggregate derived from it — totalPoints, resolved count,
+  // FT correct/total, current streak — silently undercounts the moment a
+  // user has been in a group long enough to accumulate more than 50 rows,
+  // since older resolved predictions fall outside the window while pending
+  // upcoming ones (which never resolve) keep occupying slots in it. This
+  // showed up live as the Profile hero card (windowed, wrong) disagreeing
+  // with the Leaderboard (leaderboard.total_points, server-authoritative,
+  // unbounded, incremented once per real resolution — rule 4.14) by dozens
+  // of points, and — the specific, alarming symptom reported — a prediction
+  // delete appearing to "add" points: deleting a pending row shifts which
+  // 50 rows fall in the window, and an older resolved-with-points row can
+  // rotate back INTO view, bumping the windowed sum with zero real award.
+  // Fix: fetch this user's own leaderboard row (the exact same source
+  // LeaderboardRow/useLeaderboard already trust) and prefer it everywhere
+  // an "all-time total" is shown. `history`-derived values are kept for
+  // genuinely recency-scoped features (the Sparkline trajectory, Risk Radar
+  // form axes, FormBars) — those are meant to read as recent play style,
+  // not a lifetime total, so windowing there is correct, not a bug.
+  const [lbRow, setLbRow] = useState<{ total_points: number; predictions_made: number; correct_predictions: number; current_streak: number } | null>(null);
+  useEffect(() => {
+    if (!user || !activeGroupId) return;
+    supabase
+      .from('leaderboard')
+      .select('total_points, predictions_made, correct_predictions, current_streak')
+      .eq('user_id', user.id)
+      .eq('group_id', activeGroupId)
+      .maybeSingle()
+      .then(({ data }) => setLbRow(data));
+  }, [user?.id, activeGroupId, history.length]);
+
 
   const handleSavePrediction = async (data: PredictionData, predictionId: string) => {
     if (!user || !activeGroupId) return;
@@ -202,7 +234,10 @@ export function ProfilePage() {
   if (!profile) return <PageLoader />;
 
   const resolved = history.filter(p => p.is_resolved);
-  const totalPoints = resolved.reduce((sum, p) => sum + p.points_earned, 0);
+  // Windowed fallback only for a brand-new user whose leaderboard row
+  // hasn't loaded/been created yet — see the lbRow fetch's own comment.
+  const totalPoints = lbRow?.total_points ?? resolved.reduce((sum, p) => sum + p.points_earned, 0);
+  const allTimeResolvedCount = lbRow?.predictions_made ?? resolved.length;
   // V5 Sprint 34 — "Parlay Master" badge is behavioral (parlays PLACED),
   // not outcome-based (parlays won) — there's no separate parlay_bonus
   // column to isolate a specific winning bonus from a tier's own points,
@@ -218,6 +253,15 @@ export function ProfilePage() {
     const actual = p.match.home_score! > p.match.away_score! ? 'H' : p.match.home_score! < p.match.away_score! ? 'A' : 'D';
     return (p.predicted_outcome as string) === actual;
   });
+  // Authoritative FT win-rate — same lbRow as totalPoints above.
+  // leaderboard.predictions_made/correct_predictions count every resolved
+  // prediction server-side (not just FT-tier ones), a small, honest
+  // difference from ftPredictions' stricter filter — in practice nearly
+  // every prediction includes a Tier-1 pick, and matching what the
+  // Leaderboard already shows beats a windowed number that's wrong by a
+  // much larger margin.
+  const allTimeFtTotal = lbRow?.predictions_made ?? ftPredictions.length;
+  const allTimeFtHits = lbRow?.correct_predictions ?? ftCorrect.length;
 
   // ── Personal Analytics ────────────────────────────────────────────────────
   const ftResolved = resolved.filter(p => p.match.status === 'FT');
@@ -320,16 +364,21 @@ export function ProfilePage() {
     return p.predicted_outcome === actual;
   });
 
-  // Current streak: count consecutive correct from the most recent prediction backwards
-  let currentStreak = 0;
+  // Current streak: count consecutive correct from the most recent prediction backwards.
+  // Windowed fallback only — prefer lbRow.current_streak (server-authoritative,
+  // same source scoreUpdater.ts maintains for the leaderboard, rule 4.14),
+  // so the avatar halo/tooltip/hero-card/Trophy-Cabinet all agree on one
+  // number instead of each computing their own independently-windowed guess.
+  let windowedCurrentStreak = 0;
   for (let i = resultPreds.length - 1; i >= 0; i--) {
     const p = resultPreds[i];
     const sH = (p.match as unknown as { regulation_home: number | null }).regulation_home ?? p.match.home_score!;
     const sA = (p.match as unknown as { regulation_away: number | null }).regulation_away ?? p.match.away_score!;
     const actual = sH > sA ? 'H' : sH < sA ? 'A' : 'D';
-    if (p.predicted_outcome === actual) currentStreak++;
+    if (p.predicted_outcome === actual) windowedCurrentStreak++;
     else break;
   }
+  const currentStreak = lbRow?.current_streak ?? windowedCurrentStreak;
   const last5Correct = last5.filter(Boolean).length;
 
   // Form series — last 10 result predictions as {pts, correct} for FormBars
@@ -494,9 +543,9 @@ export function ProfilePage() {
         <ProfileBentoV2
           totalPoints={totalPoints}
           predictions={history.length}
-          resolved={resolved.length}
-          ftHits={ftCorrect.length}
-          ftTotal={ftPredictions.length}
+          resolved={allTimeResolvedCount}
+          ftHits={allTimeFtHits}
+          ftTotal={allTimeFtTotal}
           currentStreak={currentStreak}
           avgGoalsDiff={avgGoalsDiff}
           exactScoreCount={exactScoreCount}
@@ -507,23 +556,23 @@ export function ProfilePage() {
         {[
           {
             label: t('hitRate'),
-            value: ftPredictions.length > 0 ? `${ftCorrect.length}/${ftPredictions.length}` : '—',
+            value: allTimeFtTotal > 0 ? `${allTimeFtHits}/${allTimeFtTotal}` : '—',
             highlight: true,
-            sub: ftPredictions.length > 0
-              ? `${Math.round(ftCorrect.length / ftPredictions.length * 100)}% ${t('ftResultCorrect')}`
+            sub: allTimeFtTotal > 0
+              ? `${Math.round(allTimeFtHits / allTimeFtTotal * 100)}% ${t('ftResultCorrect')}`
               : t('ftResultCorrect'),
             info: t('infoHitRate'),
           },
           {
             label: t('totalPoints'),
             value: totalPoints,
-            sub: resolved.length > 0 ? `${t('avgLabel')} ${(totalPoints / resolved.length).toFixed(1)} ${t('perMatch')}` : t('allTimeLabel'),
+            sub: allTimeResolvedCount > 0 ? `${t('avgLabel')} ${(totalPoints / allTimeResolvedCount).toFixed(1)} ${t('perMatch')}` : t('allTimeLabel'),
             info: t('infoTotalPoints'),
           },
           {
             label: t('predictions'),
             value: `${history.length}`,
-            sub: `${resolved.length} ${t('resolvedLabel')}`,
+            sub: `${allTimeResolvedCount} ${t('resolvedLabel')}`,
             info: t('infoPredictions'),
           },
         ].map(stat => (
@@ -715,11 +764,11 @@ export function ProfilePage() {
           <TrophyCabinet
             stats={{
               accuracyPct: accuracyRatio * 100,
-              picksMade: ftPredictions.length,
+              picksMade: allTimeFtTotal,
               totalPoints,
               currentStreak,
               exactScoreCount,
-              resolvedCount: resolved.length,
+              resolvedCount: allTimeResolvedCount,
               boldnessRatio: clamp01(avgStake / COIN_COSTS.MAX_PER_MATCH),
               parlaysPlaced,
             }}
