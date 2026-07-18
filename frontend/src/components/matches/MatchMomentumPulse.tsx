@@ -4,6 +4,7 @@ import { teamHaloColor } from '../../lib/oklch';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { fetchEspnEvents, type MatchEvent } from '../../lib/espnEvents';
 import { getLiveClock } from '../../lib/utils';
+import { InfoTip } from '../ui/InfoTip';
 import type { Match } from '../../lib/supabase';
 
 // Sprint 19 — "Attack Event Pulse". Deliberately NOT a smoothed "momentum"
@@ -73,7 +74,13 @@ function MatchMomentumPulseImpl({ match }: MatchMomentumPulseProps) {
   return (
     <div className="mt-2 px-3 py-2.5 rounded-xl border border-white/6 bg-white/[0.02]">
       <div className="flex items-center justify-between mb-1.5">
-        <p className="text-[9px] uppercase tracking-widest text-white/30">{t('attackPulseLabel')}</p>
+        <span className="flex items-center text-[9px] uppercase tracking-widest text-white/30">
+          {t('attackPulseLabel')}
+          {/* Same real-user complaint as the Pressure Meter — circle-vs-
+              square (goal vs card) and top-row-vs-bottom-row (home vs
+              away) were both purely implicit, no legend anywhere. */}
+          <InfoTip text={t('attackPulseExplainer')} />
+        </span>
         <p className="text-[9px] text-white/20">{t('attackPulseWindow').replace('{0}', String(WINDOW_MINUTES))}</p>
       </div>
       {/* direction pinned to ltr regardless of page direction — the x-axis
@@ -105,10 +112,12 @@ function MatchMomentumPulseImpl({ match }: MatchMomentumPulseProps) {
         })}
       </svg>
       <div className="flex items-center justify-between mt-1">
-        <span className="text-[9px] text-white/25 truncate max-w-[45%]" dir={isRTL ? 'rtl' : 'ltr'}>
+        <span className="flex items-center gap-1 text-[9px] text-white/25 truncate max-w-[45%]" dir={isRTL ? 'rtl' : 'ltr'}>
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: homeColor }} aria-hidden />
           {(isRTL ? tTeam(match.home_team) : match.home_team).split(' ').pop()}
         </span>
-        <span className="text-[9px] text-white/25 truncate max-w-[45%]" dir={isRTL ? 'rtl' : 'ltr'}>
+        <span className="flex items-center gap-1 text-[9px] text-white/25 truncate max-w-[45%]" dir={isRTL ? 'rtl' : 'ltr'}>
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: awayColor }} aria-hidden />
           {(isRTL ? tTeam(match.away_team) : match.away_team).split(' ').pop()}
         </span>
       </div>
