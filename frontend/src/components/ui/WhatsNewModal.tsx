@@ -121,7 +121,7 @@ export function WhatsNewModal({ onClose }: Props) {
         <div className="flex items-center justify-between px-5 pt-3 pb-4 border-b border-white/8 shrink-0 sticky top-0 z-10" style={{ background: 'var(--color-tooltip-bg)' }}>
           <div>
             <h2 className="font-bebas text-xl tracking-wider text-white">
-              {isHe ? '✨ האפוקה של GoalBet' : '✨ The GoalBet Epoch'}
+              {isHe ? '✨ מה חדש ב-GoalBet' : '✨ The GoalBet Epoch'}
             </h2>
             <p className="text-text-muted text-xs mt-0.5">
               {isHe ? 'כל מה שבנינו, במקום אחד' : 'Everything we built, in one place'}
