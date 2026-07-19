@@ -74,6 +74,22 @@
   --streak-silver: oklch(80% 0.08 220);
   --streak-ember: oklch(70% 0.22 35);
 
+  /* V5 Sprint 41 — "The Visual Vanguard" (Profile Bento pilot). RGB (not
+     OKLCH) on purpose — these two feed rgba()'s comma-separated channel
+     syntax used by the existing .bento-card-* classes below, which predate
+     this codebase's OKLCH-token convention. Named here so the value has a
+     single source of truth instead of 5 repeated literals; VALUES are
+     unchanged from what already shipped (dark-mode-only — light mode
+     substitutes navy shades directly, no shared token). "volt" = the
+     lime/chartreuse identity this file's own bento card table already
+     documents (distinct from --color-accent-green's ice-blue); "purple" is
+     scoped to these bento cards only, deliberately never promoted to a
+     broader interaction accent — violet already carries other meanings
+     elsewhere in this app (AiBanterCard's AI-content identity, §26/§29;
+     the Epoch Showcase "analytics" era, §38). */
+  --bento-volt-rgb: 204, 255, 0;
+  --bento-purple-rgb: 123, 97, 255;
+
   /* Sprint 33 — Analytics Oracle gauge. A third, deliberately distinct
      two-stop scale: not --arena-cold/hot ("performance" vs. a neutral
      midpoint) and not --risk-gold/warning ("how much of a balance is at
@@ -297,12 +313,27 @@ body::after {
 
 /* ============================================================
    Profile Bento card classes (theme-aware)
+   V5 Sprint 41 — "The Visual Vanguard" pilot (Profile Bento). Audited
+   first: this app's OKLCH token system (arena, risk, oracle, parlay,
+   battle, streak — §15/§30 etc.) already covers every
+   semantic color this pilot needs — no new "hero"/"interaction" accent
+   was warranted, and "Electric Violet" was rejected outright since
+   violet is already reserved app-wide to mean "AI-generated content"
+   (AiBanterCard's conic border, §26/§29). The one real, additive-only
+   improvement: the two RGB triples below (a lime/chartreuse "volt"
+   accent — already documented in this file's own bento card table as
+   a real, deliberate identity, distinct from --color-accent-green's
+   ice-blue — and a violet-ish "purple" identity used only for these
+   bento cards, never as a broader interaction accent) were repeated as
+   raw literals across 5 declarations with no single source of truth.
+   Named as custom properties here — same VALUES, zero visual diff —
+   so a future theme pass has one place to change them, not five.
    ============================================================ */
-.bento-card-accent  { background: rgba(204,255,0,0.04);   border-color: rgba(204,255,0,0.12); }
-.bento-card-purple  { background: rgba(123,97,255,0.04);  border-color: rgba(123,97,255,0.12); }
+.bento-card-accent  { background: rgba(var(--bento-volt-rgb), 0.04);   border-color: rgba(var(--bento-volt-rgb), 0.12); }
+.bento-card-purple  { background: rgba(var(--bento-purple-rgb), 0.04); border-color: rgba(var(--bento-purple-rgb), 0.12); }
 .bento-card-default { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.06); }
-.bento-hero-card    { background: rgba(204,255,0,0.03);   border-color: rgba(204,255,0,0.16); }
-.bento-hero-bloom   { background: rgba(204,255,0,0.06); }
+.bento-hero-card    { background: rgba(var(--bento-volt-rgb), 0.03);   border-color: rgba(var(--bento-volt-rgb), 0.16); }
+.bento-hero-bloom   { background: rgba(var(--bento-volt-rgb), 0.06); }
 
 html.light .bento-card-accent  { background: rgba(28,77,141,0.07);   border-color: rgba(73,136,196,0.30); }
 html.light .bento-card-purple  { background: rgba(73,136,196,0.06);  border-color: rgba(73,136,196,0.22); }

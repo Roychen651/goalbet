@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import NumberFlow from '@number-flow/react';
 import { TiltCardV2 } from '../ui/TiltCardV2';
 import { InfoTip } from '../ui/InfoTip';
@@ -58,6 +58,7 @@ function MicroCard({
   accent = false,
   purple = false,
   info,
+  className,
 }: {
   label: string;
   value: string | number;
@@ -65,9 +66,13 @@ function MicroCard({
   accent?: boolean;
   purple?: boolean;
   info?: string;
+  /** V5 Sprint 41 — grid span override (e.g. `sm:col-span-3` for a medium
+   *  cell). Defaults to whatever the grid's implicit 1x1 auto-placement
+   *  gives it — every existing call site is unaffected unless it opts in. */
+  className?: string;
 }) {
   return (
-    <motion.div variants={ITEM} className="h-full">
+    <motion.div variants={ITEM} className={cn('h-full', className)}>
       <TiltCardV2 maxRotate={3} className="h-full">
         <div className={cn(
           'h-full rounded-2xl border p-4 flex flex-col backdrop-blur-glass overflow-hidden',
@@ -107,6 +112,7 @@ export function ProfileBentoV2({
   trajectory,
 }: ProfileBentoV2Props) {
   const { t } = useLangStore();
+  const reduceMotion = useReducedMotion();
 
   const hitRatePct = ftTotal > 0 ? Math.round((ftHits / ftTotal) * 100) : null;
   const avgPts = resolved > 0 ? (totalPoints / resolved).toFixed(1) : null;
@@ -122,15 +128,42 @@ export function ProfileBentoV2({
       variants={STAGGER}
       initial="hidden"
       animate="show"
-      className="grid grid-cols-2 sm:grid-cols-4 gap-3 auto-rows-fr"
+      // V5 Sprint 41 — 6-column desktop grid (was 4) so a genuine 3-tier
+      // size hierarchy fits without leftover cells: hero (half-width, full
+      // height) > FT Win Rate (half-width, half-height — a real "medium"
+      // cell, layout-grid-breaking's own recommended shape, promoted off
+      // this app's own headline "hit rate" stat, §16) > the 3 remaining
+      // micro cards (1/6 width each). Row math: row1 = hero(3) + FT(3) = 6;
+      // row2 = hero(3, row-span-2) + Predictions(1) + Streak(1) +
+      // ScorePrecision(1) = 6. No implicit row 3, no overflow. Mobile
+      // (grid-cols-2) is completely unchanged from before this sprint.
+      className="grid grid-cols-2 sm:grid-cols-6 gap-3 auto-rows-fr"
       style={{ minHeight: '220px' }}
     >
-      {/* ── Hero card: Total Points — 2×2 ─────────────────────────────────── */}
-      <motion.div variants={ITEM} className="col-span-2 sm:row-span-2">
+      {/* ── Hero card: Total Points — half-width, full-height ─────────────── */}
+      <motion.div variants={ITEM} className="col-span-2 sm:col-span-3 sm:row-span-2">
         <TiltCardV2 maxRotate={3} className="h-full">
           <div className="h-full rounded-2xl border bento-hero-card backdrop-blur-glass p-5 flex flex-col justify-between relative overflow-hidden">
-            {/* Ambient bloom */}
-            <div className="absolute -bottom-8 -start-8 w-36 h-36 rounded-full bento-hero-bloom blur-2xl pointer-events-none" />
+            {/* Ambient bloom — V5 Sprint 41 adds a slow breathing opacity/
+                scale loop (the same "single instance -> Framer, many
+                instances -> CSS" split already applied to LeaderboardRow's
+                rank-1 halo and the streak-tier avatar halo, §22/§37). This
+                card renders exactly once per page, so the "many
+                simultaneous instances" cost concern that justifies a CSS
+                @keyframes elsewhere doesn't apply here. Deliberately
+                opacity/scale only (GPU-composited, rule per motion-
+                microinteractions) — never width/height/top, and never
+                combined with backdrop-filter on the SAME transformed
+                element (this div has no blur of its own; the ancestor's
+                backdrop-blur-glass is a separate, untransformed layer —
+                the exact WebKit failure mode already fixed once in this
+                app, §21/§34, deliberately not reintroduced here). */}
+            <motion.div
+              aria-hidden
+              className="absolute -bottom-8 -start-8 w-36 h-36 rounded-full bento-hero-bloom blur-2xl pointer-events-none"
+              animate={reduceMotion ? { opacity: 0.5 } : { opacity: [0.35, 0.6, 0.35], scale: [1, 1.08, 1] }}
+              transition={reduceMotion ? undefined : { duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+            />
 
             <Label>{t('totalPoints')}</Label>
 
@@ -155,12 +188,17 @@ export function ProfileBentoV2({
         </TiltCardV2>
       </motion.div>
 
-      {/* ── FT Win Rate — top-right ────────────────────────────────────────── */}
+      {/* ── FT Win Rate — medium cell, top-right (Sprint 41: promoted from
+          an equal 1x1 micro card to a genuine "medium" tier — this app's
+          own headline stat, §16's hitRate tooltip: "the most important
+          stat in football prediction" — matching layout-grid-breaking's
+          own recommended one-hero-two-or-three-medium-cells shape). ──── */}
       <MicroCard
         label={t('bentoFtWinRate')}
         value={hitRatePct !== null ? `${hitRatePct}%` : '—'}
         sub={ftTotal > 0 ? `${ftHits} / ${ftTotal} ${t('bentoOfCorrect')}` : t('noLeaderboardData')}
         accent
+        className="sm:col-span-3"
       />
 
       {/* ── Predictions — top-far-right ────────────────────────────────────── */}
