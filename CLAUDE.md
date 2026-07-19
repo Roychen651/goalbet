@@ -63,6 +63,7 @@ Read this before touching any file. Everything here reflects the live codebase.
 54. [The Live Lobby — Ephemeral Broadcast Reactions (V5 Sprint 39)](#54-the-live-lobby--ephemeral-broadcast-reactions-v5-sprint-39)
 55. [The Scout Report — Lazy Player Analytics (V5 Sprint 40)](#55-the-scout-report--lazy-player-analytics-v5-sprint-40)
 56. [The Visual Vanguard — Profile Bento Pilot (V5 Sprint 41)](#56-the-visual-vanguard--profile-bento-pilot-v5-sprint-41)
+57. [Extend, Don't Reinvent — Leaderboard Kinetic Extensions (V5 Sprint 42)](#57-extend-dont-reinvent--leaderboard-kinetic-extensions-v5-sprint-42)
 
 ---
 
@@ -3757,3 +3758,54 @@ A throwaway Playwright harness (mounted `ProfileBentoV2` standalone with mock da
 - **A UI mandate ("tap this card for a physical reaction") must be checked against whether the target element is actually interactive before implementing it.** A display card with no `onClick` doesn't get fake tap-feedback — that's the same "don't imply a capability that doesn't exist" lesson as the Risk Meter (§35), reapplied to Kinetic Core's Profile Bento pilot.
 - **A trailing-asterisk glob shorthand (`--token-*`) immediately followed by a `/` inside a CSS `/* ... */` comment will prematurely close that comment** — the two characters `*/` are a real comment-closer to the parser regardless of authorial intent inside a comment. Spell out the list instead of using glob notation in CSS comments specifically (this is not an issue in `//` comments or in most other languages' block-comment syntax, which don't reuse `*/` this way — it is specific to CSS/C-style `/* */` comments).
 - **"Zero visual diff" claims for a pure-refactor commit (tokenizing an existing hardcoded value) should be verified against an actual render, not just asserted from the diff being small.** The Commit 4 screenshots are what actually confirm Commit 1 changed nothing visible — a small diff is not the same evidence as a rendered screenshot.
+
+---
+
+## 57. Extend, Don't Reinvent — Leaderboard Kinetic Extensions (V5 Sprint 42)
+
+A brief asking for the same "redesign Home Feed/Profile Bento/Leaderboard/Match Stats/Leagues" scope a third time, now specifying GSAP-avoidance and Framer-only techniques by name. The audit that opened this sprint found something more useful than a blueprint: almost every named mandate already ships in this codebase, verbatim, under different names.
+
+### The audit — checked against real code, not memory, before writing anything
+
+| Sprint 42 asked for | Already exists as | Where |
+|---|---|---|
+| Masked 1px holographic border | `edgeGradient` prop | `GlassCard.tsx` — already on `MatchCard`, `PredictionCardDesktop`, `SyndicatePoolCard`, `BattleMeter` |
+| `layoutId` fluid tab/pill morphing | `activeTabPill`, `leadersActivePill`, `league-active-bar`, `h2h-panel-*`, `wc-tab-indicator`/`wc-md-indicator` | `HomePage.tsx`, `LeagueLeaders.tsx`, `LeagueDropdown.tsx`, `H2HMatrix.tsx`/`ExpandedH2HView.tsx`, `WorldCupBracket.tsx` |
+| Mechanical odometer number-roll | `NumberFlow` (`@number-flow/react`) | Already in 8 files: `TopBar`, `Sidebar`, `ProfileBentoV2`, `BentoArena`, `H2HMatrix`, `PredictionForm`, `CelebrationManager`, `SyndicatePoolCard` |
+| Cursor-tracking specular glare, GPU-composited | `useTactileTilt.ts`'s ref-driven `--glare-x`/`--glare-y` writes | Every `GlassCard` with `tactile` on (`BentoArena`, `HelpGuideModal`, `ExpandedH2HView`, `LeagueLeaders`, `TrophyCabinet`, `ParlaySlipDrawer`, `SyndicatePoolCard`) |
+| Spring-backed tap squash | The established `whileTap` elastic spring (§33) | `NeonButton`, `MagneticButtonV2`, tier chips |
+| `tracking-tight` on tabular numerals | Already flagged as a real RTL bug last sprint | Correctly absent everywhere |
+| Obsidian `oklch(14% 0.02 250)` core | Already audited against the 6 existing OKLCH families last sprint, found sufficient | — |
+
+Presented this table to the user directly rather than writing a fourth blueprint for work that mostly doesn't exist to do. Asked which was actually true: extend the existing patterns to surfaces that don't have them yet, investigate a specific visual complaint, or just wanted the planning exercise regardless. Answer: **extend to uncovered surfaces.**
+
+### A second, real audit — where are the primitives genuinely missing
+
+Grepped every named primitive across the five target pages before proposing anything:
+
+- **Home Feed (`MatchCard.tsx`)**: has `edgeGradient` and `layoutId` (via `HomePage`'s tab bar) already. Deliberately has **no** `tactile`/glare — CLAUDE.md already documents why: *"Match cards: diagonal shimmer sweep on hover entry. No tilt — preserves prediction form UX."* Not a gap; a standing decision. Left untouched.
+- **Profile Bento (`ProfileBentoV2.tsx`)**: uses the older `TiltCardV2` (plain 3° tilt, no glare) — the ONLY remaining call site of that component anywhere in the codebase, while its sibling stats surface `BentoArena.tsx` already migrated to `GlassCard tactile` (tilt + glare) back in Sprint 16. A real, genuine inconsistency between two sibling bento grids. **Not fixed this sprint** — see the correction below for why.
+- **Leaderboard (`LeaderboardRow.tsx`/`LeaderboardTable.tsx`)**: had **zero** of the five primitives. The clearest, most literal match to the mandate's own explicit callout ("User Balance, Staked Coins, **Total Points**" for odometer treatment) — points genuinely change live via the Sprint 35 Realtime leaderboard subscription, and were rendering as a silent text swap. This is where the real work landed.
+- **Match Stats / Leagues**: standings/stat-bar numbers are ESPN-sourced aggregates, not live user balances — NumberFlow there would be a stretch application of a primitive meant for user-facing live values, not a genuine gap. Left alone.
+
+### The correction that kept this sprint small and safe
+
+**Migrating `TiltCardV2` → `GlassCard tactile` in Profile Bento looked like the obvious third fix — it wasn't, once the CSS was actually read.** `.tactile-tilt::after`'s glare hardcodes `var(--arena-glow)` — a token whose documented meaning is specifically "performance/win-ratio" (the Bento Arena heatmap scale, §30). The rule's own comment in `index.css` says as much: *"Scoped to Bento Arena cards only in this commit... generalize to a theme-neutral `--glass-glare` token if this ever extends to non-Arena cards."* Reusing `--arena-glow` for Profile Bento's glare — a completely unrelated context, personal stats rather than win-ratio — would be exactly the "reusing one token family's meaning in an unrelated context" mistake this codebase's own standing discipline forbids (rule established repeatedly: `--arena-*`/`--risk-*`/`--oracle-*`/`--parlay-*`/`--battle-*`/`--streak-*` each mean exactly one thing). Generalizing to a real `--glass-glare` token, then migrating `TiltCardV2`'s one remaining call site, is real, legitimate follow-up work — just not a same-sprint bundle with a live coin-balance display, and not rushed through without the token existing first.
+
+### What shipped
+
+`LeaderboardRow.tsx`: the two static points displays (the "live points" branch and the plain branch) both now render via `<NumberFlow value={points} />` in place of `{points}` — same classes, same layout, zero structural change, matching the exact import/usage shape already proven in `ProfileBentoV2.tsx`/`BentoArena.tsx`. The secondary muted-text point restatement (`{points} {t('pts')}`) was deliberately left as plain text — only the primary/hero number in a given context gets the roll treatment anywhere else in this app (`ProfileBentoV2`'s hero rolls, its `avg`/`resolved` subtext doesn't); applying it to every redundant occurrence of the same number would be noise, not polish.
+
+`LeaderboardTable.tsx`: its outer `GlassCard` gains `edgeGradient` — one prop, matching the exact usage already proven safe on `MatchCard`. Verified this is the safe (static, untransformed) case per the standing WebKit rule (§21/§34): only the *rows* inside get `layout`, the outer card itself has no `whileHover`/`whileTap`/drag applied to it.
+
+### Verification
+
+A throwaway Playwright harness hit a real, unrelated obstacle first: `lib/supabase.ts` throws synchronously at module-eval time when `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are unset, crashing the entire render to a blank white page with no visible error unless the browser console is actually inspected (confirmed via `page.on('pageerror', ...)`) — the same obstacle Sprint 27's own verification pass hit and solved the same way: a temporary, gitignored `.env.local` with dummy values, deleted immediately after the pass, confirmed via `git status` before staging. Once unblocked: zero horizontal overflow at 320/1280px in both languages; the Hebrew screenshot confirmed the points column and rank/avatar column swap sides correctly under RTL with zero `isRTL` branching, numerals staying LTR-embedded inside the RTL row exactly as `rtl-hebrew-premium` requires; the `edgeGradient` border renders correctly in both directions.
+
+### Rules
+
+- **When the same "redesign everything" scope comes back a second or third time with new terminology, re-run the grep audit before writing another blueprint — don't assume the premise changed just because the vocabulary did.** "GradientBorder," "fluid island `layoutId` orchestration," and "mechanical odometer counters" were the exact same already-shipped primitives (`edgeGradient`, existing `layoutId` tab morphs, `NumberFlow`) renamed, not new asks.
+- **Presenting an audit table directly to the user, then asking which of a small set of honest interpretations is correct, beats writing a fourth speculative blueprint for work that mostly doesn't need doing.** `AskUserQuestion` with three concrete, mutually-exclusive options ("extend to gaps" / "something's actually broken" / "just wanted the plan") resolved genuine ambiguity in one round trip instead of guessing.
+- **A component appearing to be a "small missing prop" away from a newer sibling pattern must have that sibling's CSS actually read before assuming the migration is safe.** `TiltCardV2` → `GlassCard tactile` looked like a one-line prop swap; the glare CSS's hardcoded `--arena-glow` dependency made it real token-design work instead — caught by reading `index.css`, not by trying the swap and seeing what broke.
+- **Only the primary/hero occurrence of a value gets a "premium" motion treatment (NumberFlow roll, draw-on animation, etc.) — a secondary/muted restatement of the same number nearby stays plain text.** Matches `ProfileBentoV2`'s own existing hero-vs-subtext split; applying an odometer roll to every redundant printing of the same number would be noise dressed as polish.
+- **A blank-white-page failure in a throwaway verification harness should be diagnosed via `page.on('pageerror')`/`page.on('console')` before assuming the component under test is broken.** The actual cause here (missing Supabase env vars crashing `lib/supabase.ts` at import time) had nothing to do with the Sprint 42 changes — a silent client-side throw with no on-page error message is invisible to a screenshot alone.
