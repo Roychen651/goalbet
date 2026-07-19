@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import { LeaderboardEntryWithProfile, supabase } from '../../lib/supabase';
 import { CosmeticAvatar } from '../ui/CosmeticAvatar';
 import { LeaderboardRowSparkline } from './LeaderboardRowSparkline';
+import { ScoutReportPanel, type ScoutReportData } from './ScoutReportPanel';
 import { cn } from '../../lib/utils';
 import { haptic } from '../../lib/haptics';
 import { interpolateDiverging } from '../../lib/oklch';
@@ -32,6 +33,9 @@ interface LeaderboardRowProps {
   expanded?: boolean;
   /** Toggles the preview — a separate tap target from `onClick`'s modal. */
   onToggleExpand?: () => void;
+  /** V5 Sprint 40 — active group id, needed for get_player_scout_report's
+   *  shared-group access guard (caller and target must both be members). */
+  groupId?: string | null;
 }
 
 const PODIUM_STYLES: Record<number, { ring: string; shadow: string; avatarSize: 'md' | 'lg' | 'xl'; bg: string }> = {
@@ -40,7 +44,7 @@ const PODIUM_STYLES: Record<number, { ring: string; shadow: string; avatarSize: 
   3: { ring: 'ring-2 ring-amber-700/60', shadow: 'drop-shadow-[0_0_8px_rgba(180,100,50,0.25)]', avatarSize: 'lg', bg: 'bg-orange-900/10' },
 };
 
-export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick, recentPredictions, rankDelta, expanded, onToggleExpand }: LeaderboardRowProps) {
+export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick, recentPredictions, rankDelta, expanded, onToggleExpand, groupId }: LeaderboardRowProps) {
   const { t } = useLangStore();
   const reduceMotion = useReducedMotion();
   // Points / picks / accuracy: on period tabs read EVERY number from periodStat so the
@@ -81,6 +85,36 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
       });
     return () => { cancelled = true; };
   }, [expanded, recentPredictions]);
+
+  // V5 Sprint 40 — "The Scout Report" lazy fetch, same shape as the
+  // bet-slip effect above: fires once, only when this row's preview is
+  // actually opened, never eagerly for every row in the table. groupId is
+  // required by get_player_scout_report's shared-group access guard — if
+  // it's missing (a genuinely unexpected state, since a leaderboard only
+  // ever renders inside an active-group context) the fetch is skipped
+  // rather than sent with a null group id the RPC would reject anyway.
+  const [scoutReport, setScoutReport] = useState<ScoutReportData | null>(null);
+  const [scoutLoading, setScoutLoading] = useState(false);
+  const scoutFetchedRef = useRef(false);
+  useEffect(() => {
+    if (!expanded || scoutFetchedRef.current || !groupId) return;
+    scoutFetchedRef.current = true;
+    setScoutLoading(true);
+    let cancelled = false;
+    supabase
+      .rpc('get_player_scout_report', { p_target_user_id: entry.user_id, p_group_id: groupId })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setScoutLoading(false);
+        // Fails silently (never throws into the UI) — the panel already
+        // self-hides on report === null, matching this codebase's
+        // established "hidden until real data exists" convention rather
+        // than a visible error state for a secondary, non-critical panel.
+        if (error) { scoutFetchedRef.current = false; return; }
+        setScoutReport(data as ScoutReportData);
+      });
+    return () => { cancelled = true; };
+  }, [expanded, groupId, entry.user_id]);
 
   return (
     <div className={cn(
@@ -299,6 +333,14 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
                   );
                 })}
               </div>
+            )}
+
+            {/* V5 Sprint 40 — "The Scout Report": appended after the
+                bet-slip strip inside this SAME accordion body, lazy-fetched
+                on expand (effect above). Self-hides entirely until real
+                data lands or while genuinely nothing is unlocked yet. */}
+            {groupId && (scoutLoading || scoutReport) && (
+              <ScoutReportPanel report={scoutReport} loading={scoutLoading} />
             )}
           </div>
         </motion.div>

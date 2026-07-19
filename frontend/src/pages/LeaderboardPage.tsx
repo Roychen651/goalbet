@@ -340,6 +340,7 @@ export function LeaderboardPage() {
         sparklineMap={sparklineMap}
         rankDeltaMap={rankDeltaMap}
         initialHighlightUserId={highlightUserId}
+        groupId={activeGroupId}
         onUserClick={(entry) => {
           if (entry.user_id === user?.id) {
             // Own row → show personal match history

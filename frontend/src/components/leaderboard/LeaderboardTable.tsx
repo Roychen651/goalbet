@@ -24,9 +24,12 @@ interface LeaderboardTableProps {
    *  Seeds the initially-expanded row so a rank_drop notification's CTA lands
    *  directly on the user's own recap instead of a flat, unremarkable table. */
   initialHighlightUserId?: string | null;
+  /** V5 Sprint 40 — active group id, forwarded to LeaderboardRow's Scout
+   *  Report lazy fetch (get_player_scout_report's shared-group guard). */
+  groupId?: string | null;
 }
 
-export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap, sparklineMap, rankDeltaMap, initialHighlightUserId }: LeaderboardTableProps) {
+export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap, sparklineMap, rankDeltaMap, initialHighlightUserId, groupId }: LeaderboardTableProps) {
   const { t } = useLangStore();
   // Sprint 21 — which row's lightweight in-place preview is open, if any.
   // Deliberately separate from onUserClick's modal-opening row click — the
@@ -85,6 +88,7 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
                 rankDelta={rankDeltaMap?.get(entry.user_id)}
                 expanded={expandedUserId === entry.user_id}
                 onToggleExpand={() => setExpandedUserId(prev => prev === entry.user_id ? null : entry.user_id)}
+                groupId={groupId}
               />
             </motion.div>
           ))}
