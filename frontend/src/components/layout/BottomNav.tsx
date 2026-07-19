@@ -32,7 +32,21 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 sm:hidden">
+    // Reported live: on a real iOS Safari device, this bar drifts into the
+    // middle of scrolled content instead of staying pinned to the viewport
+    // bottom. `position: fixed` is already correct here and Lenis (App.tsx)
+    // never applies a CSS transform to any ancestor of this element (it
+    // drives native `window.scrollTo`, confirmed by reading Lenis's own
+    // source) — so this isn't a broken containing-block chain. It's the
+    // well-documented WebKit behavior where a `fixed` element's repaint can
+    // lag behind a JS-driven scroll loop (Lenis calls `scrollTo` every RAF
+    // frame during momentum scroll) until Safari promotes it to its own
+    // compositing layer. `translateZ(0)` + `will-change: transform` forces
+    // that promotion up front. Safe to combine with `.glass`'s
+    // `backdrop-filter` here specifically because the filter lives on the
+    // CHILD div below, never on this same transformed element — the
+    // opposite combination is the real WebKit trap (§21/§34).
+    <nav className="fixed bottom-0 inset-x-0 z-40 sm:hidden will-change-transform [transform:translateZ(0)]">
       <div className="glass border-t border-white/8">
         <div className="flex">
           {NAV_ITEMS.map(item => (
