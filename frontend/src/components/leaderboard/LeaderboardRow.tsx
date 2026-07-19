@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import NumberFlow from '@number-flow/react';
 import { ChevronDown } from 'lucide-react';
 import { LeaderboardEntryWithProfile, supabase } from '../../lib/supabase';
 import { CosmeticAvatar } from '../ui/CosmeticAvatar';
@@ -223,10 +224,16 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
         <div className="text-end min-w-[56px]">
           {(entry.live_points ?? 0) > 0 ? (
             <>
-              {/* Confirmed pts + live potential, clearly labelled */}
+              {/* Confirmed pts + live potential, clearly labelled. V5
+                  Sprint 42 — points rolls via NumberFlow (the same
+                  mechanical-counter primitive already used in TopBar/
+                  Sidebar/ProfileBentoV2/BentoArena) instead of a static
+                  text swap, so a Realtime-driven points change (a match
+                  resolving while this row is on screen) actually reads as
+                  a live update rather than the number silently jumping. */}
               <div className="flex items-baseline gap-1 justify-end">
                 <span className={cn('font-bebas tracking-wider text-xl', entry.rank === 1 ? 'text-accent-green text-glow-green' : 'text-white')}>
-                  {points}
+                  <NumberFlow value={points} />
                 </span>
                 <span className="text-blue-400 font-bebas text-base">+{entry.live_points}</span>
               </div>
@@ -238,7 +245,7 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
           ) : (
             <>
               <div className={cn('font-mono font-bold tabular-nums tracking-wider text-xl', entry.rank === 1 ? 'text-accent-green text-glow-green' : 'text-white')}>
-                {points}
+                <NumberFlow value={points} />
               </div>
               <div className="text-text-muted text-xs">{points} {t('pts')}</div>
             </>

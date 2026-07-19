@@ -44,7 +44,14 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
   }
 
   return (
-    <GlassCard variant="default" className="overflow-hidden">
+    // V5 Sprint 42 — edgeGradient (Sprint 19's variable-opacity masked
+    // border) was already used on MatchCard/SyndicatePoolCard/BattleMeter
+    // but never on the Leaderboard's own outer card. This element is
+    // static (no whileHover/whileTap/drag on it — only the ROWS inside get
+    // `layout`), so it's the same safe, untransformed-element shape as
+    // MatchCard's own usage, not the transform+backdrop-filter WebKit trap
+    // (§21/§34) a moving element would risk.
+    <GlassCard variant="default" edgeGradient className="overflow-hidden">
       {/* Table header */}
       <div className="flex items-center px-4 py-2 border-b border-white/8 text-[11px] text-text-muted uppercase tracking-widest font-barlow">
         <span className="w-7 text-center shrink-0">#</span>
