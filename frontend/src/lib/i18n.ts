@@ -347,6 +347,20 @@ export const translations = {
     insightGrinderDesc: 'Most Predictions',
     badgeHot: 'Hot',
     badgeSniper: 'Sniper',
+    // V5 Sprint 40 — "The Scout Report": lazy-loaded per-tier analytics
+    // appended to LeaderboardRow's existing expand-in-place preview
+    // (Sprint 21, §36) — not a new accordion. tierExpertBadge deliberately
+    // says "Expert", never "Sniper" — badgeSniper already means accuracy
+    // >=65% and renders in this same row; reusing that word for a
+    // different meaning (strongest tier) would collide right next to it.
+    scoutReportTitle: 'Scout Report',
+    scoutReportLoading: 'Loading scout report…',
+    scoutReportNoData: 'Not enough resolved picks yet',
+    efficiencyIndexLabel: 'Efficiency',
+    recentTrendLabel: 'Trend',
+    coinsStakedLabel: 'Staked',
+    pointsEarnedLabel: 'Earned',
+    tierExpertBadge: '{0} Expert',
     h2hAccuracy: 'Accuracy',
     h2hTotalPoints: 'Total Points',
     minPredictions: 'min {0} picks',
@@ -1207,6 +1221,14 @@ export const translations = {
     insightGrinderDesc: 'הכי הרבה ניחושים',
     badgeHot: 'חם',
     badgeSniper: 'צלף',
+    scoutReportTitle: 'דו״ח סקאוטינג',
+    scoutReportLoading: 'טוען דו״ח סקאוטינג…',
+    scoutReportNoData: 'אין עדיין מספיק ניחושים שנפתרו',
+    efficiencyIndexLabel: 'מדד יעילות',
+    recentTrendLabel: 'קו מגמה',
+    coinsStakedLabel: 'הושקעו',
+    pointsEarnedLabel: 'הורווחו',
+    tierExpertBadge: 'מומחה {0}',
     h2hAccuracy: 'דיוק',
     h2hTotalPoints: 'סה"כ נקודות',
     minPredictions: 'מינ׳ {0} ניחושים',
