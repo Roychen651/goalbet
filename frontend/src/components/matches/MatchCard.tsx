@@ -39,12 +39,6 @@ const LEAGUE_ACCENT: Record<number, string> = {
   9003: '#a51f22', // Copa del Rey
 };
 
-// V6 Sprint 43 — EntityBadge's `prestige` tier (real 3D tilt + specular
-// sheen) is deliberately reserved for the two genuinely marquee
-// competitions, not every league logo in every card. Champions League
-// (4346) and World Cup (4480) — matching §13's documented internal IDs.
-const PRESTIGE_LEAGUE_IDS = new Set<number>([4346, 4480]);
-
 // ── ESPN phase translation for Hebrew ─────────────────────────────────────────
 const PHASE_HE: Record<string, string> = {
   'Quarterfinals': 'רבע גמר',
@@ -660,7 +654,6 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                     hashSeed={leagueInfo?.name ?? match.league_name}
                     size={20}
                     className="w-5 h-5 league-logo-dark"
-                    prestige={PRESTIGE_LEAGUE_IDS.has(match.league_id)}
                   />
                   <EntityBadge
                     src={`https://a.espncdn.com/i/leaguelogos/soccer/500/${leagueEspnId}.png`}
@@ -669,7 +662,6 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                     hashSeed={leagueInfo?.name ?? match.league_name}
                     size={20}
                     className="w-5 h-5 league-logo-light"
-                    prestige={PRESTIGE_LEAGUE_IDS.has(match.league_id)}
                   />
                 </>) : leagueBadge ? (
                   <span className="text-sm leading-none" title={match.league_name}>{leagueBadge}</span>
