@@ -744,6 +744,21 @@ export const translations = {
     radarLiveActivity: 'Live Activity',
     radarSpecialist: 'Specialist',
     radarVolatility: 'Volatility',
+    // V6 Sprint 45 — Predictor Playstyle DNA archetype badges.
+    archetypeProphetName: 'The Prophet',
+    archetypeProphetDesc: 'Calls exact scores at a startling rate.',
+    archetypeTacticianName: 'The Tactician',
+    archetypeTacticianDesc: 'Reads corners and both-teams-to-score like a book.',
+    archetypeAnchorName: 'The Anchor',
+    archetypeAnchorDesc: 'Steady full-time calls, low volatility.',
+    archetypeMaverickName: 'The Maverick',
+    archetypeMaverickDesc: 'Stakes big, swings for bold outcomes.',
+    heatmapGridTitle: 'Prediction Activity',
+    heatmapGridHint: 'Tap a day for details',
+    heatmapGridPredictionsLabel: 'predictions',
+    heatmapGridEmpty: 'No activity yet in the last 12 weeks.',
+    h2hTierBreakdown: 'Tier Accuracy',
+    h2hSyndicateTally: 'Syndicate Pool Contributions',
     radarTapHint: 'Tap a point to see the number behind it',
 
     // Trophy Cabinet (Sprint 22)
@@ -1614,6 +1629,23 @@ export const translations = {
     radarLiveActivity: 'פעילות מומנטום',
     radarSpecialist: 'התמחות',
     radarVolatility: 'תנודתיות',
+    // V6 Sprint 45 — תגי DNA של סגנון ניחוש. "הנביא" נבחר במכוון ולא "הצלף" —
+    // השם "הצלף" כבר תפוס בארון הגביעים ובשורת הליגה למשמעות שונה (דיוק
+    // כללי, לא דיוק בתוצאה מדויקת) — ראו CLAUDE.md §60.
+    archetypeProphetName: 'הנביא',
+    archetypeProphetDesc: 'קורא תוצאות מדויקות בקצב מטורף.',
+    archetypeTacticianName: 'הטקטיקן',
+    archetypeTacticianDesc: 'קורא קרנות ושני הצדדים כובשים כמו ספר פתוח.',
+    archetypeAnchorName: 'הסולידי',
+    archetypeAnchorDesc: 'ניחושי תוצאה יציבים, תנודתיות נמוכה.',
+    archetypeMaverickName: 'המהמר הנועז',
+    archetypeMaverickDesc: 'מהמר בגדול, הולך על תוצאות נועזות.',
+    heatmapGridTitle: 'פעילות ניחושים',
+    heatmapGridHint: 'הקישו על יום לפרטים',
+    heatmapGridPredictionsLabel: 'ניחושים',
+    heatmapGridEmpty: 'אין עדיין פעילות ב-12 השבועות האחרונים.',
+    h2hTierBreakdown: 'דיוק לפי שכבה',
+    h2hSyndicateTally: 'תרומות לקופה משותפת',
     radarTapHint: 'הקש/י על נקודה כדי לראות את המספר מאחוריה',
 
     // Trophy Cabinet (Sprint 22)

@@ -8,6 +8,8 @@ import { FINISHED_STATUSES, LIVE_STATUSES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import type { TranslationKey } from '../../lib/i18n';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
+import { TIER_COLORS } from '../../lib/tierVisuals';
+import type { ScoutReportData } from './ScoutReportPanel';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -106,6 +108,25 @@ async function fetchPreds(userId: string, groupId: string, period: H2HPeriod): P
     const kickoff = new Date(p.match?.kickoff_time ?? 0).getTime();
     return (start === null || kickoff >= start) && (end === null || kickoff < end);
   });
+}
+
+async function fetchPoolTally(userId: string, groupId: string): Promise<PoolTally> {
+  const [{ data: staked }, { data: won }] = await Promise.all([
+    supabase
+      .from('pool_contributions')
+      .select('amount, syndicate_pools!inner(group_id)')
+      .eq('user_id', userId)
+      .eq('syndicate_pools.group_id', groupId),
+    supabase
+      .from('coin_transactions')
+      .select('amount')
+      .eq('user_id', userId)
+      .eq('group_id', groupId)
+      .eq('type', 'pool_won'),
+  ]);
+  const stakedSum = (staked ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
+  const wonSum = (won ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
+  return { staked: stakedSum, won: wonSum };
 }
 
 // ── PredCell ─────────────────────────────────────────────────────────────────
@@ -290,6 +311,96 @@ function ComparativeBars({
   );
 }
 
+// ── Tier Accuracy Breakdown (V6 Sprint 45) ──────────────────────────────────
+//
+// Reuses get_player_scout_report() (Sprint 40, migration 060) verbatim for
+// BOTH users — the exact tier_success_rates already computed server-side,
+// zero new SQL. Result/Score/Corners/BTTS per the brief's own listed
+// categories (O-U omitted — the brief named exactly 4, and TIER_COLORS'
+// canonical order already puts these 4 first). Same MIN_SAMPLE=3
+// insufficient-data honesty ScoutReportPanel already applies.
+
+const TIER_KEYS: { key: keyof ScoutReportData['tier_success_rates']; labelKey: TranslationKey; colorIndex: number }[] = [
+  { key: 'result', labelKey: 'tierResult', colorIndex: 0 },
+  { key: 'score', labelKey: 'tierScore', colorIndex: 1 },
+  { key: 'corners', labelKey: 'tierCorners', colorIndex: 2 },
+  { key: 'btts', labelKey: 'tierBTTS', colorIndex: 3 },
+];
+const MIN_SAMPLE = 3;
+
+function TierAccuracyBreakdown({
+  myReport, friendReport, t,
+}: {
+  myReport: ScoutReportData | null; friendReport: ScoutReportData | null; t: (k: TranslationKey) => string;
+}) {
+  if (!myReport || !friendReport) return null;
+
+  return (
+    <div className="px-4 py-3 border-b border-white/6 space-y-1.5 shrink-0">
+      <div className="text-[10px] text-text-muted uppercase tracking-widest font-semibold mb-1">
+        {t('h2hTierBreakdown')}
+      </div>
+      {TIER_KEYS.map(tier => {
+        const mine = myReport.tier_success_rates[tier.key];
+        const theirs = friendReport.tier_success_rates[tier.key];
+        const myPct = mine.sample >= MIN_SAMPLE ? Math.round((mine.correct / mine.sample) * 100) : null;
+        const theirPct = theirs.sample >= MIN_SAMPLE ? Math.round((theirs.correct / theirs.sample) * 100) : null;
+        return (
+          <div key={tier.key} className="flex items-center gap-2 text-[11px]">
+            <span className="w-14 shrink-0 text-text-muted truncate">{t(tier.labelKey)}</span>
+            <span className={cn('flex-1 text-end font-mono tabular-nums', myPct !== null && myPct >= (theirPct ?? -1) ? TIER_COLORS[tier.colorIndex].pts : 'text-white/40')}>
+              {myPct !== null ? `${myPct}%` : '–'}
+            </span>
+            <span className="text-white/20">·</span>
+            <span className={cn('flex-1 font-mono tabular-nums', theirPct !== null && theirPct > (myPct ?? -1) ? TIER_COLORS[tier.colorIndex].pts : 'text-white/40')}>
+              {theirPct !== null ? `${theirPct}%` : '–'}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Syndicate Pool Tally (V6 Sprint 45) ─────────────────────────────────────
+//
+// The brief's literal ask ("coins won/lost in shared syndicate BATTLES") is
+// a data-model mismatch: group_battles compares two GROUPS, not two users —
+// "me" and "friend" here are typically in the SAME group, so there's no
+// per-user battle outcome to diff. What the schema actually supports for a
+// two-user comparison is Syndicate POOL contributions (pool_contributions
+// is per-user, group-scoped) — staked amounts, plus 'pool_won' coin_transactions
+// for winnings. Corrected scope, stated plainly rather than silently building
+// something that doesn't match what was asked or silently faking a number.
+
+interface PoolTally { staked: number; won: number }
+
+function SyndicatePoolTally({
+  me, friend, myTally, friendTally, t,
+}: {
+  me: H2HUser; friend: H2HUser; myTally: PoolTally | null; friendTally: PoolTally | null; t: (k: TranslationKey) => string;
+}) {
+  if (!myTally || !friendTally || (myTally.staked === 0 && friendTally.staked === 0)) return null;
+
+  return (
+    <div className="px-4 py-3 border-b border-white/6 space-y-1.5 shrink-0">
+      <div className="text-[10px] text-text-muted uppercase tracking-widest font-semibold mb-1">
+        {t('h2hSyndicateTally')}
+      </div>
+      <div className="flex items-center gap-2 text-[11px]">
+        <span className="w-14 shrink-0 text-text-muted truncate">{me.username.split(' ')[0]}</span>
+        <span className="flex-1 text-end font-mono tabular-nums text-white/70">{myTally.staked}</span>
+        <span className="text-accent-green font-mono tabular-nums">+{myTally.won}</span>
+      </div>
+      <div className="flex items-center gap-2 text-[11px]">
+        <span className="w-14 shrink-0 text-text-muted truncate">{friend.username.split(' ')[0]}</span>
+        <span className="flex-1 text-end font-mono tabular-nums text-white/70">{friendTally.staked}</span>
+        <span className="text-accent-green font-mono tabular-nums">+{friendTally.won}</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
@@ -299,6 +410,14 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
   const [myPreds, setMyPreds] = useState<SimplePred[]>([]);
   const [friendPreds, setFriendPreds] = useState<SimplePred[]>([]);
   const [loading, setLoading] = useState(true);
+  // V6 Sprint 45 — all-time stats, not period-filtered (the existing period
+  // tabs only ever scoped the H2H match list/points above; tier accuracy and
+  // syndicate totals are lifetime figures, same as ScoutReportPanel's own
+  // scope one level up in LeaderboardRow).
+  const [myReport, setMyReport] = useState<ScoutReportData | null>(null);
+  const [friendReport, setFriendReport] = useState<ScoutReportData | null>(null);
+  const [myPoolTally, setMyPoolTally] = useState<PoolTally | null>(null);
+  const [friendPoolTally, setFriendPoolTally] = useState<PoolTally | null>(null);
 
   // Lock body scroll while modal is open (prevents background scroll-through on iOS)
   useEffect(() => {
@@ -318,6 +437,15 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
       setLoading(false);
     });
   }, [me.user_id, friend.user_id, groupId, period]);
+
+  useEffect(() => {
+    supabase.rpc('get_player_scout_report', { p_target_user_id: me.user_id, p_group_id: groupId })
+      .then(({ data }) => setMyReport(data as ScoutReportData | null));
+    supabase.rpc('get_player_scout_report', { p_target_user_id: friend.user_id, p_group_id: groupId })
+      .then(({ data }) => setFriendReport(data as ScoutReportData | null));
+    fetchPoolTally(me.user_id, groupId).then(setMyPoolTally);
+    fetchPoolTally(friend.user_id, groupId).then(setFriendPoolTally);
+  }, [me.user_id, friend.user_id, groupId]);
 
   // Merge into per-match rows sorted newest kickoff first
   const rows = useMemo(() => {
@@ -485,6 +613,12 @@ export function H2HModal({ me, friend, groupId, onClose }: H2HModalProps) {
           {!loading && (myPreds.length > 0 || friendPreds.length > 0) && (
             <ComparativeBars me={me} friend={friend} myPreds={myPreds} friendPreds={friendPreds} myPeriodPts={myPeriodPts} friendPeriodPts={friendPeriodPts} t={t} />
           )}
+
+          {/* V6 Sprint 45 — tier accuracy + syndicate pool tally, both
+              all-time (not period-filtered, see the fetch effect's own
+              comment). */}
+          <TierAccuracyBreakdown myReport={myReport} friendReport={friendReport} t={t} />
+          <SyndicatePoolTally me={me} friend={friend} myTally={myPoolTally} friendTally={friendPoolTally} t={t} />
 
           {/* ── Match list ───────────────────────────────────────────────────── */}
           <div

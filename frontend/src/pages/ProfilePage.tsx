@@ -27,6 +27,8 @@ import { InfoTip } from '../components/ui/InfoTip';
 import { CoinIcon } from '../components/ui/CoinIcon';
 import { RiskRadarChart, RadarAxisDatum } from '../components/profile/RiskRadarChart';
 import { TrophyCabinet } from '../components/profile/TrophyCabinet';
+import { PredictorArchetypeBadge } from '../components/profile/PredictorArchetypeBadge';
+import { PredictionHeatmapGrid, type DayActivity } from '../components/profile/PredictionHeatmapGrid';
 
 interface PredictionWithMatch extends Prediction {
   match: Match;
@@ -107,6 +109,18 @@ export function ProfilePage() {
       .eq('user_id', user.id)
       .eq('group_id', activeGroupId)
       .then(({ count }) => setMomentumBetCount(count ?? 0));
+  }, [user?.id, activeGroupId]);
+
+  // V6 Sprint 45 — Prediction Heatmap Grid data. A dedicated small RPC
+  // (migration 062), not derived from `history` above (which is capped at
+  // the last 50 predictions, mixed resolved+pending — not enough for a
+  // real 12-week activity grid).
+  const [dayActivity, setDayActivity] = useState<DayActivity[]>([]);
+  useEffect(() => {
+    if (!user || !activeGroupId) return;
+    supabase
+      .rpc('get_prediction_activity_by_day', { p_target_user_id: user.id, p_group_id: activeGroupId, p_days: 84 })
+      .then(({ data }) => setDayActivity((data as DayActivity[]) ?? []));
   }, [user?.id, activeGroupId]);
 
   // Live bug fix (post-Sprint-37): `history` above is capped at the 50 most
@@ -538,6 +552,20 @@ export function ProfilePage() {
         </GlassCard>
       </motion.div>
 
+      {/* V6 Sprint 45 — Predictor Playstyle DNA. Hidden until a confident
+          classification exists (resolvedCount gate lives in the classifier
+          itself). */}
+      {user && (
+        <PredictorArchetypeBadge
+          userId={user.id}
+          groupId={activeGroupId}
+          ftAccuracy={clamp01(accuracyRatio)}
+          volatility={clamp01(pointsStddev / (COIN_COSTS.MAX_PER_MATCH / 2))}
+          boldness={clamp01(avgStake / COIN_COSTS.MAX_PER_MATCH)}
+          resolvedCount={resolved.length}
+        />
+      )}
+
       {/* ── Stats section ─────────────────────────────────────────────────── */}
       {USE_ELITE_UI ? (
         <ProfileBentoV2
@@ -754,6 +782,16 @@ export function ProfilePage() {
               <InfoTip text={t('radarInfoTip')} />
             </div>
             <RiskRadarChart axes={radarAxes} />
+          </GlassCard>
+        </motion.div>
+      )}
+
+      {/* ── Prediction Heatmap Grid ──────────────────────────────────────── */}
+      {!loading && hasAnalytics && dayActivity.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 100, damping: 18, delay: 0.12 }}>
+          <GlassCard variant="elevated" className="p-4">
+            <span className="font-bebas text-lg tracking-wider text-white block text-center mb-2">{t('heatmapGridTitle')}</span>
+            <PredictionHeatmapGrid days={dayActivity} windowDays={84} />
           </GlassCard>
         </motion.div>
       )}
