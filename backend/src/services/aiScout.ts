@@ -569,6 +569,148 @@ export async function runHTInsightBatch(limit = 2): Promise<void> {
   }
 }
 
+// ── Live Commentary ─────────────────────────────────────────────────────────
+//
+// V6 Sprint 44. Punchy, single-line Hebrew/English commentary for each
+// resolved live key event (goal/card/substitution — the exact vocabulary
+// fetchMatchKeyEvents() extracts; ESPN's keyEvents/commentary feed has never
+// exposed shots-on/off-target or fouls in this codebase's own verified
+// usage, so this deliberately does NOT promise that coverage). Reuses
+// fetchMatchKeyEvents() and callGroq() verbatim — no second event parser,
+// no second Groq client, matching the "one Groq client every AI feature
+// funnels through" rule already established for aiProvocateur.ts/
+// microBanter.ts (§26/§29).
+
+interface LiveCommentaryEvent extends MatchKeyEvent {
+  /** Deterministic natural key — event identity, not a DB row id (there is
+   *  no per-event row; entries live inline in matches.live_commentary). */
+  key: string;
+}
+
+function eventNaturalKey(ev: MatchKeyEvent): string {
+  return `${ev.minute}-${ev.extraTime ?? 0}-${ev.period}-${ev.type}-${ev.team}`;
+}
+
+const LIVE_COMMENTARY_SYSTEM_HE = `אתה פרשן ספורט ישראלי נלהב בשידור חי.
+בהינתן אירוע בודד ממשחק כדורגל (גול/כרטיס/חילוף), כתוב שורת פרשנות אחת קצרה, צבעונית ואותנטית (עד 18 מילים).
+השתמש בסלנג ספורט ישראלי אמיתי, לא תרגום מילולי. אל תמציא פרטים מעבר למה שניתן. לעולם אל תעטוף במרכאות. החזר את השורה בלבד.`;
+
+const LIVE_COMMENTARY_SYSTEM_EN = `You are an enthusiastic live sports commentator.
+Given a single football match event (goal/card/substitution), write ONE short, colorful, punchy commentary line (≤ 18 words).
+Do not invent details beyond what is given. Never wrap in quotes. Output the line only.`;
+
+async function generateLiveCommentaryLine(homeTeam: string, awayTeam: string, ev: MatchKeyEvent, lang: 'en' | 'he'): Promise<string | null> {
+  const side = ev.team === 'home' ? homeTeam : awayTeam;
+  const minuteStr = ev.extraTime !== null ? `${ev.minute}+${ev.extraTime}'` : `${ev.minute}'`;
+
+  if (lang === 'he') {
+    const typeHe = ev.type === 'goal' ? `גול של ${ev.playerName}` :
+      ev.type === 'own_goal' ? `שער עצמי` :
+      ev.type === 'penalty_goal' ? `פנדל מוצלח של ${ev.playerName}` :
+      ev.type === 'yellow_card' ? `כרטיס צהוב ל${ev.playerName}` :
+      ev.type === 'red_card' ? `כרטיס אדום ל${ev.playerName}` :
+      ev.type === 'second_yellow' ? `צהוב שני, ${ev.playerName} יורד` :
+      `חילוף: ${ev.playerOff ?? '?'} יורד, ${ev.playerName} עולה`;
+    const user = `דקה ${minuteStr}, ${side} (${homeTeam} נגד ${awayTeam}): ${typeHe}.\nכתוב שורת פרשנות חיה אחת.`;
+    return callGroq(
+      [
+        { role: 'system', content: LIVE_COMMENTARY_SYSTEM_HE },
+        { role: 'user', content: user },
+      ],
+      100,
+    );
+  }
+
+  const typeEn = ev.type.replace(/_/g, ' ');
+  const user = `Minute ${minuteStr}, ${side} (${homeTeam} vs ${awayTeam}): ${typeEn} — ${ev.playerName}${ev.playerOff ? ` (off: ${ev.playerOff})` : ''}.\nWrite one live commentary line.`;
+  return callGroq(
+    [
+      { role: 'system', content: LIVE_COMMENTARY_SYSTEM_EN },
+      { role: 'user', content: user },
+    ],
+    70,
+  );
+}
+
+/**
+ * Fetch up to `matchLimit` currently-live matches, and for each, generate
+ * commentary for up to `eventsPerMatchLimit` events not yet covered by
+ * matches.live_commentary. Small defaults (2 matches x 1 event = up to 4
+ * Groq calls per tick) — the same "keep bursts small, let the next cycle
+ * catch up" discipline as runHTInsightBatch's own limit=2 (§23). Appends
+ * via append_live_commentary_entry() (migration 061) — an atomic UPDATE ...
+ * WHERE NOT EXISTS, so a concurrent second worker generating the same
+ * event's commentary simply appends nothing on its own attempt instead of
+ * duplicating the line.
+ */
+export async function runLiveCommentaryBatch(matchLimit = 2, eventsPerMatchLimit = 1): Promise<void> {
+  if (!getApiKey()) return;
+
+  try {
+    const { data: rows, error } = await supabaseAdmin
+      .from('matches')
+      .select('id, external_id, home_team, away_team, league_id, live_commentary')
+      .in('status', ['1H', '2H', 'ET1', 'ET2'])
+      .order('kickoff_time', { ascending: false })
+      .limit(matchLimit);
+
+    if (error) {
+      logger.warn(`[aiScout] live commentary batch query failed: ${error.message}`);
+      return;
+    }
+    if (!rows || rows.length === 0) return;
+
+    for (const row of rows) {
+      const events = (await fetchMatchKeyEvents(row.external_id, row.league_id)) ?? [];
+      if (events.length === 0) continue;
+
+      const existing = (row.live_commentary as { key?: string }[] | null) ?? [];
+      const existingKeys = new Set(existing.map(e => e.key).filter(Boolean));
+
+      // Prioritize the most recent unprocessed events — a live feed reads
+      // as "what just happened," not a backlog; older uncovered events
+      // (e.g. right after a fresh boot) keep re-qualifying on later ticks
+      // until they're covered, the same self-healing catch-up shape every
+      // other batch in this file already relies on.
+      const uncovered: LiveCommentaryEvent[] = events
+        .filter(e => !existingKeys.has(eventNaturalKey(e)))
+        .map(e => ({ ...e, key: eventNaturalKey(e) }));
+      const toProcess = uncovered.slice(-eventsPerMatchLimit);
+
+      for (const ev of toProcess) {
+        const [textEn, textHe] = await Promise.all([
+          generateLiveCommentaryLine(row.home_team, row.away_team, ev, 'en'),
+          generateLiveCommentaryLine(row.home_team, row.away_team, ev, 'he'),
+        ]);
+        if (!textEn && !textHe) continue; // Groq failed both — retry next tick, key never persisted
+
+        const entry = {
+          key: ev.key,
+          minute: ev.minute,
+          extra_time: ev.extraTime,
+          period: ev.period,
+          type: ev.type,
+          team: ev.team,
+          text_en: textEn,
+          text_he: textHe,
+          created_at: new Date().toISOString(),
+        };
+
+        const { error: appendErr } = await supabaseAdmin.rpc('append_live_commentary_entry', {
+          p_match_id: row.id,
+          p_entry: entry,
+          p_natural_key: ev.key,
+        });
+        if (appendErr) {
+          logger.warn(`[aiScout] append_live_commentary_entry failed for match ${row.id}: ${appendErr.message}`);
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn(`[aiScout] runLiveCommentaryBatch crashed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 // ── Chronicler ──────────────────────────────────────────────────────────────
 //
 // Sprint 27. When a user scores a perfect +10 (result + exact score both right)

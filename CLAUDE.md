@@ -65,6 +65,7 @@ Read this before touching any file. Everything here reflects the live codebase.
 56. [The Visual Vanguard — Profile Bento Pilot (V5 Sprint 41)](#56-the-visual-vanguard--profile-bento-pilot-v5-sprint-41)
 57. [Extend, Don't Reinvent — Leaderboard Kinetic Extensions (V5 Sprint 42)](#57-extend-dont-reinvent--leaderboard-kinetic-extensions-v5-sprint-42)
 58. [The Kinetic Core & Motion Engine (V6 Sprint 43)](#58-the-kinetic-core--motion-engine-v6-sprint-43)
+59. [Deep Telemetry & Live Commentary Engine (V6 Sprint 44)](#59-deep-telemetry--live-commentary-engine-v6-sprint-44)
 
 ---
 
@@ -3891,3 +3892,48 @@ Reported live, with a screenshot of a real production match card: a visible corr
 - **When a new wrapper is introduced around an existing element specifically to *preserve* that element's exact prior className-driven behavior, the wrapper's own visibility must be audited against every class the inner element still carries — a class whose whole job is hide/show (a theme toggle, a feature flag) is exactly the kind of behavior a non-participating wrapper can silently break, even while the "className still reaches the same inner element" contract is technically upheld.**
 - **A live report that a shiny new effect "looks like a bug" is not asking for root-cause analysis — it's telling you the feature itself is unwanted, independent of whether it's implemented correctly.** The ball trail had zero implementation defects (every Commit 4 check passed) and was reverted anyway, because the sprint's own text had already named this exact possibility as the honest cost of shipping it. Distinguish "broken and needs fixing" from "correct and still not wanted" before deciding whether to patch or remove.
 - **A full revert to a component's last-known-good state is the correct fix when a new abstraction (a wrapper, a shared layer) is structurally responsible for the regression — not a targeted patch on top of the new abstraction.** Attempting to fix `EntityBadge`'s wrapper in place (e.g., forwarding the toggle class to the wrapper too) would have worked, but reverting outright was faster, more certain, and left zero surface area for a second, related bug in the same mechanism to surface later the same day.
+
+---
+
+## 59. Deep Telemetry & Live Commentary Engine (V6 Sprint 44)
+
+A backend-first sprint: AI-narrated live commentary per key event, a referee-strictness stat, and (deliberately) zero new frontend work for win-probability — the biggest single finding of the sprint was that the third mandate had already fully shipped. Grounded in reading the real code before building anything, the same discipline this whole engagement has applied to every prior "redesign/expand X" brief.
+
+### Corrections made before writing code
+
+**A live-updating "Win Probability Graph" is architecturally the closest possible successor to §47's already-removed Live Pressure Cooker — flagged before writing a line of Commit 3.** `MatchCard.tsx` has its own code comment stating plainly: *"ESPN's `data.predictor` is not available for soccer."* The only win-probability data this codebase has is a static, pre-match, odds-derived split — never a live time series. A genuine minute-by-minute graph would have to be synthesized from score/event deltas, the exact same data shape as the deleted Pressure Meter, on the exact same card, the same day two other live incidents already happened on `MatchCard`-adjacent surfaces. Rather than silently build it or silently downgrade it, this was presented to the user directly via `AskUserQuestion`; the answer (static pre-match only, reusing the existing `predictor` field) resolved it in one round trip.
+
+**That "static pre-match" version turned out to already be fully shipped.** Reading `MatchCard.tsx` lines 744-778 found a complete, RTL-aware, themed, CLS-safe home/draw/away probability bar already rendering from `espnInfo.predictor` — zero code needed for Commit 3. Building a second one would have been pure duplication of something already live.
+
+**"Extract weather and referee identity from ESPN" (mandate 2 of the original brief) was already half-built.** `MatchCard.tsx`'s `TacticalIntelSection` already parses and displays both, gracefully hiding either sub-badge when absent. The genuinely new piece is a referee's *historical* card-average — which, checked against the actual data flow, could **not** be computed from data already at rest: `fetchEspnMatchInfo()` (the function that parses referee name) is a **client-side** fetch, not backend-persisted, so no historical referee name has ever been stored anywhere. `referee_name` had to be added as a real column, captured going forward from FT resolution — the strictness stat only accumulates meaningfully from this sprint onward, no retroactive backfill, the same stated limitation `HIGH_PROFILE_LEAGUE_IDS` gating already carries for Chronicles (§22).
+
+**Live commentary scope is bounded to what ESPN's `keyEvents` feed actually contains, not what the brief assumed.** `fetchMatchKeyEvents()` (already built, Sprint 19/23) extracts goals, cards, and substitutions — never shots-on/off-target or fouls, which this codebase has never verified ESPN's soccer feed exposes at all. The commentary feature covers exactly the events the existing, already-proven parser returns; no second parser was built to chase unverified coverage.
+
+### Commit 1 — Schema + backend capture (migration 061, held for manual confirmation)
+
+`matches.live_commentary JSONB NOT NULL DEFAULT '[]'::jsonb` (append-only, one entry per resolved key event) + `matches.referee_name TEXT`. `append_live_commentary_entry(p_match_id, p_entry, p_natural_key)` is a single atomic `UPDATE ... WHERE NOT EXISTS` — the same "claim via one statement, a losing concurrent worker's WHERE clause matches zero rows" shape rule 4.14/§29 already established for coin-spending RPCs, applied here to a purely additive append. `get_referee_strictness(p_referee_name)` sums `match_team_stats.yellow_cards/red_cards` **per match first** (a real, easy-to-miss aggregation bug was caught and fixed before shipping — averaging directly over the joined home+away rows would have silently halved every figure, since `match_team_stats` has one row per team side per match) then averages across matches.
+
+`fetchMatchOfficials(externalId, leagueId)` (new, `espn.ts`) reads `data.boxscore.officials[0]` — the exact field path the frontend's own `fetchEspnMatchInfo()` already reads, reused verbatim. Deliberately its own network call rather than sharing `fetchMatchKeyEvents()`'s fetch: it only ever fires once per match at FT resolution (`scoreUpdater.ts`, fire-and-forget, same trigger point as `ensurePostMatchSummary`/`ensureChronicle`), so the simplicity of a second call outweighs the marginal cost at that frequency.
+
+### Commit 2 — Groq commentary + compute-once cache
+
+`runLiveCommentaryBatch(matchLimit=2, eventsPerMatchLimit=1)` (`aiScout.ts`) — small defaults matching `runHTInsightBatch`'s own `limit=2` reasoning (§23: keep Groq bursts small, let the next cycle catch up) — reuses `fetchMatchKeyEvents()` and `callGroq()` verbatim, the single Groq client every AI feature in this codebase funnels through. Dedup against already-covered events via a deterministic natural key (`minute-extraTime-period-type-team`) compared against `live_commentary`'s existing entries before generating anything — a covered event is never re-sent to Groq. Wired into `matchSync.ts`'s `syncAllActiveLeagues()` alongside the other AI Scout batches, the same cadence (~5 min via the sync heartbeat) HT insight already relies on for its own narrower window.
+
+`LiveCommentaryFeed.tsx` (frontend) mirrors `LiveActivityTicker.tsx`'s established shape (§54) — capped list, `AnimatePresence popLayout`, hidden until real entries exist — rather than inventing a second feed pattern. The newest entry gets a word-by-word typewriter reveal, reusing `HTAnalystCard`'s established stagger shape (§23). `max-h-[140px]` + internal scroll, not an unbounded growing list — Sprint 44's own zero-CLS mandate means new entries must never push the rest of the expanded card around.
+
+### Commit 3 — Win probability (no code)
+
+Confirmed already shipped, per the correction above. Nothing to build.
+
+### Commit 4 — Verification + docs
+
+Throwaway Playwright harness (deleted before commit, `main.tsx` restored, `git status` confirmed clean): `LiveCommentaryFeed` hidden entirely with zero entries; zero horizontal overflow at 320px in both languages with the word-by-word reveal fully settled. `tsc --noEmit` and `npm run build` clean on both `backend` and `frontend`.
+
+### Rules
+
+- **Before building a live-updating data visualization, check what the underlying feed actually verified as available in this exact codebase — a code comment stating a field "is not available" is a decisive, first-hand fact, not a hypothesis to re-litigate.** `MatchCard.tsx`'s own comment on `data.predictor` settled the entire scope of Commit 3 before any code was written.
+- **When a proposed feature is architecturally close to one this exact codebase already shipped and removed after live feedback, surface that precedent directly and let the user decide the risk — don't silently build it and don't silently downgrade it either.** `AskUserQuestion` with three concrete options (static-only / skip / build-live-anyway) resolved a genuine, stated risk in one round trip.
+- **Before scoping "new" backend capture work, check whether the data is already flowing through a client-side fetch versus genuinely never persisted anywhere.** Referee name was displayed today but never stored — the historical-aggregate mandate required a real new column and a real new capture trigger, not just a read of data assumed to already be at rest.
+- **A feature's scope should match what an already-proven parser actually returns, not what a brief assumes a third-party feed contains.** `fetchMatchKeyEvents()`'s real, verified event vocabulary (goals/cards/subs) is the honest ceiling for "live commentary" — building toward unverified coverage (shots, fouls) would have meant a second, speculative parser for data this codebase has never confirmed exists.
+- **A per-team-side stat table joined for a per-match aggregate needs an explicit per-match SUM before the cross-match AVG, or the result silently halves.** `get_referee_strictness()`'s subquery-then-average shape is the reference pattern for any future aggregate over `match_team_stats` — the same one-row-per-side structure that already required this exact care in Sprint 29's own aggregates.
+- **A "static, no new code" resolution to a planned commit is a legitimate, complete outcome — report it plainly rather than building a redundant duplicate to have "done something" for that commit.** Commit 3 shipped by reading the code, not by writing any.

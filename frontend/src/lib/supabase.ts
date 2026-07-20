@@ -30,6 +30,22 @@ export interface OracleStats {
   away: OracleTeamForm;
 }
 
+// V6 Sprint 44 — one entry per resolved live key event (goal/card/sub).
+// text_en/text_he are independently nullable — Groq can fail one language
+// and succeed the other, same partial-coverage shape as every other AI
+// Scout column in this codebase (§22).
+export interface LiveCommentaryEntry {
+  key: string;
+  minute: number;
+  extra_time: number | null;
+  period: number;
+  type: 'goal' | 'own_goal' | 'penalty_goal' | 'yellow_card' | 'red_card' | 'second_yellow' | 'substitution';
+  team: 'home' | 'away';
+  text_en: string | null;
+  text_he: string | null;
+  created_at: string;
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -128,6 +144,9 @@ export type Database = {
           oracle_stats: OracleStats | null;
           ai_oracle_insight: string | null;
           ai_oracle_insight_he: string | null;
+          // V6 Sprint 44 — migration 061.
+          live_commentary: LiveCommentaryEntry[];
+          referee_name: string | null;
         };
         Insert: never;
         Update: never;
