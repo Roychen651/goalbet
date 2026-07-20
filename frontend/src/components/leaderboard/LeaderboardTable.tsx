@@ -27,9 +27,13 @@ interface LeaderboardTableProps {
   /** V5 Sprint 40 — active group id, forwarded to LeaderboardRow's Scout
    *  Report lazy fetch (get_player_scout_report's shared-group guard). */
   groupId?: string | null;
+  /** V6 Sprint 46 — incremented once per detected live 'climbed' rankEvent
+   *  (useLeaderboard.ts). Forwarded only to the row where isCurrentUser is
+   *  true — a rank climb burst is always about the viewer's own row. */
+  climbBurstNonce?: number;
 }
 
-export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap, sparklineMap, rankDeltaMap, initialHighlightUserId, groupId }: LeaderboardTableProps) {
+export function LeaderboardTable({ entries, loading, currentUserId, type, onUserClick, periodStatsMap, sparklineMap, rankDeltaMap, initialHighlightUserId, groupId, climbBurstNonce }: LeaderboardTableProps) {
   const { t } = useLangStore();
   // Sprint 21 — which row's lightweight in-place preview is open, if any.
   // Deliberately separate from onUserClick's modal-opening row click — the
@@ -83,7 +87,12 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
                 },
               }}
               whileHover={{ scale: 1.005 }}
-              transition={{ layout: { type: 'spring', stiffness: 380, damping: 32 }, duration: 0.18, ease: 'easeOut' as const }}
+              // V6 Sprint 46 — stiffness/damping tuned from 380/32 to 400/28
+              // (a live-matchday-specific ask); the FLIP mechanism itself
+              // (LayoutGroup + layout) already existed since Sprint 21 and
+              // already fired on live rank shifts — this is a value tune,
+              // not a rebuild.
+              transition={{ layout: { type: 'spring', stiffness: 400, damping: 28 }, duration: 0.18, ease: 'easeOut' as const }}
             >
               <LeaderboardRow
                 entry={entry}
@@ -96,6 +105,7 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
                 expanded={expandedUserId === entry.user_id}
                 onToggleExpand={() => setExpandedUserId(prev => prev === entry.user_id ? null : entry.user_id)}
                 groupId={groupId}
+                climbBurstNonce={entry.user_id === currentUserId ? climbBurstNonce : undefined}
               />
             </motion.div>
           ))}

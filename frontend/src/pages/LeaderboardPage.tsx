@@ -1,15 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { Crown } from 'lucide-react';
 import { useLeaderboard, LeaderboardType } from '../hooks/useLeaderboard';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useLangStore } from '../stores/langStore';
+import { useUIStore } from '../stores/uiStore';
 import { supabase } from '../lib/supabase';
+import { tg } from '../lib/i18n';
+import { haptic } from '../lib/haptics';
+import { playSound } from '../lib/sensoryAudio';
 import { LeaderboardTable } from '../components/leaderboard/LeaderboardTable';
 import { LeaderboardInsights } from '../components/leaderboard/LeaderboardInsights';
 import { UserMatchHistoryModal } from '../components/leaderboard/UserMatchHistoryModal';
 import { H2HModal, H2HUser } from '../components/leaderboard/H2HModal';
+import { WeeklyPodiumModal } from '../components/leaderboard/WeeklyPodiumModal';
 import { GlassCard } from '../components/ui/GlassCard';
 import { InfoTip } from '../components/ui/InfoTip';
 import { cn } from '../lib/utils';
@@ -63,12 +69,46 @@ export function LeaderboardPage() {
   // whole table (not per-row) to avoid the exact N+1 pattern §30 already
   // forbids for this codebase.
   const [sparklineMap, setSparklineMap] = useState<Map<string, RecentPrediction[]>>(new Map());
-  const { entries, loading } = useLeaderboard(type);
+  // V6 Sprint 46 — "Hall of Champions" podium, manual trigger only this
+  // sprint (auto-reveal at matchweek rollover deliberately deferred — see
+  // CLAUDE.md §61). Data comes from useLeaderboard('weekly')'s own top 3.
+  const [showPodium, setShowPodium] = useState(false);
+  // Incremented once per detected 'climbed' rankEvent — the current user's
+  // own LeaderboardRow reacts to this changing (never to it merely existing,
+  // so a fresh mount never fires a burst) and fires celebrateAt() on its own
+  // row ref. Only ever targets the CURRENT user's row (LeaderboardTable only
+  // forwards it to the row where isCurrentUser is true).
+  const [climbBurstNonce, setClimbBurstNonce] = useState(0);
+  const { entries, loading, rankEvent } = useLeaderboard(type);
   const { user } = useAuthStore();
   const { groups, activeGroupId } = useGroupStore();
   const { t } = useLangStore();
+  const { addToast } = useUIStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const currentUserEntry = entries.find(e => e.user_id === user?.id);
+
+  // V6 Sprint 46 — live overtake orchestration. Deliberately separate from
+  // (and never touches) the server-side, persisted rank_drop notification
+  // path (§27) — this is a purely ephemeral, same-screen-only alert, so it
+  // has no dedup concern and needs no DB write. 'overtaken' fires a toast +
+  // haptic + a new synthesized 'rank_alert' tone; 'climbed' fires a haptic +
+  // a confetti burst on the caller's own row (no new sound — climbing isn't
+  // a coin event, and reusing coin_chime would blur that sound's existing
+  // meaning per §35's standing rule).
+  useEffect(() => {
+    if (!rankEvent) return;
+    if (rankEvent.type === 'overtaken') {
+      const msg = tg(t, 'liveOvertakeToast', rankEvent.byGender)
+        .replace('{0}', rankEvent.byUsername)
+        .replace('{1}', String(rankEvent.newRank));
+      addToast(msg, 'error');
+      haptic('overtaken');
+      playSound('rank_alert');
+    } else {
+      haptic('success');
+      setClimbBurstNonce(n => n + 1);
+    }
+  }, [rankEvent, t, addToast]);
 
   // Sprint 21 — rank-delta badges. No table in this schema ever persists a
   // rank (rank is always computed client-side by sorting), so "last week's
@@ -265,9 +305,22 @@ export function LeaderboardPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="font-barlow font-bold text-3xl tracking-wide uppercase text-white">{t('leaderboard')}</h1>
-        {activeGroup && <p className="text-text-muted text-xs">{activeGroup.name}</p>}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-barlow font-bold text-3xl tracking-wide uppercase text-white">{t('leaderboard')}</h1>
+          {activeGroup && <p className="text-text-muted text-xs">{activeGroup.name}</p>}
+        </div>
+        {/* V6 Sprint 46 — manual "Hall of Champions" trigger. Shows the
+            LIVE current-week top 3 (meaningful mid-week, not just at
+            matchweek conclusion — see CLAUDE.md §61 for why the
+            auto-reveal-at-rollover half is deferred). */}
+        <button
+          onClick={() => { haptic('selection'); setShowPodium(true); }}
+          aria-label={t('podiumTriggerAria')}
+          className="shrink-0 mt-1 w-9 h-9 rounded-full bg-white/6 border border-white/12 flex items-center justify-center text-amber-400/80 hover:text-amber-300 hover:bg-white/10 transition-all"
+        >
+          <Crown size={16} />
+        </button>
       </div>
 
       {/* Toggle */}
@@ -341,6 +394,7 @@ export function LeaderboardPage() {
         rankDeltaMap={rankDeltaMap}
         initialHighlightUserId={highlightUserId}
         groupId={activeGroupId}
+        climbBurstNonce={climbBurstNonce}
         onUserClick={(entry) => {
           if (entry.user_id === user?.id) {
             // Own row → show personal match history
@@ -377,6 +431,15 @@ export function LeaderboardPage() {
             friend={h2hFriend}
             groupId={activeGroupId}
             onClose={() => setH2hFriend(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showPodium && activeGroupId && user?.id && (
+          <WeeklyPodiumModal
+            currentUserId={user.id}
+            onClose={() => setShowPodium(false)}
           />
         )}
       </AnimatePresence>

@@ -15,7 +15,7 @@
 // tap is a true no-op, not a silent context-creation side effect some
 // browsers log a warning for.
 
-export type SoundName = 'toggle_click' | 'coin_chime' | 'lock_thud';
+export type SoundName = 'toggle_click' | 'coin_chime' | 'lock_thud' | 'rank_alert';
 
 let ctx: AudioContext | null = null;
 
@@ -88,6 +88,16 @@ const PLAYERS: Record<SoundName, (c: AudioContext) => void> = {
   // Low, final — a bet window locking. Distinct register from the chime
   // (90 Hz dropping to 60 Hz) so the two are never confused mid-session.
   lock_thud: (c) => tone(c, { type: 'sine', freq: 90, freqEnd: 60, duration: 0.09, peak: 0.22 }),
+
+  // Sprint 46 — a live rank-overtake alert. Two descending sine partials
+  // (784 Hz -> 587 Hz, the mirror-inverse interval of coin_chime's rising
+  // pair) so it reads as "notice, something moved against you" without
+  // being confusable with coin_chime's ascending "you received something"
+  // meaning or lock_thud's much lower, duller register.
+  rank_alert: (c) => {
+    tone(c, { type: 'sine', freq: 784, duration: 0.14, peak: 0.16 });
+    tone(c, { type: 'sine', freq: 587, duration: 0.14, peak: 0.12 });
+  },
 };
 
 /**

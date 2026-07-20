@@ -291,4 +291,7 @@ export interface LeaderboardEntryWithProfile extends LeaderboardEntry {
   live_points?: number; // potential points from unresolved live predictions right now
   // V5 Sprint 37 — joined from profiles alongside username/avatar_url.
   active_cosmetics?: Profile['active_cosmetics'] | null;
+  // V6 Sprint 46 — joined alongside the above, feeds the live overtake
+  // toast's tg() gendering (lib/i18n.ts's liveOvertakeToast_*).
+  gender?: Profile['gender'] | null;
 }

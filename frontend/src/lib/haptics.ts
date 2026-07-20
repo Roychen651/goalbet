@@ -2,7 +2,7 @@
 // that don't support it (desktop, iOS Safari) — always safe to call.
 type Pattern =
   | 'selection' | 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'coin_drop'
-  | 'toggle_click' | 'bet_lock' | 'coin_roll';
+  | 'toggle_click' | 'bet_lock' | 'coin_roll' | 'overtaken';
 
 const PATTERNS: Record<Pattern, number | number[]> = {
   selection: 5,            // ultra-brief tick — a crisp mechanical switch, not a buzz
@@ -18,6 +18,10 @@ const PATTERNS: Record<Pattern, number | number[]> = {
   toggle_click: [6, 20, 6], // soft double-tick — a settings/nav toggle
   bet_lock: [10, 15, 25],   // crisp mechanical snap, sharper attack than 'medium'
   coin_roll: 4,             // one sub-pulse — fired repeatedly across a NumberFlow roll, never a single long buzz
+  // Sprint 46 — paired with lib/sensoryAudio.ts's new 'rank_alert' tone. A
+  // firm double-buzz distinct from 'error' (which means "you did something
+  // wrong," not "a rival passed you") and from 'coin_drop' (a positive cue).
+  overtaken: [20, 10, 20],
 };
 
 export function haptic(pattern: Pattern = 'light'): void {
