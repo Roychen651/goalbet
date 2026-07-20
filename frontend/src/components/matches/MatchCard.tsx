@@ -39,6 +39,12 @@ const LEAGUE_ACCENT: Record<number, string> = {
   9003: '#a51f22', // Copa del Rey
 };
 
+// V6 Sprint 43 — EntityBadge's `prestige` tier (real 3D tilt + specular
+// sheen) is deliberately reserved for the two genuinely marquee
+// competitions, not every league logo in every card. Champions League
+// (4346) and World Cup (4480) — matching §13's documented internal IDs.
+const PRESTIGE_LEAGUE_IDS = new Set<number>([4346, 4480]);
+
 // ── ESPN phase translation for Hebrew ─────────────────────────────────────────
 const PHASE_HE: Record<string, string> = {
   'Quarterfinals': 'רבע גמר',
@@ -409,6 +415,20 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
     ? (hasPrediction ? 'live-predicted' : 'live')
     : 'elevated';
 
+  // V6 Sprint 43 — ambient dual-team mesh. teamHaloColor()'s own alpha param
+  // (already used one level down by TeamBlock's per-badge halo) gives the
+  // 0.12 ceiling directly — no new color function, matching §51-addendum-3's
+  // "compute from a source of truth already in hand" discipline. CSS
+  // radial-gradient has no logical inline-start/end position syntax (the
+  // same physical-only limitation NotificationCenter's drawer `x` transform
+  // hit, §38) — the isRTL branch below is the correct, established
+  // technique for exactly this class of primitive, not a regression back to
+  // physical-property thinking.
+  const isRTL = lang === 'he';
+  const meshHomeSide = isRTL ? 'right' : 'left';
+  const meshAwaySide = isRTL ? 'left' : 'right';
+  const meshBackground = `radial-gradient(circle at ${meshHomeSide} 50%, ${teamHaloColor(match.home_team, 0.12)} 0%, transparent 60%), radial-gradient(circle at ${meshAwaySide} 50%, ${teamHaloColor(match.away_team, 0.12)} 0%, transparent 60%)`;
+
   return (
     <div ref={cardRef}>
     <GlassCard
@@ -420,6 +440,25 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
       grain
       edgeGradient
     >
+      {/* Ambient dual-team mesh — a background layer, never combined with a
+          transform on this same node (this GlassCard render branch carries
+          no whileHover/drag; grain+edgeGradient already prove that combo
+          safe here, same shape TeamBlock's own -z-10 halo already uses one
+          level down). Breathing is CSS-only (.animate-live-breathing-mesh,
+          index.css), gated by the identical enableLiveAnimations &&
+          isInProgress condition `breathing` above already uses — reusing
+          the condition, not a new prop. Capped at teamHaloColor's own 0.12
+          ceiling deliberately — see CLAUDE.md §58 for why this exact card
+          has a documented "we overdid it once" history (§47's removed
+          Pressure Meter) and is being shipped conservative on purpose. */}
+      <div
+        aria-hidden="true"
+        className={cn(
+          'pointer-events-none absolute -z-10 inset-0 rounded-2xl [mix-blend-mode:screen]',
+          enableLiveAnimations && isInProgress && 'animate-live-breathing-mesh'
+        )}
+        style={{ background: meshBackground }}
+      />
       {/* Card header */}
       <button
         className="w-full p-4 text-start group hover:bg-white/3 transition-colors duration-150 rounded-t-2xl"
@@ -621,6 +660,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                     hashSeed={leagueInfo?.name ?? match.league_name}
                     size={20}
                     className="w-5 h-5 league-logo-dark"
+                    prestige={PRESTIGE_LEAGUE_IDS.has(match.league_id)}
                   />
                   <EntityBadge
                     src={`https://a.espncdn.com/i/leaguelogos/soccer/500/${leagueEspnId}.png`}
@@ -629,6 +669,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                     hashSeed={leagueInfo?.name ?? match.league_name}
                     size={20}
                     className="w-5 h-5 league-logo-light"
+                    prestige={PRESTIGE_LEAGUE_IDS.has(match.league_id)}
                   />
                 </>) : leagueBadge ? (
                   <span className="text-sm leading-none" title={match.league_name}>{leagueBadge}</span>
