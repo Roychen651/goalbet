@@ -8,6 +8,7 @@ import { LockedPrediction } from './PredictionForm';
 import { MatchTimeline } from './MatchTimeline';
 import { MatchStats } from './MatchStats';
 import { LiveLobby } from './LiveLobby';
+import { LiveCommentaryFeed } from './LiveCommentaryFeed';
 import { MatchRosters } from './MatchRosters';
 import { Avatar } from '../ui/Avatar';
 import { EntityBadge } from '../ui/EntityBadge';
@@ -903,6 +904,10 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                       never-persisted floating reactions + a 3-line ticker.
                       See CLAUDE.md §53. */}
                   {isLive && <LiveLobby matchId={match.id} />}
+                  {/* V6 Sprint 44 — AI-narrated live commentary, one line
+                      per resolved key event (goal/card/sub). Hidden until
+                      real entries exist. */}
+                  {isLive && <LiveCommentaryFeed entries={match.live_commentary ?? []} />}
                   {isFinished && <MatchTimeline match={match} />}
                   {(isFinished || isLive) && <MatchRosters match={match} />}
                 </>

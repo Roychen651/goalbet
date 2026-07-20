@@ -3,7 +3,7 @@ import { fetchLeagueMatches, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
 import { DBMatch } from './sportsdb';
 import { logger } from '../lib/logger';
 import { processBatched } from '../lib/batch';
-import { runPreMatchBatch, runPostMatchBatch, runHTInsightBatch, runOracleBatch } from './aiScout';
+import { runPreMatchBatch, runPostMatchBatch, runHTInsightBatch, runOracleBatch, runLiveCommentaryBatch } from './aiScout';
 
 export interface SyncResult {
   leagueId: number;
@@ -195,6 +195,7 @@ export async function syncAllActiveLeagues(): Promise<SyncResult[]> {
   // Silent no-op if GROQ_API_KEY isn't set. Fully try/catch'd internally.
   await runPreMatchBatch(2);
   await runHTInsightBatch(2);
+  await runLiveCommentaryBatch(2, 1);
   await runPostMatchBatch(3);
   // Oracle stats compute regardless of GROQ_API_KEY (pure SQL); only the
   // narration half is gated on the key — see runOracleBatch's own comment.

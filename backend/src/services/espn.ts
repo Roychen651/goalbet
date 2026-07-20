@@ -432,6 +432,36 @@ export async function fetchMatchKeyEvents(
   }
 }
 
+/**
+ * V6 Sprint 44 — the referee's display name from the same summary endpoint
+ * fetchMatchKeyEvents() already reads. A separate call, not a shared fetch
+ * with fetchMatchKeyEvents(), deliberately: this only ever fires once per
+ * match at FT resolution (scoreUpdater.ts), not on every live-poll tick —
+ * a low-frequency call, so the simplicity of its own request outweighs the
+ * marginal cost of a second identical fetch. `data.boxscore.officials[0]`
+ * is the exact field path the frontend's own fetchEspnMatchInfo() already
+ * reads (MatchCard.tsx) — reused verbatim, not re-derived.
+ */
+export async function fetchMatchOfficials(externalId: string, leagueId: number): Promise<string | null> {
+  const slug = LEAGUE_ESPN_MAP[leagueId];
+  if (!slug) return null;
+  const eventId = externalId.replace(/^espn_/, '');
+  if (!eventId || !/^\d+$/.test(eventId)) return null;
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
+  try {
+    const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+    const officials = (data?.boxscore?.officials as Record<string, unknown>[]) ?? [];
+    const ref = officials[0] as Record<string, unknown> | undefined;
+    if (!ref) return null;
+    const name = (typeof ref.displayName === 'string' && ref.displayName) ||
+      (typeof ref.fullName === 'string' && ref.fullName) || null;
+    return name;
+  } catch {
+    return null;
+  }
+}
+
 export interface MatchTeamStatsSummary {
   home_stats_raw: Record<string, unknown>[] | null;
   away_stats_raw: Record<string, unknown>[] | null;

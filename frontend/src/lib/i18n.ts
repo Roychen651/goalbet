@@ -872,6 +872,8 @@ export const translations = {
     // reactions on the live Match Center. Never persisted to Postgres —
     // see CLAUDE.md §53.
     liveLobbyTickerLabel: 'Live Feed',
+    // V6 Sprint 44 — AI-narrated live commentary feed label.
+    liveCommentaryLabel: 'Live Commentary',
     liveLobbyChipRowLabel: 'Live Trash Talk',
     liveLobbySentReaction_male: '{0} sent a {1} reaction',
     liveLobbySentReaction_female: '{0} sent a {1} reaction',
@@ -1732,6 +1734,8 @@ export const translations = {
     // V5 Sprint 39 — "הלובי החי": טראש טוק בלייב שצף ונעלם, אף פעם לא
     // נשמר במסד הנתונים.
     liveLobbyTickerLabel: 'צנרת אירועים',
+    // V6 Sprint 44 — "פרשנות חיה" (Live Commentary), the AI-narrated feed label.
+    liveCommentaryLabel: 'פרשנות חיה',
     liveLobbyChipRowLabel: 'טראש טוק בלייב',
     liveLobbySentReaction_male: '{0} שלח תגובת {1}',
     liveLobbySentReaction_female: '{0} שלחה תגובת {1}',

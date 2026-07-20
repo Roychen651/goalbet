@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
-import { fetchLeagueMatches, fetchMatchHalftimeScore, fetchMatchLinescoreRepair, fetchMatchKeyEvents, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
+import { fetchLeagueMatches, fetchMatchHalftimeScore, fetchMatchLinescoreRepair, fetchMatchKeyEvents, fetchMatchOfficials, LEAGUE_ESPN_MAP, DBMatchWithClock } from './espn';
 import { calculatePoints, type ParlayTierKey } from './pointsEngine';
 import { logger } from '../lib/logger';
 import { ensurePostMatchSummary, ensureChronicle } from './aiScout';
@@ -7,6 +7,32 @@ import { sendPushToUser } from './pushSender';
 import { getLeagueTier } from './leagueRegistry';
 import { processBatched } from '../lib/batch';
 import { resolvePoolsForMatch } from './syndicatePools';
+
+/**
+ * V6 Sprint 44 — captures the referee's name once, at FT resolution, so
+ * get_referee_strictness() has real matches.referee_name data to aggregate
+ * over going forward. Fire-and-forget (`void`-prefixed at the call site,
+ * same shape as ensureChronicle) — a Groq-unrelated ESPN enrichment call
+ * must never block or delay coin resolution. `.is('referee_name', null)`
+ * guard means a match already captured (by a concurrent worker, or a
+ * catch-up pass re-processing the same match) never re-fetches or
+ * re-writes — the same idempotency shape writeInsight() already uses for
+ * AI Scout's nullable text columns.
+ */
+async function captureRefereeName(matchId: string, externalId: string, leagueId: number): Promise<void> {
+  try {
+    const name = await fetchMatchOfficials(externalId, leagueId);
+    if (!name) return;
+    const { error } = await supabaseAdmin
+      .from('matches')
+      .update({ referee_name: name })
+      .eq('id', matchId)
+      .is('referee_name', null);
+    if (error) logger.warn(`[scoreUpdater] Failed to persist referee_name for match ${matchId}: ${error.message}`);
+  } catch (err) {
+    logger.warn(`[scoreUpdater] captureRefereeName crashed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
 
 interface PendingMatch {
   id: string;
@@ -745,6 +771,8 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
             // Post-match AI Scout — generates a witty summary once, then served infinitely
             // from the DB. Silent no-op if Groq isn't configured or the call fails.
             await ensurePostMatchSummary(match.id);
+            // Referee-strictness data capture — fire-and-forget, never blocks resolution.
+            void captureRefereeName(match.id, match.external_id, match.league_id);
           }
         } else {
           // ── ET detection: resolve predictions at the end of 90 min ──────────
