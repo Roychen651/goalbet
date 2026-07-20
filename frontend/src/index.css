@@ -53,15 +53,6 @@
   --arena-glow: oklch(78% 0.11 218 / 0.35);
   --arena-grain-opacity: 0.035;
 
-  /* V6 Sprint 43 — theme-neutral specular glare, generalized out of
-     .tactile-tilt's own --arena-glow exactly as that rule's comment already
-     invited ("generalize... if this ever extends to non-Arena cards").
-     Deliberately neutral white/alpha, not hue-tinted like --arena-glow —
-     a specular highlight on a metallic/glass badge should read as a real
-     light reflection regardless of which team's hashed hue the badge itself
-     is rendering, never inheriting Arena's "performance" meaning. */
-  --glass-glare: oklch(100% 0 0 / 0.45);
-
   /* Sprint 20 — Risk Meter two-stop scale (OKLCH). Deliberately a separate
      token pair from --arena-cold/hot: arena's scale means "performance"
      (win ratio), this one means "how much of your balance this bet risks" —
@@ -185,10 +176,6 @@ html.light {
   --arena-mid: oklch(62% 0.015 240);
   --arena-hot: oklch(56% 0.20 13);
   --arena-glow: oklch(55% 0.14 218 / 0.22);
-  /* V6 Sprint 43 — light-mode specular glare. Higher alpha than dark's
-     0.45 (a white highlight needs more presence to read against a near-
-     white card surface than against navy). */
-  --glass-glare: oklch(100% 0 0 / 0.6);
   --arena-grain-opacity: 0.05;
 
   /* Sprint 20 — Risk Meter, light surface variant. Same hue anchors (85
@@ -1122,83 +1109,6 @@ html.light .glass-grain { mix-blend-mode: multiply; }
    at all, not just less likely to stick. */
 @media (hover: hover) and (pointer: fine) {
   .tactile-tilt:hover::after {
-    opacity: 1;
-  }
-}
-
-/* V6 Sprint 43 — EntityBadge.tsx specular sweep. Base tier: pure CSS, no JS
-   per instance (a match feed can render dozens of badges at once — the
-   exact "many simultaneous instances -> CSS-only" rule this codebase has
-   already applied to the tilt hook, the live-clock pulse, the leaderboard
-   halo, and the hero bloom). A diagonal highlight band swept via
-   background-position, not opacity — reads as a moving light reflection
-   rather than a fade.
-   Desktop: real :hover, gated to (hover:hover)+(pointer:fine) — same fix as
-   .tactile-tilt above, for the same reason (a bare :hover sticks on iOS
-   Safari after a tap with no mouse to ever "leave"). Mobile: EntityBadge.tsx
-   toggles .badge-touched explicitly from real touchstart/touchend handlers,
-   never a bare :active — the deliberate replacement for the thing a media
-   query can't gate on touch devices. */
-.badge-sweep {
-  position: relative;
-  overflow: hidden;
-}
-.badge-sweep::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  background: linear-gradient(115deg, transparent 40%, var(--glass-glare) 50%, transparent 60%);
-  background-size: 250% 250%;
-  background-position: 120% 120%;
-  transition: background-position 0.5s ease;
-}
-@media (hover: hover) and (pointer: fine) {
-  .badge-sweep:hover::after {
-    background-position: -20% -20%;
-  }
-}
-.badge-sweep.badge-touched::after {
-  background-position: -20% -20%;
-}
-
-/* Prestige tier (opt-in `prestige` prop, high-profile league logos only —
-   Champions League / World Cup, never wired app-wide): real 3D tilt via the
-   same useTactileTilt() hook + --tilt-x/--tilt-y custom properties as
-   .tactile-tilt, but its OWN glare rule using the theme-neutral
-   --glass-glare token above instead of --arena-glow (a badge's specular
-   sheen has nothing to do with Arena's "performance" meaning — reusing that
-   token would be the exact cross-context token-meaning bleed this codebase
-   audits against, §30/§41/§56).
-   Deliberately mix-blend-mode:overlay, NEVER backdrop-filter, on this same
-   transformed (preserve-3d) element — backdrop-filter + transform on one
-   node is the documented WebKit paint-failure trap this codebase has hit
-   twice already (PredictionModal's Vaul sheet, §21/§34; BottomNav's
-   scroll-drift fix, this same sprint's own predecessor bug). */
-.badge-prestige {
-  transform: perspective(700px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  transform-style: preserve-3d;
-}
-.badge-prestige::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  z-index: 2;
-  mix-blend-mode: overlay;
-  background: radial-gradient(
-    circle at var(--glare-x, 50%) var(--glare-y, 50%),
-    var(--glass-glare) 0%,
-    transparent 55%
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-@media (hover: hover) and (pointer: fine) {
-  .badge-prestige:hover::after {
     opacity: 1;
   }
 }

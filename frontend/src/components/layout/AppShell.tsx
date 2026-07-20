@@ -15,7 +15,6 @@ import { WhatsNewAutoTrigger } from '../ui/WhatsNewAutoTrigger';
 import { SyncProgressBar } from '../ui/SyncProgressBar';
 import { ErrorBoundary } from './ErrorBoundary';
 import { CoinsRainCanvas } from '../effects/CoinsRainCanvas';
-import { BallTrailTransition } from '../effects/BallTrailTransition';
 import { useUIStore } from '../../stores/uiStore';
 import { useLangStore } from '../../stores/langStore';
 import { useNewPointsAlert } from '../../hooks/useNewPointsAlert';
@@ -146,7 +145,6 @@ export function AppShell() {
     <div className="flex min-h-screen">
       <SyncProgressBar />
       <CoinsRainCanvas />
-      <BallTrailTransition />
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar />
