@@ -207,7 +207,13 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className={cn('font-semibold text-sm truncate', isCurrentUser ? 'text-accent-green' : 'text-white')}>
+          {/* dir="auto" (V6 Sprint 48 hotfix) — a Latin username inside
+              this RTL-ancestor row previously truncated from the
+              CONTAINER's logical end (visually the left), cutting
+              "Dani Cohen" to "...ohen" instead of "Dani C...". Caught live
+              while verifying GlobalArenaView.tsx's own identical pattern;
+              fixed here too since it's the same one-line, zero-risk fix. */}
+          <span dir="auto" className={cn('font-semibold text-sm truncate', isCurrentUser ? 'text-accent-green' : 'text-white')}>
             {entry.username}{isCurrentUser && ` (${t('you')})`}
           </span>
           {recentPredictions && recentPredictions.length >= 2 && (

@@ -137,6 +137,24 @@
   --epoch-experience: oklch(75% 0.14 200);
   --epoch-analytics: oklch(68% 0.19 280);
   --epoch-social: oklch(78% 0.16 50);
+
+  /* V6 Sprint 48 — Global Arena divisions. A sixth, deliberately distinct
+     fixed-hue family: not --streak-bronze/-silver/-ember (that trio means
+     PER-GROUP streak LENGTH, 3 tiers), not --risk-gold (balance at
+     stake), not any of the others above — this one means cross-platform
+     ranking DIVISION, 4 tiers. Superficially similar names (bronze,
+     silver, gold exist in both the streak family and here) are a
+     coincidence of English color vocabulary, not a shared meaning —
+     reusing the streak tokens for this would blur two genuinely
+     different concepts under one CSS variable, the exact mistake this
+     file's own accumulated comments warn against. Plain lookup
+     (arenaDivisionColor() in lib/oklch.ts), same shape as the streak and
+     epoch families, since there are exactly 4 named divisions, nothing
+     continuous to interpolate. */
+  --arena-division-bronze: oklch(58% 0.10 40);
+  --arena-division-silver: oklch(82% 0.02 230);
+  --arena-division-gold: oklch(80% 0.16 95);
+  --arena-division-diamond: oklch(88% 0.09 190);
 }
 
 /* ─── Light mode — "Frost" ─── */
@@ -217,6 +235,14 @@ html.light {
   --epoch-experience: oklch(55% 0.15 200);
   --epoch-analytics: oklch(50% 0.20 280);
   --epoch-social: oklch(58% 0.18 50);
+
+  /* V6 Sprint 48 — Global Arena divisions, light surface variant. Same hue
+     anchors (40/230/95/190) as dark, darkened + more saturated for
+     contrast on near-white cards — same discipline as every pair above. */
+  --arena-division-bronze: oklch(42% 0.09 40);
+  --arena-division-silver: oklch(55% 0.02 230);
+  --arena-division-gold: oklch(58% 0.15 95);
+  --arena-division-diamond: oklch(55% 0.10 190);
 }
 
 /* ============================================================

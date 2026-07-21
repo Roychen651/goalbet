@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { Crown } from 'lucide-react';
+import { Crown, Globe, Users } from 'lucide-react';
 import { useLeaderboard, LeaderboardType } from '../hooks/useLeaderboard';
 import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
@@ -16,6 +16,7 @@ import { LeaderboardInsights } from '../components/leaderboard/LeaderboardInsigh
 import { UserMatchHistoryModal } from '../components/leaderboard/UserMatchHistoryModal';
 import { H2HModal, H2HUser } from '../components/leaderboard/H2HModal';
 import { WeeklyPodiumModal } from '../components/leaderboard/WeeklyPodiumModal';
+import { GlobalArenaView } from '../components/leaderboard/GlobalArenaView';
 import { GlassCard } from '../components/ui/GlassCard';
 import { InfoTip } from '../components/ui/InfoTip';
 import { cn } from '../lib/utils';
@@ -58,6 +59,14 @@ export function LeaderboardPage() {
   // this exactly once, independent of any later searchParams changes.
   const [highlightUserId] = useState(() => searchParams.get('highlight'));
   const [type, setType] = useState<LeaderboardType>('total');
+  // V6 Sprint 48 — "The Global Arena." A SIBLING top-level view, not a 4th
+  // LeaderboardType value — global_user_standings has no group_id at all,
+  // so widening the group-scoped `type` union to include it would imply
+  // useLeaderboard('global') should work, which it structurally can't
+  // (every existing value there is inherently group-scoped, §35/§50's
+  // Group-Channel design). Selecting 'global' hides the entire group-scoped
+  // section (tabs/insights/KPI/table) and renders GlobalArenaView instead.
+  const [view, setView] = useState<'group' | 'global'>('group');
   const [selectedUser, setSelectedUser] = useState<SelectedUser | null>(null);
   const [h2hFriend, setH2hFriend] = useState<H2HUser | null>(null);
   // Period-aware stats map keyed by user_id. null on 'total' tab (use cached leaderboard
@@ -323,6 +332,34 @@ export function LeaderboardPage() {
         </button>
       </div>
 
+      {/* V6 Sprint 48 — Group / Global switch. A sibling toggle above the
+          existing group-scoped tabs, not merged into them — see the
+          `view` state comment above for why. */}
+      <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+        <button
+          onClick={() => setView('group')}
+          className={cn(
+            'flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-150 flex items-center justify-center gap-1.5',
+            view === 'group' ? 'bg-white/10 text-white' : 'text-text-muted hover:text-white',
+          )}
+        >
+          <Users size={14} /> {t('groupArenaTab')}
+        </button>
+        <button
+          onClick={() => setView('global')}
+          className={cn(
+            'flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-150 flex items-center justify-center gap-1.5',
+            view === 'global' ? 'bg-white/10 text-white' : 'text-text-muted hover:text-white',
+          )}
+        >
+          <Globe size={14} /> {t('globalArenaTab')}
+        </button>
+      </div>
+
+      {view === 'global' ? (
+        <GlobalArenaView />
+      ) : (
+        <>
       {/* Toggle */}
       <div className="flex gap-1 bg-white/5 rounded-xl p-1">
         {TABS.map(tab => (
@@ -405,6 +442,8 @@ export function LeaderboardPage() {
           }
         }}
       />
+        </>
+      )}
 
       <AnimatePresence>
         {selectedUser && activeGroupId && (

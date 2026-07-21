@@ -173,3 +173,16 @@ export function streakTierColor(streak: number): { token: string; tier: StreakTi
 export function parlayIntensityColor(linkedTierCount: number): string {
   return linkedTierCount >= 3 ? 'var(--parlay-high)' : 'var(--parlay-low)';
 }
+
+// V6 Sprint 48 — Global Arena division badge. Exactly 4 named divisions,
+// nothing continuous to interpolate — same plain-lookup shape as
+// streakTierColor()/parlayIntensityColor() above. Deliberately reads
+// --arena-division-* (index.css), never --streak-*, even though the color
+// vocabulary (bronze/silver/gold) overlaps — the two token families mean
+// genuinely different things (streak length vs. cross-platform division),
+// see index.css's own comment on this exact token block.
+export type ArenaDivision = 'bronze' | 'silver' | 'gold' | 'diamond';
+
+export function arenaDivisionColor(division: ArenaDivision): string {
+  return `var(--arena-division-${division})`;
+}

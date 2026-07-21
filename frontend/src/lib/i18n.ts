@@ -851,6 +851,20 @@ export const translations = {
     duelErrorInsufficientCoins: 'Not enough coins for this stake',
     duelErrorClosed: 'This challenge is no longer open',
 
+    // V6 Sprint 48 — "The Global Arena": cross-group divisions & ranking.
+    groupArenaTab: 'Group',
+    globalArenaTab: 'Global',
+    arenaDivisionDiamond: 'Diamond',
+    arenaDivisionGold: 'Gold',
+    arenaDivisionSilver: 'Silver',
+    arenaDivisionBronze: 'Bronze',
+    yourGlobalRank: 'Your Global Rank',
+    infoGlobalRank: 'Ranked by average points per resolved prediction across every group you play in — not raw total, so it stays fair whether you’re in one group or five.',
+    avgPointsShort: 'avg/pick',
+    arenaPicksSuffix: 'picks',
+    arenaEmptyTitle: 'The Arena is still warming up',
+    arenaEmptyDesc: 'Resolve at least 5 predictions to earn your spot on the Global Arena ladder.',
+
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'How should we refer to you?',
     genderMale: 'Male',
@@ -1774,6 +1788,20 @@ export const translations = {
     duelErrorNotLive: 'המשחק הזה לא בשידור חי כרגע',
     duelErrorInsufficientCoins: 'אין מספיק מטבעות להימור הזה',
     duelErrorClosed: 'האתגר הזה כבר לא פתוח',
+
+    // V6 Sprint 48 — "הזירה הגלובלית" (The Global Arena)
+    groupArenaTab: 'קבוצה',
+    globalArenaTab: 'גלובלי',
+    arenaDivisionDiamond: 'יהלום',
+    arenaDivisionGold: 'זהב',
+    arenaDivisionSilver: 'כסף',
+    arenaDivisionBronze: 'ארד',
+    yourGlobalRank: 'הדירוג הגלובלי שלך',
+    infoGlobalRank: 'מדורג לפי ממוצע נקודות לניחוש שנפתר, על פני כל הקבוצות שאת/ה משחק/ת בהן — לא סה"כ גולמי, כדי שיישאר הוגן בין אם את/ה בקבוצה אחת או בחמש.',
+    avgPointsShort: 'ממוצע/ניחוש',
+    arenaPicksSuffix: 'ניחושים',
+    arenaEmptyTitle: 'הזירה עוד מתחממת',
+    arenaEmptyDesc: 'פתרו לפחות 5 ניחושים כדי לתפוס מקום בסולם הזירה הגלובלית.',
 
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'איך לפנות אליך?',
