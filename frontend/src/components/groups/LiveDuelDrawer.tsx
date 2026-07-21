@@ -1,40 +1,56 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Swords, X } from 'lucide-react';
 import { CoinIcon } from '../ui/CoinIcon';
-import { useLiveDuelBroadcast, type DuelChallengePayload } from '../providers/RealtimeProvider';
+import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { useGroupStore } from '../../stores/groupStore';
+import { useCoinsStore } from '../../stores/coinsStore';
+import { useUIStore } from '../../stores/uiStore';
 import { useLangStore } from '../../stores/langStore';
+import { useRealtimeSubscription, useRealtimeReconnect } from '../providers/RealtimeProvider';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
 import { COIN_COSTS } from '../../lib/constants';
+import type { TranslationKey } from '../../lib/i18n';
 
-// V6 Sprint 47 Commit 2 — "Live Duels" negotiation layer. Everything in
-// this component is pure matchmaking chatter over the `duel_challenge`
-// broadcast event (RealtimeProvider.tsx) — offer / accept / cancel — and
-// NEVER writes to Postgres, never touches a coin balance. Once two members
-// agree on terms (an offer gets accepted), the drawer shows a "Matched!"
-// state and stops there — Commit 3 is what wires the real escrow RPC
-// (each side independently debits their OWN balance from their OWN
-// session, never one party moving the other's coins — see the
-// DuelChallengePayload file-header comment in RealtimeProvider.tsx for
-// exactly why a broadcast payload alone can never be trusted to move
-// money). This component is deliberately NOT mounted anywhere in the app
-// yet — no entry trigger exists on MatchCard — the same "built now,
-// dormant until wired" precedent as usePredictions.ts's
-// isPredictionSubmitInFlight (§50, Sprint 35 Commit 3).
+// V6 Sprint 47 Commit 3 — "Live Duels": real DB-backed escrow, replacing
+// Commit 2's pure-broadcast negotiation. Commit 2 had no persisted state
+// to build on yet (live_duels didn't exist), so pure `duel_challenge`
+// broadcast chatter was the only option; now that migration 065 gives
+// this a real, RLS-protected, Realtime-subscribable table, DB state +
+// postgres_changes is the correct discovery mechanism — the same pattern
+// SyndicatePoolCard/BattleMeter already use for every other public group
+// activity. The generalized broadcast plumbing Commit 2 built
+// (useLiveDuelBroadcast, DuelChallengePayload) stays available
+// infrastructure in RealtimeProvider.tsx; this component simply doesn't
+// need it anymore. Every coin movement here happens via one of the three
+// real RPCs (migration 065) — this component never trusts a client-side
+// guess about balances or outcomes.
 //
 // Swipe-to-close bottom sheet — rule 4.13 — same drag="y" +
 // dragConstraints + onDragEnd threshold shape as every other bottom sheet
-// in this codebase (MomentumBetSheet, CoinGuide), onPointerDown
-// stopPropagation on the one scroll container.
+// in this codebase, onPointerDown stopPropagation on the one scroll
+// container.
 
 interface LiveDuelDrawerProps {
   matchId: string;
   homeTeam: string;
   awayTeam: string;
   onClose: () => void;
+}
+
+interface LiveDuel {
+  id: string;
+  challenger_id: string;
+  challenger_side: 'home' | 'away';
+  acceptor_id: string | null;
+  acceptor_side: 'home' | 'away' | null;
+  stake: number;
+  status: 'pending' | 'active' | 'resolved' | 'refunded';
+  challenger: { username: string } | null;
+  acceptor: { username: string } | null;
 }
 
 const MIN_STAKE = 5;
@@ -44,142 +60,108 @@ const MIN_STAKE = 5;
 const MAX_STAKE = COIN_COSTS.MAX_PER_MATCH;
 const STEP = 2;
 
-function genNonce(): string {
-  return typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-// "My own current duel negotiation state" — covers both roles: I offered
-// (status 'offered') or I accepted someone else's offer (status
-// 'matched' arrives either way, from whichever side confirms the match).
-type MyDuelState =
-  | { status: 'idle' }
-  | { status: 'offered'; duelNonce: string; stake: number; side: 'home' | 'away' }
-  | { status: 'matched'; duelNonce: string; opponentUsername: string };
+const ERROR_KEY: Record<string, TranslationKey> = {
+  invalid_side: 'duelErrorGeneric',
+  invalid_amount: 'duelErrorGeneric',
+  match_not_live: 'duelErrorNotLive',
+  insufficient_coins: 'duelErrorInsufficientCoins',
+  member_not_found: 'duelErrorGeneric',
+  duel_not_found: 'duelErrorGeneric',
+  duel_closed: 'duelErrorClosed',
+  cannot_accept_own_duel: 'duelErrorGeneric',
+};
 
 export function LiveDuelDrawer({ matchId, homeTeam, awayTeam, onClose }: LiveDuelDrawerProps) {
-  const { user, profile } = useAuthStore();
+  const { user } = useAuthStore();
+  const { activeGroupId } = useGroupStore();
   const { t, lang } = useLangStore();
+  const { addToast } = useUIStore();
+  const coinsStore = useCoinsStore();
   const isHe = lang === 'he';
 
   const [stake, setStake] = useState(MIN_STAKE);
   const [side, setSide] = useState<'home' | 'away'>('home');
-  const [myDuel, setMyDuel] = useState<MyDuelState>({ status: 'idle' });
-  // Open offers from OTHER members, keyed by duelNonce — a Map so a
-  // superseding message (cancel/accept) can remove exactly one entry
-  // without scanning an array.
-  const [incoming, setIncoming] = useState<Map<string, DuelChallengePayload>>(new Map());
+  const [duels, setDuels] = useState<LiveDuel[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
 
   const homeName = isHe ? tTeam(homeTeam) : homeTeam;
   const awayName = isHe ? tTeam(awayTeam) : awayTeam;
-  const sideLabel = (s: 'home' | 'away') => (s === 'home' ? homeName : awayName);
+  const sideLabel = (s: 'home' | 'away' | null) => (s === 'home' ? homeName : s === 'away' ? awayName : '');
 
-  const onDuelMessage = useCallback((msg: DuelChallengePayload) => {
-    if (!user) return;
+  const fetchDuels = useCallback(async () => {
+    if (!activeGroupId) return;
+    const { data } = await supabase
+      .from('live_duels')
+      .select('id, challenger_id, challenger_side, acceptor_id, acceptor_side, stake, status, challenger:challenger_id(username), acceptor:acceptor_id(username)')
+      .eq('group_id', activeGroupId)
+      .eq('match_id', matchId)
+      .in('status', ['pending', 'active'])
+      .order('created_at', { ascending: false });
+    setDuels((data as unknown as LiveDuel[]) ?? []);
+  }, [activeGroupId, matchId]);
 
-    if (msg.type === 'offer') {
-      // Never my own offer (self-echo is off, but guard defensively) and
-      // never a reply targeted at someone else specifically.
-      if (msg.fromUserId === user.id) return;
-      if (msg.toUserId != null && msg.toUserId !== user.id) return;
-      setIncoming((prev) => {
-        const next = new Map(prev);
-        next.set(msg.duelNonce, msg);
-        return next;
-      });
-      return;
+  useEffect(() => { fetchDuels(); }, [fetchDuels]);
+  useRealtimeSubscription('live_duels', () => fetchDuels());
+  useRealtimeReconnect(() => fetchDuels());
+
+  const myDuel = duels.find((d) => d.challenger_id === user?.id || d.acceptor_id === user?.id) ?? null;
+  const openOffers = duels.filter((d) => d.status === 'pending' && d.challenger_id !== user?.id && !dismissed.has(d.id));
+
+  const runRpc = useCallback(async (fn: string, args: Record<string, unknown>) => {
+    const { data, error } = await supabase.rpc(fn, args);
+    if (error) {
+      addToast(t('duelErrorGeneric'), 'error');
+      haptic('error');
+      return false;
     }
-
-    if (msg.type === 'cancel') {
-      setIncoming((prev) => {
-        if (!prev.has(msg.duelNonce)) return prev;
-        const next = new Map(prev);
-        next.delete(msg.duelNonce);
-        return next;
-      });
-      return;
+    const result = data as { success: boolean; error?: string; balance?: number };
+    if (!result.success) {
+      addToast(t(ERROR_KEY[result.error ?? ''] ?? 'duelErrorGeneric'), 'error');
+      haptic('error');
+      return false;
     }
+    if (result.balance != null) coinsStore.setCoins(result.balance);
+    await fetchDuels();
+    return true;
+  }, [addToast, t, coinsStore, fetchDuels]);
 
-    if (msg.type === 'accept') {
-      // Someone accepted an offer I made — only react if it's genuinely
-      // MY outstanding offer and the accept is addressed to me.
-      setMyDuel((prev) => {
-        if (prev.status !== 'offered' || prev.duelNonce !== msg.duelNonce) return prev;
-        if (msg.toUserId !== user.id) return prev;
-        haptic('bet_lock');
-        playSound('lock_thud');
-        return { status: 'matched', duelNonce: msg.duelNonce, opponentUsername: msg.fromUsername };
-      });
-      // If it happened to also be sitting in my own incoming list
-      // (shouldn't normally, since 'offer' filters out my own — but a
-      // second accept racing on the same nonce is a real possibility),
-      // drop it there too.
-      setIncoming((prev) => {
-        if (!prev.has(msg.duelNonce)) return prev;
-        const next = new Map(prev);
-        next.delete(msg.duelNonce);
-        return next;
-      });
-    }
-  }, [user]);
-
-  const { send } = useLiveDuelBroadcast(matchId, onDuelMessage);
-
-  const challengeGroup = useCallback(() => {
-    if (!user || !profile) return;
-    const duelNonce = genNonce();
+  const challengeGroup = useCallback(async () => {
+    if (!user || !activeGroupId || submitting) return;
+    setSubmitting(true);
     haptic('selection');
     playSound('toggle_click');
-    send({ type: 'offer', duelNonce, fromUserId: user.id, fromUsername: profile.username, toUserId: null, stake, side });
-    setMyDuel({ status: 'offered', duelNonce, stake, side });
-  }, [user, profile, stake, side, send]);
-
-  const cancelChallenge = useCallback(() => {
-    if (myDuel.status !== 'offered' || !user || !profile) return;
-    haptic('selection');
-    send({
-      type: 'cancel',
-      duelNonce: myDuel.duelNonce,
-      fromUserId: user.id,
-      fromUsername: profile.username,
-      toUserId: null,
-      stake: myDuel.stake,
-      side: myDuel.side,
+    const ok = await runRpc('create_duel_offer', {
+      p_user_id: user.id, p_group_id: activeGroupId, p_match_id: matchId, p_side: side, p_stake: stake,
     });
-    setMyDuel({ status: 'idle' });
-  }, [myDuel, user, profile, send]);
+    if (ok) { haptic('bet_lock'); playSound('lock_thud'); }
+    setSubmitting(false);
+  }, [user, activeGroupId, matchId, side, stake, submitting, runRpc]);
 
-  const acceptOffer = useCallback((offer: DuelChallengePayload) => {
-    if (!user || !profile) return;
+  const cancelChallenge = useCallback(async (duelId: string) => {
+    if (!user || !activeGroupId || submitting) return;
+    setSubmitting(true);
+    haptic('selection');
+    await runRpc('cancel_duel_offer', { p_user_id: user.id, p_group_id: activeGroupId, p_duel_id: duelId });
+    setSubmitting(false);
+  }, [user, activeGroupId, submitting, runRpc]);
+
+  const acceptOffer = useCallback(async (duelId: string) => {
+    if (!user || !activeGroupId || submitting) return;
+    setSubmitting(true);
     haptic('bet_lock');
     playSound('lock_thud');
-    send({
-      type: 'accept',
-      duelNonce: offer.duelNonce,
-      fromUserId: user.id,
-      fromUsername: profile.username,
-      toUserId: offer.fromUserId,
-      stake: offer.stake,
-      side: offer.side === 'home' ? 'away' : 'home', // I take the opposite side from the offerer
-    });
-    setIncoming((prev) => {
-      const next = new Map(prev);
-      next.delete(offer.duelNonce);
-      return next;
-    });
-    setMyDuel({ status: 'matched', duelNonce: offer.duelNonce, opponentUsername: offer.fromUsername });
-  }, [user, profile, send]);
+    await runRpc('accept_duel_wager', { p_user_id: user.id, p_group_id: activeGroupId, p_duel_id: duelId });
+    setSubmitting(false);
+  }, [user, activeGroupId, submitting, runRpc]);
 
-  const ignoreOffer = useCallback((duelNonce: string) => {
-    setIncoming((prev) => {
-      const next = new Map(prev);
-      next.delete(duelNonce);
-      return next;
-    });
+  const ignoreOffer = useCallback((duelId: string) => {
+    setDismissed((prev) => new Set(prev).add(duelId));
   }, []);
 
-  const openOffers = useMemo(() => Array.from(incoming.values()), [incoming]);
+  const myOpponentName = myDuel
+    ? (myDuel.challenger_id === user?.id ? myDuel.acceptor?.username : myDuel.challenger?.username) ?? ''
+    : '';
 
   return (
     <motion.div
@@ -223,24 +205,28 @@ export function LiveDuelDrawer({ matchId, homeTeam, awayTeam, onClose }: LiveDue
           </div>
 
           <div className="px-5 py-5 space-y-5 max-h-[60vh] overflow-y-auto" onPointerDown={(e) => e.stopPropagation()}>
-            {myDuel.status === 'matched' ? (
+            {myDuel?.status === 'active' ? (
               <div className="text-center py-6 space-y-2">
                 <p className="text-lg font-semibold text-accent-green">
-                  {t('duelMatched').replace('{0}', myDuel.opponentUsername)}
+                  {t('duelMatched').replace('{0}', myOpponentName)}
                 </p>
-                <p className="text-white/45 text-xs">{t('duelConfirmingEscrow')}</p>
+                <p className="text-white/45 text-xs flex items-center justify-center gap-1">
+                  <CoinIcon size={12} className="inline-block align-[-1px]" />
+                  {myDuel.stake * 2} · {sideLabel(myDuel.challenger_id === user?.id ? myDuel.challenger_side : myDuel.acceptor_side)}
+                </p>
               </div>
-            ) : myDuel.status === 'offered' ? (
+            ) : myDuel?.status === 'pending' ? (
               <div className="text-center py-4 space-y-3">
                 <p className="text-white/70 text-sm">{t('duelWaitingForOpponent')}</p>
                 <p className="text-xs text-white/45 flex items-center justify-center gap-1">
                   <CoinIcon size={12} className="inline-block align-[-1px]" />
-                  {myDuel.stake} · {sideLabel(myDuel.side)}
+                  {myDuel.stake} · {sideLabel(myDuel.challenger_side)}
                 </p>
                 <button
                   type="button"
-                  onClick={cancelChallenge}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold border border-red-400/30 text-red-300 bg-red-400/10 active:scale-95 transition-all"
+                  onClick={() => cancelChallenge(myDuel.id)}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold border border-red-400/30 text-red-300 bg-red-400/10 active:scale-95 transition-all disabled:opacity-50"
                 >
                   {t('duelCancelChallenge')}
                 </button>
@@ -295,7 +281,8 @@ export function LiveDuelDrawer({ matchId, homeTeam, awayTeam, onClose }: LiveDue
                 <button
                   type="button"
                   onClick={challengeGroup}
-                  className="w-full py-3 rounded-2xl font-bebas text-xl tracking-wider bg-blue-400/15 text-blue-300 border border-blue-400/40 active:scale-95 transition-all"
+                  disabled={submitting}
+                  className="w-full py-3 rounded-2xl font-bebas text-xl tracking-wider bg-blue-400/15 text-blue-300 border border-blue-400/40 active:scale-95 transition-all disabled:opacity-50"
                 >
                   {t('duelChallengeButton')}
                 </button>
@@ -307,23 +294,24 @@ export function LiveDuelDrawer({ matchId, homeTeam, awayTeam, onClose }: LiveDue
                 <p className="text-xs text-white/35 text-center py-2">{t('duelNoOffers')}</p>
               ) : (
                 openOffers.map((offer) => (
-                  <div key={offer.duelNonce} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/4 border border-white/8">
+                  <div key={offer.id} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/4 border border-white/8">
                     <div className="flex-1 min-w-0 text-xs text-white/80 truncate">
-                      <span className="font-semibold">{offer.fromUsername}</span>{' '}
+                      <span className="font-semibold">{offer.challenger?.username ?? '?'}</span>{' '}
                       {t('duelIncomingOfferPrefix')}{' '}
                       <CoinIcon size={11} className="inline-block align-[-1px]" />{offer.stake}{' '}
-                      {t('duelIncomingOfferOn')} {sideLabel(offer.side)}
+                      {t('duelIncomingOfferOn')} {sideLabel(offer.challenger_side)}
                     </div>
                     <button
                       type="button"
-                      onClick={() => acceptOffer(offer)}
-                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-accent-green/15 text-accent-green border border-accent-green/30 active:scale-95 shrink-0"
+                      onClick={() => acceptOffer(offer.id)}
+                      disabled={submitting || !!myDuel}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-accent-green/15 text-accent-green border border-accent-green/30 active:scale-95 shrink-0 disabled:opacity-50"
                     >
                       {t('duelAccept')}
                     </button>
                     <button
                       type="button"
-                      onClick={() => ignoreOffer(offer.duelNonce)}
+                      onClick={() => ignoreOffer(offer.id)}
                       className="px-2 py-1.5 rounded-lg text-xs text-white/40 hover:text-white/60 shrink-0"
                     >
                       {t('duelIgnore')}

@@ -10,6 +10,15 @@ interface UIState {
   toasts: Toast[];
   activeModal: string | null;
   activePredictionMatchId: string | null;
+  // V6 Sprint 47 Commit 3 — same shape as activePredictionMatchId: a
+  // single global "which match's drawer is open" id, rendered once at
+  // HomePage.tsx's level (not nested per-MatchCard-instance) so the
+  // drawer's own `fixed inset-0` overlay is never a descendant of a
+  // transformed ancestor (a card's own hover/expand transform would
+  // otherwise break its containing-block math per the CSS spec — the
+  // same reasoning PredictionModal's existing top-level render already
+  // established this pattern for).
+  activeDuelMatchId: string | null;
   enableLiveAnimations: boolean;
   isSyncing: boolean;
   addToast: (message: string, type?: Toast['type']) => void;
@@ -18,6 +27,8 @@ interface UIState {
   closeModal: () => void;
   openPredictionModal: (matchId: string) => void;
   closePredictionModal: () => void;
+  openDuelDrawer: (matchId: string) => void;
+  closeDuelDrawer: () => void;
   toggleLiveAnimations: () => void;
   setSyncing: (v: boolean) => void;
 }
@@ -30,6 +41,7 @@ export const useUIStore = create<UIState>((set) => ({
   toasts: [],
   activeModal: null,
   activePredictionMatchId: null,
+  activeDuelMatchId: null,
   enableLiveAnimations: localStorage.getItem(LIVE_ANIM_KEY) !== 'false',
   isSyncing: false,
   setSyncing: (v) => set({ isSyncing: v }),
@@ -51,6 +63,9 @@ export const useUIStore = create<UIState>((set) => ({
 
   openPredictionModal: (matchId) => set({ activePredictionMatchId: matchId }),
   closePredictionModal: () => set({ activePredictionMatchId: null }),
+
+  openDuelDrawer: (matchId) => set({ activeDuelMatchId: matchId }),
+  closeDuelDrawer: () => set({ activeDuelMatchId: null }),
 
   toggleLiveAnimations: () =>
     set(state => {

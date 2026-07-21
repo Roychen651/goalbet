@@ -151,7 +151,8 @@ type RealtimeTable =
   | 'notifications'
   | 'micro_prediction_bets'
   | 'syndicate_pools'
-  | 'group_battles';
+  | 'group_battles'
+  | 'live_duels';
 type RealtimeHandler = (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => void;
 
 interface RealtimeContextValue {
@@ -490,6 +491,19 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'group_battles', filter: `defender_group_id=eq.${activeGroupId}` },
         (payload) => dispatch('group_battles', payload as RealtimePostgresChangesPayload<Record<string, unknown>>),
+      )
+      // V6 Sprint 47 Commit 3 — live_duels. event: '*' covers a brand-new
+      // offer (INSERT), an acceptance/activation (UPDATE), and a
+      // cancel/refund/resolve status flip — one binding, same "re-fetch
+      // the whole list, don't trust the partial payload" shape every
+      // other table in this file already uses (rule 4.4). A duel is
+      // public-to-the-whole-group by design (migration 065's RLS note,
+      // same posture as syndicate_pools) so this is a single group_id
+      // filter, no ownership narrowing needed.
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'live_duels', filter: `group_id=eq.${activeGroupId}` },
+        (payload) => dispatch('live_duels', payload as RealtimePostgresChangesPayload<Record<string, unknown>>),
       )
       // V5 Sprint 39 — live_reaction broadcast. Registered atomically in
       // the same .on(...) chain as every postgres_changes binding above,
