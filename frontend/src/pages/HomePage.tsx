@@ -8,6 +8,7 @@ import { useGroupStore } from '../stores/groupStore';
 import { useUIStore } from '../stores/uiStore';
 import { useLangStore } from '../stores/langStore';
 import { MatchFeed } from '../components/matches/MatchFeed';
+import { HeroMatchCard } from '../components/matches/HeroMatchCard';
 import { PredictionModal } from '../components/matches/PredictionModal';
 import { LiveDuelDrawer } from '../components/groups/LiveDuelDrawer';
 import { PageLoader } from '../components/ui/LoadingSpinner';
@@ -62,6 +63,29 @@ export function HomePage() {
     ['1H', 'HT', '2H'].includes(m.status) ||
     (m.status === 'NS' && new Date(m.kickoff_time).getTime() < now)
   ).length;
+
+  // V6 Sprint 50 — Hero Matchday Spotlight selection. Highest priority is
+  // any live match the user has already predicted (the moment they'd most
+  // want front-and-center); falls back to the single earliest upcoming NS
+  // fixture within the next 2 hours; renders nothing if neither exists —
+  // never fabricate a "featured" match from an arbitrary finished game,
+  // matching this app's established "hidden until real data exists"
+  // convention. Only shown on the 'all' tab; the featured match still
+  // appears in the normal list below it too (the expected pattern for a
+  // spotlight, not a duplicate to suppress).
+  const heroMatch = (() => {
+    const liveWithPrediction = matches.find(m =>
+      ['1H', 'HT', '2H'].includes(m.status) && predictions.has(m.id)
+    );
+    if (liveWithPrediction) return liveWithPrediction;
+    const anyLive = matches.find(m => ['1H', 'HT', '2H'].includes(m.status));
+    if (anyLive) return anyLive;
+    const upcoming = matches
+      .filter(m => m.status === 'NS' && new Date(m.kickoff_time).getTime() > now)
+      .sort((a, b) => new Date(a.kickoff_time).getTime() - new Date(b.kickoff_time).getTime())[0];
+    if (upcoming && new Date(upcoming.kickoff_time).getTime() - now < 2 * 60 * 60 * 1000) return upcoming;
+    return null;
+  })();
 
   const TABS = [
     { id: 'all' as Tab, label: t('all'), badge: null },
@@ -168,6 +192,13 @@ export function HomePage() {
           </select>
         )}
       </div>
+
+      {/* V6 Sprint 50 — Hero Matchday Spotlight. Only on the 'all' tab —
+          'live'/'upcoming'/'completed' are already filtered views where a
+          duplicate hero above the list would be redundant, not additive. */}
+      {activeTab === 'all' && heroMatch && (
+        <HeroMatchCard match={heroMatch} prediction={predictions.get(heroMatch.id)} />
+      )}
 
       {/* Tabs — segmented snapper. Horizontally scroll-snappable (min-w guard
           keeps pills readable if 4 no longer fit; on any normal viewport
