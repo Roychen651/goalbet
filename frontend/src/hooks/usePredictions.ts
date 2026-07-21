@@ -254,6 +254,14 @@ export function usePredictions(matchIds?: string[]) {
           event_type: 'PREDICTION_LOCKED',
           match_id: vars.input.match_id,
           metadata: {
+            // V6 Sprint 47 — the source prediction's own id, needed so a
+            // group member can Tail this pick via submit_copied_prediction()
+            // without the client ever reading the source row's actual pick
+            // values (which stay RLS-hidden pre-kickoff, migration 037 — the
+            // whole point of Blind Tail, §63). An id reveals nothing about
+            // WHAT was predicted, the same safety class as coins_bet/
+            // tiers_count below.
+            prediction_id: data.id,
             coins_bet: data.coins_bet, // authoritative — from the RPC's own row, not the optimistic guess
             is_parlay: data.is_parlay,
             parlay_linked_tiers: data.parlay_linked_tiers,
