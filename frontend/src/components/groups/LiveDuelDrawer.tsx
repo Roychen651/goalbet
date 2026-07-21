@@ -149,9 +149,16 @@ export function LiveDuelDrawer({ matchId, homeTeam, awayTeam, onClose }: LiveDue
   const acceptOffer = useCallback(async (duelId: string) => {
     if (!user || !activeGroupId || submitting) return;
     setSubmitting(true);
-    haptic('bet_lock');
-    playSound('lock_thud');
-    await runRpc('accept_duel_wager', { p_user_id: user.id, p_group_id: activeGroupId, p_duel_id: duelId });
+    haptic('selection');
+    // V6 Sprint 47 Commit 4 — the "locked in" bet_lock/lock_thud pairing
+    // must fire only on a CONFIRMED accept, matching challengeGroup's own
+    // success-gated shape immediately above. Firing it unconditionally
+    // before the RPC resolves (the pre-Commit-4 shape) meant a failed
+    // accept (someone else already took the offer, insufficient coins)
+    // gave a "locked in" feel immediately followed by runRpc's own
+    // haptic('error') — two contradictory sensory signals for one tap.
+    const ok = await runRpc('accept_duel_wager', { p_user_id: user.id, p_group_id: activeGroupId, p_duel_id: duelId });
+    if (ok) { haptic('bet_lock'); playSound('lock_thud'); }
     setSubmitting(false);
   }, [user, activeGroupId, submitting, runRpc]);
 
