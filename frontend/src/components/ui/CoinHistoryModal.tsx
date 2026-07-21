@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Sun, Trophy, Target, Gift, Wrench, Zap, Users, Award, Sparkles } from 'lucide-react';
+import { X, Sun, Trophy, Target, Gift, Wrench, Zap, Users, Award, Sparkles, Swords } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useGroupStore } from '../../stores/groupStore';
@@ -23,7 +23,17 @@ interface CoinTransaction {
       // adminAdjustRow}` fallback below — a real Syndicate Pool contribution
       // or cosmetic purchase rendered as a scary, unlabeled "Admin
       // Adjustment" row. This is the fix (post-Sprint-37 hotfix).
-      | 'pool_contribution' | 'pool_won' | 'cosmetic_purchase';
+      | 'pool_contribution' | 'pool_won' | 'cosmetic_purchase'
+      // V6 Sprint 47 — Live Duels (migration 065). Adding these here in
+      // the SAME commit that introduces the DB type is what closes the
+      // gap the comment above already documents having caused once —
+      // TYPE_CONFIG is a Record<CoinTransaction['type'], ...>, so a type
+      // string existing in the DB but missing from this union type-checks
+      // fine (TS types don't affect runtime) and silently falls through
+      // to the generic Wrench/"Admin Adjustment" fallback below at
+      // runtime. Never let a new coin_transactions.type ship without a
+      // matching entry here in the same commit.
+      | 'duel_stake' | 'duel_won' | 'duel_refund';
   amount: number;
   balance_after: number;
   description: string | null;
@@ -99,6 +109,24 @@ const TYPE_CONFIG: Record<CoinTransaction['type'], {
     labelKey: 'cosmeticPurchaseRow',
     iconBg: 'bg-amber-500/15',
     iconColor: 'text-amber-400',
+  },
+  duel_stake: {
+    Icon: Swords,
+    labelKey: 'duelStakeRow',
+    iconBg: 'bg-blue-500/15',
+    iconColor: 'text-blue-400',
+  },
+  duel_won: {
+    Icon: Swords,
+    labelKey: 'duelWonRow',
+    iconBg: 'bg-emerald-500/15',
+    iconColor: 'text-emerald-400',
+  },
+  duel_refund: {
+    Icon: Swords,
+    labelKey: 'duelRefundRow',
+    iconBg: 'bg-white/10',
+    iconColor: 'text-text-muted',
   },
 };
 
