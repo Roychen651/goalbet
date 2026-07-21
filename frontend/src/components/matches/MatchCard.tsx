@@ -23,6 +23,7 @@ import { LIVE_STATUSES, FINISHED_STATUSES, FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG, t
 import { useLangStore } from '../../stores/langStore';
 import type { TranslationKey } from '../../lib/i18n';
 import { useLiveClock } from '../../hooks/useLiveClock';
+import { useTactileTilt } from '../../hooks/useTactileTilt';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 
@@ -606,7 +607,9 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                     <span
                       className={cn(
                         'text-xs font-mono font-bold tabular-nums',
-                        ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status) ? 'live-clock-pulse-amber' : 'live-clock-pulse-green'
+                        ['ET1', 'ET2', 'AET', 'PEN'].includes(match.status)
+                          ? 'live-clock-pulse-amber live-clock-neon-amber'
+                          : 'live-clock-pulse-green live-clock-neon-green'
                       )}
                     >
                       {liveClock}
@@ -1363,6 +1366,15 @@ function TeamBlock({ name, haloKey, badge, score, isWinner, isLeading, right, re
   // on which language the viewer has selected, breaking the "same team
   // always renders the same halo" invariant this halo exists to guarantee.
   const haloColor = teamHaloColor(haloKey ?? name);
+  // V6 Sprint 50 — specular sweep on the badge itself only (never the
+  // halo or red-card chips below, which live in the outer `relative
+  // isolate` wrapper and must stay flat). useTactileTilt is already the
+  // proven per-instance pattern for a whole feed of simultaneous elements
+  // (Sprint 16's GlassCard `tactile` prop, used across BentoArena/
+  // TrophyCabinet grids) — the expensive part (pointermove) is capability-
+  // gated to a real mouse only, so this scales the same way those already
+  // do, not a new performance risk.
+  const badgeTiltRef = useTactileTilt<HTMLDivElement>({ max: 10 });
   return (
     <div className={cn('flex flex-col items-center gap-1 w-[80px]')}>
       <div className="relative isolate">
@@ -1371,17 +1383,19 @@ function TeamBlock({ name, haloKey, badge, score, isWinner, isLeading, right, re
           className="pointer-events-none absolute -z-10 inset-[-45%] rounded-full blur-xl"
           style={{ background: `radial-gradient(circle, ${haloColor} 0%, transparent 70%)` }}
         />
-        <EntityBadge
-          src={badge}
-          name={name}
-          hashSeed={haloKey ?? name}
-          size={36}
-          loading="lazy"
-          className={cn(
-            'w-9 h-9 transition-all duration-200',
-            highlight && 'drop-shadow-[0_0_8px_rgba(0,255,135,0.5)] scale-105',
-          )}
-        />
+        <div ref={badgeTiltRef} className="badge-tactile rounded-full">
+          <EntityBadge
+            src={badge}
+            name={name}
+            hashSeed={haloKey ?? name}
+            size={36}
+            loading="lazy"
+            className={cn(
+              'w-9 h-9 transition-all duration-200',
+              highlight && 'drop-shadow-[0_0_8px_rgba(0,255,135,0.5)] scale-105',
+            )}
+          />
+        </div>
         {/* Red cards — shown in top-end corner of badge when > 0 (logical
             positioning — CLAUDE.md rule 4.10 — so this mirrors correctly in
             RTL instead of always sitting physically top-right) */}

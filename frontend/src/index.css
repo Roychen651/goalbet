@@ -1242,6 +1242,75 @@ html.light .glass-grain { mix-blend-mode: multiply; }
     opacity: 1;
   }
 }
+
+/* V6 Sprint 50 — team badge specular sweep (MatchCard.tsx's TeamBlock).
+   Deliberately a NEW class, not .tactile-tilt reused — that class's own
+   glare uses --arena-glow ("performance"), and reusing it for a badge's
+   physical light reflection is the exact cross-context token mistake a
+   since-reverted Sprint 43 attempt already made once with this same
+   primitive. Same transform/glare MECHANICS as .tactile-tilt (smaller
+   perspective — a ~36px badge doesn't need perspective(900px) to read
+   correctly), driven by the same useTactileTilt.ts hook, gated to the
+   identical (hover:hover) and (pointer:fine) capability check both in JS
+   (before any listener attaches) and here in CSS (never a bare :hover —
+   the exact sticky-glare-on-touch bug documented above). Applied ONLY to
+   TeamBlock's single-instance badge, never to the league-logo dual dark/
+   light <img> pair — that pair's own visibility-toggle pattern is exactly
+   what a reverted Sprint 43 wrapper broke once already; this never
+   touches that code path. */
+.badge-tactile {
+  position: relative;
+  transform: perspective(400px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-style: preserve-3d;
+}
+.badge-tactile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 2;
+  background: radial-gradient(
+    circle at var(--glare-x, 50%) var(--glare-y, 50%),
+    var(--glass-glare) 0%,
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .badge-tactile:hover::after {
+    opacity: 1;
+  }
+}
+
+/* V6 Sprint 50 — standard MatchCard live-clock neon escalation. An
+   ADDITIONAL class paired alongside .live-clock-pulse-green/-amber above
+   (never a replacement), reusing their exact hues (218 green / 72 amber)
+   — a text-shadow glow, cheap enough for a dozen simultaneous live cards
+   (the same cost class .live-clock-pulse-* itself already proves safe at
+   that scale). Always-on while a match is live, not goal-triggered —
+   "un-missable," per the brief, means visible for the whole live window,
+   not a 60s post-goal spike (that goal-triggered shape is HeroMatchCard's
+   own, single-instance, different design intent). */
+@keyframes matchLiveNeonGreen {
+  0%, 100% { text-shadow: 0 0 3px oklch(78% 0.15 218 / 0.4), 0 0 8px oklch(78% 0.15 218 / 0.2); }
+  50%      { text-shadow: 0 0 7px oklch(78% 0.15 218 / 0.7), 0 0 16px oklch(78% 0.15 218 / 0.35); }
+}
+@keyframes matchLiveNeonAmber {
+  0%, 100% { text-shadow: 0 0 3px oklch(75% 0.18 72 / 0.4), 0 0 8px oklch(75% 0.18 72 / 0.2); }
+  50%      { text-shadow: 0 0 7px oklch(75% 0.18 72 / 0.7), 0 0 16px oklch(75% 0.18 72 / 0.35); }
+}
+.live-clock-neon-green { animation: matchLiveNeonGreen 2.2s ease-in-out infinite; }
+.live-clock-neon-amber { animation: matchLiveNeonAmber 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .live-clock-neon-green,
+  .live-clock-neon-amber {
+    animation: none;
+    text-shadow: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .tactile-tilt {
     transition: none;
