@@ -166,6 +166,34 @@
   --arena-division-silver: oklch(82% 0.02 230);
   --arena-division-gold: oklch(80% 0.16 95);
   --arena-division-diamond: oklch(88% 0.09 190);
+
+  /* V6 Sprint 50 — Hero Matchday Spotlight ambient mesh. A seventh,
+     deliberately distinct two-stop scale: not --arena-cold/hot
+     ("performance"), not --risk-gold/warning ("balance at stake"), not
+     --oracle-low/high ("historical frequency"), not --parlay-low/high
+     ("payoff intensity"), not --battle-challenger/defender (a fixed
+     two-side identity pair, not a scale) — this one means "how much
+     recent, real action has this one spotlighted match seen," and it is
+     driven by a genuine discrete signal (a goal within the last 60s,
+     the same signal MatchCard.tsx's own goal-flash already uses), never
+     a fabricated continuous momentum number — see HeroMatchCard.tsx's own
+     header comment for why that distinction mattered enough to name
+     explicitly (§47's removed Pressure Meter). calm = the resting/ambient
+     state (a fresh hue, not reused from any pair above), intense = the
+     brief post-goal state. */
+  --spotlight-calm: oklch(72% 0.14 155);
+  --spotlight-intense: oklch(68% 0.24 355);
+
+  /* V6 Sprint 50 — theme-neutral specular glare, generalizing the exact
+     token .tactile-tilt's own comment already anticipated ("generalize to
+     a theme-neutral --glass-glare token if this ever extends to non-Arena
+     cards") rather than reusing --arena-glow (whose real meaning is
+     "performance," unrelated to a badge catching light) — the same
+     cross-context token reuse mistake a since-reverted Sprint 43 attempt
+     made once already with this exact primitive. Low-chroma, high-
+     lightness — a physical light reflection should read as near-white,
+     not tinted with any semantic color. */
+  --glass-glare: oklch(96% 0.01 240 / 0.45);
 }
 
 /* ─── Light mode — "Frost" ─── */
@@ -257,6 +285,23 @@ html.light {
   --arena-division-silver: oklch(55% 0.02 230);
   --arena-division-gold: oklch(58% 0.15 95);
   --arena-division-diamond: oklch(55% 0.10 190);
+
+  /* V6 Sprint 50 — Hero spotlight mesh, light surface variant. Same hue
+     anchors (155 calm / 355 intense) as dark, darkened + more saturated
+     for contrast on near-white cards — same discipline as every pair
+     above. */
+  --spotlight-calm: oklch(52% 0.15 155);
+  --spotlight-intense: oklch(50% 0.24 355);
+
+  /* V6 Sprint 50 — specular glare, light surface variant. Inverted from
+     dark's near-white highlight to a soft dark-navy highlight — a white
+     glare would be invisible against a near-white light-mode card, so the
+     "physical reflection" reads as a soft shadow-side catch-light instead,
+     same inversion logic already applied to every dark-surface-elevation
+     token in this file (color-system-custom's "elevation via lighter
+     surfaces in dark mode, not shadows" principle, mirrored here for a
+     glare instead of an elevation layer). */
+  --glass-glare: oklch(30% 0.03 240 / 0.25);
 }
 
 /* ============================================================
@@ -1197,6 +1242,75 @@ html.light .glass-grain { mix-blend-mode: multiply; }
     opacity: 1;
   }
 }
+
+/* V6 Sprint 50 — team badge specular sweep (MatchCard.tsx's TeamBlock).
+   Deliberately a NEW class, not .tactile-tilt reused — that class's own
+   glare uses --arena-glow ("performance"), and reusing it for a badge's
+   physical light reflection is the exact cross-context token mistake a
+   since-reverted Sprint 43 attempt already made once with this same
+   primitive. Same transform/glare MECHANICS as .tactile-tilt (smaller
+   perspective — a ~36px badge doesn't need perspective(900px) to read
+   correctly), driven by the same useTactileTilt.ts hook, gated to the
+   identical (hover:hover) and (pointer:fine) capability check both in JS
+   (before any listener attaches) and here in CSS (never a bare :hover —
+   the exact sticky-glare-on-touch bug documented above). Applied ONLY to
+   TeamBlock's single-instance badge, never to the league-logo dual dark/
+   light <img> pair — that pair's own visibility-toggle pattern is exactly
+   what a reverted Sprint 43 wrapper broke once already; this never
+   touches that code path. */
+.badge-tactile {
+  position: relative;
+  transform: perspective(400px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-style: preserve-3d;
+}
+.badge-tactile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 2;
+  background: radial-gradient(
+    circle at var(--glare-x, 50%) var(--glare-y, 50%),
+    var(--glass-glare) 0%,
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .badge-tactile:hover::after {
+    opacity: 1;
+  }
+}
+
+/* V6 Sprint 50 — standard MatchCard live-clock neon escalation. An
+   ADDITIONAL class paired alongside .live-clock-pulse-green/-amber above
+   (never a replacement), reusing their exact hues (218 green / 72 amber)
+   — a text-shadow glow, cheap enough for a dozen simultaneous live cards
+   (the same cost class .live-clock-pulse-* itself already proves safe at
+   that scale). Always-on while a match is live, not goal-triggered —
+   "un-missable," per the brief, means visible for the whole live window,
+   not a 60s post-goal spike (that goal-triggered shape is HeroMatchCard's
+   own, single-instance, different design intent). */
+@keyframes matchLiveNeonGreen {
+  0%, 100% { text-shadow: 0 0 3px oklch(78% 0.15 218 / 0.4), 0 0 8px oklch(78% 0.15 218 / 0.2); }
+  50%      { text-shadow: 0 0 7px oklch(78% 0.15 218 / 0.7), 0 0 16px oklch(78% 0.15 218 / 0.35); }
+}
+@keyframes matchLiveNeonAmber {
+  0%, 100% { text-shadow: 0 0 3px oklch(75% 0.18 72 / 0.4), 0 0 8px oklch(75% 0.18 72 / 0.2); }
+  50%      { text-shadow: 0 0 7px oklch(75% 0.18 72 / 0.7), 0 0 16px oklch(75% 0.18 72 / 0.35); }
+}
+.live-clock-neon-green { animation: matchLiveNeonGreen 2.2s ease-in-out infinite; }
+.live-clock-neon-amber { animation: matchLiveNeonAmber 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .live-clock-neon-green,
+  .live-clock-neon-amber {
+    animation: none;
+    text-shadow: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .tactile-tilt {
     transition: none;
@@ -1248,6 +1362,104 @@ html.light .glass-grain { mix-blend-mode: multiply; }
 }
 .live-clock-pulse-green { animation: liveClockPulseGreen 2.2s ease-in-out infinite; }
 .live-clock-pulse-amber { animation: liveClockPulseAmber 2.2s ease-in-out infinite; }
+
+/* V6 Sprint 50 — Hero spotlight live-clock escalation. An ADDITIONAL class
+   paired alongside .live-clock-pulse-green above (never a replacement) —
+   a text-shadow glow synced to the identical 2.2s cadence and hue (218,
+   the same green .live-clock-pulse-green already animates), reusing the
+   color rather than introducing a second one. Only ever applied to the
+   single HeroMatchCard instance, so this being a per-element animation
+   (not shared across a dozen simultaneous cards) is fine either way — CSS
+   keyframes chosen anyway for consistency with every other ambient loop
+   in this file. */
+@keyframes heroLiveClockGlow {
+  0%, 100% { text-shadow: 0 0 4px oklch(78% 0.15 218 / 0.35), 0 0 10px oklch(78% 0.15 218 / 0.15); }
+  50%      { text-shadow: 0 0 10px oklch(78% 0.15 218 / 0.75), 0 0 22px oklch(78% 0.15 218 / 0.4); }
+}
+.hero-live-clock-intense { animation: heroLiveClockGlow 2.2s ease-in-out infinite; }
+
+/* V6 Sprint 50 — Hero spotlight shell + ambient mesh breathing. Chunkier
+   depth than a standard match card (this is the one spotlighted moment
+   per feed, typography-system's "reserve the biggest/boldest treatment
+   for rare moments" applied to depth, not just type size). */
+.hero-spotlight-shell {
+  background: linear-gradient(160deg, rgba(15, 40, 84, 0.55) 0%, rgba(10, 23, 51, 0.75) 100%);
+  box-shadow: 0 20px 60px -16px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+html.light .hero-spotlight-shell {
+  background: linear-gradient(160deg, #FFFFFF 0%, #F2F6FA 100%);
+  box-shadow: 0 16px 40px -12px rgba(15, 40, 84, 0.20), inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+}
+/* The team-color mesh itself (inline JS style, teamHaloColor-driven) only
+   gets its opacity/saturation modulated here — its HUE is always the two
+   teams' own colors, never overridden. The actual --spotlight-calm/
+   -intense tokens drive a SEPARATE signal: an outer glow ring on the card
+   shell itself (box-shadow, not part of the mesh layer), so "how much
+   recent action" reads as its own honest cue distinct from "which teams
+   are playing." Keeping these as two different visual channels (mesh hue
+   = identity, ring color = momentum) avoids the tokens being defined but
+   silently unused — a real gap caught and fixed before this ever shipped. */
+@keyframes heroSpotlightMeshCalm {
+  0%, 100% { opacity: 0.55; filter: saturate(0.9); }
+  50%      { opacity: 0.75; filter: saturate(1.1); }
+}
+@keyframes heroSpotlightMeshIntense {
+  0%, 100% { opacity: 0.75; filter: saturate(1.15); }
+  50%      { opacity: 1;    filter: saturate(1.5); }
+}
+.hero-spotlight-mesh-calm { animation: heroSpotlightMeshCalm 5s ease-in-out infinite; }
+.hero-spotlight-mesh-intense { animation: heroSpotlightMeshIntense 1.4s ease-in-out infinite; }
+
+@keyframes heroSpotlightRingCalm {
+  0%, 100% { box-shadow: 0 20px 60px -16px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 0 0 1px color-mix(in oklch, var(--spotlight-calm) 25%, transparent); }
+  50%      { box-shadow: 0 20px 60px -16px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 0 26px -4px color-mix(in oklch, var(--spotlight-calm) 45%, transparent), 0 0 0 1px color-mix(in oklch, var(--spotlight-calm) 40%, transparent); }
+}
+@keyframes heroSpotlightRingIntense {
+  0%, 100% { box-shadow: 0 20px 60px -16px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 0 20px -2px color-mix(in oklch, var(--spotlight-intense) 55%, transparent), 0 0 0 1.5px color-mix(in oklch, var(--spotlight-intense) 55%, transparent); }
+  50%      { box-shadow: 0 20px 60px -16px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 0 44px -2px color-mix(in oklch, var(--spotlight-intense) 80%, transparent), 0 0 0 1.5px color-mix(in oklch, var(--spotlight-intense) 80%, transparent); }
+}
+.hero-spotlight-shell.hero-spotlight-ring-calm { animation: heroSpotlightRingCalm 5s ease-in-out infinite; }
+.hero-spotlight-shell.hero-spotlight-ring-intense { animation: heroSpotlightRingIntense 1.4s ease-in-out infinite; }
+html.light .hero-spotlight-shell.hero-spotlight-ring-calm {
+  animation-name: heroSpotlightRingCalmLight;
+}
+html.light .hero-spotlight-shell.hero-spotlight-ring-intense {
+  animation-name: heroSpotlightRingIntenseLight;
+}
+@keyframes heroSpotlightRingCalmLight {
+  0%, 100% { box-shadow: 0 16px 40px -12px rgba(15, 40, 84, 0.20), inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 0 0 1px color-mix(in oklch, var(--spotlight-calm) 30%, transparent); }
+  50%      { box-shadow: 0 16px 40px -12px rgba(15, 40, 84, 0.20), inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 0 20px -4px color-mix(in oklch, var(--spotlight-calm) 45%, transparent), 0 0 0 1px color-mix(in oklch, var(--spotlight-calm) 45%, transparent); }
+}
+@keyframes heroSpotlightRingIntenseLight {
+  0%, 100% { box-shadow: 0 16px 40px -12px rgba(15, 40, 84, 0.20), inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 0 16px -2px color-mix(in oklch, var(--spotlight-intense) 55%, transparent), 0 0 0 1.5px color-mix(in oklch, var(--spotlight-intense) 60%, transparent); }
+  50%      { box-shadow: 0 16px 40px -12px rgba(15, 40, 84, 0.20), inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 0 34px -2px color-mix(in oklch, var(--spotlight-intense) 80%, transparent), 0 0 0 1.5px color-mix(in oklch, var(--spotlight-intense) 85%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-live-clock-intense,
+  .hero-spotlight-mesh-calm,
+  .hero-spotlight-mesh-intense,
+  .hero-spotlight-shell.hero-spotlight-ring-calm,
+  .hero-spotlight-shell.hero-spotlight-ring-intense {
+    animation: none;
+  }
+  .hero-spotlight-mesh-calm,
+  .hero-spotlight-mesh-intense {
+    opacity: 0.65;
+  }
+  .hero-spotlight-shell.hero-spotlight-ring-calm {
+    box-shadow: 0 20px 60px -16px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 0 0 1px color-mix(in oklch, var(--spotlight-calm) 35%, transparent);
+  }
+  .hero-spotlight-shell.hero-spotlight-ring-intense {
+    box-shadow: 0 20px 60px -16px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 0 0 1.5px color-mix(in oklch, var(--spotlight-intense) 65%, transparent);
+  }
+  html.light .hero-spotlight-shell.hero-spotlight-ring-calm {
+    box-shadow: 0 16px 40px -12px rgba(15, 40, 84, 0.20), inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 0 0 1px color-mix(in oklch, var(--spotlight-calm) 35%, transparent);
+  }
+  html.light .hero-spotlight-shell.hero-spotlight-ring-intense {
+    box-shadow: 0 16px 40px -12px rgba(15, 40, 84, 0.20), inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 0 0 1.5px color-mix(in oklch, var(--spotlight-intense) 65%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .live-clock-pulse-green,
   .live-clock-pulse-amber {

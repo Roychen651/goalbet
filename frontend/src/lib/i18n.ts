@@ -112,6 +112,7 @@ export const translations = {
     perMatch: '/ match',
     allTimeGroup: 'all time · this group',
     liveNow: 'Live Now',
+    matchOfTheDay: 'Match of the Day',
     you: 'you',
     ptsLiveLabel: 'pts live',
 
@@ -1078,6 +1079,7 @@ export const translations = {
     perMatch: '/ משחק',
     allTimeGroup: 'כל הזמנים · קבוצה זו',
     liveNow: 'חי עכשיו',
+    matchOfTheDay: 'משחק היום',
     you: 'אני',
     ptsLiveLabel: 'נק׳ חי',
 
