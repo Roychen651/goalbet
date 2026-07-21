@@ -79,6 +79,11 @@ export type Database = {
           // the type doesn't statically forbid it.
           unlocked_cosmetics: string[];
           active_cosmetics: { frame?: string | null; halo?: string | null; badge?: string | null };
+          // V6 Sprint 48 — migration 066. Client-readable (profiles is
+          // globally readable, profiles_read_all) but never client-
+          // writable in practice — only process_weekly_tier_promotions()
+          // (pg_cron-only, no GRANT to authenticated) ever changes it.
+          arena_division: 'bronze' | 'silver' | 'gold' | 'diamond';
         };
         Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'created_at'>;
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
@@ -294,4 +299,21 @@ export interface LeaderboardEntryWithProfile extends LeaderboardEntry {
   // V6 Sprint 46 — joined alongside the above, feeds the live overtake
   // toast's tg() gendering (lib/i18n.ts's liveOvertakeToast_*).
   gender?: Profile['gender'] | null;
+}
+
+// V6 Sprint 48 — mirrors global_user_standings (migration 066) column for
+// column. A materialized view, refreshed every ~15 min — never real-time,
+// see useGlobalArena.ts's own staleTime for the client-side half of that
+// same freshness contract.
+export interface GlobalUserStanding {
+  user_id: string;
+  username: string;
+  avatar_url: string | null;
+  arena_division: 'bronze' | 'silver' | 'gold' | 'diamond';
+  active_cosmetics: Profile['active_cosmetics'] | null;
+  resolved_predictions: number;
+  total_points: number;
+  avg_points_per_prediction: number | null; // NULL when resolved_predictions = 0
+  weekly_points: number;
+  is_ranked: boolean; // resolved_predictions >= 5 — see migration 066's MIN_SAMPLE note
 }
