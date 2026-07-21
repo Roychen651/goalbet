@@ -1,6 +1,6 @@
 import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus, Link2, Users } from 'lucide-react';
+import { Minus, Plus, Link2, Users, Trophy } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Match, Prediction, supabase } from '../../lib/supabase';
 import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
@@ -8,7 +8,7 @@ import { CoinIcon } from '../ui/CoinIcon';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import { OracleStatsPanel } from './OracleStatsPanel';
 import { ParlaySlipDrawer } from './ParlaySlipDrawer';
-import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown } from '../../lib/utils';
+import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown, classifyKnockoutRound, KNOCKOUT_BONUS } from '../../lib/utils';
 import { LIVE_STATUSES, POINTS, COIN_COSTS, calcPredictionCost, calcParlayBonusPreview, type ParlayTierKey } from '../../lib/constants';
 import { interpolateRisk } from '../../lib/oklch';
 
@@ -460,6 +460,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   ];
 
   const preMatchInsight = (lang === 'he' && match.ai_pre_match_insight_he) || match.ai_pre_match_insight;
+  const knockoutRoundHint = classifyKnockoutRound(match.round ?? null);
 
   return (
     <div className="space-y-1.5">
@@ -469,6 +470,21 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         </div>
       )}
       <OracleStatsPanel match={match} />
+
+      {/* V6 Sprint 48 — knockout round-depth bonus hint. Reuses matches.round
+          (now actually captured from ESPN, see espn.ts/pointsEngine.ts) —
+          works for ANY knockout competition, not one hardcoded tournament.
+          Purely informational; the real bonus computation happens
+          server-side at resolution, mirrored client-side in calcBreakdown()
+          for the post-match display. */}
+      {knockoutRoundHint && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/8 border border-amber-500/20 mb-0.5">
+          <Trophy size={12} className="text-amber-400 shrink-0" strokeWidth={2.5} />
+          <span className="text-[11px] text-amber-300/90">
+            {t('knockoutBonusHint').replace('{0}', String(KNOCKOUT_BONUS[knockoutRoundHint]))}
+          </span>
+        </div>
+      )}
 
       {/* V5 Sprint 34 Hotfix — a real, reported gap: the chain-link icon's
           only explanation was a native `title` attribute, which never
@@ -1013,6 +1029,7 @@ function TierBreakdownRow({ tier, prediction, match, delay }: {
     corners: t('tierCorners'),
     btts: t('tierBTTS'),
     ou: t('tierOU'),
+    knockout: t('knockoutBonusLabel'),
   };
 
   const outcomeLabel = (v: 'H' | 'D' | 'A' | null) =>

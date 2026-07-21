@@ -865,6 +865,10 @@ export const translations = {
     arenaEmptyTitle: 'The Arena is still warming up',
     arenaEmptyDesc: 'Resolve at least 5 predictions to earn your spot on the Global Arena ladder.',
 
+    // Knockout round-depth bonus (V6 Sprint 48)
+    knockoutBonusLabel: 'Knockout Bonus',
+    knockoutBonusHint: 'Knockout match — a correct result adds +{0} bonus pts on top.',
+
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'How should we refer to you?',
     genderMale: 'Male',
@@ -1802,6 +1806,10 @@ export const translations = {
     arenaPicksSuffix: 'ניחושים',
     arenaEmptyTitle: 'הזירה עוד מתחממת',
     arenaEmptyDesc: 'פתרו לפחות 5 ניחושים כדי לתפוס מקום בסולם הזירה הגלובלית.',
+
+    // Knockout round-depth bonus (V6 Sprint 48)
+    knockoutBonusLabel: 'בונוס נוקאאוט',
+    knockoutBonusHint: 'משחק נוקאאוט — ניחוש נכון על התוצאה מוסיף בונוס של +{0} נק׳.',
 
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'איך לפנות אליך?',

@@ -152,6 +152,25 @@ function getStat(competitor: Record<string, unknown>, name: string): number | nu
   return isNaN(v) ? null : v;
 }
 
+// V6 Sprint 48 — best-effort round-name extraction. ESPN's scoreboard
+// competition object typically carries `notes: [{ type, headline }]` with
+// a free-text round description. Never verified against a real response
+// from this sandbox (no outbound ESPN access here — the same standing
+// limitation already noted for other best-effort fields), so this reads
+// defensively and returns null on any unexpected shape rather than
+// throwing or producing garbage. A wrong/missing extraction here only
+// costs a missed round-depth bonus (pointsEngine.ts) — it never blocks
+// sync, never affects score resolution.
+function extractRoundName(comp: Record<string, unknown>): string | null {
+  try {
+    const notes = comp.notes as Record<string, unknown>[] | undefined;
+    const headline = notes?.[0]?.headline;
+    return typeof headline === 'string' && headline.trim().length > 0 ? headline.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetch full per-period linescores from the ESPN event summary endpoint.
  * Returns halftime, regulation (90-min), ET info and penalty detection.
@@ -771,7 +790,19 @@ export async function fetchLeagueMatches(
           halftime_home: htAvailable ? htHome : null,
           halftime_away: htAvailable ? htAway : null,
           season: (data.leagues?.[0]?.season?.displayName as string) ?? null,
-          round: null,
+          // V6 Sprint 48 — `round` was a real matches column silently
+          // hardcoded to null since it was added; never actually captured.
+          // ESPN's scoreboard event competitions typically carry a
+          // `notes[]` array with a free-text round headline ("Round of
+          // 16", "Quarterfinal", "Final", "Group Stage - Matchday 3") —
+          // this codebase has never verified that field shape before, so
+          // it's read defensively (string check, never assumed present)
+          // and degrades to null exactly like every other best-effort
+          // ESPN field (yellowCards, athlete.headshot) if the shape is
+          // ever wrong or absent. Feeds pointsEngine.ts's knockout
+          // round-depth bonus — see that file's header comment for why
+          // this replaced a hand-authored static bracket file instead.
+          round: extractRoundName(comp),
           display_clock: displayClock,
           corners_total: cornersTotal,
           regulation_home: regulationHome,

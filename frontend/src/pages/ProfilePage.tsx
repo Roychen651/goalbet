@@ -1202,6 +1202,7 @@ function ResolvedBreakdown({ prediction, match }: { prediction: Prediction; matc
       case 'corners': return t('corners');
       case 'btts': return t('btts');
       case 'ou': return t('overUnder');
+      case 'knockout': return t('knockoutBonusLabel');
       default: return key;
     }
   };
