@@ -18,7 +18,6 @@ import { CoinGuide } from '../components/ui/CoinGuide';
 import { CoinIcon } from '../components/ui/CoinIcon';
 import { cn } from '../lib/utils';
 import { haptic } from '../lib/haptics';
-import { celebratePrediction } from '../lib/celebrate';
 import { useNeverPredicted } from '../hooks/useIsNewUser';
 import type { PredictionData } from '../components/matches/PredictionForm';
 
@@ -98,7 +97,10 @@ export function HomePage() {
     try {
       await savePrediction(data);
       haptic('success');
-      celebratePrediction();
+      // V6 Sprint 50 — the confetti burst moved to PredictionForm.tsx's own
+      // handleSubmit, anchored to the real submit button via celebrateAt()
+      // instead of this fixed screen-edge celebratePrediction() call —
+      // removed here so the same save doesn't fire two overlapping bursts.
       addToast(t('predictionSavedToast'), 'success');
     } catch (err) {
       haptic('error');

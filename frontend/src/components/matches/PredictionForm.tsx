@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Minus, Plus, Link2, Users, Trophy } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
@@ -21,6 +21,7 @@ import { useGroupStore } from '../../stores/groupStore';
 import { useUIStore } from '../../stores/uiStore';
 import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
+import { celebrateAt } from '../../lib/celebrate';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { TIER_COLORS, DEBOSS_SHADOW } from '../../lib/tierVisuals';
 import { InfoTip } from '../ui/InfoTip';
@@ -139,6 +140,12 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   const [btts, setBtts] = useState<boolean | null>(existingPrediction?.predicted_btts ?? null);
   const [overUnder, setOverUnder] = useState<'over' | 'under' | null>(existingPrediction?.predicted_over_under ?? null);
   const [saved, setSaved] = useState(!!existingPrediction);
+  // V6 Sprint 50 — anchors celebrateAt() to the real submit button so the
+  // particle burst originates from where the user actually tapped, not a
+  // fixed screen-edge origin. MagneticButtonV2 isn't a forwardRef
+  // component, so this wraps it in a plain ref'd div rather than touching
+  // that shared component (used elsewhere) just to add ref-forwarding.
+  const submitBtnWrapRef = useRef<HTMLDivElement>(null);
   // V5 Sprint 34 — "The Prediction Matrix". A Set, not an array: toggling is
   // naturally idempotent (link/unlink) and membership checks are O(1) for
   // every tier row's `linked` prop on every render.
@@ -357,6 +364,13 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
     // lock_thud already means "something just became final" (Momentum Bets
     // lock) — the correct semantic match for locking in a prediction.
     playSound('lock_thud');
+    // V6 Sprint 50 — button-anchored, not a fixed screen-edge burst.
+    // HomePage.tsx's own celebratePrediction() (screen-edge) was REMOVED
+    // from its handleSavePrediction in this same commit — both firing for
+    // the same save would double the celebration for one event, the exact
+    // "don't replay feedback that already fired" mistake this codebase
+    // already rules out elsewhere (§33).
+    celebrateAt(submitBtnWrapRef.current);
     setSaved(true);
   };
 
@@ -610,15 +624,17 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
                 Not enough coins — remove some tiers or wait for your daily bonus
               </p>
             )}
-            <MagneticButtonV2
-              variant={saved ? 'ghost' : 'volt'}
-              size="lg"
-              onClick={handleSubmit}
-              disabled={insufficientCoins || saving}
-              className="w-full"
-            >
-              {saving ? '···' : saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
-            </MagneticButtonV2>
+            <div ref={submitBtnWrapRef}>
+              <MagneticButtonV2
+                variant={saved ? 'ghost' : 'volt'}
+                size="lg"
+                onClick={handleSubmit}
+                disabled={insufficientCoins || saving}
+                className="w-full"
+              >
+                {saving ? '···' : saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
+              </MagneticButtonV2>
+            </div>
 
             {/* V5 Sprint 36 Hotfix — glass "Start a Shared Pool" entry point.
                 Independent of the individual submit above (own RPC, own
@@ -806,7 +822,7 @@ function InlineBoolTier({
               onClick={() => { if (!isImpossible) onChange(isSelected ? null : v); }}
               disabled={isImpossible}
               className={cn(
-                'px-2.5 py-1 rounded-lg text-[11px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border whitespace-nowrap active:scale-95',
+                'px-2.5 py-1 rounded-xl text-[11px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border whitespace-nowrap active:scale-95',
                 isSelected && !isImpossible
                   ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
                   : isImpossible
@@ -853,7 +869,7 @@ function OutcomePicker({
           onClick={() => { if (!lockedByScore) onChange(val); }}
           disabled={lockedByScore}
           className={cn(
-            'py-1.5 rounded-lg transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
+            'py-1.5 rounded-xl transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
             value === val
               ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
               : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW),
@@ -916,7 +932,7 @@ function ScoreStepper({ value, onChange }: { value: string; onChange: (v: string
     onChange(String(next));
   };
 
-  const btnBase = 'w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-lg border flex items-center justify-center transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-90';
+  const btnBase = 'w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl border flex items-center justify-center transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-90';
   const btnEnabled = cn('bg-white/4 border-white/8 text-text-primary hover:bg-yellow-400/10 hover:border-yellow-400/40', DEBOSS_SHADOW);
   const btnDisabled = 'bg-white/2 border-white/5 text-text-muted/30 cursor-not-allowed';
 
@@ -996,7 +1012,7 @@ function BoolPicker({
             disabled={isImpossible}
             title={isImpossible ? 'Not possible with your score' : undefined}
             className={cn(
-              'py-1.5 rounded-lg text-xs font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border relative active:scale-95',
+              'py-1.5 rounded-xl text-xs font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border relative active:scale-95',
               isSelected && !isImpossible
                 ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
                 : isImpossible
@@ -1253,7 +1269,7 @@ function CornersPicker({
           disabled={disabled}
           onClick={() => { if (!disabled) onChange(value === val ? null : val); }}
           className={cn(
-            'py-1.5 rounded-lg text-xs sm:text-[13px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border',
+            'py-1.5 rounded-xl text-xs sm:text-[13px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border',
             disabled
               ? cn('bg-white/2 border-white/6 text-text-muted/50 cursor-not-allowed', DEBOSS_SHADOW)
               : cn('active:scale-95', value === val
