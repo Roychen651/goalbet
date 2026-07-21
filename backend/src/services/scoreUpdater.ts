@@ -67,6 +67,9 @@ interface Prediction {
   predicted_over_under: 'over' | 'under' | null;
   is_parlay: boolean | null;
   parlay_linked_tiers: ParlayTierKey[] | null;
+  // V6 Sprint 47 — set by submit_copied_prediction() (migration 064),
+  // always flattened to the ROOT creator, never an intermediate tailer.
+  copied_from_user_id: string | null;
 }
 
 // ── Rank-drop tracking (V4 Sprint 11) ────────────────────────────────────────
@@ -414,21 +417,32 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
       // IMPORTANT: supabaseAdmin.rpc() never throws — it returns { data, error }.
       // A try/catch does NOT catch Supabase errors. Must destructure { error }.
       if (finalPoints > 0) {
-        const coinsToAward = finalPoints * 2;
+        const grossCoins = finalPoints * 2;
+        // V6 Sprint 47 — Copy-Betting royalty. A copied prediction's win
+        // pays a 5% royalty to the ROOT creator (copied_from_user_id is
+        // always already flattened to the root, never an intermediate
+        // tailer — see submit_copied_prediction(), migration 064). floor(),
+        // never round up, so the winner is guaranteed AT LEAST 95% of the
+        // gross award. The winner's own award is computed with the net
+        // amount up front — never award-the-full-amount-then-claw-back.
+        const royalty = prediction.copied_from_user_id ? Math.floor(grossCoins * 0.05) : 0;
+        const coinsToAward = grossCoins - royalty;
         // V5 Sprint 34 — a parlay-boosted payout gets a distinct marker in
         // the description string so it reads distinctly in CoinHistoryModal
         // without any new coin_transactions.type value or new column: the
         // description already flows straight from this one string into the
         // ledger row, and the dedup index (coin_transactions_bet_won_unique,
         // migration 032) keys on this exact string for THIS resolution
-        // regardless of what text it contains.
+        // regardless of what text it contains. Same technique extended here
+        // for the royalty marker.
         const parlayMarker = breakdown.parlay_bonus > 0 ? ` 🔗+${breakdown.parlay_bonus}` : '';
+        const royaltyMarker = royalty > 0 ? ` (🔁 -${royalty} royalty)` : '';
         const { error: coinError } = await supabaseAdmin.rpc('increment_coins', {
           p_user_id: prediction.user_id,
           p_group_id: prediction.group_id,
           p_match_id: matchId,
           p_amount: coinsToAward,
-          p_description: `Won ${finalPoints} pts${parlayMarker} → ${coinsToAward} coins`,
+          p_description: `Won ${finalPoints} pts${parlayMarker}${royaltyMarker} → ${coinsToAward} coins`,
           p_created_at: matchEndAt,  // ← coin transaction reflects match end, not server clock
         });
         if (coinError) {
@@ -441,7 +455,32 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
             (coinError.message ?? JSON.stringify(coinError))
           );
         } else {
-          logger.info(`[scoreUpdater] Awarded ${coinsToAward} coins (${finalPoints} pts × 2) to user ${prediction.user_id}`);
+          logger.info(`[scoreUpdater] Awarded ${coinsToAward} coins (${finalPoints} pts × 2${royalty > 0 ? ` minus ${royalty} royalty` : ''}) to user ${prediction.user_id}`);
+        }
+
+        // ── Royalty payout to the root creator — independent, best-effort,
+        // never blocks or rolls back the winner's own award above. Gated on
+        // the winner's own award having actually succeeded (coinError is
+        // null) — paying a royalty for a win that never landed would be
+        // wrong, not just redundant.
+        if (!coinError && royalty > 0 && prediction.copied_from_user_id) {
+          const { error: royaltyError } = await supabaseAdmin.rpc('increment_coins', {
+            p_user_id: prediction.copied_from_user_id,
+            p_group_id: prediction.group_id,
+            p_match_id: matchId,
+            p_amount: royalty,
+            p_description: `Royalty tip: your pick was copied and won → +${royalty} coins`,
+            p_created_at: matchEndAt,
+          });
+          if (royaltyError) {
+            logger.error(
+              `[scoreUpdater] royalty increment_coins FAILED for creator=${prediction.copied_from_user_id} ` +
+              `(tailed by ${prediction.user_id}) amount=${royalty} — ` +
+              (royaltyError.message ?? JSON.stringify(royaltyError))
+            );
+          } else {
+            logger.info(`[scoreUpdater] Awarded ${royalty} royalty coins to creator ${prediction.copied_from_user_id} (tailed by ${prediction.user_id})`);
+          }
         }
 
         // ── Insert persistent notification (with dedup guard) ─────────────────
@@ -934,14 +973,24 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
             .eq('group_id', pred.group_id);
         }
 
-        const coinsToAward = delta * 2;
+        // V6 Sprint 47 — the same copy-betting royalty split applies to a
+        // corners re-score top-up as to the initial resolution above: a
+        // copied prediction's win still owes the root creator 5%, even
+        // when the extra points arrive later via this correction pass.
+        // Skipping this path would leave a real inconsistency — the same
+        // prediction's INITIAL resolution pays a royalty but a LATER
+        // corners correction on it silently wouldn't.
+        const grossDeltaCoins = delta * 2;
+        const cornersRoyalty = pred.copied_from_user_id ? Math.floor(grossDeltaCoins * 0.05) : 0;
+        const coinsToAward = grossDeltaCoins - cornersRoyalty;
+        const cornersRoyaltyMarker = cornersRoyalty > 0 ? ` (🔁 -${cornersRoyalty} royalty)` : '';
         const cornersMatchEndAt = new Date(new Date(m.kickoff_time).getTime() + 105 * 60 * 1000).toISOString();
         const { error: coinError } = await supabaseAdmin.rpc('increment_coins', {
           p_user_id: pred.user_id,
           p_group_id: pred.group_id,
           p_match_id: m.id,
           p_amount: coinsToAward,
-          p_description: `Corners re-score: +${delta} pts → +${coinsToAward} coins`,
+          p_description: `Corners re-score: +${delta} pts${cornersRoyaltyMarker} → +${coinsToAward} coins`,
           p_created_at: cornersMatchEndAt,
         });
         if (coinError) {
@@ -950,6 +999,22 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
           errors.push({ scope: `corners_coin_award:${pred.id}`, message: msg });
         } else {
           logger.info(`[scoreUpdater] Corners re-score awarded ${coinsToAward} coins to user ${pred.user_id}`);
+        }
+
+        if (!coinError && cornersRoyalty > 0 && pred.copied_from_user_id) {
+          const { error: cornersRoyaltyError } = await supabaseAdmin.rpc('increment_coins', {
+            p_user_id: pred.copied_from_user_id,
+            p_group_id: pred.group_id,
+            p_match_id: m.id,
+            p_amount: cornersRoyalty,
+            p_description: `Royalty tip: your copied pick's corners re-score won → +${cornersRoyalty} coins`,
+            p_created_at: cornersMatchEndAt,
+          });
+          if (cornersRoyaltyError) {
+            const msg = cornersRoyaltyError.message ?? JSON.stringify(cornersRoyaltyError);
+            logger.error(`[scoreUpdater] Corners re-score royalty failed for creator=${pred.copied_from_user_id}: ${msg}`);
+            errors.push({ scope: `corners_royalty:${pred.id}`, message: msg });
+          }
         }
         totalResolved++;
       }

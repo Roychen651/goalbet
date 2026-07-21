@@ -30,6 +30,13 @@ export interface GroupEvent {
   away_team?: string;
   home_team_badge?: string | null;
   away_team_badge?: string | null;
+  // V6 Sprint 47 — kickoff_time/status, needed so ActivityFeed can gate the
+  // Tail button's visibility to "not kicked off yet" the same way
+  // PredictionForm gates the lock itself. This is a UX nicety only — the
+  // real enforcement is server-side: prevent_late_prediction() (migration
+  // 037) rejects the write regardless of what the client believes.
+  kickoff_time?: string;
+  status?: string;
 }
 
 export function useGroupEvents() {
@@ -49,7 +56,7 @@ export function useGroupEvents() {
     try {
       const { data, error } = await supabase
         .from('group_events')
-        .select('*, profiles(username, avatar_url, gender, active_cosmetics), matches(home_team, away_team, home_team_badge, away_team_badge)')
+        .select('*, profiles(username, avatar_url, gender, active_cosmetics), matches(home_team, away_team, home_team_badge, away_team_badge, kickoff_time, status)')
         .eq('group_id', activeGroupId)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -61,7 +68,7 @@ export function useGroupEvents() {
 
       const mapped: GroupEvent[] = (data ?? []).map((row: Record<string, unknown>) => {
         const profile = row.profiles as { username?: string; avatar_url?: string | null; gender?: 'male' | 'female' | 'unspecified' | null; active_cosmetics?: Profile['active_cosmetics'] | null } | null;
-        const match = row.matches as { home_team?: string; away_team?: string; home_team_badge?: string | null; away_team_badge?: string | null } | null;
+        const match = row.matches as { home_team?: string; away_team?: string; home_team_badge?: string | null; away_team_badge?: string | null; kickoff_time?: string; status?: string } | null;
         return {
           id: row.id as string,
           group_id: row.group_id as string,

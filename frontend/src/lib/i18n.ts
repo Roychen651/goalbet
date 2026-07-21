@@ -810,6 +810,18 @@ export const translations = {
     liveOvertakeToast_female: '{0} overtook you and climbed to rank #{1}! 🚀',
     liveOvertakeToast_unspecified: '{0} overtook you and climbed to rank #{1}! 🚀',
 
+    // V6 Sprint 47 — Tactical Copy-Betting ("Blind Tail"). The button never
+    // reveals the source pick — see submit_copied_prediction() (migration
+    // 064): the tail is placed server-side from the source row, the client
+    // only ever learns the result once it becomes the tailer's OWN
+    // always-visible row.
+    tailButtonLabel: 'Tail Pick',
+    tailSuccessToast: 'Tailed — good luck! 🔁',
+    tailErrorLocked: 'Too late — this match already started',
+    tailErrorInsufficientCoins: 'Not enough coins to tail this pick',
+    tailErrorGeneric: 'Could not tail this pick',
+    activityTailedFrom: '🔁 Tailed from {0}',
+
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'How should we refer to you?',
     genderMale: 'Male',
@@ -1701,6 +1713,14 @@ export const translations = {
     liveOvertakeToast_male: '{0} עקף אותך ועלה למקום #{1}! 🚀',
     liveOvertakeToast_female: '{0} עקפה אותך ועלתה למקום #{1}! 🚀',
     liveOvertakeToast_unspecified: '{0} עקף/ה אותך ועלה/תה למקום #{1}! 🚀',
+
+    // V6 Sprint 47 — שכפול ניחוש עיוור (Blind Tail copy-betting)
+    tailButtonLabel: 'שכפל ניחוש',
+    tailSuccessToast: 'הניחוש שוכפל — בהצלחה! 🔁',
+    tailErrorLocked: 'מאוחר מדי — המשחק כבר התחיל',
+    tailErrorInsufficientCoins: 'אין מספיק מטבעות לשכפול הניחוש',
+    tailErrorGeneric: 'לא הצלחנו לשכפל את הניחוש',
+    activityTailedFrom: '🔁 שוכפל מ־{0}',
 
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'איך לפנות אליך?',

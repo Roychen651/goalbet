@@ -1,7 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Users, Swords } from 'lucide-react';
+import { Sparkles, Users, Swords, Repeat2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLangStore } from '../../stores/langStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useGroupStore } from '../../stores/groupStore';
+import { useCoinsStore } from '../../stores/coinsStore';
+import { useUIStore } from '../../stores/uiStore';
 import { useGroupEvents, type GroupEvent } from '../../hooks/useGroupEvents';
 import { CosmeticAvatar } from '../ui/CosmeticAvatar';
 import { EmptyState } from '../ui/EmptyState';
@@ -10,6 +15,9 @@ import { CoinIcon } from '../ui/CoinIcon';
 import { tg, type TranslationKey } from '../../lib/i18n';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { triggerCoinsRain } from '../effects/CoinsRainCanvas';
+import { supabase } from '../../lib/supabase';
+import { haptic } from '../../lib/haptics';
+import { playSound } from '../../lib/sensoryAudio';
 
 // V5 Sprint 36 — module-level, session-lifetime set of WON_COINS event ids
 // that have already fired the coins-rain celebration. A per-render trigger
@@ -250,6 +258,17 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
               code whose only safety property is "nobody happens to write
               this field anymore" — a future field re-add would silently
               re-open the leak if this block were still here. */}
+
+          {/* V6 Sprint 47 — provenance line for a tail's OWN card (never
+              the source card — the source never learns who tailed it,
+              matching Blind Tail's one-way design). */}
+          {meta.tailed_from_username != null && (
+            <p className="text-[11px] text-blue-300/80">
+              {t('activityTailedFrom').replace('{0}', String(meta.tailed_from_username))}
+            </p>
+          )}
+
+          <TailButton event={event} t={t} />
         </div>
       )}
 
@@ -340,6 +359,129 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
         </div>
       )}
     </motion.div>
+  );
+}
+
+// ── Tail Button (V6 Sprint 47 — "Blind Tail" copy-betting) ──────────────────
+// Copies another group member's already-locked prediction via
+// submit_copied_prediction() (migration 064). The client NEVER reads or
+// sends a pick value — only the source prediction's id (safe: reveals
+// nothing about what was predicted, same class as coins_bet/tiers_count).
+// The RPC reads the real picks server-side and writes an identical row
+// under the tailer's OWN user_id; the tailer only ever learns the result
+// once it's their own always-visible row (migration 037's RLS wall never
+// has to be crossed from the client side). A 5% win royalty flows back to
+// the ROOT creator automatically at resolution time (scoreUpdater.ts) —
+// nothing here needs to know about that; it's purely a resolution-time
+// concern.
+function TailButton({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => string }) {
+  const { user } = useAuthStore();
+  const { activeGroupId } = useGroupStore();
+  const { addToast } = useUIStore();
+  const coinsStore = useCoinsStore();
+  const queryClient = useQueryClient();
+  const [submitting, setSubmitting] = useState(false);
+  const [tailed, setTailed] = useState(false);
+
+  const meta = event.metadata;
+  const sourcePredictionId = meta.prediction_id != null ? String(meta.prediction_id) : null;
+
+  // Hidden entirely — never your own event, never an event whose source
+  // row is unknown (pre-hotfix rows never wrote prediction_id — fails
+  // safe by simply not offering a tail rather than guessing), never once
+  // the source match has kicked off. This is a UX gate only — the real
+  // enforcement is prevent_late_prediction() (migration 037's trigger),
+  // which fires inside the RPC regardless of what the client believes.
+  const isOwn = !user || event.user_id === user.id;
+  const kickoffMs = event.kickoff_time ? new Date(event.kickoff_time).getTime() : null;
+  const stillOpen = kickoffMs != null && kickoffMs > Date.now();
+
+  const tail = useCallback(async () => {
+    if (!user || !activeGroupId || !sourcePredictionId || submitting) return;
+    setSubmitting(true);
+    haptic('selection');
+    try {
+      const { data, error } = await supabase.rpc('submit_copied_prediction', {
+        p_user_id: user.id,
+        p_group_id: activeGroupId,
+        p_source_prediction_id: sourcePredictionId,
+      });
+
+      if (error) {
+        haptic('error');
+        addToast(t(error.message?.includes('locked 15 minutes') ? 'tailErrorLocked' : 'tailErrorGeneric'), 'error');
+        return;
+      }
+
+      const result = data as {
+        success: boolean;
+        error?: string;
+        balance?: number;
+        prediction?: { id?: string; coins_bet?: number; is_parlay?: boolean; parlay_linked_tiers?: string[] | null };
+      } | null;
+
+      if (!result?.success) {
+        haptic('error');
+        addToast(t(result?.error === 'insufficient_coins' ? 'tailErrorInsufficientCoins' : 'tailErrorGeneric'), 'error');
+        return;
+      }
+
+      if (result.balance != null) coinsStore.setCoins(result.balance);
+
+      // Own leak-free PREDICTION_LOCKED announcement — mirrors
+      // usePredictions.ts's own post-submit insert exactly, so the
+      // tailer's OWN card renders identically (and is itself tailable by
+      // a third member, chain-flattened server-side back to the ROOT
+      // creator either way).
+      supabase
+        .from('group_events')
+        .insert({
+          group_id: activeGroupId,
+          user_id: user.id,
+          event_type: 'PREDICTION_LOCKED',
+          match_id: event.match_id,
+          metadata: {
+            prediction_id: result.prediction?.id ?? null,
+            coins_bet: result.prediction?.coins_bet ?? null,
+            is_parlay: result.prediction?.is_parlay ?? false,
+            parlay_linked_tiers: result.prediction?.parlay_linked_tiers ?? null,
+            tiers_count: meta.tiers_count ?? null,
+            tailed_from_username: event.username ?? null,
+          },
+        })
+        .then(({ error: evtErr }) => {
+          if (evtErr) console.warn('[TailButton] group_event insert failed:', evtErr.message);
+        });
+
+      queryClient.invalidateQueries({ queryKey: ['predictions'] });
+      haptic('bet_lock');
+      playSound('lock_thud');
+      addToast(t('tailSuccessToast'), 'success');
+      setTailed(true);
+    } catch {
+      haptic('error');
+      addToast(t('tailErrorGeneric'), 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [user, activeGroupId, sourcePredictionId, submitting, event.match_id, event.username, meta.tiers_count, addToast, coinsStore, queryClient, t]);
+
+  if (isOwn || !sourcePredictionId || !stillOpen || tailed) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={tail}
+      disabled={submitting}
+      className={cn(
+        'inline-flex items-center gap-1.5 mt-0.5 px-2.5 py-1 rounded-lg',
+        'text-xs font-semibold border border-blue-400/30 text-blue-300 bg-blue-400/10',
+        'transition-all active:scale-95 disabled:opacity-50',
+      )}
+    >
+      <Repeat2 size={13} />
+      {t('tailButtonLabel')}
+    </button>
   );
 }
 
