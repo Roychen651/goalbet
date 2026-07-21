@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Link2 } from 'lucide-react';
+import { ChevronDown, Link2, Swords } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
@@ -307,6 +307,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
   const enableLiveAnimations = useUIStore(s => s.enableLiveAnimations);
   const isSyncing = useUIStore(s => s.isSyncing);
   const openPredictionModal = useUIStore(s => s.openPredictionModal);
+  const openDuelDrawer = useUIStore(s => s.openDuelDrawer);
 
   // Track previous scores for safe score-flip animation + goal flash
   const prevScoreRef = useRef<{ home: number | null; away: number | null } | null>(null);
@@ -908,6 +909,22 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                       per resolved key event (goal/card/sub). Hidden until
                       real entries exist. */}
                   {isLive && <LiveCommentaryFeed entries={match.live_commentary ?? []} />}
+                  {/* V6 Sprint 47 Commit 3 — Live Duels entry point. Opens
+                      the global-store-driven drawer (uiStore.ts's
+                      activeDuelMatchId, rendered once at HomePage.tsx's
+                      level — never nested here, so its fixed inset-0
+                      overlay is never a descendant of this card's own
+                      transformed ancestor). */}
+                  {isLive && (
+                    <button
+                      type="button"
+                      onClick={() => { haptic('selection'); openDuelDrawer(match.id); }}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border border-blue-400/25 text-blue-300 bg-blue-400/8 active:scale-95 transition-all"
+                    >
+                      <Swords size={13} />
+                      {t('duelChallengeButton')}
+                    </button>
+                  )}
                   {isFinished && <MatchTimeline match={match} />}
                   {(isFinished || isLive) && <MatchRosters match={match} />}
                 </>

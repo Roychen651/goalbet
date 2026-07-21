@@ -9,6 +9,7 @@ import { useUIStore } from '../stores/uiStore';
 import { useLangStore } from '../stores/langStore';
 import { MatchFeed } from '../components/matches/MatchFeed';
 import { PredictionModal } from '../components/matches/PredictionModal';
+import { LiveDuelDrawer } from '../components/groups/LiveDuelDrawer';
 import { PageLoader } from '../components/ui/LoadingSpinner';
 import { NeonButton } from '../components/ui/NeonButton';
 import { ScoringGuide } from '../components/ui/ScoringGuide';
@@ -49,7 +50,11 @@ export function HomePage() {
   const { groups, activeGroupId, loading: groupsLoading, setActiveGroup } = useGroupStore();
   const activeGroup = groups.find(g => g.id === activeGroupId);
   const predictorsByMatch = useGroupMatchPredictions(matches.map(m => m.id), activeGroupId);
-  const { openModal, addToast } = useUIStore();
+  const { openModal, addToast, activeDuelMatchId, closeDuelDrawer } = useUIStore();
+  // V6 Sprint 47 Commit 3 — same "render once at the page level, driven
+  // by a global store id" pattern as PredictionModal above, not nested
+  // per-MatchCard-instance — see uiStore.ts's own comment for why.
+  const duelMatch = matches.find(m => m.id === activeDuelMatchId);
   const { t } = useLangStore();
 
   const now = Date.now();
@@ -269,6 +274,17 @@ export function HomePage() {
         savingMatchId={saving}
         isNewUser={isNewUser}
       />
+
+      <AnimatePresence>
+        {duelMatch && (
+          <LiveDuelDrawer
+            matchId={duelMatch.id}
+            homeTeam={duelMatch.home_team}
+            awayTeam={duelMatch.away_team}
+            onClose={closeDuelDrawer}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

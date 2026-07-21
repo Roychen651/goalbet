@@ -839,8 +839,14 @@ export const translations = {
     duelAccept: 'Accept',
     duelIgnore: 'Ignore',
     duelMatched: 'Matched with {0}! 🤝',
-    duelConfirmingEscrow: 'Confirming escrow… (coming soon)',
     duelNoOffers: 'No open challenges yet — be the first!',
+    // V6 Sprint 47 Commit 3 — real escrow RPC error mapping (rule from
+    // §29: a failed coin-spending RPC must surface its actual reason,
+    // never one generic message).
+    duelErrorGeneric: 'Could not process this duel',
+    duelErrorNotLive: 'This match isn’t live right now',
+    duelErrorInsufficientCoins: 'Not enough coins for this stake',
+    duelErrorClosed: 'This challenge is no longer open',
 
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'How should we refer to you?',
@@ -1757,8 +1763,11 @@ export const translations = {
     duelAccept: 'קבל',
     duelIgnore: 'התעלם',
     duelMatched: 'זווגת עם {0}! 🤝',
-    duelConfirmingEscrow: 'מאמתים הימור… (בקרוב)',
     duelNoOffers: 'אין עדיין אתגרים פתוחים — היה/י הראשון/ה!',
+    duelErrorGeneric: 'לא הצלחנו לעבד את הדו-קרב',
+    duelErrorNotLive: 'המשחק הזה לא בשידור חי כרגע',
+    duelErrorInsufficientCoins: 'אין מספיק מטבעות להימור הזה',
+    duelErrorClosed: 'האתגר הזה כבר לא פתוח',
 
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'איך לפנות אליך?',

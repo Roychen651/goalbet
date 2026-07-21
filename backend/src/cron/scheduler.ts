@@ -5,6 +5,7 @@ import { sendMatchReminders } from '../services/pushSender';
 import { runProvocateurBatch } from '../services/aiProvocateur';
 import { sendStreakExpiryWarnings } from '../services/streakGuardian';
 import { lockExpiredMicroQuestions, resolveLockedMicroQuestions } from '../services/momentumBets';
+import { resolveLiveDuels } from '../services/liveDuels';
 import { refreshCornersSupportFlags } from '../services/leagueStatCapability';
 import { refreshEspnLeagueMap } from '../services/espn';
 import { refreshActiveBattleScores } from '../services/groupBattles';
@@ -237,6 +238,14 @@ export function startScheduler(): void {
   // since a resolution a few seconds late doesn't affect fairness (the
   // outcome window is already fixed at lock time either way).
   setInterval(guarded('Momentum resolution sweep', async () => { await resolveLockedMicroQuestions(); }), 15_000);
+
+  // Live Duels resolution sweep — every 15s, same cadence and reasoning as
+  // Momentum Bets' resolution sweep above (the outcome window is already
+  // fixed at accept/lock time, so a few seconds' delay here doesn't affect
+  // fairness). No separate "lock" sweep needed — accept_duel_wager()
+  // (migration 065) both locks AND activates a duel in the same RPC call,
+  // unlike Momentum Bets' pre-generated-question shape.
+  setInterval(guarded('Live Duel resolution sweep', async () => { await resolveLiveDuels(); }), 15_000);
 
   // Weekly points reset every Sunday at 00:00 UTC (week = Sun 00:00 → Sat 23:59 UTC)
   cron.schedule('0 0 * * 0', async () => {
