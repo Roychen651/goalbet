@@ -216,6 +216,32 @@ export interface TierResult {
   pending?: boolean;
 }
 
+// V6 Sprint 48 — mirrors backend/src/services/pointsEngine.ts's
+// classifyKnockoutRound()/KNOCKOUT_BONUS byte-for-byte. Both copies must
+// stay in sync, same standing discipline as calcBreakdown() mirroring
+// calculatePoints() itself (see that file's own header comment for why
+// this replaced a hand-authored static bracket file for a second
+// tournament — a fabricated bracket topology, not a UI risk).
+export type KnockoutRound = 'r16' | 'qf' | 'sf' | 'final';
+
+export const KNOCKOUT_BONUS: Record<KnockoutRound, number> = {
+  r16: 3,
+  qf: 5,
+  sf: 8,
+  final: 15,
+};
+
+export function classifyKnockoutRound(roundName: string | null | undefined): KnockoutRound | null {
+  if (!roundName) return null;
+  const s = roundName.toLowerCase();
+  if (s.includes('third') || s.includes('3rd')) return null;
+  if (s.includes('semi')) return 'sf';
+  if (s.includes('quarter')) return 'qf';
+  if (s.includes('final')) return 'final';
+  if (s.includes('round of 16') || s.includes('last 16') || s.includes('r16')) return 'r16';
+  return null;
+}
+
 // Live breakdown — same logic but works for in-progress matches using current score.
 // Returns null if match has no score data yet.
 export function calcLiveBreakdown(prediction: Prediction, match: Match): TierResult[] | null {
@@ -242,7 +268,7 @@ export function calcLiveBreakdown(prediction: Prediction, match: Match): TierRes
 
   const htPending = match.status === '2H' && effectiveHtHome === null;
 
-  return _computeBreakdown(prediction, evalHome, evalAway, effectiveHtHome, effectiveHtAway, match.corners_total ?? null, htPending);
+  return _computeBreakdown(prediction, evalHome, evalAway, effectiveHtHome, effectiveHtAway, match.corners_total ?? null, htPending, match.round ?? null);
 }
 
 export function calcBreakdown(prediction: Prediction, match: Match): TierResult[] | null {
@@ -254,6 +280,8 @@ export function calcBreakdown(prediction: Prediction, match: Match): TierResult[
     prediction, scoringHome, scoringAway,
     match.halftime_home, match.halftime_away,
     match.corners_total ?? null,
+    false,
+    match.round ?? null,
   );
 
   // If halftime_pts_earned is stored (non-null = prediction scored before HT removal),
@@ -276,6 +304,7 @@ function _computeBreakdown(
   htAway: number | null,
   cornersTotal: number | null = null,
   htPending = false,
+  round: string | null = null,
 ): TierResult[] {
   const actualOutcome = homeScore > awayScore ? 'H' : homeScore < awayScore ? 'A' : 'D';
   const totalGoals = homeScore + awayScore;
@@ -286,6 +315,13 @@ function _computeBreakdown(
     prediction.predicted_away_score !== null &&
     prediction.predicted_home_score === homeScore &&
     prediction.predicted_away_score === awayScore;
+
+  // Mirrors pointsEngine.ts's outcomeCorrect || impliedOutcomeFromScore gate
+  // for the knockout bonus below — must match exactly, computed once here
+  // rather than re-derived from the (possibly-absent) 'result' TierResult.
+  const outcomeCorrect = prediction.predicted_outcome !== null && prediction.predicted_outcome === actualOutcome;
+  const impliedOutcomeCorrect = exactScoreCorrect && (prediction.predicted_outcome === null || prediction.predicted_outcome === actualOutcome);
+  const resultCorrect = outcomeCorrect || impliedOutcomeCorrect;
 
   const results: TierResult[] = [];
 
@@ -337,6 +373,18 @@ function _computeBreakdown(
     const earned = (prediction.predicted_over_under === 'over' && isOver) ||
       (prediction.predicted_over_under === 'under' && !isOver);
     results.push({ key: 'ou', label: 'Over/Under', pts: 3, earned });
+  }
+
+  // V6 Sprint 48 — knockout round-depth bonus. Only shown when the match
+  // actually classifies as a knockout round AND the user made a result
+  // pick at all (predicted_outcome set, or implied via an exact score) —
+  // never rendered for a match with no knowable round classification.
+  // Live breakdown treats this identically to how the 'result' tier
+  // itself already behaves live (no separate pending state — the FT
+  // result is exactly as knowable in real time as any other live tier).
+  const knockoutRound = classifyKnockoutRound(round);
+  if (knockoutRound && (prediction.predicted_outcome !== null || exactScoreCorrect)) {
+    results.push({ key: 'knockout', label: 'Knockout Bonus', pts: KNOCKOUT_BONUS[knockoutRound], earned: resultCorrect });
   }
 
   return results;

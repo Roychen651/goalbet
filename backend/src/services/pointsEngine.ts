@@ -22,10 +22,55 @@
 
 export type ParlayTierKey = 'result' | 'score' | 'corners' | 'btts' | 'ou';
 
+// V6 Sprint 48 — "The Global Arena & Bracket Master." Round-depth bonus.
+// Correction made before writing this: the brief asked for a hand-authored
+// static knockout-bracket topology for a SECOND tournament (mirroring
+// lib/worldCup2026.ts's shape) so a bracket-tree UI could show placeholder
+// slots ("W 97") before both legs are known. That file's real data (team
+// draws, exact dates, exact venues) exists ONLY because the 2026 World Cup
+// draw is real, published, and verifiable — no equivalent verified source
+// exists for a second competition's future knockout stage, and fabricating
+// one would be exactly the kind of invented "empirical" data this codebase
+// has repeatedly refused to ship (see GroupDistributionChart's honest
+// Gaussian-model disclosure, §30; the Oracle Narrator Pattern, §33). The
+// safe, honest, and actually more broadly valuable correction: `matches`
+// already has a real `round` column that has been silently hardcoded to
+// `null` in espn.ts since it was added — never populated. Capturing it for
+// real (see espn.ts) and keying a bonus off it works for EVERY knockout
+// competition ESPN already syncs (World Cup, Champions League, Europa
+// League, Conference League, FA Cup, League Cup, Copa del Rey) — not one
+// arbitrarily hand-picked second tournament — with zero fabricated data.
+export type KnockoutRound = 'r16' | 'qf' | 'sf' | 'final';
+
+export const KNOCKOUT_BONUS: Record<KnockoutRound, number> = {
+  r16: 3,
+  qf: 5,
+  sf: 8,
+  final: 15,
+};
+
+// Best-effort classification of ESPN's free-text round headline (e.g.
+// "Round of 16", "Quarterfinals", "Semifinal", "Final", "Third Place",
+// "Group Stage - Matchday 3"). Degrades to null (no bonus, never throws)
+// for anything unrecognized — the same "unverified field, honest
+// degradation" discipline already applied to every other best-effort ESPN
+// field in this codebase (yellowCards, referee name, athlete.headshot).
+export function classifyKnockoutRound(roundName: string | null | undefined): KnockoutRound | null {
+  if (!roundName) return null;
+  const s = roundName.toLowerCase();
+  if (s.includes('third') || s.includes('3rd')) return null; // 3rd-place playoff — not a bracket-depth match
+  if (s.includes('semi')) return 'sf';
+  if (s.includes('quarter')) return 'qf';
+  if (s.includes('final')) return 'final'; // checked after semi/quarter — both substrings contain "final"
+  if (s.includes('round of 16') || s.includes('last 16') || s.includes('r16')) return 'r16';
+  return null;
+}
+
 export interface MatchResult {
   home_score: number;
   away_score: number;
   corners_total: number | null;
+  round?: string | null;
 }
 
 export interface PredictionInput {
@@ -46,7 +91,8 @@ export interface PointsBreakdown {
   tier5_btts: number;         // 0 or 2
   tier6_over_under: number;   // 0 or 3
   parlay_bonus: number;       // 0 unless is_parlay and every linked tier hit
-  total: number;              // base tiers + parlay_bonus
+  knockout_bonus: number;     // 0 unless correct_prediction on a classified knockout round
+  total: number;              // base tiers + parlay_bonus + knockout_bonus
   correct_prediction: boolean;
 }
 
@@ -64,6 +110,7 @@ export function calculatePoints(prediction: PredictionInput, match: MatchResult)
     tier5_btts: 0,
     tier6_over_under: 0,
     parlay_bonus: 0,
+    knockout_bonus: 0,
     total: 0,
     correct_prediction: false,
   };
@@ -152,13 +199,31 @@ export function calculatePoints(prediction: PredictionInput, match: MatchResult)
     }
   }
 
+  // ── V6 Sprint 48: knockout round-depth bonus (additive only) ────────────
+  // Only ever added on top of a correct Tier-1 (FT result) pick, exactly
+  // like the streak system's own "correct_prediction" gate (§24) — never a
+  // reduction, never fires on a wrong pick. A deeper round classification
+  // (Final > SF > QF > R16) simply means more bonus points for the same
+  // already-correct call. `match.round` is optional/nullable everywhere
+  // this function is called from (a league match never has one; the
+  // corners re-score top-up loop in scoreUpdater.ts must thread it through
+  // to avoid under-counting a delta against a points_earned total that
+  // already included this bonus at initial resolution — see scoreUpdater.ts).
+  if (breakdown.correct_prediction) {
+    const round = classifyKnockoutRound(match.round);
+    if (round) {
+      breakdown.knockout_bonus = KNOCKOUT_BONUS[round];
+    }
+  }
+
   breakdown.total =
     breakdown.tier1_outcome +
     breakdown.tier2_exact_score +
     breakdown.tier3_corners +
     breakdown.tier5_btts +
     breakdown.tier6_over_under +
-    breakdown.parlay_bonus;
+    breakdown.parlay_bonus +
+    breakdown.knockout_bonus;
 
   return breakdown;
 }

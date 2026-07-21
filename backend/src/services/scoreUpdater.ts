@@ -52,6 +52,7 @@ interface PendingMatch {
   penalty_away: number | null;
   red_cards_home: number | null;
   red_cards_away: number | null;
+  round: string | null;
 }
 
 interface Prediction {
@@ -191,7 +192,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   // Query 1: in-progress / not-yet-finished matches
   const { data: inProgress, error: e1 } = await supabaseAdmin
     .from('matches')
-    .select('id, external_id, league_id, kickoff_time, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, red_cards_home, red_cards_away')
+    .select('id, external_id, league_id, kickoff_time, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, red_cards_home, red_cards_away, round')
     .not('status', 'in', '("FT","PST","CANC")')
     .lt('kickoff_time', slightlyAhead);
 
@@ -213,7 +214,7 @@ async function getPendingMatches(): Promise<PendingMatch[]> {
   if (unresolvedMatchIds.length > 0) {
     const { data: ftData, error: e2 } = await supabaseAdmin
       .from('matches')
-      .select('id, external_id, league_id, kickoff_time, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, red_cards_home, red_cards_away')
+      .select('id, external_id, league_id, kickoff_time, home_score, away_score, status, halftime_home, halftime_away, corners_total, regulation_home, regulation_away, went_to_penalties, penalty_home, penalty_away, red_cards_home, red_cards_away, round')
       .in('id', unresolvedMatchIds)
       .eq('status', 'FT')
       .not('home_score', 'is', null)
@@ -315,6 +316,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
   kickoff_time?: string;
   league_id?: number;
   league_name?: string | null;
+  round?: string | null;
 }, tracker: RankTracker): Promise<number> {
   const { data: predictions, error } = await supabaseAdmin
     .from('predictions')
@@ -351,6 +353,7 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
         home_score: matchResult.regulation_home ?? matchResult.home_score,
         away_score: matchResult.regulation_away ?? matchResult.away_score,
         corners_total: matchResult.corners_total,
+        round: matchResult.round ?? null,
       };
       const breakdown = calculatePoints(prediction, scoringResult);
       const finalPoints = breakdown.total;
@@ -436,13 +439,19 @@ async function resolveMatchPredictions(matchId: string, matchResult: {
         // regardless of what text it contains. Same technique extended here
         // for the royalty marker.
         const parlayMarker = breakdown.parlay_bonus > 0 ? ` 🔗+${breakdown.parlay_bonus}` : '';
+        // V6 Sprint 48 — same technique extended for the knockout round-
+        // depth bonus. Placed before the royalty marker (a knockout win
+        // that was also tailed shows both markers in the same order the
+        // bonus itself was folded into finalPoints: base tiers → parlay →
+        // knockout, matching pointsEngine.ts's own breakdown.total sum).
+        const knockoutMarker = breakdown.knockout_bonus > 0 ? ` 🏆+${breakdown.knockout_bonus}` : '';
         const royaltyMarker = royalty > 0 ? ` (🔁 -${royalty} royalty)` : '';
         const { error: coinError } = await supabaseAdmin.rpc('increment_coins', {
           p_user_id: prediction.user_id,
           p_group_id: prediction.group_id,
           p_match_id: matchId,
           p_amount: coinsToAward,
-          p_description: `Won ${finalPoints} pts${parlayMarker}${royaltyMarker} → ${coinsToAward} coins`,
+          p_description: `Won ${finalPoints} pts${parlayMarker}${knockoutMarker}${royaltyMarker} → ${coinsToAward} coins`,
           p_created_at: matchEndAt,  // ← coin transaction reflects match end, not server clock
         });
         if (coinError) {
@@ -788,6 +797,7 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
               kickoff_time: match.kickoff_time,
               league_id: match.league_id,
               league_name: effectiveData.league_name,
+              round: match.round,
             }, tracker);
             totalResolved += count;
             logger.info(`[scoreUpdater] Match ${match.id}: ${effectiveData.home_score}-${effectiveData.away_score}, resolved ${count} predictions`);
@@ -859,6 +869,7 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
                 kickoff_time: match.kickoff_time,
                 league_id: match.league_id,
                 league_name: effectiveData.league_name,
+                round: match.round,
               }, tracker);
               if (count > 0) {
                 totalResolved += count;
@@ -899,13 +910,13 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const { data: cornersMatches } = await supabaseAdmin
       .from('matches')
-      .select('id, kickoff_time, home_score, away_score, corners_total, regulation_home, regulation_away')
+      .select('id, kickoff_time, home_score, away_score, corners_total, regulation_home, regulation_away, round')
       .eq('status', 'FT')
       .not('corners_total', 'is', null)
       .not('home_score', 'is', null)
       .gte('kickoff_time', sevenDaysAgo);
 
-    for (const m of (cornersMatches ?? []) as { id: string; kickoff_time: string; home_score: number; away_score: number; corners_total: number; regulation_home: number | null; regulation_away: number | null }[]) {
+    for (const m of (cornersMatches ?? []) as { id: string; kickoff_time: string; home_score: number; away_score: number; corners_total: number; regulation_home: number | null; regulation_away: number | null; round: string | null }[]) {
       const { data: cornersPreds } = await supabaseAdmin
         .from('predictions')
         .select('*')
@@ -918,6 +929,14 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
           home_score: m.regulation_home ?? m.home_score,
           away_score: m.regulation_away ?? m.away_score,
           corners_total: m.corners_total,
+          // V6 Sprint 48 — must be threaded through here too, or a
+          // knockout match's corners top-up would compute a total that's
+          // MISSING the round-depth bonus already baked into the existing
+          // points_earned from initial resolution, producing an
+          // artificially negative/understated delta and silently
+          // dropping a legitimate corners correction (delta <= 0 skip
+          // below).
+          round: m.round,
         };
         const correctBreakdown = calculatePoints(pred, scoringResult);
         const delta = correctBreakdown.total - (pred as unknown as { points_earned: number }).points_earned;
@@ -1038,12 +1057,12 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
     if (stuckMatchIds.length > 0) {
       const { data: ftStuck } = await supabaseAdmin
         .from('matches')
-        .select('id, kickoff_time, home_score, away_score, corners_total, regulation_home, regulation_away, home_team, away_team, league_id, league_name')
+        .select('id, kickoff_time, home_score, away_score, corners_total, regulation_home, regulation_away, home_team, away_team, league_id, league_name, round')
         .eq('status', 'FT')
         .not('home_score', 'is', null)
         .in('id', stuckMatchIds);
 
-      for (const m of (ftStuck ?? []) as { id: string; kickoff_time: string; home_score: number; away_score: number; corners_total: number | null; regulation_home: number | null; regulation_away: number | null; home_team: string; away_team: string; league_id: number; league_name: string | null }[]) {
+      for (const m of (ftStuck ?? []) as { id: string; kickoff_time: string; home_score: number; away_score: number; corners_total: number | null; regulation_home: number | null; regulation_away: number | null; home_team: string; away_team: string; league_id: number; league_name: string | null; round: string | null }[]) {
         const count = await resolveMatchPredictions(m.id, {
           home_score: m.home_score,
           away_score: m.away_score,
@@ -1053,6 +1072,7 @@ export async function checkAndUpdateScores(tierFilter?: 'tier1' | 'tier2'): Prom
           home_team: m.home_team,
           away_team: m.away_team,
           kickoff_time: m.kickoff_time,
+          round: m.round,
           league_id: m.league_id,
           league_name: m.league_name,
         }, tracker);
