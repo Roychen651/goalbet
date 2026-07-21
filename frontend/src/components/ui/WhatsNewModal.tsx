@@ -1,6 +1,7 @@
 import { motion, useReducedMotion, type Variants } from 'framer-motion';
 import {
   X, Sparkles, Zap, Heart, Radar, Activity, BrainCircuit, Swords, Coins, Gem, Link,
+  Flame, Radio, TrendingUp, Target, Fingerprint, CalendarDays, Trophy, Copy, Crosshair, Globe, Award,
 } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
 import { EPOCH_ERAS, type EpochFeature } from '../../lib/whatsNewContent';
@@ -36,7 +37,31 @@ const ICONS: Record<EpochFeature['icon'], typeof Sparkles> = {
   coins: Coins,
   gem: Gem,
   link: Link,
+  flame: Flame,
+  radio: Radio,
+  'trending-up': TrendingUp,
+  target: Target,
+  fingerprint: Fingerprint,
+  'calendar-days': CalendarDays,
+  trophy: Trophy,
+  copy: Copy,
+  crosshair: Crosshair,
+  globe: Globe,
+  award: Award,
 };
+
+// V6 Sprint 48 — real per-feature ship dates, backfilled alongside the
+// content itself. Locale-aware ('he-IL'/'en-US'), same branch already
+// established for match kickoff times (lib/utils.ts's formatKickoffTime,
+// Sprint 24) — never the browser-default locale, which would silently
+// show English month names to Hebrew users.
+function formatEpochDate(iso: string, isHe: boolean): string {
+  return new Date(iso).toLocaleDateString(isHe ? 'he-IL' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
 
 const BACKDROP: Variants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
 const SHEET: Variants = { hidden: { opacity: 0, y: 40 }, visible: { opacity: 1, y: 0 } };
@@ -74,7 +99,12 @@ function FeatureCard({ feature, isHe, colorToken, reduce }: { feature: EpochFeat
         <Icon size={18} style={{ color: `var(${colorToken})` }} />
       </div>
       <div className="min-w-0">
-        <h4 className="text-white text-sm font-bold leading-snug">{isHe ? feature.titleHe : feature.title}</h4>
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <h4 className="text-white text-sm font-bold leading-snug">{isHe ? feature.titleHe : feature.title}</h4>
+          <span className="text-white/30 text-[10px] font-mono tabular-nums shrink-0">
+            {formatEpochDate(feature.date, isHe)}
+          </span>
+        </div>
         <p className="text-white/55 text-xs leading-relaxed mt-0.5">{isHe ? feature.descHe : feature.desc}</p>
       </div>
     </motion.div>

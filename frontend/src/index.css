@@ -137,6 +137,17 @@
   --epoch-experience: oklch(75% 0.14 200);
   --epoch-analytics: oklch(68% 0.19 280);
   --epoch-social: oklch(78% 0.16 50);
+  /* V6 Sprint 48 — three more eras, added when the Epoch Showcase content
+     was backfilled to cover everything shipped since Sprint 39 (it had
+     silently stopped updating at Sprint 37). Three new hues, distinct
+     from the trio above and from each other: broadcast = urgent red-orange
+     (fits the 🔥 live-reaction/commentary theme, distinct from social's
+     warmer 50), identity = teal (distinct from experience's ice-blue 200
+     and analytics' violet 280), global = blue-violet (distinct from
+     analytics' own 280 by a real 40° gap). */
+  --epoch-broadcast: oklch(74% 0.18 15);
+  --epoch-identity: oklch(72% 0.15 165);
+  --epoch-global: oklch(70% 0.18 240);
 
   /* V6 Sprint 48 — Global Arena divisions. A sixth, deliberately distinct
      fixed-hue family: not --streak-bronze/-silver/-ember (that trio means
@@ -235,6 +246,9 @@ html.light {
   --epoch-experience: oklch(55% 0.15 200);
   --epoch-analytics: oklch(50% 0.20 280);
   --epoch-social: oklch(58% 0.18 50);
+  --epoch-broadcast: oklch(54% 0.19 15);
+  --epoch-identity: oklch(52% 0.16 165);
+  --epoch-global: oklch(50% 0.19 240);
 
   /* V6 Sprint 48 — Global Arena divisions, light surface variant. Same hue
      anchors (40/230/95/190) as dark, darkened + more saturated for
