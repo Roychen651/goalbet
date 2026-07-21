@@ -441,6 +441,32 @@ html.light .bento-default-value { color: #0A1733 !important; }
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
 }
 
+/* V6 Sprint 49 — Floating Glass Dock (BottomNav.tsx). Deliberately a NEW
+   class, not a bump to .glass's own blur value — .glass is shared with
+   TopBar.tsx/Sidebar.tsx and changing it there was never in scope. Blur/
+   saturation match .card-elevated's own "elevated tier" numbers (30px/
+   170%) rather than a fresh guess — reusing an already-established tier
+   instead of inventing a new one. Deliberately does NOT go fully opaque
+   in light mode the way .card-elevated does (a floating nav dock should
+   still read as glass over content in both themes) — closer to .glass's
+   own light-mode shape (translucent white, not solid). No border color
+   here on purpose: the dock combines this with .gradient-edge (below)
+   for its rim, and a border here would double up with that pseudo-
+   element exactly the way GlassCard.tsx's own edgeGradient prop already
+   documents avoiding. */
+.glass-dock {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(30px) saturate(170%);
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+html.light .glass-dock {
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(16px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
+  box-shadow: 0 4px 24px rgba(15, 40, 84, 0.10);
+}
+
 /* ============================================================
    Neon glow utilities
    ============================================================ */
