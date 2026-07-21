@@ -231,6 +231,21 @@ export function usePredictions(matchIds?: string[]) {
       });
 
       // Fire-and-forget: locker-room activity event.
+      //
+      // SECURITY HOTFIX (pre-Sprint-47) — this metadata object must NEVER
+      // contain predicted_outcome/predicted_home_score/predicted_away_score/
+      // predicted_btts/predicted_over_under/predicted_corners. group_events
+      // has no kickoff-time RLS gate (unlike predictions, migration 037) —
+      // useGroupEvents.ts fetches `select('*', ...)` into every group
+      // member's browser filtered only by group_id, so any pick value
+      // written here was readable by every other member (via devtools/
+      // network inspection, even though ActivityFeed.tsx's renderer never
+      // displayed it) for any not-yet-kicked-off match — a real, live leak
+      // completely bypassing the predictions table's RLS wall via this
+      // parallel, un-gated copy of the same data. tiers_count/coins_bet/
+      // is_parlay/parlay_linked_tiers are all safe (they reveal nothing
+      // about WHAT was predicted, only how much was staked and how many
+      // tiers) — keep those, never re-add the six removed fields.
       supabase
         .from('group_events')
         .insert({
@@ -239,12 +254,6 @@ export function usePredictions(matchIds?: string[]) {
           event_type: 'PREDICTION_LOCKED',
           match_id: vars.input.match_id,
           metadata: {
-            predicted_outcome: vars.input.predicted_outcome ?? null,
-            predicted_home_score: vars.input.predicted_home_score ?? null,
-            predicted_away_score: vars.input.predicted_away_score ?? null,
-            predicted_btts: vars.input.predicted_btts ?? null,
-            predicted_over_under: vars.input.predicted_over_under ?? null,
-            predicted_corners: vars.input.predicted_corners ?? null,
             coins_bet: data.coins_bet, // authoritative — from the RPC's own row, not the optimistic guess
             is_parlay: data.is_parlay,
             parlay_linked_tiers: data.parlay_linked_tiers,
