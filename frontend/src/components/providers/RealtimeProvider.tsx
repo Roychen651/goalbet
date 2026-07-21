@@ -91,13 +91,57 @@ export interface LiveReactionPayload {
   ts: number;
   clientNonce: string;
 }
-type BroadcastHandler = (payload: LiveReactionPayload) => void;
 const LIVE_REACTION_EVENT = 'live_reaction';
+
+// V6 Sprint 47 — "Tactical Copy-Betting & Live Duels": a SECOND broadcast
+// event type, distinct from `live_reaction`. Negotiation-only (offer /
+// counter / accept / reject / cancel) — like reactions, nothing here is
+// ever written to Postgres; unlike reactions, a duel's ACCEPTANCE moves
+// real coins, which is exactly why it does NOT happen inside this
+// envelope. The actual escrow (Commit 3's `lock_duel_wager`-style RPCs)
+// is always a real, auth.uid()-checked, single-party-debit call made
+// independently by EACH side from their own session — never inferred
+// from a broadcast payload, which is client-authored and unverifiable
+// (a spoofed `fromUserId` could otherwise be used to fabricate an offer
+// nobody actually made — the same class of hole rule 4.11 already closed
+// once for coin-spending RPCs, §11/§27). This envelope is purely the
+// matchmaking layer: "who wants to duel, on what terms" — the moment
+// real money is at stake, control hands off to a real DB write.
+export type DuelMessageType = 'offer' | 'counter' | 'accept' | 'reject' | 'cancel';
+
+export interface DuelChallengePayload {
+  type: DuelMessageType;
+  duelNonce: string; // client-generated — correlates offer → counter/accept/reject/cancel across the negotiation
+  fromUserId: string;
+  fromUsername: string;
+  toUserId: string | null; // null = open challenge to the whole group; otherwise a targeted reply
+  matchId: string;
+  stake: number;
+  side: 'home' | 'away'; // which side the SENDER of this message is backing
+  ts: number;
+  clientNonce: string;
+}
+const DUEL_CHALLENGE_EVENT = 'duel_challenge';
+
+// A broadcast handler is generic over its own payload shape — the
+// registry itself doesn't need to know or care whether it's dispatching
+// a LiveReactionPayload or a DuelChallengePayload, only that both carry a
+// `matchId` string used for the composite registry key below.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type BroadcastHandler<T = any> = (payload: T) => void;
 
 function genNonce(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// Composite key so the SAME matchId can carry independent registries per
+// event type — a MatchCard listening for `live_reaction` on match X must
+// never also receive `duel_challenge` messages for match X, and vice
+// versa, even though both ride the identical underlying channel object.
+function broadcastKey(matchId: string, event: string): string {
+  return `${matchId}:${event}`;
 }
 
 type RealtimeTable =
@@ -112,8 +156,10 @@ type RealtimeHandler = (payload: RealtimePostgresChangesPayload<Record<string, u
 
 interface RealtimeContextValue {
   subscribe: (table: RealtimeTable, handler: RealtimeHandler) => () => void;
-  subscribeBroadcast: (matchId: string, handler: BroadcastHandler) => () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  subscribeBroadcast: (matchId: string, event: string, handler: BroadcastHandler<any>) => () => void;
   sendReaction: (payload: Omit<LiveReactionPayload, 'ts' | 'clientNonce'>) => void;
+  sendDuelMessage: (payload: Omit<DuelChallengePayload, 'ts' | 'clientNonce'>) => void;
 }
 
 const RECONNECT_EVENT = 'goalbet:realtime-reconnected';
@@ -166,31 +212,64 @@ export function useRealtimeReconnect(handler: () => void) {
 }
 
 /**
+ * V6 Sprint 47 — the generic broadcast primitive `useRealtimeBroadcast`
+ * (below) is now a thin wrapper over. Subscribes to broadcast messages of
+ * one `event` name, scoped to one `matchId` (composite-keyed — see
+ * `broadcastKey` above), for any payload shape `T`. Registration is a
+ * pure Map mutation against `broadcastRegistryRef`, never touching the
+ * underlying Supabase channel object directly, so a group switch
+ * mid-mount can never leave this hook's listener silently unbound.
+ */
+export function useRealtimeBroadcastChannel<T>(matchId: string, event: string, onMessage: BroadcastHandler<T>) {
+  const ctx = useContext(RealtimeContext);
+  const handlerRef = useRef(onMessage);
+  handlerRef.current = onMessage;
+
+  useEffect(() => {
+    if (!ctx) return;
+    return ctx.subscribeBroadcast(matchId, event, (payload: T) => handlerRef.current(payload));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx, matchId, event]);
+}
+
+/**
  * V5 Sprint 39 — subscribes to broadcast `live_reaction` events scoped to
- * one `matchId`, and returns a `send()` for firing one. Registration is a
- * pure Map mutation against `broadcastRegistryRef` (see the file-header
- * comment above) — it never touches the underlying Supabase channel
- * object directly, so a group switch mid-mount can never leave this
- * hook's listener silently unbound. `send()` is a thin pass-through to
- * the provider's own `sendReaction`, which reads the live channel
- * reference itself at call time; if the channel is momentarily
+ * one `matchId`, and returns a `send()` for firing one. A thin,
+ * signature-preserving wrapper over `useRealtimeBroadcastChannel` (V6
+ * Sprint 47's generalization) — every existing call site
+ * (useLiveReactions.ts) keeps working unmodified. `send()` is a thin
+ * pass-through to the provider's own `sendReaction`, which reads the live
+ * channel reference itself at call time; if the channel is momentarily
  * unavailable (the brief group-switch recreation window), it's a silent,
  * non-critical no-op — nothing here is persisted, so a missed tap during
  * that narrow window is a UX nicety lost, never a correctness bug.
  */
-export function useRealtimeBroadcast(matchId: string, onReaction: BroadcastHandler) {
+export function useRealtimeBroadcast(matchId: string, onReaction: BroadcastHandler<LiveReactionPayload>) {
   const ctx = useContext(RealtimeContext);
-  const handlerRef = useRef(onReaction);
-  handlerRef.current = onReaction;
-
-  useEffect(() => {
-    if (!ctx) return;
-    return ctx.subscribeBroadcast(matchId, (payload) => handlerRef.current(payload));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctx, matchId]);
+  useRealtimeBroadcastChannel<LiveReactionPayload>(matchId, LIVE_REACTION_EVENT, onReaction);
 
   const send = useCallback((chip: string, username: string, gender: Gender) => {
     ctx?.sendReaction({ chip, username, gender, matchId });
+  }, [ctx, matchId]);
+
+  return { send };
+}
+
+/**
+ * V6 Sprint 47 — subscribes to `duel_challenge` negotiation messages for
+ * one `matchId`, and returns a `send()` for firing one. Same shape as
+ * `useRealtimeBroadcast` above, one event type over. Every message here
+ * is pure matchmaking chatter (offer/counter/accept/reject/cancel) — no
+ * coins move as a side effect of anything sent through this channel; see
+ * the `DuelChallengePayload` file-header comment for exactly why the real
+ * escrow is a separate, per-side, auth-checked DB call instead.
+ */
+export function useLiveDuelBroadcast(matchId: string, onMessage: BroadcastHandler<DuelChallengePayload>) {
+  const ctx = useContext(RealtimeContext);
+  useRealtimeBroadcastChannel<DuelChallengePayload>(matchId, DUEL_CHALLENGE_EVENT, onMessage);
+
+  const send = useCallback((msg: Omit<DuelChallengePayload, 'ts' | 'clientNonce' | 'matchId'>) => {
+    ctx?.sendDuelMessage({ ...msg, matchId });
   }, [ctx, matchId]);
 
   return { send };
@@ -220,26 +299,31 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     registryRef.current.get(table)?.forEach((h) => h(payload));
   }, []);
 
-  // V5 Sprint 39 — broadcast registry, keyed by matchId rather than table
-  // name (many live MatchCards can be simultaneously mounted, each
-  // wanting only its OWN match's reactions). Survives every Group Channel
-  // recreation untouched — see the file-header comment above for why this
-  // is what makes the whole thing race-free across a group switch.
-  const broadcastRegistryRef = useRef<Map<string, Set<BroadcastHandler>>>(new Map());
+  // V5 Sprint 39 — broadcast registry, keyed by `${matchId}:${event}`
+  // (V6 Sprint 47 generalization — was matchId alone, back when
+  // `live_reaction` was the only broadcast event this file carried; the
+  // composite key is what lets `duel_challenge` share the same registry
+  // shape without ever mixing dispatch with reactions for the same
+  // match). Survives every Group Channel recreation untouched — see the
+  // file-header comment above for why this is what makes the whole thing
+  // race-free across a group switch.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const broadcastRegistryRef = useRef<Map<string, Set<BroadcastHandler<any>>>>(new Map());
   const groupChannelRef = useRef<RealtimeChannel | null>(null);
 
-  const subscribeBroadcastFn = useCallback((matchId: string, handler: BroadcastHandler) => {
-    let set = broadcastRegistryRef.current.get(matchId);
+  const subscribeBroadcastFn = useCallback((matchId: string, event: string, handler: BroadcastHandler) => {
+    const key = broadcastKey(matchId, event);
+    let set = broadcastRegistryRef.current.get(key);
     if (!set) {
       set = new Set();
-      broadcastRegistryRef.current.set(matchId, set);
+      broadcastRegistryRef.current.set(key, set);
     }
     set.add(handler);
-    return () => { broadcastRegistryRef.current.get(matchId)?.delete(handler); };
+    return () => { broadcastRegistryRef.current.get(key)?.delete(handler); };
   }, []);
 
-  const dispatchBroadcast = useCallback((payload: LiveReactionPayload) => {
-    broadcastRegistryRef.current.get(payload.matchId)?.forEach((h) => h(payload));
+  const dispatchBroadcast = useCallback((matchId: string, event: string, payload: unknown) => {
+    broadcastRegistryRef.current.get(broadcastKey(matchId, event))?.forEach((h) => h(payload));
   }, []);
 
   const sendReactionFn = useCallback((payload: Omit<LiveReactionPayload, 'ts' | 'clientNonce'>) => {
@@ -248,6 +332,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     void channel.send({
       type: 'broadcast',
       event: LIVE_REACTION_EVENT,
+      payload: { ...payload, ts: Date.now(), clientNonce: genNonce() },
+    });
+  }, []);
+
+  // V6 Sprint 47 — identical shape to sendReactionFn, one event name over.
+  const sendDuelMessageFn = useCallback((payload: Omit<DuelChallengePayload, 'ts' | 'clientNonce'>) => {
+    const channel = groupChannelRef.current;
+    if (!channel) return;
+    void channel.send({
+      type: 'broadcast',
+      event: DUEL_CHALLENGE_EVENT,
       payload: { ...payload, ts: Date.now(), clientNonce: genNonce() },
     });
   }, []);
@@ -400,14 +495,24 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       // the same .on(...) chain as every postgres_changes binding above,
       // on the SAME channel object — this is what makes it immune to the
       // cross-effect ordering hazard described in the file-header comment.
-      // Dispatches into broadcastRegistryRef, filtered by matchId inside
-      // dispatchBroadcast itself (payload.matchId), not by a Realtime-side
-      // filter — broadcast has no server-side filter syntax at all, every
-      // subscriber on this channel receives every reaction for the whole
-      // group and dispatchBroadcast narrows it client-side to whichever
+      // Dispatches into broadcastRegistryRef, filtered by matchId+event
+      // inside dispatchBroadcast itself (payload.matchId, this literal
+      // event name), not by a Realtime-side filter — broadcast has no
+      // server-side filter syntax at all, every subscriber on this
+      // channel receives every reaction for the whole group and
+      // dispatchBroadcast narrows it client-side to whichever
       // MatchCard(s) are actually listening for that matchId right now.
       .on('broadcast', { event: LIVE_REACTION_EVENT }, (msg) => {
-        dispatchBroadcast(msg.payload as LiveReactionPayload);
+        const payload = msg.payload as LiveReactionPayload;
+        dispatchBroadcast(payload.matchId, LIVE_REACTION_EVENT, payload);
+      })
+      // V6 Sprint 47 — duel_challenge broadcast. Same registration shape
+      // as live_reaction, one event name over — see the DuelChallengePayload
+      // file-header comment for why negotiation stays broadcast-only while
+      // the actual escrow (Commit 3) never does.
+      .on('broadcast', { event: DUEL_CHALLENGE_EVENT }, (msg) => {
+        const payload = msg.payload as DuelChallengePayload;
+        dispatchBroadcast(payload.matchId, DUEL_CHALLENGE_EVENT, payload);
       })
       .subscribe(handleChannelStatus('group'));
 
@@ -457,7 +562,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, dispatch, handleChannelStatus]);
 
-  const value: RealtimeContextValue = { subscribe: subscribeFn, subscribeBroadcast: subscribeBroadcastFn, sendReaction: sendReactionFn };
+  const value: RealtimeContextValue = {
+    subscribe: subscribeFn,
+    subscribeBroadcast: subscribeBroadcastFn,
+    sendReaction: sendReactionFn,
+    sendDuelMessage: sendDuelMessageFn,
+  };
 
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
 }

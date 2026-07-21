@@ -822,6 +822,26 @@ export const translations = {
     tailErrorGeneric: 'Could not tail this pick',
     activityTailedFrom: '🔁 Tailed from {0}',
 
+    // V6 Sprint 47 — Live Duels negotiation (Commit 2, matchmaking only —
+    // the actual escrow RPC lands in Commit 3). Every string here describes
+    // NEGOTIATION, never a completed money transfer.
+    duelTitle: 'Live Duel',
+    duelSubtitle: 'Challenge the group to a 1v1 on this match',
+    duelPickSide: 'Pick your side',
+    duelStakeLabel: 'Stake',
+    duelDecreaseStake: 'Decrease stake',
+    duelIncreaseStake: 'Increase stake',
+    duelChallengeButton: 'Challenge the Group',
+    duelWaitingForOpponent: 'Waiting for a challenger…',
+    duelCancelChallenge: 'Cancel Challenge',
+    duelIncomingOfferPrefix: 'wants to duel —',
+    duelIncomingOfferOn: 'coins on',
+    duelAccept: 'Accept',
+    duelIgnore: 'Ignore',
+    duelMatched: 'Matched with {0}! 🤝',
+    duelConfirmingEscrow: 'Confirming escrow… (coming soon)',
+    duelNoOffers: 'No open challenges yet — be the first!',
+
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'How should we refer to you?',
     genderMale: 'Male',
@@ -1721,6 +1741,24 @@ export const translations = {
     tailErrorInsufficientCoins: 'אין מספיק מטבעות לשכפול הניחוש',
     tailErrorGeneric: 'לא הצלחנו לשכפל את הניחוש',
     activityTailedFrom: '🔁 שוכפל מ־{0}',
+
+    // V6 Sprint 47 — דו-קרב חי (Live Duels) — משא ומתן בלבד (Commit 2)
+    duelTitle: 'דו-קרב חי',
+    duelSubtitle: 'אתגר/י את הקבוצה לדו-קרב 1 על 1 במשחק הזה',
+    duelPickSide: 'בחר/י צד',
+    duelStakeLabel: 'הימור',
+    duelDecreaseStake: 'הפחת הימור',
+    duelIncreaseStake: 'הגדל הימור',
+    duelChallengeButton: 'אתגר את הקבוצה',
+    duelWaitingForOpponent: 'ממתינים למתחרה…',
+    duelCancelChallenge: 'בטל אתגר',
+    duelIncomingOfferPrefix: 'רוצה דו-קרב —',
+    duelIncomingOfferOn: 'מטבעות על',
+    duelAccept: 'קבל',
+    duelIgnore: 'התעלם',
+    duelMatched: 'זווגת עם {0}! 🤝',
+    duelConfirmingEscrow: 'מאמתים הימור… (בקרוב)',
+    duelNoOffers: 'אין עדיין אתגרים פתוחים — היה/י הראשון/ה!',
 
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'איך לפנות אליך?',
