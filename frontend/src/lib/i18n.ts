@@ -279,6 +279,11 @@ export const translations = {
     bentoConsecutiveCorrect: 'consecutive correct',
     bestStreakLabel: 'Best Streak',
     leaderboardExpandRow: 'Show quick preview',
+    podiumTriggerAria: 'Hall of Champions',
+    podiumTitle: 'Hall of Champions',
+    podiumSubtitle: "This week's top 3",
+    podiumEmpty: 'No matches resolved yet this week',
+    podiumShareCta: 'Share Champion Card',
     bentoPredictToSee: 'Predict scores to see',
     bentoSharp: 'Sharp',
     bentoDecent: 'Decent',
@@ -793,6 +798,17 @@ export const translations = {
     notifRankDropBody_male: '{0} just overtook you — new rank: #{1}',
     notifRankDropBody_female: '{0} just overtook you — new rank: #{1}',
     notifRankDropBody_unspecified: '{0} just overtook you — new rank: #{1}',
+    // V6 Sprint 46 — ephemeral, in-session live overtake toast. A separate
+    // key from notifRankDropBody_* on purpose: different UI surface
+    // (transient Toast, not the persisted notifications-center row), so a
+    // punchier tone is fine here. Both verbs describe the SAME person (the
+    // overtaker), so baking a second conjugated verb into each full
+    // gendered string is NOT the cross-person slash-notation bug
+    // notifRankDropBody_* was fixed to avoid (§39) — verified before
+    // shipping, not assumed.
+    liveOvertakeToast_male: '{0} overtook you and climbed to rank #{1}! 🚀',
+    liveOvertakeToast_female: '{0} overtook you and climbed to rank #{1}! 🚀',
+    liveOvertakeToast_unspecified: '{0} overtook you and climbed to rank #{1}! 🚀',
 
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'How should we refer to you?',
@@ -1170,6 +1186,11 @@ export const translations = {
     bentoConsecutiveCorrect: 'ניחושים רצופים',
     bestStreakLabel: 'השיא',
     leaderboardExpandRow: 'הצג תצוגה מהירה',
+    podiumTriggerAria: 'היכל האלופים',
+    podiumTitle: 'היכל האלופים',
+    podiumSubtitle: 'השלושה המובילים השבוע',
+    podiumEmpty: 'עדיין לא הוכרעו משחקים השבוע',
+    podiumShareCta: 'שתפו את כרטיס האלוף',
     bentoPredictToSee: 'נחש סקורים כדי לפתוח',
     bentoSharp: 'חד',
     bentoDecent: 'סביר',
@@ -1677,6 +1698,9 @@ export const translations = {
     notifRankDropBody_male: '{0} עקף אותך — המקום החדש: #{1}',
     notifRankDropBody_female: '{0} עקפה אותך — המקום החדש: #{1}',
     notifRankDropBody_unspecified: '{0} עקף/ה אותך — המקום החדש: #{1}',
+    liveOvertakeToast_male: '{0} עקף אותך ועלה למקום #{1}! 🚀',
+    liveOvertakeToast_female: '{0} עקפה אותך ועלתה למקום #{1}! 🚀',
+    liveOvertakeToast_unspecified: '{0} עקף/ה אותך ועלה/תה למקום #{1}! 🚀',
 
     // Profile — gender preference (V4 Sprint 24)
     genderSectionTitle: 'איך לפנות אליך?',

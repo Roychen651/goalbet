@@ -1,10 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, LeaderboardEntryWithProfile, Match, Prediction } from '../lib/supabase';
 import { useGroupStore } from '../stores/groupStore';
+import { useAuthStore } from '../stores/authStore';
 import { calcLiveBreakdown } from '../lib/utils';
 import { useRealtimeSubscription, useRealtimeReconnect } from '../components/providers/RealtimeProvider';
 
 export type LeaderboardType = 'total' | 'weekly' | 'lastWeek';
+
+// V6 Sprint 46 — ephemeral (never persisted) live rank-change signal, purely
+// derived by diffing this hook's own previous in-memory snapshot against a
+// freshly-fetched one. Deliberately separate from the server-side
+// RankTracker/flushRankDropNotifications() path (§27) — that one is
+// batched, authoritative, and writes a real `notifications` row + push,
+// surfaced later even if the user is offline. This one only fires while
+// someone is actively looking at THIS screen right now, needs no dedup
+// index (nothing is written anywhere), and clears itself a few seconds
+// after firing.
+export type RankEvent =
+  | { type: 'overtaken'; byUsername: string; byGender: 'male' | 'female' | 'unspecified' | null; newRank: number }
+  | { type: 'climbed'; newRank: number };
 
 // Sun-start week bounds (ISO strings). Each week runs Sun 00:00 UTC → next Sun 00:00 UTC.
 // Predictions are counted in the week where their match's kickoff_time falls.
@@ -42,7 +56,10 @@ async function fetchGroupLeaderboard(
 
   // 2. Fetch profiles + leaderboard rows in parallel
   const [profilesRes, lbRes] = await Promise.all([
-    supabase.from('profiles').select('id, username, avatar_url, active_cosmetics').in('id', userIds),
+    // V6 Sprint 46 — gender joined alongside the existing fields (zero new
+    // query) so the live overtake toast can gender the overtaker's name via
+    // tg() without a second round trip.
+    supabase.from('profiles').select('id, username, avatar_url, active_cosmetics, gender').in('id', userIds),
     supabase.from('leaderboard').select('*').eq('group_id', groupId),
   ]);
   if (profilesRes.error) throw profilesRes.error;
@@ -105,6 +122,7 @@ async function fetchGroupLeaderboard(
       username: profile.username,
       avatar_url: profile.avatar_url,
       active_cosmetics: (profile as { active_cosmetics?: LeaderboardEntryWithProfile['active_cosmetics'] }).active_cosmetics ?? null,
+      gender: (profile as { gender?: LeaderboardEntryWithProfile['gender'] }).gender ?? null,
       total_points: lb?.total_points ?? 0,
       weekly_points: computedWeekly,
       last_week_points: computedLastWeek,
@@ -194,6 +212,21 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
   const [entries, setEntries] = useState<LeaderboardEntryWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const { activeGroupId } = useGroupStore();
+  const { user } = useAuthStore();
+
+  // V6 Sprint 46 — the previous snapshot this hook itself fetched, used only
+  // to diff the CALLER's own rank across two consecutive fetches. `null`
+  // (not `[]`) means "no prior fetch yet" — an empty array is itself a
+  // legitimate post-fetch state (a brand-new, empty group) and must not be
+  // confused with "diffing hasn't started," which would otherwise produce a
+  // false 'climbed' event the first time real entries land.
+  const prevEntriesRef = useRef<LeaderboardEntryWithProfile[] | null>(null);
+  const [rankEvent, setRankEvent] = useState<RankEvent | null>(null);
+  const rankEventTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (rankEventTimeoutRef.current) clearTimeout(rankEventTimeoutRef.current);
+  }, []);
 
   const fetchLeaderboard = useCallback(async () => {
     if (!activeGroupId) {
@@ -205,6 +238,35 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
     setLoading(true);
     try {
       const data = await fetchGroupLeaderboard(activeGroupId, type);
+
+      // Diff BEFORE overwriting entries/prevEntriesRef — only meaningful
+      // once a real previous snapshot exists, and only for the caller's own
+      // row. This never touches or duplicates the server-side
+      // RankTracker/flushRankDropNotifications() path (§27) — that one
+      // stays the persisted, cross-session source of truth; this is a
+      // purely ephemeral, same-screen-only signal.
+      if (prevEntriesRef.current && user?.id) {
+        const prevMine = prevEntriesRef.current.find(e => e.user_id === user.id);
+        const newMine = data.find(e => e.user_id === user.id);
+        if (prevMine && newMine && prevMine.rank !== newMine.rank) {
+          if (rankEventTimeoutRef.current) clearTimeout(rankEventTimeoutRef.current);
+          if (newMine.rank > prevMine.rank) {
+            // Dropped — the user now sitting exactly where I used to be is
+            // the most direct "who overtook me" signal, deterministic even
+            // if several rows resolved in the same tick.
+            const overtaker = data.find(e => e.rank === prevMine.rank);
+            if (overtaker) {
+              setRankEvent({ type: 'overtaken', byUsername: overtaker.username, byGender: overtaker.gender ?? null, newRank: newMine.rank });
+              rankEventTimeoutRef.current = setTimeout(() => setRankEvent(null), 4000);
+            }
+          } else {
+            setRankEvent({ type: 'climbed', newRank: newMine.rank });
+            rankEventTimeoutRef.current = setTimeout(() => setRankEvent(null), 4000);
+          }
+        }
+      }
+      prevEntriesRef.current = data;
+
       setEntries(data);
     } catch (err) {
       console.error('[useLeaderboard] fetch failed:', err);
@@ -212,7 +274,7 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
     } finally {
       setLoading(false);
     }
-  }, [activeGroupId, type]);
+  }, [activeGroupId, type, user?.id]);
 
   // V5 Sprint 35 — this table's Realtime binding now lives on
   // RealtimeProvider's shared Group Channel, not a locally-owned channel.
@@ -245,5 +307,20 @@ export function useLeaderboard(type: LeaderboardType = 'total') {
     };
   }, [fetchLeaderboard]);
 
-  return { entries, loading, refetch: fetchLeaderboard };
+  // V6 Sprint 46 — bounded live-freshness poll. The `leaderboard` table only
+  // gets a row UPDATE once a prediction actually RESOLVES — an in-progress
+  // match's score moving does NOT, by design (rule above: no `matches`
+  // subscription here, to avoid the 30s ESPN-poll storm re-triggering this
+  // hook). Without this, the live_points overlay — and therefore "live
+  // overtake" detection — would only refresh opportunistically. Self-
+  // limiting: the interval only exists while at least one entry currently
+  // has live_points, and tears itself down the moment that's no longer true.
+  const hasLiveOverlay = entries.some(e => (e.live_points ?? 0) > 0);
+  useEffect(() => {
+    if (!hasLiveOverlay) return;
+    const interval = setInterval(() => { fetchLeaderboard(); }, 20000);
+    return () => clearInterval(interval);
+  }, [hasLiveOverlay, fetchLeaderboard]);
+
+  return { entries, loading, refetch: fetchLeaderboard, rankEvent };
 }

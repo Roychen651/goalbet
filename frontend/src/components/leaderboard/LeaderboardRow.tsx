@@ -9,6 +9,8 @@ import { ScoutReportPanel, type ScoutReportData } from './ScoutReportPanel';
 import { cn } from '../../lib/utils';
 import { haptic } from '../../lib/haptics';
 import { interpolateDiverging } from '../../lib/oklch';
+import { celebrateAt } from '../../lib/celebrate';
+import { PODIUM_STYLES } from '../../lib/podiumVisuals';
 import { useLangStore } from '../../stores/langStore';
 import type { PeriodStat, RecentPrediction } from '../../pages/LeaderboardPage';
 
@@ -37,17 +39,29 @@ interface LeaderboardRowProps {
   /** V5 Sprint 40 — active group id, needed for get_player_scout_report's
    *  shared-group access guard (caller and target must both be members). */
   groupId?: string | null;
+  /** V6 Sprint 46 — set by LeaderboardTable only for this user's own row.
+   *  Firing celebrateAt() reacts to this VALUE CHANGING, never to it merely
+   *  being present, so a fresh mount never bursts confetti. */
+  climbBurstNonce?: number;
 }
 
-const PODIUM_STYLES: Record<number, { ring: string; shadow: string; avatarSize: 'md' | 'lg' | 'xl'; bg: string }> = {
-  1: { ring: 'ring-2 ring-amber-400/70', shadow: 'drop-shadow-[0_0_14px_rgba(232,160,32,0.35)]', avatarSize: 'xl', bg: 'bg-amber-500/5' },
-  2: { ring: 'ring-2 ring-slate-300/60', shadow: 'drop-shadow-[0_0_10px_rgba(200,200,200,0.25)]', avatarSize: 'lg', bg: 'bg-white/5' },
-  3: { ring: 'ring-2 ring-amber-700/60', shadow: 'drop-shadow-[0_0_8px_rgba(180,100,50,0.25)]', avatarSize: 'lg', bg: 'bg-orange-900/10' },
-};
-
-export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick, recentPredictions, rankDelta, expanded, onToggleExpand, groupId }: LeaderboardRowProps) {
+export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick, recentPredictions, rankDelta, expanded, onToggleExpand, groupId, climbBurstNonce }: LeaderboardRowProps) {
   const { t } = useLangStore();
   const reduceMotion = useReducedMotion();
+
+  // V6 Sprint 46 — rank-climb confetti burst. `prevBurstRef` is initialized
+  // from the FIRST value of `climbBurstNonce` this component ever sees, so
+  // a fresh mount (or a row that's never had one) never fires — only a
+  // genuine change from whatever it was already showing does.
+  const rowRef = useRef<HTMLDivElement>(null);
+  const prevBurstRef = useRef(climbBurstNonce ?? 0);
+  useEffect(() => {
+    const current = climbBurstNonce ?? 0;
+    if (current !== prevBurstRef.current) {
+      celebrateAt(rowRef.current);
+    }
+    prevBurstRef.current = current;
+  }, [climbBurstNonce]);
   // Points / picks / accuracy: on period tabs read EVERY number from periodStat so the
   // row, KPI card, and Insights always agree. Fall back to the entry row only on the
   // 'total' tab. Never read entry.weekly_points / entry.last_week_points here — those
@@ -118,10 +132,13 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
   }, [expanded, groupId, entry.user_id]);
 
   return (
-    <div className={cn(
-      'border-b border-white/5 last:border-b-0',
-      isCurrentUser ? 'bg-accent-green/8' : podium ? podium.bg : '',
-    )}>
+    <div
+      ref={rowRef}
+      className={cn(
+        'border-b border-white/5 last:border-b-0',
+        isCurrentUser ? 'bg-accent-green/8' : podium ? podium.bg : '',
+      )}
+    >
     <div
       onClick={onClick}
       className={cn(
