@@ -25,23 +25,6 @@ const celebratedPoolPayouts = new Set<string>();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function outcomeLabel(
-  outcome: unknown,
-  isHe: boolean,
-): string {
-  if (outcome === 'H') return isHe ? 'ניצחון בית' : 'Home Win';
-  if (outcome === 'D') return isHe ? 'תיקו' : 'Draw';
-  if (outcome === 'A') return isHe ? 'ניצחון חוץ' : 'Away Win';
-  return '';
-}
-
-function cornersLabel(val: unknown, isHe: boolean): string {
-  if (val === 'under9') return isHe ? '≤9 קרנות' : '≤9 corners';
-  if (val === 'ten') return isHe ? '10 בדיוק' : 'Exactly 10';
-  if (val === 'over11') return isHe ? '≥11 קרנות' : '≥11 corners';
-  return '';
-}
-
 // ── Stagger animation variants ───────────────────────────────────────────────
 
 const containerVariants = {
@@ -254,39 +237,19 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
             </div>
           )}
 
-          {/* Prediction details — the gossip */}
-          <div className="flex flex-wrap gap-1.5">
-            {!!meta.predicted_outcome && (
-              <PredictionChip
-                label={outcomeLabel(meta.predicted_outcome, isHe)}
-                color="blue"
-              />
-            )}
-            {meta.predicted_home_score != null && meta.predicted_away_score != null && (
-              <PredictionChip
-                label={`${String(meta.predicted_home_score)}–${String(meta.predicted_away_score)}`}
-                color="cyan"
-              />
-            )}
-            {meta.predicted_btts != null && (
-              <PredictionChip
-                label={`BTTS ${meta.predicted_btts ? (isHe ? 'כן' : 'Yes') : (isHe ? 'לא' : 'No')}`}
-                color="emerald"
-              />
-            )}
-            {!!meta.predicted_over_under && (
-              <PredictionChip
-                label={meta.predicted_over_under === 'over' ? 'O2.5' : 'U2.5'}
-                color="amber"
-              />
-            )}
-            {!!meta.predicted_corners && (
-              <PredictionChip
-                label={cornersLabel(meta.predicted_corners, isHe)}
-                color="purple"
-              />
-            )}
-          </div>
+          {/* SECURITY HOTFIX (pre-Sprint-47) — this block used to render
+              meta.predicted_outcome/predicted_home_score/predicted_away_score/
+              predicted_btts/predicted_over_under/predicted_corners here,
+              unconditionally, for every group member, regardless of whether
+              the match had kicked off. group_events has no kickoff-time RLS
+              gate (unlike predictions, migration 037), so this was a real,
+              live leak of every member's exact pre-kickoff pick — see
+              usePredictions.ts's own hotfix comment for the full writeup.
+              usePredictions.ts no longer writes those fields into metadata
+              at all, so removed the render entirely rather than leave dead
+              code whose only safety property is "nobody happens to write
+              this field anymore" — a future field re-add would silently
+              re-open the leak if this block were still here. */}
         </div>
       )}
 
@@ -487,23 +450,3 @@ function AiBanterCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) 
   );
 }
 
-// ── Prediction detail chip ───────────────────────────────────────────────────
-
-const chipColors: Record<string, string> = {
-  blue: 'bg-blue-500/15 text-blue-300 border-blue-500/20',
-  cyan: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/20',
-  emerald: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/20',
-  amber: 'bg-amber-500/15 text-amber-300 border-amber-500/20',
-  purple: 'bg-purple-500/15 text-purple-300 border-purple-500/20',
-};
-
-function PredictionChip({ label, color }: { label: string; color: string }) {
-  return (
-    <span className={cn(
-      'inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border',
-      chipColors[color] ?? chipColors.blue,
-    )}>
-      {label}
-    </span>
-  );
-}
