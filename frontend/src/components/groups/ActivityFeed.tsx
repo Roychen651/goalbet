@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Users, Swords, Repeat2 } from 'lucide-react';
+import { Sparkles, Users, Swords, Repeat2, Radio } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLangStore } from '../../stores/langStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -115,6 +115,19 @@ function EventCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => 
   // away_team), same "AI Scout" visual identity, no reason for a second card.
   if (event.event_type === 'AI_BANTER' || event.event_type === 'MICRO_BANTER') {
     return <AiBanterCard event={event} t={t} />;
+  }
+
+  // V7 Sprint 51 — the historical timeline record of a weekly Commissioner
+  // brief (distinct from VoiceRadioPlayer.tsx's separate "now playing"
+  // slot, which always shows only the MOST RECENT brief — this card is
+  // every past week's entry in the feed, the same "player vs. persistent
+  // record" split a podcast app makes between its player and its episode
+  // list). Reuses AiBanterCard's exact broadcast-card structure with a
+  // distinct red/amber identity (matching VoiceRadioPlayer's own palette,
+  // HTAnalystCard's established "live broadcast" grammar) rather than a
+  // fourth bespoke card shape.
+  if (event.event_type === 'COMMISSIONER_BRIEF') {
+    return <CommissionerBriefCard event={event} t={t} />;
   }
 
   const isPrediction = event.event_type === 'PREDICTION_LOCKED';
@@ -583,6 +596,94 @@ function AiBanterCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) 
                 {awayBadge && (
                   <img src={awayBadge} alt="" width={20} height={20} className="w-5 h-5 object-contain" />
                 )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// V7 Sprint 51 — the Commissioner's weekly brief, as a permanent timeline
+// entry. Structurally identical to AiBanterCard above (same conic-border +
+// dark-glass-panel technique already proven safe against the WebKit
+// backdrop-filter+transform trap — only the child conic-gradient span
+// rotates, never the blurred panel itself), swapped to the red/amber
+// "broadcast" identity VoiceRadioPlayer.tsx and HTAnalystCard already
+// established, with the week's theme shown as a trailing pill instead of
+// AiBanterCard's match strip (no single match concept applies to a
+// group-wide weekly recap). Distinct from VoiceRadioPlayer.tsx's "now
+// playing" slot (which only ever shows the MOST RECENT brief) — this is
+// every past week's entry in the scrolling feed, the same "player vs.
+// persistent record" split a podcast app makes between its player and its
+// episode list.
+function CommissionerBriefCard({ event, t }: { event: GroupEvent; t: (k: TranslationKey) => string }) {
+  const { lang } = useLangStore();
+  const isHe = lang === 'he';
+  const meta = event.metadata;
+  const text = String((isHe && meta.text_he) || meta.text_en || '').trim();
+  const theme = String((isHe && meta.theme_he) || meta.theme_en || '').trim();
+
+  if (!text) return null;
+
+  return (
+    <motion.div variants={itemVariants} className="relative ps-10">
+      <div className="absolute start-3.5 top-5 w-3 h-3 rounded-full border-2 z-10 bg-[#FF4D66] border-[#FFC94A]/50 shadow-[0_0_10px_rgba(255,77,102,0.6)]" />
+
+      <div className="relative rounded-2xl p-[1.5px] overflow-hidden" dir={isHe ? 'rtl' : 'ltr'}>
+        <motion.span
+          aria-hidden
+          className="absolute inset-[-55%]"
+          style={{
+            background:
+              'conic-gradient(from 0deg,' +
+              ' rgba(255,77,102,0) 0%,' +
+              ' rgba(255,77,102,0.55) 18%,' +
+              ' rgba(255,201,74,0.65) 42%,' +
+              ' rgba(189,232,245,0.55) 68%,' +
+              ' rgba(255,77,102,0) 100%)',
+          }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 8, ease: 'linear', repeat: Infinity }}
+        />
+
+        <div
+          className="relative rounded-[calc(1rem-1.5px)] backdrop-blur-2xl overflow-hidden"
+          style={{
+            background: 'linear-gradient(180deg, rgba(6,10,22,0.82) 0%, rgba(12,10,26,0.80) 100%)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 42px -24px rgba(0,0,0,0.75)',
+          }}
+        >
+          <div className="relative px-3.5 pt-2.5 pb-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: 'linear-gradient(135deg, #FF4D66 0%, #FFC94A 100%)', boxShadow: '0 0 12px rgba(255,77,102,0.4)' }}
+              >
+                <Radio size={15} className="text-white" />
+              </div>
+              <span
+                className="text-sm font-bold"
+                style={{
+                  backgroundImage: 'linear-gradient(120deg, #FFC94A 0%, #BDE8F5 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                {t('commissionerRadioLabel')}
+              </span>
+              <span className="text-text-muted text-xs ms-auto">{timeAgo(event.created_at, t)}</span>
+            </div>
+
+            <p className="text-[13.5px] leading-snug text-white/95 font-display">{text}</p>
+
+            {theme && (
+              <div className="mt-2 flex items-center">
+                <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/15 text-white/55 truncate">
+                  {theme}
+                </span>
               </div>
             )}
           </div>
