@@ -1009,9 +1009,17 @@ export async function runOracleBatch(limit = 2): Promise<void> {
     const now = new Date();
     const narrationCutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-    // Stats pass — no kickoff-distance cap. Ordered soonest-first so a
-    // near-term fixture always wins the per-cycle `limit` budget over a
-    // far-future one when both are missing stats.
+    // Stats pass — no kickoff-distance cap, and a MUCH higher batch size
+    // than `limit` (which stays narration's own, Groq-protective budget).
+    // Live report, post-hotfix: migration 067 mass-reset oracle_stats to
+    // NULL for every NS match at once (the same-day forced recompute this
+    // repo always does after an in-place function-signature change) —
+    // combined with the old shared limit=2, a group with even a modest
+    // backlog of active leagues could take dozens of 5-minute sync cycles
+    // to fully recover. Stats computation is pure deterministic SQL with
+    // zero external API calls to protect (unlike Groq narration below), so
+    // there's no real cost to clearing a large one-time backlog fast.
+    const STATS_BATCH_SIZE = 30;
     const { data: statsRows, error: statsError } = await supabaseAdmin
       .from('matches')
       .select('id, home_team, away_team, kickoff_time')
@@ -1019,7 +1027,7 @@ export async function runOracleBatch(limit = 2): Promise<void> {
       .is('oracle_stats', null)
       .gte('kickoff_time', now.toISOString())
       .order('kickoff_time', { ascending: true })
-      .limit(limit);
+      .limit(STATS_BATCH_SIZE);
 
     if (statsError) {
       logger.warn(`[aiScout] Oracle stats batch query failed: ${statsError.message}`);
