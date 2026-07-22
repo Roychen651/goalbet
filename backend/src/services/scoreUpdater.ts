@@ -1198,14 +1198,11 @@ async function flushRankDropNotifications(tracker: RankTracker): Promise<void> {
   }
 }
 
-export async function resetWeeklyPoints(): Promise<void> {
-  logger.info('[scoreUpdater] Resetting weekly points (saving last_week_points first)');
-  // Atomically: last_week_points = weekly_points, weekly_points = 0
-  const { error } = await supabaseAdmin.rpc('reset_weekly_points');
-
-  if (error) {
-    logger.error('[scoreUpdater] Failed to reset weekly points:', error);
-  } else {
-    logger.info('[scoreUpdater] Weekly points reset complete');
-  }
-}
+// resetWeeklyPoints() — retired (V7 Sprint 51 hotfix, migration 069). It
+// wrapped reset_weekly_points(), triggered by scheduler.ts's fixed
+// `cron.schedule('0 0 * * 0', ...)` — a real DST-drift bug (drifted a full
+// hour off true Israel midnight for ~7 months a year). The reset is now
+// fully pg_cron-native: reset_weekly_points_if_needed() (migration 069),
+// scheduled every 15 min, deriving the real Israel-local week boundary
+// from arena_current_week_start() — matching distribute_daily_allowance()/
+// decay_idle_streaks()'s established "pg_cron-only" shape (§28).
