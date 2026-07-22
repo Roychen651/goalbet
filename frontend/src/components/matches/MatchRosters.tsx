@@ -10,9 +10,11 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, ChevronDown, AlertCircle, LayoutGrid, MapPin, Box } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { LEAGUE_ESPN_SLUG } from '../../lib/constants';
+import { LEAGUE_ESPN_SLUG, LIVE_STATUSES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
-import { TacticalPitch3D } from './TacticalPitch3D';
+import { TacticalPitch3D, type PitchPulseEvent } from './TacticalPitch3D';
+import { PlayerCardSheet } from './PlayerCardSheet';
+import { fetchEspnEvents } from '../../lib/espnEvents';
 import type { Match } from '../../lib/supabase';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -150,7 +152,7 @@ function posBadgeClass(short: string): string {
 
 // ── Player Row ───────────────────────────────────────────────────────────────
 
-function PlayerRow({ player, idx, he }: { player: Player; idx: number; he: boolean }) {
+function PlayerRow({ player, idx, he, onTap }: { player: Player; idx: number; he: boolean; onTap?: () => void }) {
   const posLabel = he ? ({
     GK: 'שוער', DEF: 'הגנה', MID: 'קישור', FWD: 'התקפה',
   }[player.positionShort] ?? player.positionShort) : player.positionShort;
@@ -160,9 +162,13 @@ function PlayerRow({ player, idx, he }: { player: Player; idx: number; he: boole
       initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: idx * 0.02, duration: 0.15 }}
+      onClick={onTap}
+      role={onTap ? 'button' : undefined}
+      tabIndex={onTap ? 0 : undefined}
       className={cn(
         'flex items-center gap-2 py-1.5 px-2 rounded-lg',
         'hover:bg-white/[0.03] transition-colors',
+        onTap && 'cursor-pointer',
         player.subbedOut && 'opacity-40',
       )}
     >
@@ -205,7 +211,7 @@ function PlayerRow({ player, idx, he }: { player: Player; idx: number; he: boole
 
 // ── Team Roster Panel ────────────────────────────────────────────────────────
 
-function TeamPanel({ roster, he }: { roster: TeamRoster; he: boolean }) {
+function TeamPanel({ roster, he, isHome, onPlayerTap }: { roster: TeamRoster; he: boolean; isHome: boolean; onPlayerTap?: (player: Player, isHome: boolean) => void }) {
   const { t } = useLangStore();
   const shortName = roster.teamName.split(' ').pop() || roster.teamName;
 
@@ -232,7 +238,13 @@ function TeamPanel({ roster, he }: { roster: TeamRoster; he: boolean }) {
         </div>
         <div className="py-0.5">
           {roster.starters.map((p, i) => (
-            <PlayerRow key={`${p.jersey}-${p.name}`} player={p} idx={i} he={he} />
+            <PlayerRow
+              key={`${p.jersey}-${p.name}`}
+              player={p}
+              idx={i}
+              he={he}
+              onTap={onPlayerTap ? () => onPlayerTap(p, isHome) : undefined}
+            />
           ))}
         </div>
       </div>
@@ -280,6 +292,22 @@ export function MatchRosters({ match }: { match: Match }) {
   const [pitchIs3D, setPitchIs3D] = useState(false);
   const fetchedRef = useRef(false);
 
+  // V7 Sprint 53 Commit 2 — the tapped-player info sheet. isHome is stored
+  // alongside the player object since PitchPlayer/Player carries no team
+  // identity of its own (only jersey/name/position — team is contextual,
+  // known only by which roster the player came from).
+  const [sheetPlayer, setSheetPlayer] = useState<{ player: Player; isHome: boolean } | null>(null);
+
+  // V7 Sprint 53 Commit 2 — real event pulses. Polls the SAME already-proven
+  // ESPN keyEvents parser MatchTimeline/the since-removed Attack Pulse used
+  // (lib/espnEvents.ts), matched by player name against the currently
+  // rendered starters/subs — both come from the same underlying ESPN
+  // athlete object, so this is a real match, not a guess. Never fabricates
+  // a continuous "momentum" signal — see PitchPulseEvent's own doc comment.
+  const [pulseEvent, setPulseEvent] = useState<PitchPulseEvent | null>(null);
+  const seenEventKeysRef = useRef<Set<string>>(new Set());
+  const isFirstEventPollRef = useRef(true);
+
   useEffect(() => {
     if (!open || fetchedRef.current) return;
     if (!LEAGUE_ESPN_SLUG[match.league_id]) return;
@@ -295,6 +323,50 @@ export function MatchRosters({ match }: { match: Match }) {
 
     return () => { cancelled = true; };
   }, [open, match.external_id, match.league_id]);
+
+  // Event-polling effect, deliberately separate from the roster fetch above
+  // (different cadence, different gate — only while the panel is open AND
+  // the match is genuinely live, matching MatchStats.tsx's own established
+  // 30s live-refresh cadence, §21 Common Pitfalls).
+  useEffect(() => {
+    if (!open || !LIVE_STATUSES.includes(match.status)) return;
+    if (!LEAGUE_ESPN_SLUG[match.league_id]) return;
+
+    let cancelled = false;
+
+    const poll = async () => {
+      const events = await fetchEspnEvents(match.external_id, match.league_id);
+      if (cancelled || events.length === 0) return;
+
+      const isFirst = isFirstEventPollRef.current;
+      isFirstEventPollRef.current = false;
+
+      for (const ev of events) {
+        const isScoringOrRed =
+          ev.type === 'goal' || ev.type === 'own_goal' || ev.type === 'penalty_goal' ||
+          ev.type === 'red' || ev.type === 'second_yellow';
+        if (!isScoringOrRed) continue;
+
+        const key = `${ev.type}-${ev.team}-${ev.player}-${ev.period}-${ev.minute}-${ev.stoppage ?? 0}`;
+        if (seenEventKeysRef.current.has(key)) continue;
+        seenEventKeysRef.current.add(key);
+
+        // Seed silently on the very first poll — a panel opened mid-match
+        // must never replay every goal that already happened before the
+        // user started watching as a burst of pulses.
+        if (isFirst) continue;
+
+        const pulseType: 'goal' | 'red' = ev.type === 'red' || ev.type === 'second_yellow' ? 'red' : 'goal';
+        setPulseEvent({ team: ev.team, player: ev.player, type: pulseType });
+        setTimeout(() => { if (!cancelled) setPulseEvent(null); }, 2200);
+        break; // one new event per tick is plenty — avoid stacking pulses
+      }
+    };
+
+    void poll();
+    const interval = setInterval(() => { void poll(); }, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [open, match.status, match.external_id, match.league_id]);
 
   // Can we show the tactical pitch? Need 2 rosters with formations
   const canShowPitch = rosters != null && rosters.length >= 2 &&
@@ -414,6 +486,8 @@ export function MatchRosters({ match }: { match: Match }) {
                       awayTeam={rosters[1].teamName}
                       rtl={he}
                       is3D={pitchIs3D}
+                      onPlayerTap={(player, isHomePlayer) => setSheetPlayer({ player: player as Player, isHome: isHomePlayer })}
+                      pulseEvent={pulseEvent}
                     />
                   )}
 
@@ -421,7 +495,13 @@ export function MatchRosters({ match }: { match: Match }) {
                   {effectiveView === 'list' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {rosters.map((r, i) => (
-                        <TeamPanel key={i} roster={r} he={he} />
+                        <TeamPanel
+                          key={i}
+                          roster={r}
+                          he={he}
+                          isHome={i === 0}
+                          onPlayerTap={(player, isHomePlayer) => setSheetPlayer({ player, isHome: isHomePlayer })}
+                        />
                       ))}
                     </div>
                   )}
@@ -442,7 +522,13 @@ export function MatchRosters({ match }: { match: Match }) {
                               onWheel={(e) => e.stopPropagation()}
                             >
                               {r.subs.map((p, j) => (
-                                <PlayerRow key={`${p.jersey}-${p.name}`} player={p} idx={j} he={he} />
+                                <PlayerRow
+                                  key={`${p.jersey}-${p.name}`}
+                                  player={p}
+                                  idx={j}
+                                  he={he}
+                                  onTap={() => setSheetPlayer({ player: p, isHome: i === 0 })}
+                                />
                               ))}
                             </div>
                           </div>
@@ -456,6 +542,15 @@ export function MatchRosters({ match }: { match: Match }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {sheetPlayer && (
+        <PlayerCardSheet
+          player={sheetPlayer.player}
+          isHome={sheetPlayer.isHome}
+          teamName={(sheetPlayer.isHome ? rosters?.[0]?.teamName : rosters?.[1]?.teamName) ?? ''}
+          onClose={() => setSheetPlayer(null)}
+        />
+      )}
     </div>
   );
 }

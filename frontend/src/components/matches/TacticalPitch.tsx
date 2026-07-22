@@ -26,6 +26,21 @@ export interface PitchPlayer {
   jersey: string;
   positionShort: string;
   subbedOut?: boolean;
+  /**
+   * V7 Sprint 53 Commit 2 — optional real fields, all already computed by
+   * MatchRosters.tsx's own ESPN roster parse (position: full label,
+   * starter/subbedIn: booleans, injured: derived from athlete.injuries[] /
+   * status.type). Optional because PitchPlayer is also structurally
+   * satisfied by lighter shapes (this file's own preview/harness usage);
+   * MatchRosters.tsx is the one real production caller and already
+   * supplies all four. The player tap-card (PlayerCardSheet.tsx) only
+   * ever renders fields that are actually present — never a fabricated
+   * rating/goal/assist count that doesn't exist anywhere in this data.
+   */
+  position?: string;
+  starter?: boolean;
+  subbedIn?: boolean;
+  injured?: boolean;
 }
 
 export interface PositionedPlayer {
@@ -103,12 +118,21 @@ export function PlayerNode({
   index,
   isHome,
   onTap,
+  pulseEvent,
 }: {
   player: PitchPlayer;
   index: number;
   isHome: boolean;
   /** V7 Sprint 53 — optional override for TacticalPitch3D's player-card tap target; falls back to the original show/hide-name toggle when omitted. */
   onTap?: () => void;
+  /**
+   * V7 Sprint 53 Commit 2 — set only when a REAL, just-fetched ESPN key
+   * event (a goal or red card) was matched by player name to this exact
+   * pin (see MatchRosters.tsx's event-polling effect). Never a fabricated
+   * "momentum"/pressure signal — the since-removed Live Pressure Cooker
+   * (§47) is the standing lesson this deliberately avoids repeating.
+   */
+  pulseEvent?: 'goal' | 'red' | null;
 }) {
   const [showName, setShowName] = useState(false);
 
@@ -141,6 +165,8 @@ export function PlayerNode({
           isHome
             ? 'bg-accent-green/30 border-accent-green/70 text-accent-green'
             : 'bg-accent-orange/30 border-accent-orange/70 text-accent-orange',
+          pulseEvent === 'goal' && 'pin-pulse-goal',
+          pulseEvent === 'red' && 'pin-pulse-red',
         )}
       >
         {player.jersey || '–'}

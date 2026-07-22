@@ -46,6 +46,21 @@ import {
 const TILT_ANGLE = 55;
 const TILT_SPRING = { type: 'spring', stiffness: 220, damping: 26 } as const;
 
+/**
+ * V7 Sprint 53 Commit 2 — a real, name-matched ESPN key event (goal or red
+ * card), resolved by MatchRosters.tsx's event-polling effect against
+ * lib/espnEvents.ts's already-proven MatchEvent feed. `player` is ESPN's
+ * own athlete shortName/displayName — the exact same field the roster
+ * parse itself uses, so matching by name against the currently rendered
+ * starters/subs is comparing two values sourced from the same underlying
+ * ESPN athlete object, not two independently-guessed strings.
+ */
+export interface PitchPulseEvent {
+  team: 'home' | 'away';
+  player: string;
+  type: 'goal' | 'red';
+}
+
 interface TacticalPitch3DProps {
   homeFormation: string | null;
   awayFormation: string | null;
@@ -57,6 +72,7 @@ interface TacticalPitch3DProps {
   is3D: boolean;
   /** V7 Sprint 53 Commit 2 hook point — omitted call sites keep the 2D show/hide-name tap behavior via PlayerNode's own fallback. */
   onPlayerTap?: (player: PitchPlayer, isHome: boolean) => void;
+  pulseEvent?: PitchPulseEvent | null;
 }
 
 function BillboardedPlayerLayer({
@@ -65,19 +81,24 @@ function BillboardedPlayerLayer({
   flipX,
   is3D,
   onPlayerTap,
+  pulseEvent,
 }: {
   positioned: PositionedPlayer[];
   isHome: boolean;
   flipX: boolean;
   is3D: boolean;
   onPlayerTap?: (player: PitchPlayer, isHome: boolean) => void;
+  pulseEvent?: PitchPulseEvent | null;
 }) {
+  const pulseTeam: 'home' | 'away' = isHome ? 'home' : 'away';
+
   return (
     <>
       {positioned.map((pp, i) => {
         const halfOffset = isHome ? 0 : 50;
         const xInHalf = flipX ? 100 - pp.x : pp.x;
         const left = halfOffset + (xInHalf / 100) * 50;
+        const isPulsing = !!pulseEvent && pulseEvent.team === pulseTeam && pulseEvent.player === pp.player.name;
 
         return (
           <div
@@ -109,6 +130,7 @@ function BillboardedPlayerLayer({
                 index={i}
                 isHome={isHome}
                 onTap={onPlayerTap ? () => onPlayerTap(pp.player, isHome) : undefined}
+                pulseEvent={isPulsing ? pulseEvent!.type : null}
               />
             </motion.div>
           </div>
@@ -128,6 +150,7 @@ export function TacticalPitch3D({
   rtl,
   is3D,
   onPlayerTap,
+  pulseEvent,
 }: TacticalPitch3DProps) {
   const homeParsed = parseFormation(homeFormation);
   const awayParsed = parseFormation(awayFormation);
@@ -207,6 +230,7 @@ export function TacticalPitch3D({
               flipX={homeFlipX}
               is3D={is3D}
               onPlayerTap={onPlayerTap}
+              pulseEvent={pulseEvent}
             />
             <BillboardedPlayerLayer
               positioned={awayPositioned}
@@ -214,6 +238,7 @@ export function TacticalPitch3D({
               flipX={awayFlipX}
               is3D={is3D}
               onPlayerTap={onPlayerTap}
+              pulseEvent={pulseEvent}
             />
           </div>
         </motion.div>

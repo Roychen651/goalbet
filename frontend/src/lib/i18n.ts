@@ -336,6 +336,11 @@ export const translations = {
     defender: 'DEF',
     midfielder: 'MID',
     forward: 'FWD',
+    playerCardStatusStarter: 'Starting Lineup',
+    playerCardStatusSub: 'Substitute',
+    playerCardSubbedIn: 'Subbed In',
+    playerCardSubbedOut: 'Subbed Out',
+    playerCardInjured: 'Injured / Suspended',
 
     // Pulse Feed (Sprint 8)
     enableLiveAnimations: 'Live Match Animations',
@@ -1307,6 +1312,11 @@ export const translations = {
     defender: 'הגנה',
     midfielder: 'קישור',
     forward: 'התקפה',
+    playerCardStatusStarter: 'הרכב פתיחה',
+    playerCardStatusSub: 'מחליף',
+    playerCardSubbedIn: 'הוחלף פנימה',
+    playerCardSubbedOut: 'הוחלף החוצה',
+    playerCardInjured: 'פצוע / מורחק',
 
     // Pulse Feed (Sprint 8)
     enableLiveAnimations: 'אנימציות זמן-אמת',
