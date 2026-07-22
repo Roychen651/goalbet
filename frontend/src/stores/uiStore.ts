@@ -21,6 +21,13 @@ interface UIState {
   activeDuelMatchId: string | null;
   enableLiveAnimations: boolean;
   isSyncing: boolean;
+  // V7 Sprint 54 — count of predictions currently sitting in the offline
+  // IndexedDB queue (lib/offlinePredictionQueue.ts), awaiting a flush once
+  // connectivity returns. Owned entirely by the queue module itself (every
+  // enqueue/remove/status-update there refreshes this count as a side
+  // effect) — no component ever writes it directly, the same
+  // "single owner" discipline isSyncing already follows for AppShell.
+  pendingOfflineSyncCount: number;
   addToast: (message: string, type?: Toast['type']) => void;
   removeToast: (id: string) => void;
   openModal: (name: string) => void;
@@ -31,6 +38,7 @@ interface UIState {
   closeDuelDrawer: () => void;
   toggleLiveAnimations: () => void;
   setSyncing: (v: boolean) => void;
+  setPendingOfflineSyncCount: (n: number) => void;
 }
 
 let toastCounter = 0;
@@ -44,7 +52,9 @@ export const useUIStore = create<UIState>((set) => ({
   activeDuelMatchId: null,
   enableLiveAnimations: localStorage.getItem(LIVE_ANIM_KEY) !== 'false',
   isSyncing: false,
+  pendingOfflineSyncCount: 0,
   setSyncing: (v) => set({ isSyncing: v }),
+  setPendingOfflineSyncCount: (n) => set({ pendingOfflineSyncCount: n }),
 
   addToast: (message, type = 'info') => {
     const id = `toast-${++toastCounter}`;

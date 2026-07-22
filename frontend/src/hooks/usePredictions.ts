@@ -5,8 +5,9 @@ import { useAuthStore } from '../stores/authStore';
 import { useGroupStore } from '../stores/groupStore';
 import { useCoinsStore } from '../stores/coinsStore';
 import { calcPredictionCost, type ParlayTierKey } from '../lib/constants';
+import { enqueueOfflinePrediction } from '../lib/offlinePredictionQueue';
 
-interface PredictionInput {
+export interface PredictionInput {
   match_id: string;
   predicted_outcome?: 'H' | 'D' | 'A' | null;
   predicted_home_score?: number | null;
@@ -118,6 +119,61 @@ function buildOptimistic(vars: SaveVars, existing: Prediction | undefined): Pred
   };
 }
 
+/**
+ * V7 Sprint 54 — extracted so the ONE place that calls submit_prediction()
+ * and interprets its result is shared by both the online optimistic-
+ * mutation path below and useOfflineSync.ts's flush path. This is what
+ * stops the RPC error-message mapping ('locked 15 minutes',
+ * 'insufficient_coins') from drifting between two independently-
+ * maintained copies — the same "one function, every caller" discipline
+ * submit_prediction() itself already enforces server-side (§11/§27).
+ *
+ * Always updates coinsStore with the authoritative server balance on
+ * success (side effect) — every caller needs this, whether the call came
+ * from a live user tap or a background offline-queue flush.
+ */
+export async function submitPredictionRpc(
+  input: PredictionInput,
+  userId: string,
+  groupId: string,
+): Promise<Prediction> {
+  const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_prediction', {
+    p_user_id: userId,
+    p_group_id: groupId,
+    p_match_id: input.match_id,
+    p_predicted_outcome: input.predicted_outcome ?? null,
+    p_predicted_home_score: input.predicted_home_score ?? null,
+    p_predicted_away_score: input.predicted_away_score ?? null,
+    p_predicted_corners: input.predicted_corners ?? null,
+    p_predicted_btts: input.predicted_btts ?? null,
+    p_predicted_over_under: input.predicted_over_under ?? null,
+    p_is_parlay: input.is_parlay ?? false,
+    p_parlay_linked_tiers: input.parlay_linked_tiers ?? null,
+  });
+
+  if (rpcError) {
+    if (rpcError.message?.includes('locked 15 minutes')) {
+      throw new Error('Predictions are locked once the match starts');
+    }
+    throw rpcError;
+  }
+
+  const result = rpcResult as { success: boolean; balance?: number; error?: string; prediction?: Prediction } | null;
+
+  if (!result?.success) {
+    if (result?.error === 'insufficient_coins') {
+      throw new Error('Not enough coins to place this prediction');
+    }
+    throw new Error(result?.error ?? 'Prediction submission failed');
+  }
+
+  // Authoritative balance from the server overwrites any optimistic guess.
+  if (result.balance != null) useCoinsStore.getState().setCoins(result.balance);
+
+  if (!result.prediction) throw new Error('Prediction submission returned no row');
+  return result.prediction;
+}
+
 export function usePredictions(matchIds?: string[]) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState<string | null>(null); // matchId currently saving
@@ -174,46 +230,10 @@ export function usePredictions(matchIds?: string[]) {
     // ── The real work: ONE authoritative RPC — cost, balance, and the
     // prediction row are all computed/written server-side in a single
     // transaction (migration 040). The client no longer writes to
-    // `predictions` directly, and never supplies a cost the server trusts. ──
-    mutationFn: async (vars) => {
-      const coinsStore = useCoinsStore.getState();
-
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_prediction', {
-        p_user_id: vars.userId,
-        p_group_id: vars.groupId,
-        p_match_id: vars.input.match_id,
-        p_predicted_outcome: vars.input.predicted_outcome ?? null,
-        p_predicted_home_score: vars.input.predicted_home_score ?? null,
-        p_predicted_away_score: vars.input.predicted_away_score ?? null,
-        p_predicted_corners: vars.input.predicted_corners ?? null,
-        p_predicted_btts: vars.input.predicted_btts ?? null,
-        p_predicted_over_under: vars.input.predicted_over_under ?? null,
-        p_is_parlay: vars.input.is_parlay ?? false,
-        p_parlay_linked_tiers: vars.input.parlay_linked_tiers ?? null,
-      });
-
-      if (rpcError) {
-        if (rpcError.message?.includes('locked 15 minutes')) {
-          throw new Error('Predictions are locked once the match starts');
-        }
-        throw rpcError;
-      }
-
-      const result = rpcResult as { success: boolean; balance?: number; error?: string; prediction?: Prediction } | null;
-
-      if (!result?.success) {
-        if (result?.error === 'insufficient_coins') {
-          throw new Error('Not enough coins to place this prediction');
-        }
-        throw new Error(result?.error ?? 'Prediction submission failed');
-      }
-
-      // Authoritative balance from the server overwrites the optimistic guess.
-      if (result.balance != null) coinsStore.setCoins(result.balance);
-
-      if (!result.prediction) throw new Error('Prediction submission returned no row');
-      return result.prediction;
-    },
+    // `predictions` directly, and never supplies a cost the server trusts.
+    // See submitPredictionRpc() above — shared verbatim with the offline
+    // flush path (useOfflineSync.ts). ──
+    mutationFn: async (vars) => submitPredictionRpc(vars.input, vars.userId, vars.groupId),
 
     // ── Rollback: restore both the cache snapshot and the coin balance ──────
     onError: (_err, vars, ctx) => {
@@ -289,21 +309,66 @@ export function usePredictions(matchIds?: string[]) {
 
   const { mutateAsync } = mutation;
 
-  // Public API — identical signature to the previous bespoke hook.
-  const savePrediction = useCallback(async (input: PredictionInput): Promise<void> => {
+  // Public API — the resolved `{ queuedOffline }` is a V7 Sprint 54
+  // addition. Every pre-existing caller (HomePage.tsx, WorldCupBracket.tsx)
+  // still just does `await savePrediction(data)` and never reads the
+  // return value — TS's void-return function-type compatibility means
+  // widening this doesn't break either call site's own typing. Only
+  // PredictionForm.tsx (the one caller that needs to render a different
+  // confirmation state for an offline save) reads it.
+  const savePrediction = useCallback(async (input: PredictionInput): Promise<{ queuedOffline: boolean }> => {
     if (!user || !activeGroupId) throw new Error('Not authenticated');
     const queryKey = ['predictions', user.id, activeGroupId, matchIdsKey] as const;
     const currentMap = queryClient.getQueryData<PredictionMap>(queryKey);
     const existing = currentMap?.get(input.match_id);
+    const newCost = calcPredictionCost(input);
+    const oldCost = existing?.coins_bet ?? 0;
+
+    // V7 Sprint 54 — "Stadium Vault". `navigator.onLine === false` is a
+    // reliable NEGATIVE signal (the browser only reports false when it
+    // genuinely has no network interface up) even though it's an
+    // unreliable POSITIVE one (can report true with no real internet —
+    // see lib/offlinePredictionQueue.ts's file header and
+    // useOfflineSync.ts, which is what actually proves connectivity by
+    // attempting a real flush, never by trusting this flag alone). Skip
+    // the network call entirely and go straight to the durable queue.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      await enqueueOfflinePrediction(input.match_id, activeGroupId, user.id, {
+        predicted_outcome: input.predicted_outcome,
+        predicted_home_score: input.predicted_home_score,
+        predicted_away_score: input.predicted_away_score,
+        predicted_corners: input.predicted_corners,
+        predicted_btts: input.predicted_btts,
+        predicted_over_under: input.predicted_over_under,
+        is_parlay: input.is_parlay,
+        parlay_linked_tiers: input.parlay_linked_tiers,
+      });
+
+      // The exact same optimistic cache write + coin deduction the online
+      // mutation's onMutate already performs (buildOptimistic, adjustCoins)
+      // — the row must look identical (locked, coins deducted) whether the
+      // write went out over the network or into the offline queue. What
+      // differs is only the confirmation UI PredictionForm.tsx renders on
+      // top of it (Commit 3), never this shared cache shape.
+      const vars: SaveVars = { input, userId: user.id, groupId: activeGroupId, newCost, oldCost, isEdit: !!existing, queryKey };
+      const nextMap = new Map(currentMap ?? EMPTY);
+      nextMap.set(input.match_id, buildOptimistic(vars, existing));
+      queryClient.setQueryData(queryKey, nextMap);
+      useCoinsStore.getState().adjustCoins(-(newCost - oldCost));
+
+      return { queuedOffline: true };
+    }
+
     await mutateAsync({
       input,
       userId: user.id,
       groupId: activeGroupId,
-      newCost: calcPredictionCost(input),
-      oldCost: existing?.coins_bet ?? 0,
+      newCost,
+      oldCost,
       isEdit: !!existing,
       queryKey,
     });
+    return { queuedOffline: false };
   }, [user, activeGroupId, matchIdsKey, queryClient, mutateAsync]);
 
   const refetch = useCallback(async () => {

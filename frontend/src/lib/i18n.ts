@@ -254,6 +254,15 @@ export const translations = {
     failedLoadMatches: 'Failed to load matches',
     retry: 'Retry',
 
+    // V7 Sprint 54 — "Stadium Vault" offline lock
+    offlineVaultTitle: 'Locked in the Vault',
+    offlineVaultBody: "No signal. Your prediction is locked and will sync automatically once you're back online.",
+    offlinePendingBadge: 'Pending sync',
+    offlineSyncSuccessToast: 'Offline prediction synced ✅',
+    offlineSyncExpiredToast: 'An offline prediction expired — the match already started',
+    offlineSyncCorruptedToast: "An offline prediction couldn't be verified and was discarded",
+    offlineSyncGaveUpToast: "Couldn't sync an offline prediction after several tries — please predict again",
+
     // Status
     upcoming_status: 'Upcoming',
     live_status: 'Live',
@@ -1229,6 +1238,15 @@ export const translations = {
     copySuccess: 'קישור ההזמנה הועתק!',
     failedLoadMatches: 'טעינת משחקים נכשלה',
     retry: 'נסה שוב',
+
+    // V7 Sprint 54 — "כספת האצטדיון" (Stadium Vault) נעילה אופליין
+    offlineVaultTitle: 'ננעל בכספת',
+    offlineVaultBody: 'אין קליטה. הניחוש ננעל ויעלה אוטומטית כשתחזור הרשת.',
+    offlinePendingBadge: 'ממתין לסנכרון',
+    offlineSyncSuccessToast: 'ניחוש אופליין סונכרן ✅',
+    offlineSyncExpiredToast: 'ניחוש אופליין פג תוקף — המשחק כבר התחיל',
+    offlineSyncCorruptedToast: 'לא ניתן היה לאמת ניחוש אופליין והוא נמחק',
+    offlineSyncGaveUpToast: 'לא הצלחנו לסנכרן ניחוש אופליין אחרי כמה ניסיונות — נחשו שוב',
 
     // Status
     upcoming_status: 'עתידי',

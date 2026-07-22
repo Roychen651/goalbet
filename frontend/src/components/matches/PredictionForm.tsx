@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Minus, Plus, Link2, Users, Trophy } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Match, Prediction, supabase } from '../../lib/supabase';
@@ -141,6 +141,19 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   const [btts, setBtts] = useState<boolean | null>(existingPrediction?.predicted_btts ?? null);
   const [overUnder, setOverUnder] = useState<'over' | 'under' | null>(existingPrediction?.predicted_over_under ?? null);
   const [saved, setSaved] = useState(!!existingPrediction);
+  // V7 Sprint 54 — "Stadium Vault". True for exactly this component
+  // instance's lifetime, the moment a submit was queued offline
+  // (navigator.onLine === false at submit time) rather than sent to the
+  // server. Deliberately NOT persisted/re-derived from IndexedDB on
+  // remount — if the user closes and reopens this form for the same match
+  // while the item is still queued, `existingPrediction` (the optimistic
+  // cache row usePredictions.ts already wrote) makes `saved` true via the
+  // effect below, which is an honest-enough "you already predicted this"
+  // signal; the persistent pending-sync badge (uiStore.pendingOfflineSyncCount,
+  // mounted once in AppShell) is what covers "do I still have something
+  // waiting to sync" across the whole app, not this per-form banner.
+  const [offlineQueued, setOfflineQueued] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
   // V6 Sprint 50 — anchors celebrateAt() to the real submit button so the
   // particle burst originates from where the user actually tapped, not a
   // fixed screen-edge origin. NeonButton isn't a forwardRef component (a
@@ -195,15 +208,15 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   // so the user doesn't pay for a contradictory prediction.
   useEffect(() => {
     if (!hasExactScore || scoreDerivedBTTS === null) return;
-    if (btts === true && !scoreDerivedBTTS)  { setBtts(null); setSaved(false); }
-    if (btts === false && scoreDerivedBTTS)  { setBtts(null); setSaved(false); }
+    if (btts === true && !scoreDerivedBTTS)  { setBtts(null); setSaved(false); setOfflineQueued(false); }
+    if (btts === false && scoreDerivedBTTS)  { setBtts(null); setSaved(false); setOfflineQueued(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoreDerivedBTTS, hasExactScore]);
 
   useEffect(() => {
     if (!hasExactScore || scoreDerivedOU === null) return;
     // scoreDerivedOU is already the string 'over'|'under' — compare directly
-    if (overUnder !== null && overUnder !== scoreDerivedOU) { setOverUnder(null); setSaved(false); }
+    if (overUnder !== null && overUnder !== scoreDerivedOU) { setOverUnder(null); setSaved(false); setOfflineQueued(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoreDerivedOU, hasExactScore]);
 
@@ -216,7 +229,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   // prediction. Clearing it client-side means they just silently lose the
   // now-unresolvable pick instead.
   useEffect(() => {
-    if (cornersDisabled && cornersValue !== null) { setCornersValue(null); setSaved(false); }
+    if (cornersDisabled && cornersValue !== null) { setCornersValue(null); setSaved(false); setOfflineQueued(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cornersDisabled]);
 
@@ -246,7 +259,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
     });
     haptic('selection');
     playSound('toggle_click');
-    setSaved(false);
+    setSaved(false); setOfflineQueued(false);
   };
 
   // A linked tier whose value gets cleared (by the user, or by one of the
@@ -353,6 +366,15 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   };
 
   const handleSubmit = async () => {
+    // V7 Sprint 54 — "Stadium Vault". Snapshot BEFORE calling onSave — the
+    // actual enqueue-vs-RPC decision is made inside usePredictions.ts's
+    // own savePrediction() (the authoritative check, made at the same
+    // moment), this local copy only decides which confirmation UI to show.
+    // The two checks are microseconds apart in the same call stack; any
+    // theoretical disagreement between them is a harmless cosmetic
+    // mismatch, never a data-safety issue — see lib/offlinePredictionQueue.ts's
+    // file header for why nothing here needs to be authoritative.
+    const wasOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
     await onSave({
       match_id: match.id,
       predicted_outcome: outcome,
@@ -367,16 +389,27 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
     // lock_thud, not coin_chime — coin_chime already means "you received
     // coins" everywhere else in the app (daily bonus, prediction wins).
     // lock_thud already means "something just became final" (Momentum Bets
-    // lock) — the correct semantic match for locking in a prediction.
+    // lock) — the correct semantic match for locking in a prediction,
+    // whether that lock happened on the server or in the offline queue.
     playSound('lock_thud');
-    // V6 Sprint 50 — button-anchored, not a fixed screen-edge burst.
-    // HomePage.tsx's own celebratePrediction() (screen-edge) was REMOVED
-    // from its handleSavePrediction in this same commit — both firing for
-    // the same save would double the celebration for one event, the exact
-    // "don't replay feedback that already fired" mistake this codebase
-    // already rules out elsewhere (§33).
-    celebrateAt(submitBtnWrapRef.current);
-    setSaved(true);
+    if (wasOffline) {
+      // A "bet just locked" haptic, no confetti — celebrateAt() implies a
+      // confirmed win/success moment; nothing has actually reached the
+      // server yet, so no celebration fires until it genuinely does
+      // (useOfflineSync.ts's own flush success path never re-celebrates
+      // either — see its own "don't replay feedback" note).
+      haptic('bet_lock');
+      setOfflineQueued(true);
+    } else {
+      // V6 Sprint 50 — button-anchored, not a fixed screen-edge burst.
+      // HomePage.tsx's own celebratePrediction() (screen-edge) was REMOVED
+      // from its handleSavePrediction in this same commit — both firing for
+      // the same save would double the celebration for one event, the exact
+      // "don't replay feedback that already fired" mistake this codebase
+      // already rules out elsewhere (§33).
+      celebrateAt(submitBtnWrapRef.current);
+      setSaved(true);
+    }
   };
 
   const hasAnyPrediction = outcome !== null || homeScore !== '' || cornersValue !== null || btts !== null || overUnder !== null;
@@ -428,7 +461,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       content: (
         <OutcomePicker
           value={outcome}
-          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOutcome(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOutcome(v); setSaved(false); setOfflineQueued(false); }}
           homeTeam={lang === 'he' ? tTeam(match.home_team) : match.home_team}
           awayTeam={lang === 'he' ? tTeam(match.away_team) : match.away_team}
           color={TIER_COLORS[0]}
@@ -448,8 +481,8 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         <ScorePicker
           homeValue={homeScore}
           awayValue={awayScore}
-          onHomeChange={(v) => { setHomeScore(v); setSaved(false); }}
-          onAwayChange={(v) => { setAwayScore(v); setSaved(false); }}
+          onHomeChange={(v) => { setHomeScore(v); setSaved(false); setOfflineQueued(false); }}
+          onAwayChange={(v) => { setAwayScore(v); setSaved(false); setOfflineQueued(false); }}
         />
       ),
     },
@@ -470,7 +503,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       content: (
         <CornersPicker
           value={cornersValue}
-          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setCornersValue(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setCornersValue(v); setSaved(false); setOfflineQueued(false); }}
           color={TIER_COLORS[2]}
           disabled={cornersDisabled}
         />
@@ -500,7 +533,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         onSelectScore={(home, away) => {
           setHomeScore(String(home));
           setAwayScore(String(away));
-          setSaved(false);
+          setSaved(false); setOfflineQueued(false);
         }}
       />
 
@@ -565,7 +598,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           active={btts !== null}
           color={TIER_COLORS[tiers.length]}
           value={btts}
-          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setBtts(v); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setBtts(v); setSaved(false); setOfflineQueued(false); }}
           yesLabel={t('yes')}
           noLabel={t('no')}
           impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
@@ -583,7 +616,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
           active={overUnder !== null}
           color={TIER_COLORS[tiers.length + 1]}
           value={overUnder === null ? null : overUnder === 'over'}
-          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); }}
+          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); setOfflineQueued(false); }}
           yesLabel="O 2.5"
           noLabel="U 2.5"
           impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
@@ -607,51 +640,77 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
             className="pt-1 space-y-2"
           >
-            {/* Coin summary row + Risk Meter */}
-            <div className="px-3 py-2.5 rounded-xl bg-amber-500/6 border border-amber-500/15 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-white/40 text-[10px] font-headline uppercase tracking-wider">Cost</span>
-                  <span className="flex items-center gap-1 text-amber-400 font-display font-bold tabular-nums text-xs">
-                    <CoinIcon size={13} /> <NumberFlow value={displayCost} />
-                    {netCost < 0 && <span className="text-emerald-400 ms-1 text-[10px]">(+{Math.abs(netCost)} refund)</span>}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-white/40 text-[10px] font-headline uppercase tracking-wider">Balance</span>
-                  <span className={cn('flex items-center gap-1 font-display font-bold tabular-nums text-xs', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
-                    <CoinIcon size={13} /> <NumberFlow value={coins} />
-                  </span>
+            {/* Coin summary row + Risk Meter — OR, V7 Sprint 54, the
+                "Stadium Vault" offline-lock confirmation in the same DOM
+                slot. Swapped in place (never stacked alongside) so the
+                submit button directly below never shifts position —
+                rule 4.16's zero-CLS discipline applied to a post-submit
+                confirmation state, not just image loads. */}
+            {offlineQueued ? (
+              <div className="px-3 py-2.5 rounded-xl bg-accent-green/6 border border-accent-green/20 flex items-start gap-2.5">
+                <motion.span
+                  className="text-lg leading-none shrink-0"
+                  aria-hidden="true"
+                  animate={prefersReducedMotion ? { opacity: 0.85 } : { opacity: [0.5, 1, 0.5] }}
+                  transition={prefersReducedMotion ? undefined : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  🔒
+                </motion.span>
+                <div className="min-w-0">
+                  <p className="text-accent-green text-xs font-bold font-headline uppercase tracking-wide">
+                    {t('offlineVaultTitle')}
+                  </p>
+                  <p className="text-white/60 text-[11px] leading-snug mt-0.5">
+                    {t('offlineVaultBody')}
+                  </p>
                 </div>
               </div>
-              {/* Risk Meter — a live gauge, not a slider. There is no
-                  discretionary stake in this economy to drag/choose; this
-                  bar only ever reflects the cost your current tier
-                  selections already computed, animating gold -> warning as
-                  that cost approaches your balance. */}
-              <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{ background: interpolateRisk(riskRatio).color }}
-                  animate={{ width: `${riskRatio * 100}%` }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                />
+            ) : (
+              <div className="px-3 py-2.5 rounded-xl bg-amber-500/6 border border-amber-500/15 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-white/40 text-[10px] font-headline uppercase tracking-wider">Cost</span>
+                    <span className="flex items-center gap-1 text-amber-400 font-display font-bold tabular-nums text-xs">
+                      <CoinIcon size={13} /> <NumberFlow value={displayCost} />
+                      {netCost < 0 && <span className="text-emerald-400 ms-1 text-[10px]">(+{Math.abs(netCost)} refund)</span>}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-white/40 text-[10px] font-headline uppercase tracking-wider">Balance</span>
+                    <span className={cn('flex items-center gap-1 font-display font-bold tabular-nums text-xs', insufficientCoins ? 'text-red-400' : 'text-white/70')}>
+                      <CoinIcon size={13} /> <NumberFlow value={coins} />
+                    </span>
+                  </div>
+                </div>
+                {/* Risk Meter — a live gauge, not a slider. There is no
+                    discretionary stake in this economy to drag/choose; this
+                    bar only ever reflects the cost your current tier
+                    selections already computed, animating gold -> warning as
+                    that cost approaches your balance. */}
+                <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ background: interpolateRisk(riskRatio).color }}
+                    animate={{ width: `${riskRatio * 100}%` }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  />
+                </div>
               </div>
-            </div>
-            {insufficientCoins && (
+            )}
+            {insufficientCoins && !offlineQueued && (
               <p className="text-red-400 text-[11px] text-center px-2">
                 Not enough coins — remove some tiers or wait for your daily bonus
               </p>
             )}
             <div ref={submitBtnWrapRef}>
               <NeonButton
-                variant={saved ? 'ghost' : 'green'}
+                variant={saved || offlineQueued ? 'ghost' : 'green'}
                 size="lg"
                 onClick={handleSubmit}
                 disabled={insufficientCoins || saving}
                 className="w-full"
               >
-                {saving ? '···' : saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
+                {saving ? '···' : offlineQueued ? `🔒 ${t('offlineVaultTitle')}` : saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
               </NeonButton>
             </div>
 
