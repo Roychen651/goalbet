@@ -89,8 +89,27 @@ function pickLogo(logos: Record<string, unknown>[] | undefined): string | null {
   return String((def ?? logos[0]).href ?? '') || null;
 }
 
-async function fetchStandings(slug: string): Promise<StandingsRow[]> {
-  const url = `https://site.web.api.espn.com/apis/v2/sports/soccer/${slug}/standings`;
+async function fetchStandings(slug: string, season: number): Promise<StandingsRow[]> {
+  // Hotfix — this endpoint previously had NO season param at all, while its
+  // sibling fetchLeaders() call (below) always has, using the exact same
+  // currentSeason() value. Reported live: Stats still showed last season's
+  // FINAL Champions League table well into the new season's qualifying
+  // window — consistent with ESPN's own undocumented default for a
+  // season-less /standings request lagging behind a genuinely new season
+  // whose league-phase table has no rows yet (only pre-season qualifiers
+  // have played, which don't populate the 36-team league table). This
+  // sandbox cannot verify ESPN's real response shape for this endpoint
+  // (see the LeaderRow.photo comment above for why), so rather than guess
+  // at ESPN's default behavior, this makes the two already-adjacent calls
+  // in this same file internally consistent — reusing the identical
+  // `season` value fetchLeaders() already proves out, never a second,
+  // independently-computed one. If ESPN's /standings endpoint ignores an
+  // explicit season param, this is a harmless no-op; if it honors it
+  // (a common, standard ESPN site-API parameter), it fixes the stale
+  // table. Either way, showing an honestly-empty table for a season with
+  // no league-phase matches yet is more correct than silently showing a
+  // finished, unrelated season's final standings.
+  const url = `https://site.web.api.espn.com/apis/v2/sports/soccer/${slug}/standings?season=${season}`;
   const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
 
   // Primary league table usually sits at children[0].standings.entries
@@ -211,20 +230,43 @@ export async function getLeagueStats(leagueId: number): Promise<StatsResponse | 
 
   const season = currentSeason();
 
-  const [standings, leaders] = await Promise.all([
-    fetchStandings(slug).catch(err => {
-      logger.error(`[stats] standings fetch failed for ${slug}: ${err}`);
+  let [standings, leaders] = await Promise.all([
+    fetchStandings(slug, season).catch(err => {
+      logger.error(`[stats] standings fetch failed for ${slug} season=${season}: ${err}`);
       return [] as StandingsRow[];
     }),
     fetchLeaders(slug, season),
   ]);
+
+  // Fallback — the current season's table can genuinely have zero rows for
+  // a real reason: a new UEFA cup season's league-phase table has no
+  // entries until its first league-phase matchday, weeks after qualifying
+  // rounds begin (currentSeason() already rolled over to the new year the
+  // moment July starts). Rather than show nothing, fall back one season so
+  // the page always shows the most recent table ESPN has actually
+  // populated — the moment the new season's table gets real rows, the
+  // primary (non-fallback) fetch above picks it up automatically on the
+  // next 5-min cache expiry, with zero code change needed.
+  let effectiveSeason = season;
+  if (standings.length === 0) {
+    const fallbackSeason = season - 1;
+    const fallback = await fetchStandings(slug, fallbackSeason).catch(err => {
+      logger.error(`[stats] fallback standings fetch failed for ${slug} season=${fallbackSeason}: ${err}`);
+      return [] as StandingsRow[];
+    });
+    if (fallback.length > 0) {
+      logger.info(`[stats] ${slug}: season=${season} standings empty, using season=${fallbackSeason} fallback (${fallback.length} rows)`);
+      standings = fallback;
+      effectiveSeason = fallbackSeason;
+    }
+  }
 
   if (standings.length === 0 && !leaders) return null;
 
   const data: StatsResponse = {
     leagueId,
     slug,
-    season,
+    season: effectiveSeason,
     cachedAt: new Date().toISOString(),
     standings,
     leaders,
