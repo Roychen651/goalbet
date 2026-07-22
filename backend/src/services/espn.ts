@@ -542,40 +542,31 @@ export async function fetchMatchTeamStatsFromSummary(
   }
 }
 
-export async function fetchLeagueMatches(
+// Leagues where ESPN nests a genuine pre-tournament qualifying stage
+// under the SAME competition slug (seasontype=1) as the main tournament
+// phase (seasontype=2) — a real, standard ESPN site-API parameter, not a
+// fabricated one. Scoped narrowly to continent-wide club cups that
+// actually have a qualifying stage; domestic leagues have no such split,
+// and World Cup Qualifiers (5000) IS the qualifying competition already
+// (no separate "main" phase to split from). See fetchLeagueMatches()'s
+// own comment on why this is queried ADDITIVELY, never as a replacement.
+const LEAGUES_WITH_QUALIFYING_ROUNDS = new Set([4346, 4399, 4877]); // UCL, UEL, UECL
+
+// Fetches + parses ONE scoreboard request window. Extracted out of
+// fetchLeagueMatches() the moment a second real caller (the seasontype=1
+// qualifying-round request, below) needed the identical per-event parsing
+// logic — the same "extract on the second real consumer" precedent this
+// codebase already applies elsewhere (lib/espnEvents.ts, teamNameUtils.ts).
+// Every line of the per-event parsing in this function is UNCHANGED from
+// before this extraction — only the request URL is now a parameter
+// instead of built inline, and callers can safely invoke this more than
+// once per sync tick.
+async function fetchOneScoreboardWindow(
+  url: string,
+  slug: string,
   leagueId: number,
-  daysBack = 7,
-  daysAhead = 14,
+  dateRange: string,
 ): Promise<DBMatchWithClock[]> {
-  const slug = LEAGUE_ESPN_MAP[leagueId];
-  if (!slug) {
-    logger.warn(`[ESPN] No slug for league ${leagueId}, skipping`);
-    return [];
-  }
-
-  const now = new Date();
-  const from = new Date(now.getTime() - daysBack * 86_400_000);
-  const to = new Date(now.getTime() + daysAhead * 86_400_000);
-  const dateRange = `${formatDate(from)}-${formatDate(to)}`;
-
-  // World Cup 2026 has exactly 104 total matches (72 group + 16 R32 + 8 R16
-  // + 4 QF + 2 SF + 1 third-place + 1 final — confirmed against
-  // lib/worldCup2026.ts's own match labels, which run 1-104). With
-  // daysBack=45/daysAhead=90 for league 4480, once the tournament reaches
-  // its later rounds the date-range query genuinely spans all ~102-104
-  // scheduled events. `limit=100` silently truncated ESPN's response at
-  // exactly 100 — the LAST couple of chronologically-latest events (the
-  // 3rd-place match and the Final) never appeared in `data.events` at all,
-  // on every single sync, forever, once the total crossed 100. This was a
-  // real, live bug: a user confirmed ESPN's own data already had the real
-  // qualified teams while our synced rows stayed stuck on ESPN's original
-  // bracket-slot placeholder names ("S1"/"S2") — a forced re-sync didn't
-  // help, because the truncation happens identically on every request, not
-  // a one-time staleness gap. 250 gives real headroom over any single
-  // league's real match count (World Cup is the largest by far) with
-  // negligible payload cost.
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=250&dates=${dateRange}`;
-
   // TEMP DEBUG (remove once sync is confirmed): log the exact URL requested so
   // we can see in Render logs precisely what window/slug we hit.
   logger.info(`[ESPN][debug] GET league=${leagueId} slug=${slug} → ${url}`);
@@ -836,4 +827,79 @@ export async function fetchLeagueMatches(
     logger.error(`[ESPN] Failed to fetch ${slug}: ${err}`);
     return [];
   }
+}
+
+export async function fetchLeagueMatches(
+  leagueId: number,
+  daysBack = 7,
+  daysAhead = 14,
+): Promise<DBMatchWithClock[]> {
+  const slug = LEAGUE_ESPN_MAP[leagueId];
+  if (!slug) {
+    logger.warn(`[ESPN] No slug for league ${leagueId}, skipping`);
+    return [];
+  }
+
+  const now = new Date();
+  const from = new Date(now.getTime() - daysBack * 86_400_000);
+  const to = new Date(now.getTime() + daysAhead * 86_400_000);
+  const dateRange = `${formatDate(from)}-${formatDate(to)}`;
+
+  // World Cup 2026 has exactly 104 total matches (72 group + 16 R32 + 8 R16
+  // + 4 QF + 2 SF + 1 third-place + 1 final — confirmed against
+  // lib/worldCup2026.ts's own match labels, which run 1-104). With
+  // daysBack=45/daysAhead=90 for league 4480, once the tournament reaches
+  // its later rounds the date-range query genuinely spans all ~102-104
+  // scheduled events. `limit=100` silently truncated ESPN's response at
+  // exactly 100 — the LAST couple of chronologically-latest events (the
+  // 3rd-place match and the Final) never appeared in `data.events` at all,
+  // on every single sync, forever, once the total crossed 100. This was a
+  // real, live bug: a user confirmed ESPN's own data already had the real
+  // qualified teams while our synced rows stayed stuck on ESPN's original
+  // bracket-slot placeholder names ("S1"/"S2") — a forced re-sync didn't
+  // help, because the truncation happens identically on every request, not
+  // a one-time staleness gap. 250 gives real headroom over any single
+  // league's real match count (World Cup is the largest by far) with
+  // negligible payload cost.
+  const baseUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=250&dates=${dateRange}`;
+
+  // Hotfix — European qualifier/playoff-round fixtures missing from the
+  // UPCOMING feed for UCL/UEL/UECL during July/August. This codebase's own
+  // sandbox has no outbound access to ESPN's API at all (confirmed via a
+  // direct request returning a policy-level 403 from this environment's
+  // own proxy, not a transient failure) — so the exact shape of ESPN's
+  // default (no explicit seasontype) date-range response for these 3
+  // leagues' qualifying rounds could not be independently verified before
+  // shipping this. Rather than guess at a theory this sandbox can't test,
+  // this adds an explicit, ADDITIONAL request with the real, standard
+  // ESPN `seasontype=1` parameter — strictly additive, never replacing the
+  // existing default request. Any event both requests happen to return is
+  // naturally deduped below by ESPN's own event id, matching the DB's own
+  // upsert-by-external_id key (matchSync.ts) exactly — so this is safe
+  // regardless of which theory about ESPN's default behavior turns out to
+  // be correct: worst case it's one harmless extra request per sync cycle
+  // for exactly these 3 leagues, best case it recovers genuinely missing
+  // qualifying-round fixtures. The `[ESPN][qualifiers]` log line below
+  // gives real, ground-truth visibility into which case it actually is,
+  // the next time a live production sync cycle runs — no manual probing
+  // needed, since this environment's sync already runs against real ESPN
+  // data continuously and independently of this sandbox.
+  const urls = [baseUrl];
+  if (LEAGUES_WITH_QUALIFYING_ROUNDS.has(leagueId)) {
+    urls.push(`${baseUrl}&seasontype=1`);
+  }
+
+  const byExternalId = new Map<string, DBMatchWithClock>();
+  for (const oneUrl of urls) {
+    const parsed = await fetchOneScoreboardWindow(oneUrl, slug, leagueId, dateRange);
+    for (const m of parsed) byExternalId.set(m.external_id, m);
+  }
+
+  const matches = Array.from(byExternalId.values());
+  if (urls.length > 1) {
+    logger.info(
+      `[ESPN][qualifiers] league=${leagueId} slug=${slug}: merged ${urls.length} season-type requests → ${matches.length} unique matches (range=${dateRange})`,
+    );
+  }
+  return matches;
 }
