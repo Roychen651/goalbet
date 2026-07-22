@@ -581,10 +581,6 @@ async function fetchOneScoreboardWindow(
   leagueId: number,
   dateRange: string,
 ): Promise<DBMatchWithClock[]> {
-  // TEMP DEBUG (remove once sync is confirmed): log the exact URL requested so
-  // we can see in Render logs precisely what window/slug we hit.
-  logger.info(`[ESPN][debug] GET league=${leagueId} slug=${slug} → ${url}`);
-
   try {
     const data = await espnGet<any>(url, {
       timeout: 10_000,
@@ -592,10 +588,7 @@ async function fetchOneScoreboardWindow(
     });
 
     const events: unknown[] = data.events ?? [];
-    // TEMP DEBUG: how many events ESPN actually returned for this window.
-    logger.info(`[ESPN][debug] league=${leagueId} slug=${slug} events=${events.length} range=${dateRange}`);
     if (events.length === 0) {
-      logger.warn(`[ESPN][debug] ZERO events for ${slug} (${dateRange}) — off-season, wrong slug, or window miss`);
       return [];
     }
 
@@ -835,7 +828,6 @@ async function fetchOneScoreboardWindow(
       }
     }
 
-    logger.info(`[ESPN][debug] ${slug}: parsed ${matches.length}/${events.length} events into DB rows for ${dateRange}`);
     return matches;
   } catch (err) {
     logger.error(`[ESPN] Failed to fetch ${slug}: ${err}`);
