@@ -724,6 +724,15 @@ export const translations = {
     aiScoutPreMatchTitle: 'Scout Insight',
     aiScoutPostMatchTitle: 'Match Recap',
 
+    // V7 Sprint 51 — AI Commissioner + Voice Radio
+    commissionerRadioLabel: 'Commissioner Radio',
+    commissionerBriefTitle: "The Commissioner's Program",
+    commissionerTextEdition: 'Text Edition — voice unavailable on this device',
+    commissionerPlay: 'Play weekly recap',
+    commissionerPause: 'Pause',
+    commissionerSpeed: 'Playback speed',
+    commissionerPitch: 'Voice pitch',
+
     // Sprint 27 — HT Analyst + Hall of Fame Chronicles
     aiLiveReadLabel: 'LIVE AI READ',
     aiHTAnalystTitle: 'Half-Time Read',
@@ -1702,6 +1711,15 @@ export const translations = {
     aiScoutLabel: 'סייר AI',
     aiScoutPreMatchTitle: 'תובנת הסייר',
     aiScoutPostMatchTitle: 'סיכום המשחק',
+
+    // V7 Sprint 51 — קומישנר AI + רדיו קולי
+    commissionerRadioLabel: 'רדיו הקומישנר',
+    commissionerBriefTitle: 'התוכנייה של הקומישנר',
+    commissionerTextEdition: 'מהדורה כתובה — קול לא זמין במכשיר הזה',
+    commissionerPlay: 'הפעל תקציר שבועי',
+    commissionerPause: 'השהה',
+    commissionerSpeed: 'מהירות השמעה',
+    commissionerPitch: 'גובה קול',
 
     // Sprint 27 — HT Analyst + Hall of Fame Chronicles
     aiLiveReadLabel: 'ניתוח AI חי',

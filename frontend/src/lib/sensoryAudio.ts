@@ -19,6 +19,18 @@ export type SoundName = 'toggle_click' | 'coin_chime' | 'lock_thud' | 'rank_aler
 
 let ctx: AudioContext | null = null;
 
+/**
+ * V7 Sprint 51 — exposes the shared, already-gesture-unlocked AudioContext
+ * so a caller (VoiceRadioPlayer.tsx) can build its own node graph (an
+ * AnalyserNode for the visualizer) on the SAME context, never a second
+ * `new AudioContext()`. Multiple concurrent contexts is wasteful and some
+ * browsers cap how many can exist; this module already owns the one
+ * legitimate instance for the whole app.
+ */
+export function getAudioContext(): AudioContext | null {
+  return ctx;
+}
+
 interface LegacyWindow {
   webkitAudioContext?: typeof AudioContext;
 }
@@ -110,6 +122,143 @@ export function playSound(name: SoundName): void {
   try {
     if (!ctx || ctx.state !== 'running') return;
     PLAYERS[name](ctx);
+  } catch {
+    // silent
+  }
+}
+
+// ── Sprint 51 — "Stadium Radio" ambient loop + broadcast jingle ─────────────
+//
+// Genuinely new capability, distinct from PLAYERS above: those are one-shot
+// fire-and-forget SFX (a few hundred ms, no lifecycle to manage beyond their
+// own onended cleanup). A stadium-ambience bed is a CONTINUOUS loop with a
+// real start/stop lifecycle (tied to the radio player's play/pause state),
+// so it gets its own small, self-contained node-graph manager below rather
+// than being force-fit into the PLAYERS shape.
+//
+// Synthesis: lowpass-filtered white noise is the standard, well-established
+// technique for a "crowd murmur/roar" texture (no sample library needed —
+// still 0 KB shipped, same "zero-asset" discipline as every other sound in
+// this file). Kept deliberately quiet (peak 0.035, vs. e.g. lock_thud's
+// 0.22) — a background bed, never competing with narration.
+
+let ambientSource: AudioBufferSourceNode | null = null;
+let ambientGain: GainNode | null = null;
+let ambientAnalyser: AnalyserNode | null = null;
+
+/**
+ * Real frequency-domain data for the ambient bed — a genuine, connected
+ * AudioContext graph, safe to read every animation frame via
+ * getByteFrequencyData(). Returns null whenever the loop isn't running;
+ * callers must treat that as "nothing to draw," never poll-retry.
+ *
+ * Deliberately NOT a source of real data for the spoken narration itself —
+ * window.speechSynthesis does not route its audio through the Web Audio
+ * API graph in any mainstream browser, so there is no AnalyserNode that
+ * can read real frequency content from a SpeechSynthesisUtterance. Any
+ * narration-reactive visual in VoiceRadioPlayer.tsx must be an honestly
+ * SIMULATED pulse (driven by the utterance's own `boundary` event timing),
+ * never presented as if it were real audio analysis — see that file's own
+ * header comment for the split.
+ */
+export function getAmbientAnalyser(): AnalyserNode | null {
+  return ambientAnalyser;
+}
+
+function buildNoiseBuffer(c: AudioContext, seconds: number): AudioBuffer {
+  const buffer = c.createBuffer(1, Math.floor(c.sampleRate * seconds), c.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  return buffer;
+}
+
+/** Starts the ambient loop. No-op if already running or the context isn't unlocked. */
+export function startAmbientLoop(): void {
+  try {
+    if (!ctx || ctx.state !== 'running') return;
+    if (ambientSource) return; // already running — idempotent
+
+    const source = ctx.createBufferSource();
+    source.buffer = buildNoiseBuffer(ctx, 2);
+    source.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 400; // muffled register — reads as distant crowd, not hiss
+    filter.Q.value = 0.7;
+
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.035, now + 1.2); // slow fade-in, never a hard cut-in
+
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 128; // small — a lower-third bar visualizer needs few bins, cheap per frame
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(analyser);
+    analyser.connect(ctx.destination);
+    source.start(now);
+
+    ambientSource = source;
+    ambientGain = gain;
+    ambientAnalyser = analyser;
+  } catch {
+    // silent — same no-throw discipline as every other function in this file
+  }
+}
+
+/** Fades out and stops the ambient loop. Safe to call even if not running. */
+export function stopAmbientLoop(): void {
+  const source = ambientSource;
+  const gain = ambientGain;
+  ambientSource = null;
+  ambientGain = null;
+  ambientAnalyser = null;
+
+  try {
+    if (gain && ctx) {
+      const now = ctx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.linearRampToValueAtTime(0.0001, now + 0.4);
+    }
+    setTimeout(() => {
+      try {
+        source?.stop();
+        source?.disconnect();
+      } catch {
+        // already stopped/disconnected — fine
+      }
+    }, 450);
+  } catch {
+    // silent
+  }
+}
+
+/** One-shot "on air" stinger — a short ascending 3-note arpeggio. Fire-and-forget, no lifecycle. */
+export function playBroadcastJingle(): void {
+  try {
+    if (!ctx || ctx.state !== 'running') return;
+    const c = ctx;
+    const now = c.currentTime;
+    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5 — a bright, simple major triad
+    notes.forEach((freq, i) => {
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      const start = now + i * 0.09;
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.linearRampToValueAtTime(0.16, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start(start);
+      osc.stop(start + 0.24);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+    });
   } catch {
     // silent
   }

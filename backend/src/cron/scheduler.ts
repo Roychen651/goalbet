@@ -3,6 +3,7 @@ import { syncAllActiveLeagues } from '../services/matchSync';
 import { checkAndUpdateScores, resetWeeklyPoints } from '../services/scoreUpdater';
 import { sendMatchReminders } from '../services/pushSender';
 import { runProvocateurBatch } from '../services/aiProvocateur';
+import { runCommissionerBriefBatch } from '../services/aiCommissioner';
 import { sendStreakExpiryWarnings } from '../services/streakGuardian';
 import { lockExpiredMicroQuestions, resolveLockedMicroQuestions } from '../services/momentumBets';
 import { resolveLiveDuels } from '../services/liveDuels';
@@ -291,6 +292,20 @@ export function startScheduler(): void {
       logger.error('[scheduler] Provocateur batch failed:', err);
     }
   });
+
+  // AI Commissioner weekly brief — V7 Sprint 51. Deliberately a frequent
+  // (30-min) setInterval sweep, NEVER a fixed weekly cron.schedule(). A
+  // fixed UTC weekly cron (the same shape resetWeeklyPoints() above
+  // already uses — a real, pre-existing DST-drift bug flagged separately,
+  // not fixed here since it's unrelated to this sprint) would drift up to
+  // an hour off true Israel-week boundaries for ~7 months a year. This
+  // sweep instead re-derives "the current week" from
+  // arena_current_week_start() (migration 066, Asia/Jerusalem-aware) on
+  // every tick and relies on the unique index
+  // (group_id, metadata->>week_start) to make posting idempotent —
+  // matching §28's daily-bonus and §63's weekly-promotion precedent
+  // exactly. No-op without a Groq key.
+  setInterval(guarded('Commissioner weekly brief batch', async () => { await runCommissionerBriefBatch(); }), 30 * 60_000);
 
   // Corners stat-capability refresh — daily, 30 min after the midnight sync
   // so that day's newly-resolved matches have already landed. This signal

@@ -9,7 +9,8 @@ export interface GroupEvent {
   group_id: string;
   user_id: string | null;
   event_type: 'PREDICTION_LOCKED' | 'WON_COINS' | 'LEADERBOARD_CLIMB' | 'AI_BANTER' | 'MICRO_BANTER'
-    | 'POOL_CONTRIBUTION' | 'BATTLE_PROGRESS'; // V5 Sprint 36
+    | 'POOL_CONTRIBUTION' | 'BATTLE_PROGRESS' // V5 Sprint 36
+    | 'COMMISSIONER_BRIEF'; // V7 Sprint 51
   match_id: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
