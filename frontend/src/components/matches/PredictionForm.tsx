@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Minus, Plus, Link2, Users, Trophy } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Match, Prediction, supabase } from '../../lib/supabase';
-import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
+import { NeonButton } from '../ui/NeonButton';
 import { CoinIcon } from '../ui/CoinIcon';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import { OracleStatsPanel } from './OracleStatsPanel';
@@ -143,9 +143,13 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   const [saved, setSaved] = useState(!!existingPrediction);
   // V6 Sprint 50 — anchors celebrateAt() to the real submit button so the
   // particle burst originates from where the user actually tapped, not a
-  // fixed screen-edge origin. MagneticButtonV2 isn't a forwardRef
-  // component, so this wraps it in a plain ref'd div rather than touching
-  // that shared component (used elsewhere) just to add ref-forwarding.
+  // fixed screen-edge origin. NeonButton isn't a forwardRef component (a
+  // live report post-Sprint-52 also had this button on MagneticButtonV2,
+  // whose cursor-following magnetic-pull effect the same report found
+  // annoying — swapped to NeonButton, which keeps the identical whileTap
+  // squish with none of the mouse-follow machinery), so this wraps it in a
+  // plain ref'd div rather than touching that shared component (used
+  // elsewhere) just to add ref-forwarding.
   const submitBtnWrapRef = useRef<HTMLDivElement>(null);
   // V5 Sprint 34 — "The Prediction Matrix". A Set, not an array: toggling is
   // naturally idempotent (link/unlink) and membership checks are O(1) for
@@ -640,15 +644,15 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
               </p>
             )}
             <div ref={submitBtnWrapRef}>
-              <MagneticButtonV2
-                variant={saved ? 'ghost' : 'volt'}
+              <NeonButton
+                variant={saved ? 'ghost' : 'green'}
                 size="lg"
                 onClick={handleSubmit}
                 disabled={insufficientCoins || saving}
                 className="w-full"
               >
                 {saving ? '···' : saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
-              </MagneticButtonV2>
+              </NeonButton>
             </div>
 
             {/* V5 Sprint 36 Hotfix — glass "Start a Shared Pool" entry point.
