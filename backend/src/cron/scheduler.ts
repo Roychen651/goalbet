@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { syncAllActiveLeagues } from '../services/matchSync';
-import { checkAndUpdateScores, resetWeeklyPoints } from '../services/scoreUpdater';
+import { checkAndUpdateScores } from '../services/scoreUpdater';
 import { sendMatchReminders } from '../services/pushSender';
 import { runProvocateurBatch } from '../services/aiProvocateur';
 import { runCommissionerBriefBatch } from '../services/aiCommissioner';
@@ -248,15 +248,17 @@ export function startScheduler(): void {
   // unlike Momentum Bets' pre-generated-question shape.
   setInterval(guarded('Live Duel resolution sweep', async () => { await resolveLiveDuels(); }), 15_000);
 
-  // Weekly points reset every Sunday at 00:00 UTC (week = Sun 00:00 → Sat 23:59 UTC)
-  cron.schedule('0 0 * * 0', async () => {
-    logger.info('[scheduler] Running weekly points reset');
-    try {
-      await resetWeeklyPoints();
-    } catch (err) {
-      logger.error('[scheduler] Weekly reset failed:', err);
-    }
-  });
+  // Weekly points reset — V7 Sprint 51 hotfix (migration 069). Fully
+  // pg_cron-native now, matching distribute_daily_allowance()/
+  // decay_idle_streaks()'s established "pg_cron-only, zero Node
+  // cron.schedule() involvement" shape (§28). The old fixed
+  // `cron.schedule('0 0 * * 0', ...)` here drifted a real hour off true
+  // Israel-midnight for ~7 months a year (IDT, UTC+3) — the exact DST-drift
+  // bug flagged (not fixed) in CLAUDE.md §69, now closed the same way §28's
+  // daily bonus and §63's weekly promotion sweep already were: a frequent
+  // (15-min) pg_cron sweep deriving the real Israel-local week boundary
+  // from arena_current_week_start(), idempotent via weekly_points_reset_log.
+  // See migration 069 for reset_weekly_points_if_needed().
 
   // Additional sync at noon UTC to catch mid-day schedule updates
   cron.schedule('0 12 * * *', async () => {
@@ -295,11 +297,10 @@ export function startScheduler(): void {
 
   // AI Commissioner weekly brief — V7 Sprint 51. Deliberately a frequent
   // (30-min) setInterval sweep, NEVER a fixed weekly cron.schedule(). A
-  // fixed UTC weekly cron (the same shape resetWeeklyPoints() above
-  // already uses — a real, pre-existing DST-drift bug flagged separately,
-  // not fixed here since it's unrelated to this sprint) would drift up to
-  // an hour off true Israel-week boundaries for ~7 months a year. This
-  // sweep instead re-derives "the current week" from
+  // fixed UTC weekly cron (the exact shape the pre-existing weekly-reset
+  // job used to use, before the hotfix above closed that same DST-drift
+  // bug) would drift up to an hour off true Israel-week boundaries for
+  // ~7 months a year. This sweep instead re-derives "the current week" from
   // arena_current_week_start() (migration 066, Asia/Jerusalem-aware) on
   // every tick and relies on the unique index
   // (group_id, metadata->>week_start) to make posting idempotent —
