@@ -194,6 +194,22 @@
      lightness — a physical light reflection should read as near-white,
      not tinted with any semantic color. */
   --glass-glare: oklch(96% 0.01 240 / 0.45);
+
+  /* V7 Sprint 52 — Monte Carlo exact-score heatmap. An eighth, deliberately
+     distinct family: not --arena-cold/hot ("performance"), not --risk-gold/
+     warning ("balance at stake"), not --oracle-low/high ("historical
+     frequency" — a REAL frequency this app has actually observed), not
+     --parlay-low/high ("payoff intensity") — this one means "how likely
+     this SIMULATED score is," a fundamentally different kind of number
+     (a Monte-Carlo-derived probability, not an observed rate). Unlike
+     every diverging/two-hue pair above, this is a genuine SEQUENTIAL
+     single-hue ramp per the dataviz skill's own rule ("sequential = one
+     hue, light->dark; diverging = two hues + a neutral midpoint") — low
+     and high share hue 130 (a fresh lime-teal, unclaimed by any pair
+     above) and only lightness/chroma vary, since "probability magnitude"
+     is a one-directional job (more likely), never a diverging one. */
+  --sim-low: oklch(40% 0.03 130);
+  --sim-high: oklch(72% 0.19 130);
 }
 
 /* ─── Light mode — "Frost" ─── */
@@ -302,6 +318,12 @@ html.light {
      surfaces in dark mode, not shadows" principle, mirrored here for a
      glare instead of an elevation layer). */
   --glass-glare: oklch(30% 0.03 240 / 0.25);
+
+  /* V7 Sprint 52 — Monte Carlo heatmap, light surface variant. Same hue
+     anchor (130) as dark, darkened + more saturated for contrast on
+     near-white cards — same discipline as every pair above. */
+  --sim-low: oklch(70% 0.03 130);
+  --sim-high: oklch(48% 0.20 130);
 }
 
 /* ============================================================

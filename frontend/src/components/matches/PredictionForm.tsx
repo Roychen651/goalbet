@@ -7,6 +7,7 @@ import { MagneticButtonV2 } from '../ui/MagneticButtonV2';
 import { CoinIcon } from '../ui/CoinIcon';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import { OracleStatsPanel } from './OracleStatsPanel';
+import { MonteCarloHeatmap } from './MonteCarloHeatmap';
 import { ParlaySlipDrawer } from './ParlaySlipDrawer';
 import { cn, isMatchLocked, calcBreakdown, calcLiveBreakdown, classifyKnockoutRound, KNOCKOUT_BONUS } from '../../lib/utils';
 import { LIVE_STATUSES, POINTS, COIN_COSTS, calcPredictionCost, calcParlayBonusPreview, type ParlayTierKey } from '../../lib/constants';
@@ -484,6 +485,20 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         </div>
       )}
       <OracleStatsPanel match={match} />
+
+      {/* V7 Sprint 52 — tapping a simulated score prefills the exact-score
+          tier via the SAME setters ScorePicker's own onHomeChange/
+          onAwayChange already use above — outcome/BTTS/Over-Under all
+          auto-derive from the existing reactive effects (scoreDerivedOutcome
+          etc.), so nothing extra is needed here. */}
+      <MonteCarloHeatmap
+        match={match}
+        onSelectScore={(home, away) => {
+          setHomeScore(String(home));
+          setAwayScore(String(away));
+          setSaved(false);
+        }}
+      />
 
       {/* V6 Sprint 48 — knockout round-depth bonus hint. Reuses matches.round
           (now actually captured from ESPN, see espn.ts/pointsEngine.ts) —

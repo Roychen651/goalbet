@@ -9,6 +9,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // V7 Sprint 52 — src/workers/monteCarloWorker.ts is loaded via
+  // `new Worker(new URL(..., import.meta.url), { type: 'module' })`.
+  // Vite's default worker output format is 'iife'; 'es' is required for
+  // a module worker (the `export`s in monteCarloWorker.ts, and any future
+  // worker that wants to import a shared helper) to actually work.
+  worker: {
+    format: 'es',
+  },
   build: {
     // The framer-motion vendor chunk is legitimately large and well understood —
     // don't let it spam CI. This still surfaces any genuinely oversized chunk.

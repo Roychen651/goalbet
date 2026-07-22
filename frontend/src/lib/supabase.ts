@@ -16,6 +16,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // check at all" are different facts, and showing a confident "0%" gauge for
 // the latter is exactly the kind of false-precision this codebase's own
 // sample-size-honesty rule (§30/§33/§48) exists to prevent.
+// V7 Sprint 52 (migration 067) — avg_goals_scored/avg_goals_conceded feed
+// the Monte Carlo simulator's Poisson lambda derivation; same NULL-at-
+// zero-sample discipline as the two _pct fields above, not a separate rule.
 export interface OracleTeamForm {
   wins: number;
   draws: number;
@@ -23,6 +26,8 @@ export interface OracleTeamForm {
   over25_pct: number | null;
   btts_pct: number | null;
   sample_size: number;
+  avg_goals_scored: number | null;
+  avg_goals_conceded: number | null;
 }
 
 export interface OracleStats {
