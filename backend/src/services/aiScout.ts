@@ -982,42 +982,81 @@ async function generateOracleNarration(ctx: OracleContext, lang: 'en' | 'he'): P
 }
 
 /**
- * Fetch up to `limit` upcoming matches (next 24h) missing oracle_stats and/or
- * its narration, compute+persist the stats (always, regardless of Groq key),
- * then narrate from them (only if a Groq key is configured). Errors are
- * logged and swallowed — never throws.
+ * V7 Sprint 52 hotfix — a live report ("no Oracle, no Monte Carlo heatmap
+ * at all") traced to this function's original single query gating BOTH
+ * stats computation AND AI narration behind the same "kickoff within next
+ * 24h" window. That window is a legitimate freshness/Groq-cost concern for
+ * the AI narration, but compute_team_recent_form() is deterministic SQL
+ * over each team's own last <=10 RESOLVED matches — it does not get more
+ * or less accurate depending on how many days away the target match's own
+ * kickoff is. A group whose next fixture is 20 days out (a real, normal
+ * case — end of a matchday round, an international break) previously got
+ * ZERO oracle_stats computed for ANY visible match, forever, since no NS
+ * match could ever satisfy the 24h cutoff — silently starving both the
+ * pre-existing Oracle panel (§33) and the new Monte Carlo simulator (§66),
+ * which both read the exact same match.oracle_stats column.
+ *
+ * Fix: stats computation now runs over the nearest upcoming NS matches
+ * with NO distance cap (still `limit`-bounded per cycle, self-heals over
+ * successive sync ticks exactly like every other bounded AI Scout batch in
+ * this file). AI narration keeps its own, separate, unchanged 24h
+ * eligibility check below — narration freshness/Groq-cost reasoning is a
+ * real, distinct concern from the stats themselves and was never the
+ * actual bug.
  */
 export async function runOracleBatch(limit = 2): Promise<void> {
   try {
     const now = new Date();
-    const cutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const narrationCutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
+    // Stats pass — no kickoff-distance cap. Ordered soonest-first so a
+    // near-term fixture always wins the per-cycle `limit` budget over a
+    // far-future one when both are missing stats.
+    const { data: statsRows, error: statsError } = await supabaseAdmin
+      .from('matches')
+      .select('id, home_team, away_team, kickoff_time')
+      .eq('status', 'NS')
+      .is('oracle_stats', null)
+      .gte('kickoff_time', now.toISOString())
+      .order('kickoff_time', { ascending: true })
+      .limit(limit);
+
+    if (statsError) {
+      logger.warn(`[aiScout] Oracle stats batch query failed: ${statsError.message}`);
+    } else if (statsRows && statsRows.length > 0) {
+      logger.info(`[aiScout] Computing Oracle stats for ${statsRows.length} match(es)`);
+      for (const row of statsRows) {
+        await computeOracleStats(row.id); // logs+swallows its own errors, never throws
+      }
+    }
+
+    // Narration pass — unchanged from before this hotfix: only matches
+    // genuinely kicking off within 24h, missing narration, with stats
+    // already present (from this pass or an earlier one).
     const { data: rows, error } = await supabaseAdmin
       .from('matches')
       .select('id, home_team, away_team, league_name, kickoff_time, oracle_stats, ai_oracle_insight, ai_oracle_insight_he')
       .eq('status', 'NS')
-      .or('oracle_stats.is.null,ai_oracle_insight.is.null,ai_oracle_insight_he.is.null')
+      .not('oracle_stats', 'is', null)
+      .or('ai_oracle_insight.is.null,ai_oracle_insight_he.is.null')
       .gte('kickoff_time', now.toISOString())
-      .lte('kickoff_time', cutoff.toISOString())
+      .lte('kickoff_time', narrationCutoff.toISOString())
       .order('kickoff_time', { ascending: true })
       .limit(limit);
 
     if (error) {
-      logger.warn(`[aiScout] Oracle batch query failed: ${error.message}`);
+      logger.warn(`[aiScout] Oracle narration batch query failed: ${error.message}`);
       return;
     }
     if (!rows || rows.length === 0) return;
 
-    logger.info(`[aiScout] Processing Oracle stats for ${rows.length} match(es)`);
+    if (!getApiKey()) return; // stats already persisted above; narration alone needs Groq
+
+    logger.info(`[aiScout] Processing Oracle narration for ${rows.length} match(es)`);
 
     for (const row of rows) {
-      let stats = row.oracle_stats as OracleStats | null;
-      if (!stats) {
-        stats = await computeOracleStats(row.id);
-      }
-      if (!stats) continue; // computation failed — skip narration, retried next cycle
-
-      if (!getApiKey()) continue; // stats already persisted; narration alone needs Groq
+      const stats = row.oracle_stats as OracleStats | null;
+      if (!stats) continue; // shouldn't happen given the .not('oracle_stats','is',null) filter above, but never trust it blindly
 
       // Migration 059 hotfix — a live user report ("this feels shallow,
       // doesn't help decisions") traced to narration firing on razor-thin
