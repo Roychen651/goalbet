@@ -542,21 +542,35 @@ export async function fetchMatchTeamStatsFromSummary(
   }
 }
 
-// Leagues where ESPN nests a genuine pre-tournament qualifying stage
-// under the SAME competition slug (seasontype=1) as the main tournament
-// phase (seasontype=2) — a real, standard ESPN site-API parameter, not a
-// fabricated one. Scoped narrowly to continent-wide club cups that
-// actually have a qualifying stage; domestic leagues have no such split,
-// and World Cup Qualifiers (5000) IS the qualifying competition already
-// (no separate "main" phase to split from). See fetchLeagueMatches()'s
-// own comment on why this is queried ADDITIVELY, never as a replacement.
-const LEAGUES_WITH_QUALIFYING_ROUNDS = new Set([4346, 4399, 4877]); // UCL, UEL, UECL
+// CORRECTED (same session, live-symptom-driven) — the original theory
+// here was that ESPN nests a qualifying stage under the SAME competition
+// slug via a `seasontype=1` query param. That theory was WRONG: after a
+// real user confirmed qualifying matches are genuinely being played right
+// now and still weren't appearing even after the seasontype=1 fix
+// deployed, this environment's WebSearch tool (a separate network path
+// from the sandbox's own outbound HTTP, which is policy-blocked from
+// reaching espn.com entirely) surfaced ESPN's real public site structure:
+// UEFA Champions/Europa/Conference League Qualifying each have their own
+// dedicated scoreboard/schedule/teams/stats pages on espn.com, entirely
+// separate from the main tournament's pages — e.g.
+// espn.com/soccer/scoreboard/_/league/uefa.champions_qual — confirming
+// ESPN models qualifying as its own SEPARATE league/competition slug, not
+// a query parameter on the main slug. Domestic leagues have no such
+// split, and World Cup Qualifiers (5000) IS the qualifying competition
+// already (no separate "main" phase slug to add). See
+// fetchLeagueMatches()'s own comment on why this is queried ADDITIVELY,
+// never as a replacement for the main slug's own request.
+const QUALIFYING_SLUG_MAP: Record<number, string> = {
+  4346: 'uefa.champions_qual', // UEFA Champions League Qualifying
+  4399: 'uefa.europa_qual', // UEFA Europa League Qualifying
+  4877: 'uefa.europa.conf_qual', // UEFA Conference League Qualifying
+};
 
 // Fetches + parses ONE scoreboard request window. Extracted out of
-// fetchLeagueMatches() the moment a second real caller (the seasontype=1
-// qualifying-round request, below) needed the identical per-event parsing
-// logic — the same "extract on the second real consumer" precedent this
-// codebase already applies elsewhere (lib/espnEvents.ts, teamNameUtils.ts).
+// fetchLeagueMatches() the moment a second real caller (the qualifying-
+// slug request, below) needed the identical per-event parsing logic — the
+// same "extract on the second real consumer" precedent this codebase
+// already applies elsewhere (lib/espnEvents.ts, teamNameUtils.ts).
 // Every line of the per-event parsing in this function is UNCHANGED from
 // before this extraction — only the request URL is now a parameter
 // instead of built inline, and callers can safely invoke this more than
@@ -863,42 +877,38 @@ export async function fetchLeagueMatches(
   // negligible payload cost.
   const baseUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=250&dates=${dateRange}`;
 
-  // Hotfix — European qualifier/playoff-round fixtures missing from the
-  // UPCOMING feed for UCL/UEL/UECL during July/August. This codebase's own
-  // sandbox has no outbound access to ESPN's API at all (confirmed via a
-  // direct request returning a policy-level 403 from this environment's
-  // own proxy, not a transient failure) — so the exact shape of ESPN's
-  // default (no explicit seasontype) date-range response for these 3
-  // leagues' qualifying rounds could not be independently verified before
-  // shipping this. Rather than guess at a theory this sandbox can't test,
-  // this adds an explicit, ADDITIONAL request with the real, standard
-  // ESPN `seasontype=1` parameter — strictly additive, never replacing the
-  // existing default request. Any event both requests happen to return is
-  // naturally deduped below by ESPN's own event id, matching the DB's own
-  // upsert-by-external_id key (matchSync.ts) exactly — so this is safe
-  // regardless of which theory about ESPN's default behavior turns out to
-  // be correct: worst case it's one harmless extra request per sync cycle
-  // for exactly these 3 leagues, best case it recovers genuinely missing
-  // qualifying-round fixtures. The `[ESPN][qualifiers]` log line below
-  // gives real, ground-truth visibility into which case it actually is,
-  // the next time a live production sync cycle runs — no manual probing
-  // needed, since this environment's sync already runs against real ESPN
-  // data continuously and independently of this sandbox.
-  const urls = [baseUrl];
-  if (LEAGUES_WITH_QUALIFYING_ROUNDS.has(leagueId)) {
-    urls.push(`${baseUrl}&seasontype=1`);
+  // Hotfix v2 — European qualifier/playoff-round fixtures missing from the
+  // UPCOMING feed for UCL/UEL/UECL. v1 (seasontype=1 on the main slug) was
+  // deployed and a real user confirmed qualifying matches ARE being played
+  // right now yet still didn't appear — proving that theory wrong, not
+  // just unconfirmed. This adds an explicit, ADDITIONAL request against
+  // each competition's own separate ESPN qualifying-league slug (see
+  // QUALIFYING_SLUG_MAP above) — strictly additive, never replacing the
+  // existing main-slug request. Any event both requests happen to return
+  // (unlikely here, since these are genuinely distinct ESPN league
+  // entities, but still handled) is deduped below by ESPN's own event id,
+  // matching the DB's own upsert-by-external_id key (matchSync.ts). The
+  // `[ESPN][qualifiers]` log line gives real visibility into match counts
+  // on the next live sync cycle.
+  const requests: { url: string; slug: string }[] = [{ url: baseUrl, slug }];
+  const qualSlug = QUALIFYING_SLUG_MAP[leagueId];
+  if (qualSlug) {
+    requests.push({
+      url: `https://site.api.espn.com/apis/site/v2/sports/soccer/${qualSlug}/scoreboard?limit=250&dates=${dateRange}`,
+      slug: qualSlug,
+    });
   }
 
   const byExternalId = new Map<string, DBMatchWithClock>();
-  for (const oneUrl of urls) {
-    const parsed = await fetchOneScoreboardWindow(oneUrl, slug, leagueId, dateRange);
+  for (const { url: oneUrl, slug: oneSlug } of requests) {
+    const parsed = await fetchOneScoreboardWindow(oneUrl, oneSlug, leagueId, dateRange);
     for (const m of parsed) byExternalId.set(m.external_id, m);
   }
 
   const matches = Array.from(byExternalId.values());
-  if (urls.length > 1) {
+  if (requests.length > 1) {
     logger.info(
-      `[ESPN][qualifiers] league=${leagueId} slug=${slug}: merged ${urls.length} season-type requests → ${matches.length} unique matches (range=${dateRange})`,
+      `[ESPN][qualifiers] league=${leagueId} main=${slug} qual=${qualSlug}: merged ${requests.length} requests → ${matches.length} unique matches (range=${dateRange})`,
     );
   }
   return matches;
