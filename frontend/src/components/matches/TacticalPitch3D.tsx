@@ -242,6 +242,19 @@ export function TacticalPitch3D({
             />
           </div>
         </motion.div>
+
+        {/* V7 Sprint 53 Commit 3 — broadcast-camera vignette. Deliberately
+            on the OUTER, never-rotated wrapper (which already carries
+            overflow-hidden safely, see the comment above) rather than
+            inside the tilted `preserve-3d` chain — a lens vignette
+            represents the camera framing the shot, not something painted
+            onto the pitch surface itself, and keeping it off the rotated
+            element sidesteps the WebKit backdrop-filter/transform trap
+            question entirely (it's not blurred, just a plain gradient, but
+            "never add a new layer to the transformed chain without a real
+            reason" is the safer default this app has learned the hard way
+            — §21/§34/§50). Pure CSS, theme-aware pair in index.css. */}
+        <div className="pitch-vignette pointer-events-none absolute inset-0 rounded-xl" aria-hidden="true" />
       </div>
     </div>
   );

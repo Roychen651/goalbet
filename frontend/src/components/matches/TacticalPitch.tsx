@@ -172,7 +172,7 @@ export function PlayerNode({
         {player.jersey || '–'}
         {/* Small red arrow if subbed out */}
         {player.subbedOut && (
-          <span className="absolute -bottom-0.5 -right-0.5 text-[6px] text-red-400 leading-none">▼</span>
+          <span className="absolute -bottom-0.5 -end-0.5 text-[6px] text-red-400 leading-none">▼</span>
         )}
       </div>
 

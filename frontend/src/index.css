@@ -1033,6 +1033,22 @@ html.light .pitch-grass {
   background: linear-gradient(160deg, rgba(30,100,50,0.08) 0%, rgba(20,70,35,0.05) 100%), var(--card-bg);
 }
 
+/* V7 Sprint 53 Commit 3 — TacticalPitch3D's broadcast-camera vignette.
+   A soft radial "lens" framing: clear over the pitch center where the
+   action/player pins are, gently darkening toward the corners — the same
+   visual language sports broadcast graphics use to focus the eye toward
+   the middle of a tilted camera shot. Static, never animated (this is a
+   camera-framing effect, not a live signal) — no prefers-reduced-motion
+   guard needed since there's no motion here at all. Light mode uses a much
+   lower peak alpha since the pitch itself is already far lower-contrast
+   against a white app background than the dark-mode navy card. */
+.pitch-vignette {
+  background: radial-gradient(ellipse 80% 70% at 50% 55%, transparent 40%, rgba(0,0,0,0.28) 100%);
+}
+html.light .pitch-vignette {
+  background: radial-gradient(ellipse 80% 70% at 50% 55%, transparent 55%, rgba(0,0,0,0.10) 100%);
+}
+
 /* ══════════════════════════════════════════════════════════════
    World Cup 2026 — "Road to MetLife" Atmosphere
    Full-bleed escape for the Stats-Hub WC view + shared shell
