@@ -8,11 +8,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, ChevronDown, AlertCircle, LayoutGrid, MapPin } from 'lucide-react';
+import { Users, ChevronDown, AlertCircle, LayoutGrid, MapPin, Box } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { LEAGUE_ESPN_SLUG } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
-import { TacticalPitch } from './TacticalPitch';
+import { TacticalPitch3D } from './TacticalPitch3D';
 import type { Match } from '../../lib/supabase';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -273,6 +273,11 @@ export function MatchRosters({ match }: { match: Match }) {
   const [rosters, setRosters] = useState<TeamRoster[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'pitch' | 'list'>('pitch');
+  // V7 Sprint 53 — independent of viewMode: a 2D/3D sub-toggle that only
+  // matters while viewMode === 'pitch'. Kept separate rather than folding
+  // into a 3-way viewMode enum so switching to 'list' and back to 'pitch'
+  // remembers whichever camera angle the user last picked.
+  const [pitchIs3D, setPitchIs3D] = useState(false);
   const fetchedRef = useRef(false);
 
   useEffect(() => {
@@ -376,12 +381,31 @@ export function MatchRosters({ match }: { match: Match }) {
                         <LayoutGrid size={10} />
                         {t('listView')}
                       </button>
+
+                      {/* V7 Sprint 53 — 2D/3D camera-angle sub-toggle, only
+                          meaningful (and only shown) in pitch mode. */}
+                      {effectiveView === 'pitch' && canShowPitch && (
+                        <button
+                          onClick={() => setPitchIs3D(v => !v)}
+                          aria-pressed={pitchIs3D}
+                          className={cn(
+                            'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] uppercase tracking-wider font-semibold transition-colors',
+                            'ms-1 border-s border-white/8 ps-2.5',
+                            pitchIs3D
+                              ? 'bg-accent-green/15 text-accent-green border-y border-e border-accent-green/25'
+                              : 'text-text-muted/40 hover:text-text-muted/60 border-y border-e border-transparent',
+                          )}
+                        >
+                          <Box size={10} />
+                          {t('pitch3DLabel')}
+                        </button>
+                      )}
                     </div>
                   )}
 
                   {/* Tactical Pitch View */}
                   {effectiveView === 'pitch' && canShowPitch && (
-                    <TacticalPitch
+                    <TacticalPitch3D
                       homeFormation={rosters[0].formation}
                       awayFormation={rosters[1].formation}
                       homeStarters={rosters[0].starters}
@@ -389,6 +413,7 @@ export function MatchRosters({ match }: { match: Match }) {
                       homeTeam={rosters[0].teamName}
                       awayTeam={rosters[1].teamName}
                       rtl={he}
+                      is3D={pitchIs3D}
                     />
                   )}
 
