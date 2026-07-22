@@ -186,3 +186,47 @@ export type ArenaDivision = 'bronze' | 'silver' | 'gold' | 'diamond';
 export function arenaDivisionColor(division: ArenaDivision): string {
   return `var(--arena-division-${division})`;
 }
+
+// V7 Sprint 52 — Monte Carlo heatmap cell intensity. A genuine SEQUENTIAL
+// single-hue ramp (--sim-low/--sim-high share one hue, only L/C vary),
+// unlike every diverging/two-hue pair above — "how likely this simulated
+// score is" has no natural midpoint to diverge around, it's a plain
+// magnitude, the dataviz skill's own textbook case for "sequential = one
+// hue, light->dark." Same getComputedStyle/caching shape as
+// interpolateRisk() since this is also a continuous ratio, not a fixed
+// small set like streakTierColor()/arenaDivisionColor().
+let cachedSimAnchors: { low: Oklch; high: Oklch } | null = null;
+let cachedSimForTheme: string | null = null;
+
+function getSimAnchors() {
+  const isLight = document.documentElement.classList.contains('light');
+  const themeKey = isLight ? 'light' : 'dark';
+  if (cachedSimAnchors && cachedSimForTheme === themeKey) return cachedSimAnchors;
+
+  const styles = getComputedStyle(document.documentElement);
+  cachedSimAnchors = {
+    low: parseOklch(styles.getPropertyValue('--sim-low')),
+    high: parseOklch(styles.getPropertyValue('--sim-high')),
+  };
+  cachedSimForTheme = themeKey;
+  return cachedSimAnchors;
+}
+
+/**
+ * ratio: 0 (this cell's probability is the lowest of the visible set) ..
+ * 1 (the highest / most probable cell). Color alone is never the only
+ * signal here — every consumer (MonteCarloHeatmap.tsx) always renders the
+ * cell's real percentage as text too, per the dataviz skill's
+ * non-negotiable rule.
+ */
+export function interpolateSimulation(ratio: number): DivergingColor {
+  const { low, high } = getSimAnchors();
+  const t = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0));
+  const l = lerp(low.l, high.l, t);
+  const c = lerp(low.c, high.c, t);
+  const h = lerpHue(low.h, high.h, t);
+  return {
+    color: `oklch(${l.toFixed(1)}% ${c.toFixed(3)} ${h.toFixed(1)})`,
+    l,
+  };
+}
