@@ -10,6 +10,7 @@ import { useAuthStore } from './stores/authStore';
 import { useGroupStore } from './stores/groupStore';
 import { useCoinsStore } from './stores/coinsStore';
 import { unlockAudio } from './lib/sensoryAudio';
+import { useOfflineSync } from './hooks/useOfflineSync';
 import { AppShell } from './components/layout/AppShell';
 import { RealtimeProvider } from './components/providers/RealtimeProvider';
 import { LoginPage } from './pages/LoginPage';
@@ -106,6 +107,11 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   const { user, init } = useAuthStore();
   const { fetchGroups, activeGroupId } = useGroupStore();
   const initCoins = useCoinsStore(s => s.initCoins);
+
+  // V7 Sprint 54 — "Stadium Vault" offline-queue flush loop. Mounted here,
+  // once, per rule 4.3's "single global owner" discipline — never inside a
+  // page component, never a second time.
+  useOfflineSync();
 
   // Lenis smooth scrolling — exponential easing for premium liquid feel
   useEffect(() => {

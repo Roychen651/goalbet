@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Bell, HelpCircle, ChevronDown, Moon, Sun, Sparkles } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Bell, HelpCircle, ChevronDown, Moon, Sun, Sparkles, CloudOff } from 'lucide-react';
 import { useGroupStore } from '../../stores/groupStore';
 import { useUIStore } from '../../stores/uiStore';
 import { Avatar } from '../ui/Avatar';
@@ -27,6 +27,13 @@ export function TopBar() {
   const coins                                     = useCoinsStore(s => s.coins);
   const { unreadCount, notifications, loading, markAllRead, markRead, dismiss } = useNotifications();
   const activeGroup = groups.find(g => g.id === activeGroupId);
+  // V7 Sprint 54 — "Stadium Vault" persistent pending-sync count, owned
+  // entirely by lib/offlinePredictionQueue.ts (every enqueue/remove there
+  // refreshes this). Distinct from a toast — toasts auto-dismiss after 4s
+  // (uiStore.addToast), but "you still have N predictions waiting to sync"
+  // needs to stay visible for as long as it's true.
+  const pendingOfflineSyncCount                   = useUIStore(s => s.pendingOfflineSyncCount);
+  const prefersReducedMotion                      = useReducedMotion();
   // Wired here only, not Sidebar.tsx — both are mounted simultaneously
   // (CSS-toggled by breakpoint, not conditionally rendered), so wiring it
   // into both would fire the cascading roll twice per coin increase. Haptics
@@ -83,6 +90,31 @@ export function TopBar() {
                 />
               )}
             </button>
+
+            {/* V7 Sprint 54 — "Stadium Vault" pending-sync indicator.
+                Self-hides at count 0 (PushToggle/TiltModeToggle's own
+                established "renders nothing when not applicable" shape) —
+                participates in this row's existing flex layout rather than
+                a new independently `fixed`-positioned floating pill, which
+                would risk overlapping this exact status cluster or the
+                bottom-anchored Toast stack (Toast.tsx's own
+                `sm:bottom-6 sm:end-4`). */}
+            {pendingOfflineSyncCount > 0 && (
+              <div
+                className="relative flex items-center justify-center w-9 border-e border-white/10"
+                title={t('offlinePendingBadge')}
+                aria-label={t('offlinePendingBadge')}
+              >
+                <CloudOff size={14} className="text-amber-400" />
+                <motion.span
+                  className="absolute -top-0.5 -end-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-amber-400 text-black text-[9px] font-bold flex items-center justify-center tabular-nums leading-none"
+                  animate={prefersReducedMotion ? { opacity: 0.9 } : { opacity: [0.7, 1, 0.7] }}
+                  transition={prefersReducedMotion ? undefined : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  {pendingOfflineSyncCount > 9 ? '9+' : pendingOfflineSyncCount}
+                </motion.span>
+              </div>
+            )}
 
             {/* Avatar */}
             {profile && (

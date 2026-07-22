@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Swords, Trophy, BarChart3, MessageCircle, User, Settings, HelpCircle, Sparkles } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Swords, Trophy, BarChart3, MessageCircle, User, Settings, HelpCircle, Sparkles, CloudOff } from 'lucide-react';
 import { ROUTES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { useGroupStore } from '../../stores/groupStore';
@@ -24,6 +24,11 @@ export function Sidebar() {
   const [showNotif, setShowNotif] = useState(false);
   const { unreadCount, notifications, loading, markAllRead, markRead, dismiss } = useNotifications();
   const activeGroup = groups.find(g => g.id === activeGroupId);
+  // V7 Sprint 54 — "Stadium Vault" persistent pending-sync count. Same
+  // store field TopBar.tsx reads — see that file's own comment for why
+  // this is a persistent row, not a toast.
+  const pendingOfflineSyncCount = useUIStore(s => s.pendingOfflineSyncCount);
+  const prefersReducedMotion = useReducedMotion();
 
   const NAV_ITEMS = [
     { to: ROUTES.HOME, Icon: Swords, label: t('matches') },
@@ -116,6 +121,33 @@ export function Sidebar() {
           dismiss={dismiss}
         />
       </div>
+
+      {/* V7 Sprint 54 — "Stadium Vault" pending-sync row. Self-hides at
+          count 0 (PushToggle/TiltModeToggle's own established "renders
+          nothing when not applicable" shape) — same Bell-row shell
+          (icon + label + trailing count pill) as the notification button
+          directly above, so it reads as another status row, not a new
+          visual language. */}
+      {pendingOfflineSyncCount > 0 && (
+        <div className="mx-2 mb-2">
+          <div
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-amber-400/90 bg-amber-500/6 border border-amber-500/15"
+            title={t('offlineVaultBody')}
+          >
+            <motion.span
+              className="relative text-base leading-none"
+              animate={prefersReducedMotion ? { opacity: 0.9 } : { opacity: [0.6, 1, 0.6] }}
+              transition={prefersReducedMotion ? undefined : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <CloudOff size={18} />
+            </motion.span>
+            <span>{t('offlinePendingBadge')}</span>
+            <span className="ms-auto text-[10px] font-bold bg-amber-400 text-black rounded-full px-1.5 py-0.5 leading-none tabular-nums">
+              {pendingOfflineSyncCount > 9 ? '9+' : pendingOfflineSyncCount}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Help — Sprint 25. Sidebar had zero help affordance anywhere before
           this; TopBar's mobile equivalent already existed. Circular on
