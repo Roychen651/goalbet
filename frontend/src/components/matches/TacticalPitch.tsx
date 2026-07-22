@@ -1,38 +1,49 @@
 /**
- * TacticalPitch — Glass tactical formation view for Starting XI.
+ * TacticalPitch — shared formation-positioning math + primitives for the
+ * Starting XI pitch view (percentage-based layout, SVG pitch markings,
+ * the player pin itself). Horizontal pitch, percentage-based absolute
+ * positioning. Starters arrive pre-sorted (GK → DEF → MID → FWD) from
+ * MatchRosters. Sliced by formation numbers — no positionShort filtering.
  *
- * Horizontal pitch with percentage-based absolute positioning.
- * Formation badges sit ABOVE the pitch. Player nodes are compact
- * with jersey numbers only — name appears on tap/hover.
- *
- * Starters arrive pre-sorted (GK → DEF → MID → FWD) from MatchRosters.
- * Sliced by formation numbers — no positionShort filtering.
+ * V7 Sprint 53 — this file's own top-level `TacticalPitch` component (flat
+ * 2D-only) was removed: `TacticalPitch3D.tsx` (the real render target now,
+ * wired from MatchRosters.tsx) renders byte-for-byte the same output at
+ * `is3D={false}`, reusing every export below verbatim rather than
+ * re-deriving formation placement. Everything here is now a shared,
+ * exported primitive — the "extract on second consumer" precedent this
+ * codebase already applied to lib/espnEvents.ts (Sprint 19) /
+ * lib/teamNameUtils.ts (Sprint 24) / lib/tierVisuals.ts (Sprint 25).
  */
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-interface PitchPlayer {
+export interface PitchPlayer {
   name: string;
   jersey: string;
   positionShort: string;
   subbedOut?: boolean;
+  /**
+   * V7 Sprint 53 Commit 2 — optional real fields, all already computed by
+   * MatchRosters.tsx's own ESPN roster parse (position: full label,
+   * starter/subbedIn: booleans, injured: derived from athlete.injuries[] /
+   * status.type). Optional because PitchPlayer is also structurally
+   * satisfied by lighter shapes (this file's own preview/harness usage);
+   * MatchRosters.tsx is the one real production caller and already
+   * supplies all four. The player tap-card (PlayerCardSheet.tsx) only
+   * ever renders fields that are actually present — never a fabricated
+   * rating/goal/assist count that doesn't exist anywhere in this data.
+   */
+  position?: string;
+  starter?: boolean;
+  subbedIn?: boolean;
+  injured?: boolean;
 }
 
-interface TacticalPitchProps {
-  homeFormation: string | null;
-  awayFormation: string | null;
-  homeStarters: PitchPlayer[];
-  awayStarters: PitchPlayer[];
-  homeTeam: string;
-  awayTeam: string;
-  rtl?: boolean;
-}
-
-interface PositionedPlayer {
+export interface PositionedPlayer {
   player: PitchPlayer;
   /** 0–100 % from left edge of the team's half */
   x: number;
@@ -42,7 +53,7 @@ interface PositionedPlayer {
 
 // ── Formation parser ─────────────────────────────────────────────────────────
 
-function parseFormation(f: string | null): number[] | null {
+export function parseFormation(f: string | null): number[] | null {
   if (!f) return null;
   const parts = f.split('-').map(Number);
   if (parts.some(isNaN) || parts.length < 2) return null;
@@ -54,7 +65,7 @@ function parseFormation(f: string | null): number[] | null {
  * x: 0 = own goal line, 100 = center line.
  * y: 0 = top touchline, 100 = bottom touchline.
  */
-function layoutTeam(
+export function layoutTeam(
   starters: PitchPlayer[],
   formation: number[] | null,
 ): PositionedPlayer[] {
@@ -102,14 +113,26 @@ function defaultFormation(n: number): number[] {
 
 // ── Player Node ──────────────────────────────────────────────────────────────
 
-function PlayerNode({
+export function PlayerNode({
   player,
   index,
   isHome,
+  onTap,
+  pulseEvent,
 }: {
   player: PitchPlayer;
   index: number;
   isHome: boolean;
+  /** V7 Sprint 53 — optional override for TacticalPitch3D's player-card tap target; falls back to the original show/hide-name toggle when omitted. */
+  onTap?: () => void;
+  /**
+   * V7 Sprint 53 Commit 2 — set only when a REAL, just-fetched ESPN key
+   * event (a goal or red card) was matched by player name to this exact
+   * pin (see MatchRosters.tsx's event-polling effect). Never a fabricated
+   * "momentum"/pressure signal — the since-removed Live Pressure Cooker
+   * (§47) is the standing lesson this deliberately avoids repeating.
+   */
+  pulseEvent?: 'goal' | 'red' | null;
 }) {
   const [showName, setShowName] = useState(false);
 
@@ -130,7 +153,7 @@ function PlayerNode({
       }}
       onHoverStart={() => setShowName(true)}
       onHoverEnd={() => setShowName(false)}
-      onTap={() => setShowName(s => !s)}
+      onTap={onTap ?? (() => setShowName(s => !s))}
     >
       {/* Jersey circle */}
       <div
@@ -142,12 +165,14 @@ function PlayerNode({
           isHome
             ? 'bg-accent-green/30 border-accent-green/70 text-accent-green'
             : 'bg-accent-orange/30 border-accent-orange/70 text-accent-orange',
+          pulseEvent === 'goal' && 'pin-pulse-goal',
+          pulseEvent === 'red' && 'pin-pulse-red',
         )}
       >
         {player.jersey || '–'}
         {/* Small red arrow if subbed out */}
         {player.subbedOut && (
-          <span className="absolute -bottom-0.5 -right-0.5 text-[6px] text-red-400 leading-none">▼</span>
+          <span className="absolute -bottom-0.5 -end-0.5 text-[6px] text-red-400 leading-none">▼</span>
         )}
       </div>
 
@@ -169,7 +194,7 @@ function PlayerNode({
 
 // ── Pitch Markings ───────────────────────────────────────────────────────────
 
-function PitchMarkings() {
+export function PitchMarkings() {
   return (
     <svg
       className="absolute inset-0 w-full h-full pointer-events-none"
@@ -207,113 +232,13 @@ function PitchMarkings() {
   );
 }
 
-// ── Player Layer ─────────────────────────────────────────────────────────────
-
-function PlayerLayer({
-  positioned,
-  isHome,
-  flipX,
-}: {
-  positioned: PositionedPlayer[];
-  isHome: boolean;
-  flipX: boolean;
-}) {
-  return (
-    <>
-      {positioned.map((pp, i) => {
-        const halfOffset = isHome ? 0 : 50;
-        const xInHalf = flipX ? (100 - pp.x) : pp.x;
-        const left = halfOffset + (xInHalf / 100) * 50;
-
-        return (
-          <div
-            key={`${isHome ? 'h' : 'a'}-${pp.player.jersey}-${i}`}
-            className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${left}%`, top: `${pp.y}%` }}
-          >
-            <PlayerNode player={pp.player} index={i} isHome={isHome} />
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
-// ── Main Component ───────────────────────────────────────────────────────────
-
-export function TacticalPitch({
-  homeFormation,
-  awayFormation,
-  homeStarters,
-  awayStarters,
-  homeTeam,
-  awayTeam,
-  rtl,
-}: TacticalPitchProps) {
-  const homeParsed = useMemo(() => parseFormation(homeFormation), [homeFormation]);
-  const awayParsed = useMemo(() => parseFormation(awayFormation), [awayFormation]);
-
-  const homePositioned = useMemo(
-    () => layoutTeam(homeStarters, homeParsed),
-    [homeStarters, homeParsed],
-  );
-  const awayPositioned = useMemo(
-    () => layoutTeam(awayStarters, awayParsed),
-    [awayStarters, awayParsed],
-  );
-
-  if (homePositioned.length === 0 && awayPositioned.length === 0) return null;
-
-  const isRtl = rtl ?? false;
-  const homeFlipX = isRtl;
-  const awayFlipX = !isRtl;
-
-  const homeShort = homeTeam.split(' ').pop() ?? homeTeam;
-  const awayShort = awayTeam.split(' ').pop() ?? awayTeam;
-
-  return (
-    <div className="space-y-1.5">
-      {/* Formation header — OUTSIDE the pitch so it never overlaps players */}
-      <div className="flex items-center justify-between px-1">
-        <span className={cn(
-          'text-[8px] sm:text-[9px] md:text-[10px] font-mono tabular-nums',
-          'text-accent-green/60 bg-accent-green/[0.06] border border-accent-green/15 rounded px-1.5 py-0.5',
-        )}>
-          {isRtl ? awayShort : homeShort} {isRtl ? awayFormation : homeFormation}
-        </span>
-        <span className={cn(
-          'text-[8px] sm:text-[9px] md:text-[10px] font-mono tabular-nums',
-          'text-accent-orange/60 bg-accent-orange/[0.06] border border-accent-orange/15 rounded px-1.5 py-0.5',
-        )}>
-          {isRtl ? homeShort : awayShort} {isRtl ? homeFormation : awayFormation}
-        </span>
-      </div>
-
-      {/* Pitch — responsive ratio: taller on mobile, wider on desktop */}
-      <div
-        className={cn(
-          'relative w-full rounded-xl overflow-hidden',
-          'bg-[var(--color-bg-card)] backdrop-blur-glass',
-          'border border-border-subtle',
-          'pitch-grass',
-        )}
-        style={{ paddingBottom: 'clamp(48%, 52vw, 56%)' }}
-      >
-        <PitchMarkings />
-
-        <div className="absolute inset-0 z-[1]">
-          <PlayerLayer
-            positioned={homePositioned}
-            isHome={true}
-            flipX={homeFlipX}
-          />
-          <PlayerLayer
-            positioned={awayPositioned}
-            isHome={false}
-            flipX={awayFlipX}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
+// V7 Sprint 53 — the old flat 2D `TacticalPitch` component (and its private
+// `PlayerLayer` helper) were removed here: `TacticalPitch3D.tsx` with
+// `is3D={false}` renders byte-for-byte the same positioning output (it
+// reuses `layoutTeam`/`parseFormation`/`PitchMarkings`/`PlayerNode` from
+// this file verbatim, just wrapped in a `rotateX(0deg)` no-op transform),
+// and MatchRosters.tsx — the only real call site — was updated to render
+// `TacticalPitch3D` for both the 2D and 3D toggle states instead of
+// switching between two separate components. Keeping a second, now-dead
+// component here would be exactly the "leave unused code around" pattern
+// this codebase avoids elsewhere.

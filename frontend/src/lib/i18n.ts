@@ -331,10 +331,16 @@ export const translations = {
     substitutes: 'Substitutes',
     pitchView: 'Pitch',
     listView: 'List',
+    pitch3DLabel: '3D',
     goalkeeper: 'GK',
     defender: 'DEF',
     midfielder: 'MID',
     forward: 'FWD',
+    playerCardStatusStarter: 'Starting Lineup',
+    playerCardStatusSub: 'Substitute',
+    playerCardSubbedIn: 'Subbed In',
+    playerCardSubbedOut: 'Subbed Out',
+    playerCardInjured: 'Injured / Suspended',
 
     // Pulse Feed (Sprint 8)
     enableLiveAnimations: 'Live Match Animations',
@@ -1301,10 +1307,16 @@ export const translations = {
     substitutes: 'מחליפים',
     pitchView: 'מגרש',
     listView: 'רשימה',
+    pitch3DLabel: '3D',
     goalkeeper: 'שוער',
     defender: 'הגנה',
     midfielder: 'קישור',
     forward: 'התקפה',
+    playerCardStatusStarter: 'הרכב פתיחה',
+    playerCardStatusSub: 'מחליף',
+    playerCardSubbedIn: 'הוחלף פנימה',
+    playerCardSubbedOut: 'הוחלף החוצה',
+    playerCardInjured: 'פצוע / מורחק',
 
     // Pulse Feed (Sprint 8)
     enableLiveAnimations: 'אנימציות זמן-אמת',

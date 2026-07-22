@@ -11,8 +11,25 @@ const config: Config = {
         'bg-base': 'var(--color-bg-base)',
         'bg-surface': 'var(--color-bg-surface)',
         'bg-card': 'var(--color-bg-card)',
-        'accent-green': 'var(--color-accent-green)',
-        'accent-orange': 'var(--color-accent-orange)',
+        // V7 Sprint 53 hotfix — was `var(--color-accent-green)`, a bare hex
+        // reference. Tailwind's opacity modifier (`text-accent-green/70`,
+        // `bg-accent-green/30`, etc.) can only inject an alpha channel into
+        // a color function it can parse — a plain var() reference to a hex
+        // value silently produces NO rule for any `/NN` variant, which is
+        // exactly what was happening across every file already using this
+        // pattern (MatchTimeline, WorldCupBracket, LeagueDropdown, MatchCard,
+        // HeroMatchCard, and TacticalPitch's own PlayerNode jersey circles —
+        // caught while verifying Sprint 53's new player-pin pulse glow).
+        // Deliberately `rgba(var(...), <alpha-value>)` (legacy comma form),
+        // not `rgb(var(...) / <alpha-value>)` (modern slash form) — the
+        // *-rgb custom properties below are comma-separated to match the
+        // pre-existing `rgba(var(--color-accent-green-rgb, 189,232,245),0.15)`
+        // usage already in index.css's pulseSubtle keyframe; mixing a
+        // comma-separated var into the modern slash syntax produces invalid
+        // CSS that the browser silently drops (confirmed the hard way —
+        // this was the actual bug in this hotfix's own first draft).
+        'accent-green': 'rgba(var(--color-accent-green-rgb), <alpha-value>)',
+        'accent-orange': 'rgba(var(--color-accent-orange-rgb), <alpha-value>)',
         'text-primary': 'var(--color-text-primary)',
         'text-muted': 'var(--color-text-muted)',
         'border-subtle': 'var(--color-border-subtle)',
