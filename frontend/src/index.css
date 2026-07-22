@@ -11,9 +11,20 @@
   --color-bg-surface: rgba(28, 77, 141, 0.15);
   --color-bg-card: rgba(15, 40, 84, 0.4);
   --color-accent-green: #BDE8F5;  /* Bright Ice Blue — primary accent */
+  /* V7 Sprint 53 hotfix — R,G,B triple of the hex above, so
+     tailwind.config.ts can declare accent-green/accent-orange as
+     rgb(var(...) / <alpha-value>) and opacity modifiers (text-accent-green/70,
+     bg-accent-green/30, etc.) actually generate a rule. Previously these
+     tokens were `var(--color-accent-*)` — a bare hex reference Tailwind
+     cannot inject an alpha channel into — so every `/NN` opacity variant
+     across the app silently fell back to inherited color with zero warning.
+     Was already referenced-with-fallback (never defined) by the pulseSubtle
+     keyframe below; this makes that real, not just a fallback. */
+  --color-accent-green-rgb: 189, 232, 245;
   --color-accent-primary: #BDE8F5;
   --color-accent-secondary: #4988C4; /* Steel Blue */
   --color-accent-orange: #FF3366;
+  --color-accent-orange-rgb: 255, 51, 102;
   --color-text-primary: #FFFFFF;
   --color-text-muted: rgba(189, 232, 245, 0.60); /* Muted Ice Blue */
   --color-border-subtle: rgba(73, 136, 196, 0.20); /* Crystal glass */
@@ -219,9 +230,11 @@ html.light {
   --color-bg-surface: rgba(255, 255, 255, 0.60);
   --color-bg-card: #FFFFFF;
   --color-accent-green: #1C4D8D;
+  --color-accent-green-rgb: 28, 77, 141;
   --color-accent-primary: #1C4D8D;
   --color-accent-secondary: #4988C4;
   --color-accent-orange: #c94a1a;
+  --color-accent-orange-rgb: 201, 74, 26;
   --color-text-primary: #0A1733;
   --color-text-muted: #4988C4;
   --color-border-subtle: rgba(15, 40, 84, 0.08);
@@ -628,6 +641,28 @@ html.light .glass-dock {
 }
 .goal-flash {
   animation: goalFlash 1.5s ease-out;
+}
+
+/* V7 Sprint 53 Commit 2 — Tactical Pitch player-pin event pulse. Triggered
+   only from a real, name-matched ESPN key event (goal / red card) — see
+   MatchRosters.tsx. A one-shot expanding ring (animation-iteration-count
+   defaults to 1), ending back at 0-alpha so the class can be left applied
+   for a fixed window without leaving a visible residual glow. */
+@keyframes pinPulseGoal {
+  0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.9); }
+  70%  { box-shadow: 0 0 0 14px rgba(52,211,153,0); }
+  100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+}
+.pin-pulse-goal {
+  animation: pinPulseGoal 1.8s ease-out;
+}
+@keyframes pinPulseRed {
+  0%   { box-shadow: 0 0 0 0 rgba(248,113,113,0.9); }
+  70%  { box-shadow: 0 0 0 14px rgba(248,113,113,0); }
+  100% { box-shadow: 0 0 0 0 rgba(248,113,113,0); }
+}
+.pin-pulse-red {
+  animation: pinPulseRed 1.8s ease-out;
 }
 
 /* Subtle pulse for locker room WON_COINS cards */
