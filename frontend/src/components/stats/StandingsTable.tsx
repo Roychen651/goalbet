@@ -1,7 +1,7 @@
 import { useState, Fragment } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, formatSeasonLabel } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
 import { useTeamForm } from '../../hooks/useLeagueStats';
 import { EntityBadge } from '../ui/EntityBadge';
@@ -26,13 +26,20 @@ interface StandingsTableProps {
   // so an older caller passing neither still renders exactly as before.
   season?: number;
   isFallbackSeason?: boolean;
+  // V7 Sprint 56 follow-up — The Season Archive. True when the caller
+  // deliberately selected a past archived season (StatsPage's season
+  // selector), as opposed to isFallbackSeason above (an UNintentional
+  // fallback the user never asked for). Distinct copy/tone on purpose —
+  // this one is informational, not a "heads up, this isn't what you think"
+  // warning.
+  viewingArchivedSeason?: boolean;
 }
 
 const COLUMN_COUNT = 9; // sticky rank·team + P/W/D/L/GF/GA/GD/Pts
 
 type SplitView = 'total' | 'home' | 'away';
 
-export function StandingsTable({ rows, leagueId, homeAwaySplits, rankChanges, season, isFallbackSeason }: StandingsTableProps) {
+export function StandingsTable({ rows, leagueId, homeAwaySplits, rankChanges, season, isFallbackSeason, viewingArchivedSeason }: StandingsTableProps) {
   const { t } = useLangStore();
   // V4 Sprint 27 — which team's Interactive Team Sheet is open, if any. Same
   // parent-owned single-expanded-id shape as LeaderboardTable's
@@ -54,7 +61,12 @@ export function StandingsTable({ rows, leagueId, homeAwaySplits, rankChanges, se
     <div className="space-y-2">
       {isFallbackSeason && season != null && (
         <div className="rounded-lg border border-accent-orange/25 bg-accent-orange/10 px-3 py-2 text-xs text-white/90">
-          {t('statsFallbackSeasonLabel').replace('{0}', `${season}/${String(season + 1).slice(-2)}`)}
+          {t('statsFallbackSeasonLabel').replace('{0}', formatSeasonLabel(season))}
+        </div>
+      )}
+      {viewingArchivedSeason && season != null && (
+        <div className="rounded-lg border border-accent-secondary/30 bg-accent-secondary/10 px-3 py-2 text-xs text-white/90">
+          {t('statsArchivedSeasonLabel').replace('{0}', formatSeasonLabel(season))}
         </div>
       )}
       {hasHomeAway && (

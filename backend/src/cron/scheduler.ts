@@ -8,6 +8,7 @@ import { sendStreakExpiryWarnings } from '../services/streakGuardian';
 import { lockExpiredMicroQuestions, resolveLockedMicroQuestions } from '../services/momentumBets';
 import { resolveLiveDuels } from '../services/liveDuels';
 import { refreshCornersSupportFlags } from '../services/leagueStatCapability';
+import { archiveCompletedSeasons } from '../services/seasonArchive';
 import { refreshEspnLeagueMap } from '../services/espn';
 import { refreshActiveBattleScores } from '../services/groupBattles';
 import { logger } from '../lib/logger';
@@ -122,6 +123,24 @@ export function startScheduler(): void {
   // SELECT), and league tier/enabled changes made via the registry table
   // don't need a code deploy to take effect — just this refresh cycle.
   setInterval(guarded('League registry refresh', refreshEspnLeagueMap), 10 * 60_000);
+
+  // Season Archive (V7 Sprint 56 follow-up) — a one-shot-per-season snapshot,
+  // not a live-tracking concern, so this deliberately never shares a
+  // cadence with anything above. A single staggered startup call (20s,
+  // after the 5s startup catch-up above has already had its own tick, so
+  // the two never compete for the same moment) means the very first
+  // archived season lands within seconds of this feature deploying rather
+  // than waiting up to 24h for the daily cron below.
+  setTimeout(() => {
+    archiveCompletedSeasons().catch(err => logger.error('[scheduler] Startup season archive failed:', err));
+  }, 20_000);
+  cron.schedule('50 0 * * *', async () => {
+    try {
+      await archiveCompletedSeasons();
+    } catch (err) {
+      logger.error('[scheduler] Season archive failed:', err);
+    }
+  });
 
   // Daily match sync at 00:05 UTC — fetch upcoming and recent matches for all active leagues
   cron.schedule('5 0 * * *', async () => {

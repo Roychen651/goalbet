@@ -651,6 +651,21 @@ export const translations = {
     statsNoTeamMetrics: 'No team metrics available yet',
     statsFallbackSeasonLabel: 'Final table {0} — new season not started yet',
 
+    // V7 Sprint 56 — The Knockout Path (dynamic UEFA club bracket)
+    statsTabKnockout: 'Knockout',
+    bracketStagePlayoff: 'Play-off Round',
+    bracketStageR16: 'Round of 16',
+    bracketStageQF: 'Quarter-finals',
+    bracketStageSF: 'Semi-finals',
+    bracketStageFinal: 'Final',
+    bracketNoDataTitle: 'Knockout stage not started yet',
+    bracketNoDataDescription: 'This tournament is still in its league phase — the bracket will appear here once knockout fixtures are confirmed.',
+    bracketMatchAggregate: 'Agg',
+
+    // V7 Sprint 56 follow-up — The Season Archive
+    statsSeasonCurrent: 'Current',
+    statsArchivedSeasonLabel: 'Archived final table — {0} season',
+
     // World Cup bracket view
     wcRouteToTrophy: 'Route to the Trophy',
     wcHostNations: 'Host Nations',
@@ -1652,6 +1667,21 @@ export const translations = {
     statsRankDown: 'ירד {0} מקומות',
     statsNoTeamMetrics: 'אין עדיין נתוני קבוצות זמינים',
     statsFallbackSeasonLabel: 'טבלה סופית {0} — העונה החדשה עדיין לא התחילה',
+
+    // V7 Sprint 56 — מסלול הנוקאאוט (מסלול נוקאאוט דינמי לגביעים האירופאיים)
+    statsTabKnockout: 'נוקאאוט',
+    bracketStagePlayoff: 'סבב פלייאוף',
+    bracketStageR16: 'שמינית הגמר',
+    bracketStageQF: 'רבע הגמר',
+    bracketStageSF: 'חצי הגמר',
+    bracketStageFinal: 'הגמר',
+    bracketNoDataTitle: 'שלב הנוקאאוט טרם החל',
+    bracketNoDataDescription: 'הטורניר עדיין בשלב הליגה — מסלול הנוקאאוט יופיע כאן ברגע שהמשחקים ייקבעו.',
+    bracketMatchAggregate: 'מצטבר',
+
+    // V7 Sprint 56 המשך — ארכיון העונות
+    statsSeasonCurrent: 'עונה נוכחית',
+    statsArchivedSeasonLabel: 'טבלה סופית בארכיון — עונת {0}',
 
     // World Cup bracket view
     wcRouteToTrophy: 'הדרך לגביע',

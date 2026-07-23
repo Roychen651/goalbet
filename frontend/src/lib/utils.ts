@@ -187,6 +187,15 @@ export function isMatchLocked(kickoffTime: string): boolean {
   return Date.now() >= lockAt;
 }
 
+// Extracted the moment a second real consumer (the Season Archive selector,
+// V7 Sprint 56 follow-up) needed the identical "2025" -> "2025/26" format
+// StandingsTable.tsx's fallback-season banner already established — the
+// same "extract on the second real consumer" precedent this codebase
+// applies elsewhere (lib/espnEvents.ts, teamNameUtils.ts).
+export function formatSeasonLabel(season: number): string {
+  return `${season}/${String(season + 1).slice(-2)}`;
+}
+
 export function formatPoints(points: number): string {
   if (points === 1) return '1 pt';
   return `${points} pts`;

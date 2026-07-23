@@ -257,7 +257,12 @@ function parseHomeAwaySplits(children: Record<string, unknown>[]): HomeAwaySplit
   return { home, away };
 }
 
-async function fetchStandings(slug: string, season: number): Promise<{ rows: StandingsRow[]; homeAwaySplits: HomeAwaySplits | null }> {
+// Exported — V7 Sprint 56 archive follow-up: `seasonArchive.ts` reuses this
+// exact function (never a second, independently-written ESPN standings
+// fetch) to snapshot a just-completed season's final table. Same
+// "extract/export on the second real consumer" precedent this codebase
+// already applies elsewhere.
+export async function fetchStandings(slug: string, season: number): Promise<{ rows: StandingsRow[]; homeAwaySplits: HomeAwaySplits | null }> {
   // Hotfix — this endpoint previously had NO season param at all, while its
   // sibling fetchLeaders() call (below) always has, using the exact same
   // currentSeason() value. Reported live: Stats still showed last season's
@@ -361,7 +366,8 @@ function combineDisciplineLists(yellow: LeaderRow[], red: LeaderRow[]): LeaderRo
   return combined.slice(0, 10).map((row, idx) => ({ ...row, rank: idx + 1 }));
 }
 
-async function fetchLeaders(slug: string, season: number): Promise<LeagueLeaders | null> {
+// Exported for the same reason as fetchStandings() above.
+export async function fetchLeaders(slug: string, season: number): Promise<LeagueLeaders | null> {
   const url = `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${slug}/statistics?season=${season}`;
   try {
     const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
@@ -405,7 +411,12 @@ async function fetchLeaders(slug: string, season: number): Promise<LeagueLeaders
   }
 }
 
-function currentSeason(): number {
+// Exported — `seasonArchive.ts` derives "the most recently completed
+// season" as `currentSeason() - 1`, the EXACT value getLeagueStats()'s own
+// fallback path above already treats as "the most recent table ESPN has
+// fully populated." Reusing this one function is what guarantees the two
+// never drift into disagreeing about which season just ended.
+export function currentSeason(): number {
   // ESPN labels a European season by its start year (e.g. 2025-26 = 2025).
   // Season starts ~August; before that we're still in the previous season.
   const now = new Date();
@@ -441,18 +452,45 @@ export async function getLeagueStats(leagueId: number): Promise<StatsResponse | 
   // populated — the moment the new season's table gets real rows, the
   // primary (non-fallback) fetch above picks it up automatically on the
   // next 5-min cache expiry, with zero code change needed.
+  //
+  // A second, real-production-report gap in this same check, found live:
+  // some leagues (confirmed for Premier League — a domestic league with a
+  // fixed August kickoff, unlike a UEFA cup's rolling qualifying window)
+  // have ESPN pre-populate the FULL 20-team roster for a brand-new season
+  // the moment it's created in ESPN's system, weeks before a ball is
+  // kicked — every row present, every stat genuinely zero (gp=0). That's
+  // `standings.length > 0`, so the length-only check above never fired,
+  // and the page showed a real-looking but entirely uninformative all-
+  // zero table instead of falling back to the actual last completed
+  // season. The fix: treat "every row has gp=0" as the same signal as
+  // "zero rows" — both honestly mean "there's no played-out current table
+  // to show yet." `.every()` on a non-empty array (guaranteed here by the
+  // `||` short-circuit) is never vacuously true.
+  const hasNoRealTable = standings.length === 0 || standings.every(row => row.gp === 0);
   let effectiveSeason = season;
   let isFallbackSeason = false;
-  if (standings.length === 0) {
+  if (hasNoRealTable) {
     const fallbackSeason = season - 1;
-    const fallback = await fetchStandings(slug, fallbackSeason).catch(err => {
-      logger.error(`[stats] fallback standings fetch failed for ${slug} season=${fallbackSeason}: ${err}`);
-      return { rows: [] as StandingsRow[], homeAwaySplits: null as HomeAwaySplits | null };
-    });
+    const [fallback, fallbackLeaders] = await Promise.all([
+      fetchStandings(slug, fallbackSeason).catch(err => {
+        logger.error(`[stats] fallback standings fetch failed for ${slug} season=${fallbackSeason}: ${err}`);
+        return { rows: [] as StandingsRow[], homeAwaySplits: null as HomeAwaySplits | null };
+      }),
+      // Leaders fall back together with standings, never independently —
+      // if the diagnosis is "this season hasn't produced a real table
+      // yet," its leader stats (goals/assists/cards) are equally
+      // meaningless for the exact same reason, not a separate question.
+      // A live scorer/leader endpoint failing for some OTHER reason while
+      // standings genuinely have real games played is a different,
+      // legitimate "no leader data available" case handled below and
+      // must never silently borrow last season's leaders instead.
+      fetchLeaders(slug, fallbackSeason),
+    ]);
     if (fallback.rows.length > 0) {
-      logger.info(`[stats] ${slug}: season=${season} standings empty, using season=${fallbackSeason} fallback (${fallback.rows.length} rows)`);
+      logger.info(`[stats] ${slug}: season=${season} standings empty/all-zero, using season=${fallbackSeason} fallback (${fallback.rows.length} rows)`);
       standings = fallback.rows;
       homeAwaySplits = fallback.homeAwaySplits;
+      leaders = fallbackLeaders;
       effectiveSeason = fallbackSeason;
       isFallbackSeason = true;
     }

@@ -4,10 +4,12 @@ import { cn } from '../lib/utils';
 import { FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../lib/constants';
 import { useLangStore } from '../stores/langStore';
 import { useGroupStore } from '../stores/groupStore';
-import { useLeagueStats } from '../hooks/useLeagueStats';
+import { useLeagueStats, useArchivedSeasonsList, useArchivedSeasonStats } from '../hooks/useLeagueStats';
 import { StandingsTable } from '../components/stats/StandingsTable';
 import { LeagueLeaders } from '../components/stats/LeagueLeaders';
 import { TeamMetricsView } from '../components/stats/TeamMetricsView';
+import { KnockoutBracketView, isKnockoutCapableLeague } from '../components/stats/KnockoutBracketView';
+import { SeasonSelector } from '../components/stats/SeasonSelector';
 import { PulseFeed } from '../components/stats/PulseFeed';
 import { LeagueDropdown } from '../components/stats/LeagueDropdown';
 import { WorldCupBracket } from '../components/stats/WorldCupBracket';
@@ -27,7 +29,13 @@ type ArenaTab = 'leagues' | 'arena';
 // Segmented Snapper — a new literal id ("leagueStatsSubTab"), never the
 // same id as either of those (Framer's layoutId is a plain string match,
 // not automatically scoped per component tree).
-type LeagueSubTab = 'standings' | 'leaders' | 'teamMetrics';
+// V7 Sprint 56 — a 4th sub-tab, 'knockout', only ever shown for the 3
+// UEFA club competitions that actually run a knockout stage after their
+// Swiss-model league phase (see isKnockoutCapableLeague). It renders its
+// own KnockoutBracketView, which fetches independently of useLeagueStats
+// (via useKnockoutMatches) — never gated behind the standings/leaders
+// loading state below, since it has nothing to do with either.
+type LeagueSubTab = 'standings' | 'leaders' | 'teamMetrics' | 'knockout';
 
 export function StatsPage() {
   const { t, lang } = useLangStore();
@@ -55,8 +63,52 @@ export function StatsPage() {
     if (leagueId == null && defaultLeagueId != null) setLeagueId(defaultLeagueId);
   }, [defaultLeagueId, leagueId]);
 
+  // A league switch away from a knockout-capable competition must not leave
+  // the sub-tab state pointed at a pill that's no longer rendered.
+  useEffect(() => {
+    if (leagueSubTab === 'knockout' && !isKnockoutCapableLeague(leagueId)) {
+      setLeagueSubTab('standings');
+    }
+  }, [leagueId, leagueSubTab]);
+
   const isCustomView = leagueId != null && CUSTOM_VIEW_LEAGUES.has(leagueId);
   const { data, loading, error } = useLeagueStats(isCustomView ? null : leagueId);
+
+  // V7 Sprint 56 follow-up — The Season Archive. `selectedSeason` is
+  // deliberately reset to null (back to "current") on every league switch —
+  // a season number that made sense for one league (e.g. it has a 2024
+  // archive) has no guaranteed meaning for a different one, and silently
+  // carrying it over could point at a season this new league never had.
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  useEffect(() => { setSelectedSeason(null); }, [leagueId]);
+
+  const { seasons: archivedSeasons } = useArchivedSeasonsList(isCustomView ? null : leagueId);
+  const { data: archivedData, loading: archivedLoading } = useArchivedSeasonStats(
+    isCustomView ? null : leagueId,
+    selectedSeason,
+  );
+  const viewingArchive = selectedSeason != null;
+
+  // A past season the user deliberately selected never has the Knockout
+  // sub-tab's real prerequisite (actual synced match rows) — the archive
+  // only ever stores the season-end standings/leaders aggregate, not
+  // per-match data. Fall back to Standings the moment a season is picked
+  // while Knockout happens to be active.
+  useEffect(() => {
+    if (viewingArchive && leagueSubTab === 'knockout') setLeagueSubTab('standings');
+  }, [viewingArchive, leagueSubTab]);
+
+  // Effective payload the render branches below actually consume — either
+  // the live useLeagueStats() data, or the selected archived season's
+  // snapshot reshaped into the exact same field names. homeAwaySplits/
+  // rankChanges/isFallbackSeason are live-tracking concepts with no
+  // meaning for a frozen historical record, so they're always null/false
+  // on the archived side — StandingsTable already hides those UI elements
+  // whenever they're absent, no new conditional needed there.
+  const effectiveStandings = viewingArchive ? (archivedData?.standings ?? []) : (data?.standings ?? []);
+  const effectiveLeaders = viewingArchive ? (archivedData?.leaders ?? null) : data?.leaders;
+  const effectiveSeason = viewingArchive ? (archivedData?.season ?? selectedSeason ?? undefined) : data?.season;
+  const effectiveLoading = viewingArchive ? archivedLoading : (loading && !data);
 
   const selectedLeague = availableLeagues.find(l => l.id === leagueId);
 
@@ -81,6 +133,13 @@ export function StatsPage() {
           />
         )}
       </div>
+
+      {/* V7 Sprint 56 follow-up — The Season Archive. Self-hides via
+          SeasonSelector's own `seasons.length === 0` check; never rendered
+          at all for the World Cup's custom view (no seasons concept there). */}
+      {tab === 'leagues' && !isCustomView && (
+        <SeasonSelector seasons={archivedSeasons} selectedSeason={selectedSeason} onSelect={setSelectedSeason} />
+      )}
 
       {/* Sub-tabs — same borderless pill pattern as HomePage's All/Upcoming/Live/Results */}
       <div className="flex gap-1.5">
@@ -120,6 +179,9 @@ export function StatsPage() {
                 { id: 'standings' as LeagueSubTab, label: t('statsStandings') },
                 { id: 'leaders' as LeagueSubTab, label: t('statsLeaders') },
                 { id: 'teamMetrics' as LeagueSubTab, label: t('statsTabTeamMetrics') },
+                ...(isKnockoutCapableLeague(leagueId) && !viewingArchive
+                  ? [{ id: 'knockout' as LeagueSubTab, label: t('statsTabKnockout' as TranslationKey) }]
+                  : []),
               ]).map(sub => {
                 const isActive = leagueSubTab === sub.id;
                 return (
@@ -146,35 +208,41 @@ export function StatsPage() {
             </div>
           </LayoutGroup>
 
-          {loading && !data ? (
+          {leagueSubTab === 'knockout' && isKnockoutCapableLeague(leagueId) && !viewingArchive ? (
+            // Independent of useLeagueStats — KnockoutBracketView fetches
+            // its own data via useKnockoutMatches, so it's never gated
+            // behind the standings/leaders loading/error state below.
+            <KnockoutBracketView leagueId={leagueId!} />
+          ) : effectiveLoading ? (
             <PageLoader />
-          ) : error || (!data?.standings?.length && !data?.leaders) ? (
+          ) : (!viewingArchive && error) || (effectiveStandings.length === 0 && !effectiveLeaders) ? (
             <EmptyState icon="📊" title={t('statsNoData')} description="" />
           ) : (
             <>
               {leagueSubTab === 'standings' && (
                 <StandingsTable
-                  rows={data?.standings ?? []}
+                  rows={effectiveStandings}
                   leagueId={leagueId!}
-                  homeAwaySplits={data?.homeAwaySplits}
-                  rankChanges={data?.rankChanges}
-                  season={data?.season}
-                  isFallbackSeason={data?.isFallbackSeason}
+                  homeAwaySplits={viewingArchive ? null : data?.homeAwaySplits}
+                  rankChanges={viewingArchive ? null : data?.rankChanges}
+                  season={effectiveSeason}
+                  isFallbackSeason={!viewingArchive && data?.isFallbackSeason}
+                  viewingArchivedSeason={viewingArchive}
                 />
               )}
 
               {leagueSubTab === 'leaders' && (
-                data?.leaders && (
-                  (data.leaders.scorers?.length > 0) ||
-                  (data.leaders.assists?.length > 0) ||
-                  (data.leaders.discipline?.length > 0) ||
-                  (data.leaders.goalkeepers?.length > 0)
+                effectiveLeaders && (
+                  (effectiveLeaders.scorers?.length > 0) ||
+                  (effectiveLeaders.assists?.length > 0) ||
+                  (effectiveLeaders.discipline?.length > 0) ||
+                  (effectiveLeaders.goalkeepers?.length > 0)
                 ) ? (
                   <LeagueLeaders
-                    scorers={data.leaders.scorers ?? []}
-                    assists={data.leaders.assists ?? []}
-                    discipline={data.leaders.discipline ?? []}
-                    goalkeepers={data.leaders.goalkeepers ?? []}
+                    scorers={effectiveLeaders.scorers ?? []}
+                    assists={effectiveLeaders.assists ?? []}
+                    discipline={effectiveLeaders.discipline ?? []}
+                    goalkeepers={effectiveLeaders.goalkeepers ?? []}
                   />
                 ) : (
                   <EmptyState icon="🏅" title={t('statsNoLeadersInCategory' as TranslationKey)} description="" />
@@ -182,7 +250,7 @@ export function StatsPage() {
               )}
 
               {leagueSubTab === 'teamMetrics' && (
-                <TeamMetricsView standings={data?.standings ?? []} goalkeepers={data?.leaders?.goalkeepers ?? []} />
+                <TeamMetricsView standings={effectiveStandings} goalkeepers={effectiveLeaders?.goalkeepers ?? []} />
               )}
             </>
           )}
