@@ -10,7 +10,8 @@
     "seed": "tsx src/scripts/seed.ts",
     "sync": "tsx src/scripts/manualSync.ts",
     "sync:all": "tsx src/scripts/forceSync.ts",
-    "backfill:team-stats": "tsx src/scripts/backfillTeamStats.ts"
+    "backfill:team-stats": "tsx src/scripts/backfillTeamStats.ts",
+    "backfill:match-rounds": "tsx src/scripts/backfillMatchRounds.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

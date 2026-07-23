@@ -353,11 +353,29 @@ function mapLeaderList(list: Record<string, unknown>[] | undefined): LeaderRow[]
     // and is easy to get the precedence wrong on); falls through to null
     // (EntityBadge's real-initials fallback, fixed this same sprint)
     // rather than ever fabricating an image URL.
-    const headshotHref = extractAthleteHeadshot(athlete);
+    //
+    // V7 Sprint 57 — the DETERMINISTIC ESPN CDN headshot URL
+    // (a.espncdn.com/i/headshots/soccer/players/full/{athleteId}.png) is
+    // now tried FIRST, ahead of any JSON-field extraction. This is not a
+    // guess at this API response's JSON shape — it's a well-documented,
+    // widely-used ESPN CDN convention this app's OWN frontend already
+    // relies on successfully in production for league logos
+    // (LeagueDropdown.tsx's darkLogoUrl/lightLogoUrl construct the exact
+    // same a.espncdn.com pattern for a different asset family, confirmed
+    // working per CLAUDE.md's own "Verified working IDs" note). Sidesteps
+    // the whole "does this specific endpoint's JSON include a headshot
+    // field" question — it needs only the athlete id, which the leaders
+    // response always provides. Missing/wrong athlete ids just 404 and
+    // EntityBadge's existing onError fallback (real initials) takes over,
+    // exactly like a broken team-logo id already degrades today.
+    const athleteId = String(athlete.id ?? '');
+    const headshotHref = athleteId
+      ? `https://a.espncdn.com/i/headshots/soccer/players/full/${athleteId}.png`
+      : extractAthleteHeadshot(athlete);
 
     rows.push({
       rank: idx + 1,
-      athleteId: String(athlete.id ?? ''),
+      athleteId,
       name: String(athlete.displayName ?? athlete.shortName ?? 'Unknown'),
       shortName: String(athlete.shortName ?? athlete.displayName ?? 'Unknown'),
       teamName: team.displayName ? String(team.displayName) : team.name ? String(team.name) : null,
@@ -440,6 +458,13 @@ export async function fetchLeaders(slug: string, season: number): Promise<League
       'cleanSheetLeaders',
       'goalkeeperCleanSheetsLeaders',
       'savesLeaders',
+      // V7 Sprint 57 — a bare "cleanSheets" (no "Leaders" suffix) is a real,
+      // documented ESPN category name for the separate /leaders endpoint
+      // (per a user-supplied reference doc of live-verified ESPN field
+      // names). This file calls /statistics, not /leaders — the two may
+      // not share exactly one naming convention — so this candidate is
+      // added defensively rather than assumed to be the missing piece.
+      'cleanSheets',
     ];
     const gkNode = GK_NODE_NAMES.map(n => stats.find(s => s.name === n)).find(Boolean);
 

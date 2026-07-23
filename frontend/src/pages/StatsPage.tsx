@@ -97,23 +97,25 @@ export function StatsPage() {
   const viewingArchive = typeof selectedSeason === 'number';
   const viewingCurrentRaw = selectedSeason === 'current';
 
-  // A past season the user deliberately selected never has the Knockout
-  // sub-tab's real prerequisite (actual synced match rows) — the archive
-  // only ever stores the season-end standings/leaders aggregate, not
-  // per-match data. Fall back to Standings the moment an archived season
-  // is picked while Knockout happens to be active. The true-current-season
-  // option is NOT included here — it's live data (the same synced matches
-  // Knockout already reads), so that tab stays fully valid while viewing it.
-  useEffect(() => {
-    if (viewingArchive && leagueSubTab === 'knockout') setLeagueSubTab('standings');
-  }, [viewingArchive, leagueSubTab]);
-
   // The TRUE current season number — never the fallback-substituted one.
   // Derived purely from fields the default useLeagueStats() call already
   // returns (isFallbackSeason + season), zero extra network cost: when
   // substitution happened, `data.season` IS the fallback (season-1), so
   // the real current season is one year ahead of it.
   const trueCurrentSeasonNumber = data ? (data.isFallbackSeason ? data.season + 1 : data.season) : null;
+
+  // V7 Sprint 57 — the Knockout bracket now reads directly from the
+  // already-synced `matches` table, filtered by kickoff-time date range
+  // (useKnockoutMatches's own `season` param) — it is NOT sourced from
+  // league_season_archive (which only ever stored standings/leaders
+  // aggregates, never per-match data). This means a genuinely past season
+  // CAN show its real historical bracket, as long as those matches exist
+  // in `matches` with a real `round` value (backfillMatchRounds.ts is the
+  // one-time repair for matches synced before Sprint 48 added live round
+  // capture) — so the Knockout tab is no longer hidden while viewing an
+  // archived season; it's fed the archived season's own number instead of
+  // the true-current one.
+  const knockoutSeason = viewingArchive ? (selectedSeason as number) : trueCurrentSeasonNumber;
 
   // Effective payload the render branches below actually consume — the
   // live useLeagueStats() data, the un-substituted true-current-season
@@ -215,7 +217,10 @@ export function StatsPage() {
                 { id: 'standings' as LeagueSubTab, label: t('statsStandings') },
                 { id: 'leaders' as LeagueSubTab, label: t('statsLeaders') },
                 { id: 'teamMetrics' as LeagueSubTab, label: t('statsTabTeamMetrics') },
-                ...(isKnockoutCapableLeague(leagueId) && !viewingArchive
+                // V7 Sprint 57 — no longer hidden while viewing an archived
+                // season; KnockoutBracketView now reads real, season-
+                // filtered matches for any season, not just the live one.
+                ...(isKnockoutCapableLeague(leagueId)
                   ? [{ id: 'knockout' as LeagueSubTab, label: t('statsTabKnockout' as TranslationKey) }]
                   : []),
               ]).map(sub => {
@@ -244,13 +249,14 @@ export function StatsPage() {
             </div>
           </LayoutGroup>
 
-          {leagueSubTab === 'knockout' && isKnockoutCapableLeague(leagueId) && !viewingArchive ? (
+          {leagueSubTab === 'knockout' && isKnockoutCapableLeague(leagueId) ? (
             // Independent of useLeagueStats — KnockoutBracketView fetches
             // its own data via useKnockoutMatches, so it's never gated
-            // behind the standings/leaders loading/error state below. Stays
-            // valid while viewingCurrentRaw too — the bracket reads live
-            // synced matches, unrelated to which standings season is shown.
-            <KnockoutBracketView leagueId={leagueId!} />
+            // behind the standings/leaders loading/error state below.
+            // Season-filtered so it always matches whichever season the
+            // Season Selector currently has active — the true current one
+            // (default/raw) or a genuinely archived one.
+            <KnockoutBracketView leagueId={leagueId!} season={knockoutSeason} isCurrentSeason={!viewingArchive} />
           ) : effectiveLoading ? (
             <PageLoader />
           ) : (!viewingArchive && !viewingCurrentRaw && error) || (effectiveStandings.length === 0 && !effectiveLeaders) ? (

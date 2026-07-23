@@ -16,8 +16,21 @@ import { supabase, Match } from '../lib/supabase';
  * Channel (Sprint 35, §50) — this is league-scoped data, not group-scoped,
  * the same explicit scope boundary useMatches.ts/useWorldCupMatches.ts
  * already established.
+ *
+ * V7 Sprint 57 — gained an optional `season` filter so the bracket can be
+ * scoped to exactly one season's matches (the true current one, or an
+ * archived one selected from the Season Selector) instead of mixing every
+ * season this league has ever synced into one view. Deliberately filters
+ * by a KICKOFF-TIME date range, not `matches.season` (a raw ESPN
+ * `season.displayName` string of unverified, possibly-inconsistent
+ * format — never confirmed from this sandbox) — European football
+ * seasons run July→June, the exact boundary stats.ts's own
+ * `currentSeason()` already uses, so `season=2025` maps to
+ * `[2025-07-01, 2026-07-01)`. This is the same class of "derive a real
+ * boundary from a fact we control (the calendar), not an unverified
+ * third-party field" discipline already applied elsewhere in this file.
  */
-export function useKnockoutMatches(leagueId: number | null) {
+export function useKnockoutMatches(leagueId: number | null, season: number | null = null) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -28,15 +41,21 @@ export function useKnockoutMatches(leagueId: number | null) {
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase
+    let query = supabase
       .from('matches')
       .select('*')
-      .eq('league_id', leagueId)
+      .eq('league_id', leagueId);
+    if (season != null) {
+      query = query
+        .gte('kickoff_time', `${season}-07-01`)
+        .lt('kickoff_time', `${season + 1}-07-01`);
+    }
+    const { data, error } = await query
       .order('kickoff_time', { ascending: true })
       .limit(200);
     if (!error) setMatches((data as Match[]) ?? []);
     setLoading(false);
-  }, [leagueId]);
+  }, [leagueId, season]);
 
   useEffect(() => {
     if (leagueId == null) {
@@ -49,7 +68,7 @@ export function useKnockoutMatches(leagueId: number | null) {
     fetchMatches();
 
     channelRef.current = supabase
-      .channel(`knockout-matches-${leagueId}`)
+      .channel(`knockout-matches-${leagueId}-${season ?? 'live'}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'matches', filter: `league_id=eq.${leagueId}` },
@@ -64,7 +83,7 @@ export function useKnockoutMatches(leagueId: number | null) {
       window.removeEventListener('goalbet:synced', onSynced);
       channelRef.current?.unsubscribe();
     };
-  }, [leagueId, fetchMatches]);
+  }, [leagueId, season, fetchMatches]);
 
   return { matches, loading, refetch: fetchMatches };
 }
