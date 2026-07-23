@@ -158,6 +158,8 @@ export function StatsPage() {
                   leagueId={leagueId!}
                   homeAwaySplits={data?.homeAwaySplits}
                   rankChanges={data?.rankChanges}
+                  season={data?.season}
+                  isFallbackSeason={data?.isFallbackSeason}
                 />
               )}
 

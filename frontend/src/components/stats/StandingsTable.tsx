@@ -17,13 +17,22 @@ interface StandingsTableProps {
   // matchday for this league — see stats.ts's computeRankChanges()).
   homeAwaySplits?: HomeAwaySplits | null;
   rankChanges?: Record<string, number> | null;
+  // V5 Sprint 55 hotfix — real, live-reported confusion: when a new UEFA
+  // cup season's league-phase table has no rows yet (weeks after
+  // qualifying begins), stats.ts falls back to the last COMPLETED
+  // season's final table rather than showing nothing — but nothing in the
+  // UI said so, so a fully-finished table (every team P=8/38/etc.) read as
+  // "the current live table," not "last season's result." Both optional
+  // so an older caller passing neither still renders exactly as before.
+  season?: number;
+  isFallbackSeason?: boolean;
 }
 
 const COLUMN_COUNT = 9; // sticky rank·team + P/W/D/L/GF/GA/GD/Pts
 
 type SplitView = 'total' | 'home' | 'away';
 
-export function StandingsTable({ rows, leagueId, homeAwaySplits, rankChanges }: StandingsTableProps) {
+export function StandingsTable({ rows, leagueId, homeAwaySplits, rankChanges, season, isFallbackSeason }: StandingsTableProps) {
   const { t } = useLangStore();
   // V4 Sprint 27 — which team's Interactive Team Sheet is open, if any. Same
   // parent-owned single-expanded-id shape as LeaderboardTable's
@@ -43,6 +52,11 @@ export function StandingsTable({ rows, leagueId, homeAwaySplits, rankChanges }: 
 
   return (
     <div className="space-y-2">
+      {isFallbackSeason && season != null && (
+        <div className="rounded-lg border border-accent-orange/25 bg-accent-orange/10 px-3 py-2 text-xs text-white/90">
+          {t('statsFallbackSeasonLabel').replace('{0}', `${season}/${String(season + 1).slice(-2)}`)}
+        </div>
+      )}
       {hasHomeAway && (
         <div className="flex gap-1.5 rounded-xl border border-border-subtle bg-bg-card/60 p-1 w-fit ms-auto">
           {([

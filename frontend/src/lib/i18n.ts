@@ -649,6 +649,7 @@ export const translations = {
     statsRankUp: 'Moved up {0}',
     statsRankDown: 'Moved down {0}',
     statsNoTeamMetrics: 'No team metrics available yet',
+    statsFallbackSeasonLabel: 'Final table {0} — new season not started yet',
 
     // World Cup bracket view
     wcRouteToTrophy: 'Route to the Trophy',
@@ -1650,6 +1651,7 @@ export const translations = {
     statsRankUp: 'עלה {0} מקומות',
     statsRankDown: 'ירד {0} מקומות',
     statsNoTeamMetrics: 'אין עדיין נתוני קבוצות זמינים',
+    statsFallbackSeasonLabel: 'טבלה סופית {0} — העונה החדשה עדיין לא התחילה',
 
     // World Cup bracket view
     wcRouteToTrophy: 'הדרך לגביע',
