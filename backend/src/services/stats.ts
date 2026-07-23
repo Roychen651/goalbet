@@ -38,13 +38,16 @@ export interface LeaderRow {
   shortName: string;
   teamName: string | null;
   teamLogo: string | null;
-  // V4 Sprint 27 — best-effort ESPN athlete headshot URL. This sandbox cannot
-  // reach ESPN's API to verify the real field name/shape (site.web.api.espn.com
-  // is 403'd on the outbound CONNECT tunnel here), so this reads the
-  // conventional `athlete.headshot.href` shape used elsewhere in ESPN's site
-  // API family, with graceful null fallback. EntityBadge already renders a
-  // gradient-initials fallback for any null/broken URL — a wrong guess here
-  // degrades silently, it never breaks the UI.
+  // V4 Sprint 27, rebuilt V7 Sprint 57 — primarily a deterministic ESPN CDN
+  // URL built from athlete.id (or athlete.uid as a fallback id source),
+  // never a JSON-field guess as the first attempt anymore. This sandbox
+  // cannot reach ESPN's API at all (site.web.api.espn.com/a.espncdn.com
+  // are both 403'd on the outbound CONNECT tunnel here — confirmed via the
+  // agent proxy's own status endpoint, not assumed), so neither the id
+  // extraction nor the resulting URL's validity can be verified from here.
+  // EntityBadge already renders a real, correct gradient-initials fallback
+  // for any null/broken URL — a wrong guess here degrades silently, it
+  // never breaks the UI. See mapLeaderList() for the actual extraction.
   photo: string | null;
   value: number;
   matches: number | null;
@@ -193,6 +196,26 @@ function pickLogo(logos: Record<string, unknown>[] | undefined): string | null {
     return Array.isArray(rel) && rel.includes('default');
   });
   return String((def ?? logos[0]).href ?? '') || null;
+}
+
+// V7 Sprint 57 (same-day follow-up) — `athlete.id` may genuinely be absent
+// on this specific endpoint even when a headshot exists, since ESPN's site
+// API sometimes only carries a composite `uid` string (a well-documented,
+// widely-observed convention: `"s:600~l:{leagueId}~a:{athleteId}"`) rather
+// than a bare `id` field on every athlete-reference shape. Correction, not
+// an assumption: the earlier version of this file claimed the a.espncdn.com
+// DOMAIN is already proven safe in this app (true — LeagueDropdown.tsx's
+// league logos) but that says nothing about whether THIS specific
+// athlete.id value is the right one to plug into the headshot path — a
+// genuinely separate, still-unverified question. This second candidate
+// costs nothing when `athlete.id` is already present (checked first) and
+// only matters on the specific shape where `id` is missing but `uid`
+// carries the same number in its own conventional suffix.
+function extractAthleteIdFromUid(athlete: Record<string, unknown>): string | null {
+  const uid = athlete.uid;
+  if (typeof uid !== 'string') return null;
+  const m = uid.match(/a:(\d+)/);
+  return m ? m[1] : null;
 }
 
 // V7 Sprint 57 — best-effort athlete headshot extraction, tried in order.
@@ -356,19 +379,24 @@ function mapLeaderList(list: Record<string, unknown>[] | undefined): LeaderRow[]
     //
     // V7 Sprint 57 — the DETERMINISTIC ESPN CDN headshot URL
     // (a.espncdn.com/i/headshots/soccer/players/full/{athleteId}.png) is
-    // now tried FIRST, ahead of any JSON-field extraction. This is not a
-    // guess at this API response's JSON shape — it's a well-documented,
-    // widely-used ESPN CDN convention this app's OWN frontend already
-    // relies on successfully in production for league logos
-    // (LeagueDropdown.tsx's darkLogoUrl/lightLogoUrl construct the exact
-    // same a.espncdn.com pattern for a different asset family, confirmed
-    // working per CLAUDE.md's own "Verified working IDs" note). Sidesteps
-    // the whole "does this specific endpoint's JSON include a headshot
-    // field" question — it needs only the athlete id, which the leaders
-    // response always provides. Missing/wrong athlete ids just 404 and
-    // EntityBadge's existing onError fallback (real initials) takes over,
-    // exactly like a broken team-logo id already degrades today.
-    const athleteId = String(athlete.id ?? '');
+    // tried FIRST, ahead of any JSON-field extraction. The a.espncdn.com
+    // DOMAIN itself is proven safe — this app's OWN frontend already loads
+    // from it successfully in production for league logos
+    // (LeagueDropdown.tsx). Precise correction, same-day: that fact alone
+    // does NOT prove THIS specific `athlete.id` value is the right one to
+    // plug into a DIFFERENT asset family's path (headshots, a different id
+    // space than league logo ids) — that half is still a genuinely
+    // unverified guess, stated as such, not as a confirmed fact.
+    //
+    // `athlete.id` is tried first; when it's absent, `athlete.uid` (ESPN's
+    // common composite identity string, `"s:600~l:{leagueId}~a:{athleteId}"`)
+    // is parsed for the same numeric id as a second, still-deterministic
+    // candidate before ever falling through to JSON-field guessing.
+    // Missing/wrong athlete ids just 404 and EntityBadge's existing
+    // onError fallback (real, correct initials — fixed this same sprint)
+    // takes over, exactly like a broken team-logo id already degrades
+    // today — never a broken image, never a blocked render.
+    const athleteId = String(athlete.id ?? extractAthleteIdFromUid(athlete) ?? '');
     const headshotHref = athleteId
       ? `https://a.espncdn.com/i/headshots/soccer/players/full/${athleteId}.png`
       : extractAthleteHeadshot(athlete);
