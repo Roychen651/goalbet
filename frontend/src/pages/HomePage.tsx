@@ -37,7 +37,19 @@ export function HomePage() {
   // only exists in the 'completed' tab's filtered set, never 'all' (which
   // deliberately excludes finished matches).
   const [focusMatchId] = useState(() => searchParams.get('focus'));
-  const [activeTab, setActiveTab] = useState<Tab>(focusMatchId ? 'completed' : 'all');
+  // V7 Sprint 56 — the Knockout Path bracket view (StatsPage) can deep-link
+  // into a match that's still upcoming or live, not just resolved (unlike
+  // the notification "View Match" CTA above, which only ever targets an
+  // already-FT match). An optional `?tab=` override lets that caller pick
+  // the correct tab explicitly instead of falling into the 'completed'
+  // default, which would show "no matches found" for anything not yet FT.
+  // Validated against the real Tab union — an unrecognized/missing value
+  // falls through to the existing focus-vs-no-focus default untouched.
+  const [initialTabOverride] = useState<Tab | null>(() => {
+    const raw = searchParams.get('tab');
+    return raw === 'all' || raw === 'upcoming' || raw === 'live' || raw === 'completed' ? raw : null;
+  });
+  const [activeTab, setActiveTab] = useState<Tab>(initialTabOverride ?? (focusMatchId ? 'completed' : 'all'));
   const [showScoringGuide, setShowScoringGuide] = useState(false);
   const [showCoinGuide, setShowCoinGuide] = useState(false);
   const { matches, loading, loadingMore, error, loadMore, upcomingDays, hasMore } = useMatches(activeTab);

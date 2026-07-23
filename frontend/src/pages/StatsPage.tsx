@@ -8,6 +8,7 @@ import { useLeagueStats } from '../hooks/useLeagueStats';
 import { StandingsTable } from '../components/stats/StandingsTable';
 import { LeagueLeaders } from '../components/stats/LeagueLeaders';
 import { TeamMetricsView } from '../components/stats/TeamMetricsView';
+import { KnockoutBracketView, isKnockoutCapableLeague } from '../components/stats/KnockoutBracketView';
 import { PulseFeed } from '../components/stats/PulseFeed';
 import { LeagueDropdown } from '../components/stats/LeagueDropdown';
 import { WorldCupBracket } from '../components/stats/WorldCupBracket';
@@ -27,7 +28,13 @@ type ArenaTab = 'leagues' | 'arena';
 // Segmented Snapper — a new literal id ("leagueStatsSubTab"), never the
 // same id as either of those (Framer's layoutId is a plain string match,
 // not automatically scoped per component tree).
-type LeagueSubTab = 'standings' | 'leaders' | 'teamMetrics';
+// V7 Sprint 56 — a 4th sub-tab, 'knockout', only ever shown for the 3
+// UEFA club competitions that actually run a knockout stage after their
+// Swiss-model league phase (see isKnockoutCapableLeague). It renders its
+// own KnockoutBracketView, which fetches independently of useLeagueStats
+// (via useKnockoutMatches) — never gated behind the standings/leaders
+// loading state below, since it has nothing to do with either.
+type LeagueSubTab = 'standings' | 'leaders' | 'teamMetrics' | 'knockout';
 
 export function StatsPage() {
   const { t, lang } = useLangStore();
@@ -54,6 +61,14 @@ export function StatsPage() {
   useEffect(() => {
     if (leagueId == null && defaultLeagueId != null) setLeagueId(defaultLeagueId);
   }, [defaultLeagueId, leagueId]);
+
+  // A league switch away from a knockout-capable competition must not leave
+  // the sub-tab state pointed at a pill that's no longer rendered.
+  useEffect(() => {
+    if (leagueSubTab === 'knockout' && !isKnockoutCapableLeague(leagueId)) {
+      setLeagueSubTab('standings');
+    }
+  }, [leagueId, leagueSubTab]);
 
   const isCustomView = leagueId != null && CUSTOM_VIEW_LEAGUES.has(leagueId);
   const { data, loading, error } = useLeagueStats(isCustomView ? null : leagueId);
@@ -120,6 +135,9 @@ export function StatsPage() {
                 { id: 'standings' as LeagueSubTab, label: t('statsStandings') },
                 { id: 'leaders' as LeagueSubTab, label: t('statsLeaders') },
                 { id: 'teamMetrics' as LeagueSubTab, label: t('statsTabTeamMetrics') },
+                ...(isKnockoutCapableLeague(leagueId)
+                  ? [{ id: 'knockout' as LeagueSubTab, label: t('statsTabKnockout' as TranslationKey) }]
+                  : []),
               ]).map(sub => {
                 const isActive = leagueSubTab === sub.id;
                 return (
@@ -146,7 +164,12 @@ export function StatsPage() {
             </div>
           </LayoutGroup>
 
-          {loading && !data ? (
+          {leagueSubTab === 'knockout' && isKnockoutCapableLeague(leagueId) ? (
+            // Independent of useLeagueStats — KnockoutBracketView fetches
+            // its own data via useKnockoutMatches, so it's never gated
+            // behind the standings/leaders loading/error state below.
+            <KnockoutBracketView leagueId={leagueId!} />
+          ) : loading && !data ? (
             <PageLoader />
           ) : error || (!data?.standings?.length && !data?.leaders) ? (
             <EmptyState icon="📊" title={t('statsNoData')} description="" />
