@@ -660,6 +660,8 @@ export const translations = {
     bracketStageFinal: 'Final',
     bracketNoDataTitle: 'Knockout stage not started yet',
     bracketNoDataDescription: 'This tournament is still in its league phase — the bracket will appear here once knockout fixtures are confirmed.',
+    bracketNoDataTitleArchived: 'No knockout data for this season',
+    bracketNoDataDescriptionArchived: "This season's knockout matches haven't been captured in full detail yet — check back soon.",
     bracketMatchAggregate: 'Agg',
 
     // V7 Sprint 56 follow-up — The Season Archive
@@ -1682,6 +1684,8 @@ export const translations = {
     bracketStageFinal: 'הגמר',
     bracketNoDataTitle: 'שלב הנוקאאוט טרם החל',
     bracketNoDataDescription: 'הטורניר עדיין בשלב הליגה — מסלול הנוקאאוט יופיע כאן ברגע שהמשחקים ייקבעו.',
+    bracketNoDataTitleArchived: 'אין נתוני נוקאאוט לעונה זו',
+    bracketNoDataDescriptionArchived: 'משחקי הנוקאאוט של העונה הזו עדיין לא נאספו במלואם — בדקו שוב בקרוב.',
     bracketMatchAggregate: 'מצטבר',
 
     // V7 Sprint 56 המשך — ארכיון העונות

@@ -542,6 +542,40 @@ export async function fetchMatchTeamStatsFromSummary(
   }
 }
 
+/**
+ * V7 Sprint 57 — retroactive `matches.round` backfill support. `round` was
+ * hardcoded null on every match sync for this codebase's entire lifetime
+ * until Sprint 48 (§63) added extractRoundName() to the LIVE scoreboard
+ * sync path — a match that was synced (and completed) before that fix
+ * landed has `round = null` frozen forever, since the regular sync jobs
+ * only ever re-fetch a narrow recent/upcoming date window (never re-visit
+ * an old, already-FT match). This is the one-off repair: re-fetch a single
+ * historical match's summary and apply the exact same extractRoundName()
+ * this file's live sync path already uses — same competitor/notes shape
+ * (data.header.competitions[0]), same honest null-on-miss degradation,
+ * never a second, drifting extraction implementation.
+ */
+export async function fetchMatchRoundFromSummary(
+  externalId: string,
+  leagueId: number,
+): Promise<string | null> {
+  const slug = LEAGUE_ESPN_MAP[leagueId];
+  if (!slug) return null;
+  const eventId = externalId.replace(/^espn_/, '');
+  if (!eventId || !/^\d+$/.test(eventId)) return null;
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
+  try {
+    const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+    const comp = data?.header?.competitions?.[0];
+    if (!comp) return null;
+    return extractRoundName(comp);
+  } catch (err) {
+    logger.debug(`[ESPN] Round backfill fetch failed for ${externalId}: ${err}`);
+    return null;
+  }
+}
+
 // CORRECTED (same session, live-symptom-driven) — the original theory
 // here was that ESPN nests a qualifying stage under the SAME competition
 // slug via a `seasontype=1` query param. That theory was WRONG: after a

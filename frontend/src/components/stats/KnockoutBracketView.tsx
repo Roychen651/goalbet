@@ -123,10 +123,10 @@ function StageMatchCard({ match, lang, onOpen }: { match: Match; lang: 'en' | 'h
   );
 }
 
-export function KnockoutBracketView({ leagueId }: { leagueId: number }) {
+export function KnockoutBracketView({ leagueId, season, isCurrentSeason = true }: { leagueId: number; season?: number | null; isCurrentSeason?: boolean }) {
   const { t, lang } = useLangStore();
   const navigate = useNavigate();
-  const { matches, loading } = useKnockoutMatches(leagueId);
+  const { matches, loading } = useKnockoutMatches(leagueId, season ?? null);
 
   const stageGroups = useMemo(() => {
     const groups = new Map<BracketStage, Match[]>();
@@ -155,11 +155,17 @@ export function KnockoutBracketView({ leagueId }: { leagueId: number }) {
   if (loading) return <PageLoader />;
 
   if (orderedStages.length === 0) {
+    // V7 Sprint 57 — "not started yet" is only ever true for the CURRENT
+    // season. A genuinely past/archived season with zero rows here means
+    // something different (most likely: those matches predate Sprint 48's
+    // round-capture fix and haven't been backfilled — see
+    // backfillMatchRounds.ts) — a distinct, honest message rather than
+    // implying the tournament simply hasn't happened yet.
     return (
       <EmptyState
         icon="🏆"
-        title={t('bracketNoDataTitle' as TranslationKey)}
-        description={t('bracketNoDataDescription' as TranslationKey)}
+        title={t((isCurrentSeason ? 'bracketNoDataTitle' : 'bracketNoDataTitleArchived') as TranslationKey)}
+        description={t((isCurrentSeason ? 'bracketNoDataDescription' : 'bracketNoDataDescriptionArchived') as TranslationKey)}
       />
     );
   }
