@@ -108,6 +108,68 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 type CacheEntry = { data: StatsResponse; expiresAt: number };
 const cache = new Map<number, CacheEntry>();
 
+// V5 Sprint 55 Commit 2 — a deliberately lightweight, in-memory-only
+// position-change tracker. No new DB table: a real historical-standings
+// snapshot system is a legitimate, larger feature this "stats page
+// redesign" sprint doesn't need to carry. Honest limitation, stated
+// plainly: this Map lives in the Node process's memory only — Render's
+// free tier sleeps after ~15 min idle, so a cold start wipes it and the
+// very first computeRankChanges() call after any restart correctly
+// returns null (no baseline to diff against yet) rather than fabricating
+// a "no change" or a wrong delta. The next real matchday after that
+// restart re-establishes a fresh, honest baseline.
+interface RankSnapshotEntry { rank: number; gp: number }
+const previousStandingsSnapshots = new Map<number, Map<string, RankSnapshotEntry>>();
+
+// Deliberately gated on `gp` (games played) actually changing for at least
+// one team before treating anything as "changed" — a naive diff-every-
+// cache-tick approach would almost always show zero movement (ranks don't
+// move within a random 5-minute window) and could show a spurious delta if
+// ESPN's rank field briefly flickers mid-fetch for an unrelated reason.
+// Gating on gp is the closest honest proxy available for "did a real
+// matchday actually happen since we last looked," without needing to know
+// the exact fixture schedule.
+function computeRankChanges(leagueId: number, currentRows: StandingsRow[]): Record<string, number> | null {
+  const previous = previousStandingsSnapshots.get(leagueId);
+
+  const currentSnapshot = new Map<string, RankSnapshotEntry>();
+  for (const row of currentRows) {
+    if (!row.team.id) continue;
+    currentSnapshot.set(row.team.id, { rank: row.rank, gp: row.gp });
+  }
+
+  if (!previous) {
+    // First time seeing this league this process lifetime (or since the
+    // last cold start) — establish the baseline, nothing to diff yet.
+    previousStandingsSnapshots.set(leagueId, currentSnapshot);
+    return null;
+  }
+
+  const realMatchdayHappened = currentRows.some(row => {
+    const prevEntry = row.team.id ? previous.get(row.team.id) : undefined;
+    return prevEntry != null && prevEntry.gp !== row.gp;
+  });
+
+  if (!realMatchdayHappened) {
+    // Nothing meaningful changed since the last real snapshot — leave the
+    // stored baseline untouched so a FUTURE real matchday still diffs
+    // against the correct pre-matchday state, not this no-op tick.
+    return null;
+  }
+
+  const changes: Record<string, number> = {};
+  for (const row of currentRows) {
+    if (!row.team.id) continue;
+    const prevEntry = previous.get(row.team.id);
+    if (!prevEntry) continue; // not in the previous snapshot — no honest delta to show
+    const delta = prevEntry.rank - row.rank; // positive = moved up (lower rank number is better)
+    if (delta !== 0) changes[row.team.id] = delta;
+  }
+
+  previousStandingsSnapshots.set(leagueId, currentSnapshot);
+  return Object.keys(changes).length > 0 ? changes : null;
+}
+
 function statValue(stats: Record<string, unknown>[] | undefined, name: string): number {
   const s = stats?.find(x => x.name === name);
   if (!s) return 0;
@@ -387,13 +449,10 @@ export async function getLeagueStats(leagueId: number): Promise<StatsResponse | 
 
   if (standings.length === 0 && !leaders) return null;
 
-  // V5 Sprint 55 Commit 2 wires this to a real in-memory rank-change
-  // tracker. Left as a stable `null` field in Commit 1 so this function
-  // (and the type it returns) is already forward-compatible — the
-  // frontend can ship its "hidden until real data exists" rank-change
-  // badge in the same commit as this field, before the tracker itself
-  // lands, with zero further frontend changes needed once it does.
-  const rankChanges: Record<string, number> | null = null;
+  // V5 Sprint 55 Commit 2 — see computeRankChanges()'s own header comment
+  // for the honest in-memory-only, gp-gated design and its stated
+  // Render-cold-start limitation.
+  const rankChanges = computeRankChanges(leagueId, standings);
 
   const data: StatsResponse = {
     leagueId,
