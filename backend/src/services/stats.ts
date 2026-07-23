@@ -195,6 +195,35 @@ function pickLogo(logos: Record<string, unknown>[] | undefined): string | null {
   return String((def ?? logos[0]).href ?? '') || null;
 }
 
+// V7 Sprint 57 — best-effort athlete headshot extraction, tried in order.
+// Each candidate is checked independently and explicitly (never a chained
+// ??/ternary expression) so the precedence is unambiguous. Unverifiable
+// from this sandbox (outbound ESPN access is 403'd); a wrong guess simply
+// never matches and falls through to null, same graceful-degradation
+// discipline as every other best-effort field in this file.
+function extractAthleteHeadshot(athlete: Record<string, unknown>): string | null {
+  const headshot = athlete.headshot;
+  if (typeof headshot === 'string' && headshot) return headshot;
+  if (headshot && typeof headshot === 'object') {
+    const href = (headshot as Record<string, unknown>).href;
+    if (href) return String(href);
+  }
+
+  const image = athlete.image;
+  if (image && typeof image === 'object') {
+    const href = (image as Record<string, unknown>).href;
+    if (href) return String(href);
+  }
+
+  const images = athlete.images as Record<string, unknown>[] | undefined;
+  if (Array.isArray(images) && images.length > 0) {
+    const fromImages = pickLogo(images);
+    if (fromImages) return fromImages;
+  }
+
+  return null;
+}
+
 // Extracted the moment a second real consumer (the home/away variant parse
 // below) needed the identical entries[]-to-StandingsRow[] mapping — the
 // same "extract on the second real consumer" precedent this codebase
@@ -316,7 +345,15 @@ function mapLeaderList(list: Record<string, unknown>[] | undefined): LeaderRow[]
     const displayValue = String(entry.displayValue ?? '');
     const value = typeof entry.value === 'number' ? entry.value : parseFloat(String(entry.value ?? '0'));
 
-    const headshot = (athlete.headshot as Record<string, unknown> | undefined);
+    // V7 Sprint 57 — widened from the single `athlete.headshot.href` guess
+    // (still unverifiable from this sandbox — see the field comment above)
+    // after a live report that player photos never rendered. Tries a
+    // couple more plausible ESPN athlete-headshot shapes, each an
+    // independent step (never a chained ??/ternary — that reads fragile
+    // and is easy to get the precedence wrong on); falls through to null
+    // (EntityBadge's real-initials fallback, fixed this same sprint)
+    // rather than ever fabricating an image URL.
+    const headshotHref = extractAthleteHeadshot(athlete);
 
     rows.push({
       rank: idx + 1,
@@ -325,7 +362,7 @@ function mapLeaderList(list: Record<string, unknown>[] | undefined): LeaderRow[]
       shortName: String(athlete.shortName ?? athlete.displayName ?? 'Unknown'),
       teamName: team.displayName ? String(team.displayName) : team.name ? String(team.name) : null,
       teamLogo: String(team.logo ?? '') || pickLogo(team.logos as Record<string, unknown>[] | undefined),
-      photo: (headshot?.href ? String(headshot.href) : null),
+      photo: headshotHref,
       value: Number.isFinite(value) ? value : 0,
       matches: parseMatches(displayValue),
       displayValue,
@@ -389,12 +426,22 @@ export async function fetchLeaders(slug: string, season: number): Promise<League
     // is a genuinely weaker guess than the others above: unlike
     // yellow->red (a confirmed sibling to model from), there's no prior
     // confirmed ESPN node name in this codebase's history to lean on for a
-    // clean-sheet leaderboard. Two candidate names are tried in order;
-    // first one that returns real rows wins. If neither exists for this
-    // league/season, goalkeepers comes back empty and the frontend simply
-    // never renders that leaders category — same graceful degradation as
-    // every other best-effort field here.
-    const gkNode = stats.find(s => s.name === 'cleanSheetsLeaders') ?? stats.find(s => s.name === 'shutoutsLeaders');
+    // clean-sheet leaderboard. V7 Sprint 57 — widened from 2 to 5
+    // candidates (still unverifiable from this sandbox — outbound ESPN
+    // access is 403'd here, confirmed again this sprint) after a live
+    // report that Premier League's category came back empty. First
+    // candidate that returns real rows wins. If none match for this
+    // league/season, goalkeepers comes back empty and the frontend now
+    // self-hides that category entirely (both the sub-nav pill AND the
+    // Team Metrics card) — never a dead "no data" placeholder.
+    const GK_NODE_NAMES = [
+      'cleanSheetsLeaders',
+      'shutoutsLeaders',
+      'cleanSheetLeaders',
+      'goalkeeperCleanSheetsLeaders',
+      'savesLeaders',
+    ];
+    const gkNode = GK_NODE_NAMES.map(n => stats.find(s => s.name === n)).find(Boolean);
 
     const scorers = mapLeaderList(goalsNode?.leaders as Record<string, unknown>[] | undefined);
     const assists = mapLeaderList(assistsNode?.leaders as Record<string, unknown>[] | undefined);
@@ -516,6 +563,67 @@ export async function getLeagueStats(leagueId: number): Promise<StatsResponse | 
   };
 
   cache.set(leagueId, { data, expiresAt: now + CACHE_TTL_MS });
+  return data;
+}
+
+// V7 Sprint 57 — The Season Selector's explicit "current season" option.
+// getLeagueStats() above ALWAYS substitutes the last completed season the
+// moment the current one has no real table yet (rows=0 or every gp=0) —
+// correct, deliberate default UX (rule confirmed this same sprint: never
+// show a wall of zeros as if it were the live table). But a real, live
+// user request asked to also SEE the true current season on demand — real
+// team rosters, real (possibly all-zero) numbers, never fabricated — so
+// this is a second, deliberately un-substituted entry point. Reuses
+// fetchStandings/fetchLeaders/currentSeason() verbatim (never a second,
+// independently-written ESPN parse) — the only difference from
+// getLeagueStats() is that this one never swaps in a different season.
+export interface CurrentSeasonRawResponse {
+  leagueId: number;
+  season: number;
+  cachedAt: string;
+  standings: StandingsRow[];
+  leaders: LeagueLeaders | null;
+  // Mirrors the same honest signal getLeagueStats() computes internally
+  // (hasNoRealTable) — true when every row has gp=0 (or there are no rows
+  // at all), so the frontend can caption "season not started yet" without
+  // re-deriving the same check a second time.
+  hasStarted: boolean;
+}
+
+const currentSeasonRawCache = new Map<number, { data: CurrentSeasonRawResponse; expiresAt: number }>();
+
+export async function getCurrentSeasonRaw(leagueId: number): Promise<CurrentSeasonRawResponse | null> {
+  const slug = LEAGUE_ESPN_MAP[leagueId];
+  if (!slug) return null;
+
+  const now = Date.now();
+  const hit = currentSeasonRawCache.get(leagueId);
+  if (hit && hit.expiresAt > now) return hit.data;
+
+  const season = currentSeason();
+  const [standingsResult, leaders] = await Promise.all([
+    fetchStandings(slug, season).catch(err => {
+      logger.error(`[stats] current-season-raw standings fetch failed for ${slug} season=${season}: ${err}`);
+      return { rows: [] as StandingsRow[], homeAwaySplits: null as HomeAwaySplits | null };
+    }),
+    fetchLeaders(slug, season),
+  ]);
+  const { rows: standings } = standingsResult;
+
+  if (standings.length === 0 && !leaders) return null;
+
+  const hasStarted = standings.length > 0 && standings.some(row => row.gp > 0);
+
+  const data: CurrentSeasonRawResponse = {
+    leagueId,
+    season,
+    cachedAt: new Date().toISOString(),
+    standings,
+    leaders,
+    hasStarted,
+  };
+
+  currentSeasonRawCache.set(leagueId, { data, expiresAt: now + CACHE_TTL_MS });
   return data;
 }
 

@@ -116,20 +116,35 @@ export function LeagueLeaders({ scorers, assists, discipline, goalkeepers = [] }
 // own leaderboard podium already uses, applied here to player leaders for
 // the first time.
 const SPOTLIGHT_TIERS = [
-  { ring: 'ring-[#FFC94A]/70', glow: 'shadow-[0_0_24px_rgba(255,201,74,0.25)]', size: 56, order: 'sm:order-2' },
-  { ring: 'ring-white/25', glow: '', size: 44, order: 'sm:order-1' },
-  { ring: 'ring-[#CD7F32]/50', glow: '', size: 44, order: 'sm:order-3' },
+  { ring: 'ring-[#FFC94A]/70', glow: 'shadow-[0_0_28px_rgba(255,201,74,0.3)]', size: 60, order: 'sm:order-2', medal: '🥇', lift: 'sm:-translate-y-2' },
+  { ring: 'ring-white/25', glow: '', size: 44, order: 'sm:order-1', medal: '🥈', lift: '' },
+  { ring: 'ring-[#CD7F32]/50', glow: '', size: 44, order: 'sm:order-3', medal: '🥉', lift: '' },
 ] as const;
 
+// V7 Sprint 57 — a real design pass following the top-3 spotlight's own
+// established podium language (WeeklyPodiumModal/LeaderboardRow already
+// use 🥇🥈🥉 for exactly this — reused verbatim rather than a new icon
+// system). #1 also gets a genuine size/elevation lift (bigger badge,
+// -translate-y on desktop) so the visual hierarchy reads at a glance, not
+// just via a slightly brighter ring. The rank-number caption is now a
+// medal instead of a bare "#N" — this codebase's own dashboard-viz
+// discipline treats a number-only rank indicator as the weaker signal.
 function LeaderSpotlight({ rows, category, unit }: { rows: LeaderRow[]; category: Category; unit: string }) {
   return (
     <div className="grid grid-cols-3 gap-2 items-end">
       {rows.map((row, i) => {
         const tier = SPOTLIGHT_TIERS[i];
         return (
-          <div key={row.athleteId || `${row.rank}-${row.name}`} className={cn('flex flex-col items-center', tier.order)}>
-            <GlassCard tactile grain contentClassName={cn('flex flex-col items-center gap-1.5 px-2 py-3 text-center', tier.glow)}>
-              <span className="font-mono text-[10px] text-text-muted tabular-nums">#{row.rank}</span>
+          <div key={row.athleteId || `${row.rank}-${row.name}`} className={cn('min-w-0 flex flex-col items-center', tier.order, tier.lift)}>
+            {/* w-full + min-w-0 on the card itself, not just its grid-item
+                parent — a flex/grid CHILD defaults to min-width:auto too,
+                so the 60px #1 badge could still force this card wider than
+                its 91px column at 320px even with the parent already fixed.
+                Caught live via a real narrow-viewport Playwright render,
+                not assumed — the classic "min-width:0 needs setting at
+                every nested flex/grid level" trap. */}
+            <GlassCard tactile grain className="w-full min-w-0" contentClassName={cn('flex flex-col items-center gap-1.5 px-2 py-3 text-center', tier.glow)}>
+              <span className="text-lg leading-none" aria-label={`#${row.rank}`}>{tier.medal}</span>
               <div className="relative isolate shrink-0">
                 <EntityBadge
                   src={row.photo}

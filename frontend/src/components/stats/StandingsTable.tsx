@@ -33,13 +33,20 @@ interface StandingsTableProps {
   // this one is informational, not a "heads up, this isn't what you think"
   // warning.
   viewingArchivedSeason?: boolean;
+  // V7 Sprint 57 — true when the caller deliberately selected the TRUE
+  // current season (SeasonSelector's un-substituted "current" option) AND
+  // it genuinely hasn't started yet (every row gp=0). A third, distinct
+  // banner tone from both of the above — this isn't a silent substitution
+  // (isFallbackSeason) or a frozen archive (viewingArchivedSeason), it's
+  // the user explicitly asking to see the real, honestly-empty table.
+  viewingUnstartedCurrentSeason?: boolean;
 }
 
 const COLUMN_COUNT = 9; // sticky rank·team + P/W/D/L/GF/GA/GD/Pts
 
 type SplitView = 'total' | 'home' | 'away';
 
-export function StandingsTable({ rows, leagueId, homeAwaySplits, rankChanges, season, isFallbackSeason, viewingArchivedSeason }: StandingsTableProps) {
+export function StandingsTable({ rows, leagueId, homeAwaySplits, rankChanges, season, isFallbackSeason, viewingArchivedSeason, viewingUnstartedCurrentSeason }: StandingsTableProps) {
   const { t } = useLangStore();
   // V4 Sprint 27 — which team's Interactive Team Sheet is open, if any. Same
   // parent-owned single-expanded-id shape as LeaderboardTable's
@@ -67,6 +74,11 @@ export function StandingsTable({ rows, leagueId, homeAwaySplits, rankChanges, se
       {viewingArchivedSeason && season != null && (
         <div className="rounded-lg border border-accent-secondary/30 bg-accent-secondary/10 px-3 py-2 text-xs text-white/90">
           {t('statsArchivedSeasonLabel').replace('{0}', formatSeasonLabel(season))}
+        </div>
+      )}
+      {viewingUnstartedCurrentSeason && season != null && (
+        <div className="rounded-lg border border-accent-green/25 bg-accent-green/10 px-3 py-2 text-xs text-white/90">
+          {t('statsCurrentSeasonNotStartedLabel').replace('{0}', formatSeasonLabel(season))}
         </div>
       )}
       {hasHomeAway && (

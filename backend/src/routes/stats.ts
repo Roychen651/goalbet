@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getLeagueStats, getTeamForm } from '../services/stats';
+import { getLeagueStats, getTeamForm, getCurrentSeasonRaw } from '../services/stats';
 import { getLeagueNews } from '../services/leagueNews';
 import { listArchivedSeasons, getArchivedSeason } from '../services/seasonArchive';
 
@@ -65,6 +65,26 @@ router.get('/:leagueId/seasons', async (req: Request, res: Response) => {
   try {
     const seasons = await listArchivedSeasons(leagueId);
     res.json({ leagueId, seasons });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// V7 Sprint 57 — The Season Selector's explicit "current season" option.
+// Deliberately un-substituted: unlike the base `/:leagueId` route, this
+// NEVER swaps in the last completed season, even when the current one is
+// entirely gp=0 — it's the "show me the truth" counterpart to the smart
+// default, real rosters + real (possibly zero) numbers, sourced from
+// ESPN, never manually completed.
+router.get('/:leagueId/current', async (req: Request, res: Response) => {
+  const leagueId = parseInt(req.params.leagueId, 10);
+  if (!Number.isFinite(leagueId)) {
+    return res.status(400).json({ error: 'Invalid leagueId' });
+  }
+  try {
+    const data = await getCurrentSeasonRaw(leagueId);
+    if (!data) return res.status(404).json({ error: 'No current-season data for this league' });
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

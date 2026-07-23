@@ -64,8 +64,20 @@ export function EntityBadge({ src, name, hashSeed, size, className, loading = 'l
     );
   }
 
-  const seed = hashSeed ?? name;
-  const hue = hashTeamHue(seed);
+  // Hue is seeded from `hashSeed` (falls back to `name`) — a stable
+  // per-entity identity key, which may be a non-readable id (an ESPN
+  // athlete id, e.g.) for callers that want color stability independent
+  // of a possibly-ambiguous display name. Initials must ALWAYS come from
+  // `name`, never from `hashSeed` — a real bug, caught live (V7 Sprint 57):
+  // LeagueLeaders.tsx once passed a numeric athleteId as hashSeed, and
+  // getInitials() computed on THAT seed produced a single leading digit
+  // ("3") instead of real player initials ("IT") the instant a photo
+  // failed to load — which, given ESPN's headshot field is itself a
+  // best-effort unverified guess (see LeaderRow.photo's comment), was
+  // effectively every card. Splitting the two seeds here means any future
+  // caller can safely pass a non-name hashSeed without reintroducing this.
+  const hueSeed = hashSeed ?? name;
+  const hue = hashTeamHue(hueSeed);
   const hue2 = (hue + 42) % 360;
 
   return (
@@ -84,7 +96,7 @@ export function EntityBadge({ src, name, hashSeed, size, className, loading = 'l
         background: `linear-gradient(135deg, oklch(58% 0.13 ${hue}) 0%, oklch(46% 0.15 ${hue2}) 100%)`,
       }}
     >
-      {getInitials(seed)}
+      {getInitials(name)}
     </div>
   );
 }
