@@ -9,6 +9,7 @@ import { lockExpiredMicroQuestions, resolveLockedMicroQuestions } from '../servi
 import { resolveLiveDuels } from '../services/liveDuels';
 import { refreshCornersSupportFlags } from '../services/leagueStatCapability';
 import { archiveCompletedSeasons } from '../services/seasonArchive';
+import { backfillMatchRounds } from '../services/matchRoundBackfill';
 import { refreshEspnLeagueMap } from '../services/espn';
 import { refreshActiveBattleScores } from '../services/groupBattles';
 import { logger } from '../lib/logger';
@@ -139,6 +140,39 @@ export function startScheduler(): void {
       await archiveCompletedSeasons();
     } catch (err) {
       logger.error('[scheduler] Season archive failed:', err);
+    }
+  });
+
+  // matches.round backfill (V7 Sprint 57, automated same-day follow-up) —
+  // this shipped ONCE ALREADY as a manual-only CLI script
+  // (`npm run backfill:match-rounds`), which is why a completed knockout
+  // season still showed "no data" in production after that PR merged:
+  // nobody had actually run it. Never again — this now runs on its own,
+  // no operator step required. Staggered 30s after the season-archive
+  // startup call (itself 20s after the 5s startup catch-up) so none of
+  // these compete for the same tick. A wider 730-day (2yr) lookback than
+  // the CLI script's own 365-day default, specifically for this automatic
+  // first run, so a genuinely stale deploy can self-heal its whole
+  // existing backlog without anyone choosing a --since date by hand.
+  // Safe to run daily forever: matches.round is written as '' (never left
+  // null) the moment ESPN is confirmed to have nothing for a given match,
+  // so `.is('round', null)` naturally narrows to only genuinely-new gaps
+  // on every later run — see matchRoundBackfill.ts's own header comment.
+  setTimeout(() => {
+    const since = new Date(Date.now() - 730 * 86_400_000).toISOString().slice(0, 10);
+    backfillMatchRounds(since)
+      .then(outcome => logger.info(`[scheduler] Startup round backfill: ${outcome.found} found, ${outcome.markedUnavailable} unavailable, ${outcome.scanned} scanned`))
+      .catch(err => logger.error('[scheduler] Startup round backfill failed:', err));
+  }, 50_000);
+  cron.schedule('10 1 * * *', async () => {
+    try {
+      const since = new Date(Date.now() - 730 * 86_400_000).toISOString().slice(0, 10);
+      const outcome = await backfillMatchRounds(since);
+      if (outcome.scanned > 0) {
+        logger.info(`[scheduler] Daily round backfill: ${outcome.found} found, ${outcome.markedUnavailable} unavailable, ${outcome.scanned} scanned`);
+      }
+    } catch (err) {
+      logger.error('[scheduler] Daily round backfill failed:', err);
     }
   });
 

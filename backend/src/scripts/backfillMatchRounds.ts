@@ -1,29 +1,11 @@
 /**
- * Retroactive matches.round backfill — V7 Sprint 57.
- *
- * `round` was hardcoded null on every match upsert for this codebase's
- * entire lifetime until Sprint 48 (§63) added extractRoundName() to the
- * live scoreboard sync path. A match that was already synced (and
- * completed) before that fix landed has round=null frozen forever — the
- * regular sync jobs only ever touch a narrow recent/upcoming date window,
- * never revisit an old FT match. This left every completed knockout-stage
- * match from before Sprint 48 unable to be classified by
- * classifyBracketStage() on the frontend — reported live: Champions
- * League's already-finished 2025/26 knockout stage showed "not started
- * yet" in the bracket view, and the season archive had no knockout data
- * for that same season either (the archive was never the storage for
- * this — the bracket always reads live `matches` rows, filtered by
- * league_id + season; see KnockoutBracketView.tsx/useKnockoutMatches.ts).
- *
- * One path, not two — unlike backfillTeamStats.ts's Path A/B split, there
- * is no DB-to-DB shortcut here: round was never captured anywhere before
- * Sprint 48, so every match needing this backfill requires a live
- * re-fetch. Batched via the same processBatched() primitive Sprint 28
- * built for exactly this kind of bulk historical operation.
- *
- * Whether ESPN's summary endpoint retains a round/headline for matches
- * this old is UNVERIFIED (this sandbox cannot reach ESPN) — every
- * match's real outcome is recorded and reported, never assumed.
+ * Manual on-demand entry point for the matches.round backfill — the real
+ * logic lives in services/matchRoundBackfill.ts, which scheduler.ts now
+ * also calls automatically (startup + daily). This script stays useful
+ * for an operator who wants to force a specific window on demand; it is
+ * NOT the only way this backfill runs anymore — see CLAUDE.md for the
+ * automation this same sprint added after shipping this as manual-only
+ * the first time.
  *
  * Usage:
  *   npm run backfill:match-rounds                  -- defaults to the last 365 days
@@ -32,16 +14,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { supabaseAdmin } from '../lib/supabaseAdmin';
-import { fetchMatchRoundFromSummary } from '../services/espn';
-import { processBatched } from '../lib/batch';
+import { backfillMatchRounds } from '../services/matchRoundBackfill';
 import { logger } from '../lib/logger';
-
-interface BackfillMatch {
-  id: string;
-  external_id: string;
-  league_id: number;
-}
 
 function parseArgs(): { since: string } {
   const args = process.argv.slice(2);
@@ -52,60 +26,23 @@ function parseArgs(): { since: string } {
   return { since };
 }
 
-// Completed matches only — a match still NS/live has no "round" story to
-// tell yet in the sense this backfill cares about (the live sync path
-// already captures round for anything synced going forward, completed or
-// not; this script exists purely to repair the pre-Sprint-48 gap).
-async function getMatchesNeedingBackfill(since: string): Promise<BackfillMatch[]> {
-  const { data: matches, error } = await supabaseAdmin
-    .from('matches')
-    .select('id, external_id, league_id')
-    .in('status', ['FT', 'AET', 'PEN'])
-    .is('round', null)
-    .gte('kickoff_time', since);
-
-  if (error) {
-    logger.error(`[backfillMatchRounds] Failed to fetch matches: ${error.message}`);
-    return [];
-  }
-  return (matches as BackfillMatch[]) ?? [];
-}
-
 async function main() {
   const { since } = parseArgs();
   logger.info(`=== Backfill matches.round — completed matches since ${since} with round=null ===`);
 
-  const matches = await getMatchesNeedingBackfill(since);
-  if (matches.length === 0) {
-    logger.info('Nothing to backfill — every completed match in this window already has a round value (or genuinely has none to find).');
+  const outcome = await backfillMatchRounds(since);
+  if (outcome.scanned === 0) {
+    logger.info('Nothing to backfill — every completed match in this window already has a round value (or has been checked and genuinely has none).');
     process.exit(0);
   }
-  logger.info(`${matches.length} matches need a round re-fetch.`);
-
-  const outcome = { found: 0, stillUnavailable: 0 };
-
-  await processBatched(matches, async (m) => {
-    const round = await fetchMatchRoundFromSummary(m.external_id, m.league_id);
-    if (!round) {
-      outcome.stillUnavailable++;
-      return;
-    }
-    outcome.found++;
-    const { error } = await supabaseAdmin
-      .from('matches')
-      .update({ round })
-      .eq('id', m.id);
-    if (error) {
-      logger.error(`[backfillMatchRounds] Update failed for match ${m.id}: ${error.message}`);
-    }
-  });
 
   // Stated coverage, not promised coverage — some matches WILL come back
   // unavailable if ESPN doesn't retain a round/headline for old events,
   // and that's reported honestly rather than silently treated as success.
+  logger.info(`${outcome.scanned} matches needed a round re-fetch.`);
   logger.info(`\n=== Backfill complete ===`);
   logger.info(`  round found + written: ${outcome.found}`);
-  logger.info(`  still unavailable:     ${outcome.stillUnavailable}`);
+  logger.info(`  checked, unavailable:  ${outcome.markedUnavailable}`);
   process.exit(0);
 }
 
