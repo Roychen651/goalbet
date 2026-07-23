@@ -74,6 +74,13 @@ export interface StatsResponse {
   // matchday has happened since) — see stats.ts's computeRankChanges() for
   // the full design and its stated in-memory/cold-start limitation.
   rankChanges: Record<string, number> | null;
+  // V5 Sprint 55 hotfix — true when `standings`/`homeAwaySplits` are the
+  // FALLBACK table (the most recently completed season), not the current
+  // one — real, live-reported confusion otherwise, since a new UEFA cup
+  // season's league-phase table has no rows for weeks after qualifying
+  // begins and the fallback used to render with no indication it wasn't
+  // current. See StandingsTable.tsx's FallbackSeasonBanner.
+  isFallbackSeason: boolean;
 }
 
 // V4 Sprint 27 — Interactive Team Sheets

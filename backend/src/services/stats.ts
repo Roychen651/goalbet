@@ -102,6 +102,15 @@ export interface StatsResponse {
   // standings genuinely changed (a real matchday occurred, not just a
   // cache-tick). See computeRankChanges() below for the honest limitation.
   rankChanges: Record<string, number> | null; // teamId -> delta (positive = moved up)
+  // V5 Sprint 55 hotfix — true when `standings` is the FALLBACK table (the
+  // most recently completed season), not the requested current season.
+  // Real, live-reported confusion: a new UEFA cup season's league-phase
+  // table has no rows for weeks after qualifying rounds begin (see the
+  // fallback comment on getLeagueStats() below), so the fallback silently
+  // showed last season's completed final table with nothing in the UI
+  // indicating it wasn't current. The frontend renders an explicit label
+  // whenever this is true — never a silent "looks current" table.
+  isFallbackSeason: boolean;
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -433,6 +442,7 @@ export async function getLeagueStats(leagueId: number): Promise<StatsResponse | 
   // primary (non-fallback) fetch above picks it up automatically on the
   // next 5-min cache expiry, with zero code change needed.
   let effectiveSeason = season;
+  let isFallbackSeason = false;
   if (standings.length === 0) {
     const fallbackSeason = season - 1;
     const fallback = await fetchStandings(slug, fallbackSeason).catch(err => {
@@ -444,6 +454,7 @@ export async function getLeagueStats(leagueId: number): Promise<StatsResponse | 
       standings = fallback.rows;
       homeAwaySplits = fallback.homeAwaySplits;
       effectiveSeason = fallbackSeason;
+      isFallbackSeason = true;
     }
   }
 
@@ -463,6 +474,7 @@ export async function getLeagueStats(leagueId: number): Promise<StatsResponse | 
     homeAwaySplits,
     leaders,
     rankChanges,
+    isFallbackSeason,
   };
 
   cache.set(leagueId, { data, expiresAt: now + CACHE_TTL_MS });
