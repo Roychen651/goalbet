@@ -1,27 +1,88 @@
 import { useState, Fragment } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLangStore } from '../../stores/langStore';
 import { useTeamForm } from '../../hooks/useLeagueStats';
 import { EntityBadge } from '../ui/EntityBadge';
 import { haptic } from '../../lib/haptics';
-import type { StandingsRow } from '../../hooks/useLeagueStats';
+import type { StandingsRow, HomeAwaySplits } from '../../hooks/useLeagueStats';
 
 interface StandingsTableProps {
   rows: StandingsRow[];
   leagueId: number;
+  // V5 Sprint 55 — both optional, both hidden entirely when absent (ESPN
+  // doesn't expose a home/away split for every league; a rank-change
+  // signal only exists once this backend process has seen a real
+  // matchday for this league — see stats.ts's computeRankChanges()).
+  homeAwaySplits?: HomeAwaySplits | null;
+  rankChanges?: Record<string, number> | null;
 }
 
 const COLUMN_COUNT = 9; // sticky rank·team + P/W/D/L/GF/GA/GD/Pts
 
-export function StandingsTable({ rows, leagueId }: StandingsTableProps) {
+type SplitView = 'total' | 'home' | 'away';
+
+export function StandingsTable({ rows, leagueId, homeAwaySplits, rankChanges }: StandingsTableProps) {
   const { t } = useLangStore();
   // V4 Sprint 27 — which team's Interactive Team Sheet is open, if any. Same
   // parent-owned single-expanded-id shape as LeaderboardTable's
   // expandedUserId (§36) — only one row open at a time, in-place, no modal,
   // no full page reload.
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
+  // V5 Sprint 55 — Total/Home/Away toggle. Only rendered at all when
+  // homeAwaySplits has real data; rank-change badges only ever apply to
+  // the Total view (a home-only or away-only "rank" isn't a real concept
+  // ESPN exposes), so switching away from Total hides them for that reason,
+  // not a bug.
+  const [splitView, setSplitView] = useState<SplitView>('total');
+  const hasHomeAway = !!(homeAwaySplits && (homeAwaySplits.home.length > 0 || homeAwaySplits.away.length > 0));
+  const activeRows = splitView === 'home' ? (homeAwaySplits?.home ?? []) : splitView === 'away' ? (homeAwaySplits?.away ?? []) : rows;
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {hasHomeAway && (
+        <div className="flex gap-1.5 rounded-xl border border-border-subtle bg-bg-card/60 p-1 w-fit ms-auto">
+          {([
+            { id: 'total' as SplitView, label: t('statsStandings') },
+            { id: 'home' as SplitView, label: t('statsHomeSplit') },
+            { id: 'away' as SplitView, label: t('statsAwaySplit') },
+          ]).map(opt => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setSplitView(opt.id)}
+              className={cn(
+                'rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors',
+                splitView === opt.id ? 'bg-accent-green/15 text-white ring-1 ring-accent-green/30' : 'text-text-muted hover:text-white/80',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <StandingsGrid rows={activeRows} leagueId={leagueId} rankChanges={splitView === 'total' ? rankChanges : null} expandedTeamId={expandedTeamId} setExpandedTeamId={setExpandedTeamId} />
+    </div>
+  );
+}
+
+function StandingsGrid({
+  rows,
+  leagueId,
+  rankChanges,
+  expandedTeamId,
+  setExpandedTeamId,
+}: {
+  rows: StandingsRow[];
+  leagueId: number;
+  rankChanges?: Record<string, number> | null;
+  expandedTeamId: string | null;
+  setExpandedTeamId: (id: string | null | ((prev: string | null) => string | null)) => void;
+}) {
+  const { t } = useLangStore();
 
   if (rows.length === 0) return null;
 
@@ -80,6 +141,27 @@ export function StandingsTable({ rows, leagueId }: StandingsTableProps) {
                         )}
                       >
                         <span className="w-5 text-end text-text-muted font-mono tabular-nums shrink-0">{row.rank || '—'}</span>
+                        {/* V5 Sprint 55 — rank-change badge. Rendered ONLY
+                            when a real delta exists for this team this tick
+                            (see computeRankChanges()'s honest, gp-gated
+                            design) — never a static/zero placeholder. Color
+                            reuses this app's existing accent-green (up) /
+                            accent-orange (down) pair, never color alone
+                            (the chevron direction + aria-label carry the
+                            same information). */}
+                        {teamId && rankChanges?.[teamId] != null && (
+                          <span
+                            className={cn(
+                              'flex items-center shrink-0',
+                              rankChanges[teamId] > 0 ? 'text-accent-green' : 'text-accent-orange',
+                            )}
+                            aria-label={t(rankChanges[teamId] > 0 ? 'statsRankUp' : 'statsRankDown').replace('{0}', String(Math.abs(rankChanges[teamId])))}
+                            title={t(rankChanges[teamId] > 0 ? 'statsRankUp' : 'statsRankDown').replace('{0}', String(Math.abs(rankChanges[teamId])))}
+                          >
+                            {rankChanges[teamId] > 0 ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                            <span className="font-mono text-[10px] tabular-nums">{Math.abs(rankChanges[teamId])}</span>
+                          </span>
+                        )}
                         <EntityBadge
                           src={row.team.logo}
                           name={row.team.shortName || row.team.name}

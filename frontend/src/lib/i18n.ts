@@ -637,6 +637,19 @@ export const translations = {
     statsResultLoss: 'Loss',
     statsPulseFeed: 'League Pulse',
 
+    // V5 Sprint 55 — The Ultimate League Stats & Leaders Engine
+    statsTabTeamMetrics: 'Team Metrics',
+    statsYellowCards: 'Yellow',
+    statsRedCards: 'Red',
+    statsHomeSplit: 'Home',
+    statsAwaySplit: 'Away',
+    statsBestOffense: 'Best Offense',
+    statsBestDefense: 'Best Defense',
+    statsGoalsAgainstPerMatch: 'Conceded / Match',
+    statsRankUp: 'Moved up {0}',
+    statsRankDown: 'Moved down {0}',
+    statsNoTeamMetrics: 'No team metrics available yet',
+
     // World Cup bracket view
     wcRouteToTrophy: 'Route to the Trophy',
     wcHostNations: 'Host Nations',
@@ -1624,6 +1637,19 @@ export const translations = {
     statsResultDraw: 'תיקו',
     statsResultLoss: 'הפסד',
     statsPulseFeed: 'דופק הליגה',
+
+    // V5 Sprint 55 — מנוע נתוני הליגה והמובילים המשודרג
+    statsTabTeamMetrics: 'סטטיסטיקת קבוצות',
+    statsYellowCards: 'צהובים',
+    statsRedCards: 'אדומים',
+    statsHomeSplit: 'בית',
+    statsAwaySplit: 'חוץ',
+    statsBestOffense: 'ההתקפה הטובה ביותר',
+    statsBestDefense: 'ההגנה הטובה ביותר',
+    statsGoalsAgainstPerMatch: 'ספיגה למשחק',
+    statsRankUp: 'עלה {0} מקומות',
+    statsRankDown: 'ירד {0} מקומות',
+    statsNoTeamMetrics: 'אין עדיין נתוני קבוצות זמינים',
 
     // World Cup bracket view
     wcRouteToTrophy: 'הדרך לגביע',

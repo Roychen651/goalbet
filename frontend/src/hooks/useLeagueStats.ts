@@ -33,12 +33,31 @@ export interface LeaderRow {
   value: number;
   matches: number | null;
   displayValue: string;
+  // V5 Sprint 55 — populated ONLY on `discipline` rows. `value` there is a
+  // weighted composite (red counts double a yellow — a stated modeling
+  // choice, never a raw ESPN number); these two real counts are what the
+  // UI actually renders, never the composite.
+  yellowCards?: number;
+  redCards?: number;
 }
 
 export interface LeagueLeaders {
   scorers: LeaderRow[];
   assists: LeaderRow[];
   discipline: LeaderRow[];
+  // V5 Sprint 55 — season-long clean-sheet leaders. May legitimately be
+  // empty (ESPN doesn't reliably expose this for every league/season) —
+  // the frontend hides this category entirely when it is, same as every
+  // other leader category already does.
+  goalkeepers: LeaderRow[];
+}
+
+// V5 Sprint 55 — best-effort home/away standings split. Both arrays are
+// empty (never fabricated) when ESPN doesn't expose a home/away variant
+// for a given league — the frontend hides the toggle entirely in that case.
+export interface HomeAwaySplits {
+  home: StandingsRow[];
+  away: StandingsRow[];
 }
 
 export interface StatsResponse {
@@ -47,7 +66,14 @@ export interface StatsResponse {
   season: number;
   cachedAt: string;
   standings: StandingsRow[];
+  homeAwaySplits: HomeAwaySplits | null;
   leaders: LeagueLeaders | null;
+  // V5 Sprint 55 — teamId -> rank delta since the last real matchday this
+  // backend process observed (positive = moved up). null whenever there's
+  // no honest baseline yet (first fetch since a cold start, or no real
+  // matchday has happened since) — see stats.ts's computeRankChanges() for
+  // the full design and its stated in-memory/cold-start limitation.
+  rankChanges: Record<string, number> | null;
 }
 
 // V4 Sprint 27 — Interactive Team Sheets
