@@ -666,6 +666,11 @@ export const translations = {
     statsSeasonCurrent: 'Current',
     statsArchivedSeasonLabel: 'Archived final table — {0} season',
 
+    // V7 Sprint 57 — Season Selector dropdown + true current-season option
+    statsSelectSeason: 'Season',
+    statsSeasonNotStarted: 'Not started',
+    statsCurrentSeasonNotStartedLabel: '{0} season — real teams, no matches played yet',
+
     // World Cup bracket view
     wcRouteToTrophy: 'Route to the Trophy',
     wcHostNations: 'Host Nations',
@@ -1682,6 +1687,11 @@ export const translations = {
     // V7 Sprint 56 המשך — ארכיון העונות
     statsSeasonCurrent: 'עונה נוכחית',
     statsArchivedSeasonLabel: 'טבלה סופית בארכיון — עונת {0}',
+
+    // V7 Sprint 57 — תפריט בחירת עונה נפתח + אפשרות עונה נוכחית אמיתית
+    statsSelectSeason: 'עונה',
+    statsSeasonNotStarted: 'טרם החלה',
+    statsCurrentSeasonNotStartedLabel: 'עונת {0} — קבוצות אמיתיות, טרם שוחקו משחקים',
 
     // World Cup bracket view
     wcRouteToTrophy: 'הדרך לגביע',

@@ -145,6 +145,17 @@ export interface ArchivedSeasonData {
   leaders: LeagueLeaders | null;
 }
 
+// V7 Sprint 57 — The Season Selector's explicit "current season" option.
+// Mirrors backend/src/services/stats.ts's CurrentSeasonRawResponse exactly.
+export interface CurrentSeasonRawData {
+  leagueId: number;
+  season: number;
+  cachedAt: string;
+  standings: StandingsRow[];
+  leaders: LeagueLeaders | null;
+  hasStarted: boolean;
+}
+
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? '';
 
 // V4 Sprint 27 Commit 4 — every statistics query on the Stats -> Leagues tab
@@ -245,6 +256,27 @@ export function useArchivedSeasonsList(leagueId: number | null) {
   return {
     seasons: query.data?.seasons ?? [],
     loading: query.isLoading,
+  };
+}
+
+// V7 Sprint 57 — The Season Selector's explicit "current season" option.
+// Live (not frozen like an archived one), so this shares the base 15-min
+// staleTime, not the archive's 24h one. `enabled` only turns true once the
+// user explicitly picks this from the SeasonSelector — never prefetched
+// alongside the smart-default view.
+export function useCurrentSeasonRaw(leagueId: number | null, enabled: boolean) {
+  const query = useQuery<CurrentSeasonRawData | null>({
+    queryKey: ['leagueCurrentSeasonRaw', leagueId],
+    queryFn: ({ signal }) => fetchJson<CurrentSeasonRawData>(`/api/stats/${leagueId}/current`, signal),
+    enabled: enabled && leagueId != null && !!BACKEND_URL,
+    staleTime: STATS_STALE_TIME_MS,
+    gcTime: STATS_GC_TIME_MS,
+  });
+
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error ? (query.error as Error).message : null,
   };
 }
 

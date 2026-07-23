@@ -3,6 +3,7 @@ import { useLangStore } from '../../stores/langStore';
 import { EntityBadge } from '../ui/EntityBadge';
 import { GlassCard } from '../ui/GlassCard';
 import { EmptyState } from '../ui/EmptyState';
+import { cn } from '../../lib/utils';
 import type { StandingsRow, LeaderRow } from '../../hooks/useLeagueStats';
 import type { TranslationKey } from '../../lib/i18n';
 
@@ -50,8 +51,20 @@ export function TeamMetricsView({ standings, goalkeepers }: TeamMetricsViewProps
     return <EmptyState icon="📊" title={t('statsNoTeamMetrics')} description="" />;
   }
 
+  // V7 Sprint 57 — the Clean Sheets card now self-hides entirely when
+  // ESPN's leaders endpoint doesn't expose the underlying category for
+  // this league/season, matching the "hidden until real data exists"
+  // convention every other category in this app already follows (the
+  // LeagueLeaders sub-nav pill right next to this view already does this
+  // correctly) — never a permanent dead card reading "No data in this
+  // category yet". Best Offense/Best Defense are always real (derived
+  // client-side from standings already in hand), so the grid stays a
+  // clean 2-up when Clean Sheets has nothing to show, rather than a 3rd
+  // empty slot.
+  const hasGoalkeepers = goalkeepers.length > 0;
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+    <div className={cn('grid grid-cols-1 gap-2', hasGoalkeepers ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
       <MetricCard title={t('statsBestOffense')} unit={t('statsGoalsPerMatch')}>
         {bestOffense.map(({ row, perMatch }) => (
           <TeamMetricRow key={row.team.id || row.team.name} name={row.team.shortName || row.team.name} logo={row.team.logo} hashSeed={row.team.name} value={perMatch.toFixed(2)} />
@@ -64,16 +77,18 @@ export function TeamMetricsView({ standings, goalkeepers }: TeamMetricsViewProps
         ))}
       </MetricCard>
 
-      <MetricCard title={t('statsCleanSheets')} unit={t('statsCleanSheets')} empty={goalkeepers.length === 0}>
-        {goalkeepers.slice(0, 5).map((gk) => (
-          <TeamMetricRow key={gk.athleteId || gk.name} name={gk.teamName ?? gk.name} logo={gk.teamLogo} hashSeed={gk.teamName ?? gk.athleteId} value={String(gk.value)} subLabel={gk.name} />
-        ))}
-      </MetricCard>
+      {hasGoalkeepers && (
+        <MetricCard title={t('statsCleanSheets')} unit={t('statsCleanSheets')}>
+          {goalkeepers.slice(0, 5).map((gk) => (
+            <TeamMetricRow key={gk.athleteId || gk.name} name={gk.teamName ?? gk.name} logo={gk.teamLogo} hashSeed={gk.teamName ?? gk.athleteId} value={String(gk.value)} subLabel={gk.name} />
+          ))}
+        </MetricCard>
+      )}
     </div>
   );
 }
 
-function MetricCard({ title, unit, children, empty }: { title: string; unit: string; children: React.ReactNode; empty?: boolean }) {
+function MetricCard({ title, unit, children }: { title: string; unit: string; children: React.ReactNode }) {
   const { t } = useLangStore();
   const hasChildren = Array.isArray(children) ? children.length > 0 : !!children;
 
@@ -83,7 +98,7 @@ function MetricCard({ title, unit, children, empty }: { title: string; unit: str
         <div className="font-barlow text-xs font-bold uppercase tracking-wider text-white">{title}</div>
         <div className="text-text-muted text-[10px] uppercase tracking-wider">{unit}</div>
       </div>
-      {empty || !hasChildren ? (
+      {!hasChildren ? (
         <div className="text-text-muted text-xs py-4 text-center">{t('statsNoLeadersInCategory' as TranslationKey)}</div>
       ) : (
         <div className="space-y-1">{children}</div>

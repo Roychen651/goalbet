@@ -4,12 +4,12 @@ import { cn } from '../lib/utils';
 import { FOOTBALL_LEAGUES, LEAGUE_ESPN_SLUG } from '../lib/constants';
 import { useLangStore } from '../stores/langStore';
 import { useGroupStore } from '../stores/groupStore';
-import { useLeagueStats, useArchivedSeasonsList, useArchivedSeasonStats } from '../hooks/useLeagueStats';
+import { useLeagueStats, useArchivedSeasonsList, useArchivedSeasonStats, useCurrentSeasonRaw } from '../hooks/useLeagueStats';
 import { StandingsTable } from '../components/stats/StandingsTable';
 import { LeagueLeaders } from '../components/stats/LeagueLeaders';
 import { TeamMetricsView } from '../components/stats/TeamMetricsView';
 import { KnockoutBracketView, isKnockoutCapableLeague } from '../components/stats/KnockoutBracketView';
-import { SeasonSelector } from '../components/stats/SeasonSelector';
+import { SeasonSelector, type SeasonSelectorValue } from '../components/stats/SeasonSelector';
 import { PulseFeed } from '../components/stats/PulseFeed';
 import { LeagueDropdown } from '../components/stats/LeagueDropdown';
 import { WorldCupBracket } from '../components/stats/WorldCupBracket';
@@ -79,36 +79,65 @@ export function StatsPage() {
   // a season number that made sense for one league (e.g. it has a 2024
   // archive) has no guaranteed meaning for a different one, and silently
   // carrying it over could point at a season this new league never had.
-  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  // V7 Sprint 57 — widened from `number | null` to also accept the literal
+  // `'current'` sentinel (SeasonSelector's un-substituted true-current-
+  // season option, distinct from `null`'s smart-default view).
+  const [selectedSeason, setSelectedSeason] = useState<SeasonSelectorValue>(null);
   useEffect(() => { setSelectedSeason(null); }, [leagueId]);
 
   const { seasons: archivedSeasons } = useArchivedSeasonsList(isCustomView ? null : leagueId);
   const { data: archivedData, loading: archivedLoading } = useArchivedSeasonStats(
     isCustomView ? null : leagueId,
-    selectedSeason,
+    typeof selectedSeason === 'number' ? selectedSeason : null,
   );
-  const viewingArchive = selectedSeason != null;
+  const { data: currentRawData, loading: currentRawLoading } = useCurrentSeasonRaw(
+    isCustomView ? null : leagueId,
+    selectedSeason === 'current',
+  );
+  const viewingArchive = typeof selectedSeason === 'number';
+  const viewingCurrentRaw = selectedSeason === 'current';
 
   // A past season the user deliberately selected never has the Knockout
   // sub-tab's real prerequisite (actual synced match rows) — the archive
   // only ever stores the season-end standings/leaders aggregate, not
-  // per-match data. Fall back to Standings the moment a season is picked
-  // while Knockout happens to be active.
+  // per-match data. Fall back to Standings the moment an archived season
+  // is picked while Knockout happens to be active. The true-current-season
+  // option is NOT included here — it's live data (the same synced matches
+  // Knockout already reads), so that tab stays fully valid while viewing it.
   useEffect(() => {
     if (viewingArchive && leagueSubTab === 'knockout') setLeagueSubTab('standings');
   }, [viewingArchive, leagueSubTab]);
 
-  // Effective payload the render branches below actually consume — either
-  // the live useLeagueStats() data, or the selected archived season's
-  // snapshot reshaped into the exact same field names. homeAwaySplits/
-  // rankChanges/isFallbackSeason are live-tracking concepts with no
-  // meaning for a frozen historical record, so they're always null/false
-  // on the archived side — StandingsTable already hides those UI elements
-  // whenever they're absent, no new conditional needed there.
-  const effectiveStandings = viewingArchive ? (archivedData?.standings ?? []) : (data?.standings ?? []);
-  const effectiveLeaders = viewingArchive ? (archivedData?.leaders ?? null) : data?.leaders;
-  const effectiveSeason = viewingArchive ? (archivedData?.season ?? selectedSeason ?? undefined) : data?.season;
-  const effectiveLoading = viewingArchive ? archivedLoading : (loading && !data);
+  // The TRUE current season number — never the fallback-substituted one.
+  // Derived purely from fields the default useLeagueStats() call already
+  // returns (isFallbackSeason + season), zero extra network cost: when
+  // substitution happened, `data.season` IS the fallback (season-1), so
+  // the real current season is one year ahead of it.
+  const trueCurrentSeasonNumber = data ? (data.isFallbackSeason ? data.season + 1 : data.season) : null;
+
+  // Effective payload the render branches below actually consume — the
+  // live useLeagueStats() data, the un-substituted true-current-season
+  // fetch, or the selected archived season's snapshot, all reshaped into
+  // the exact same field names. homeAwaySplits/rankChanges/isFallbackSeason
+  // are live-tracking concepts with no meaning for a frozen historical
+  // record, so they're always null/false on the archived side —
+  // StandingsTable already hides those UI elements whenever absent.
+  const effectiveStandings = viewingArchive
+    ? (archivedData?.standings ?? [])
+    : viewingCurrentRaw
+      ? (currentRawData?.standings ?? [])
+      : (data?.standings ?? []);
+  const effectiveLeaders = viewingArchive
+    ? (archivedData?.leaders ?? null)
+    : viewingCurrentRaw
+      ? (currentRawData?.leaders ?? null)
+      : data?.leaders;
+  const effectiveSeason = viewingArchive
+    ? (archivedData?.season ?? selectedSeason ?? undefined)
+    : viewingCurrentRaw
+      ? (currentRawData?.season ?? trueCurrentSeasonNumber ?? undefined)
+      : data?.season;
+  const effectiveLoading = viewingArchive ? archivedLoading : viewingCurrentRaw ? currentRawLoading : (loading && !data);
 
   const selectedLeague = availableLeagues.find(l => l.id === leagueId);
 
@@ -138,7 +167,14 @@ export function StatsPage() {
           SeasonSelector's own `seasons.length === 0` check; never rendered
           at all for the World Cup's custom view (no seasons concept there). */}
       {tab === 'leagues' && !isCustomView && (
-        <SeasonSelector seasons={archivedSeasons} selectedSeason={selectedSeason} onSelect={setSelectedSeason} />
+        <SeasonSelector
+          seasons={archivedSeasons}
+          selectedSeason={selectedSeason}
+          onSelect={setSelectedSeason}
+          currentSeasonNumber={trueCurrentSeasonNumber}
+          showCurrentOption={!!data?.isFallbackSeason}
+          currentSeasonStarted={!!currentRawData?.hasStarted}
+        />
       )}
 
       {/* Sub-tabs — same borderless pill pattern as HomePage's All/Upcoming/Live/Results */}
@@ -211,11 +247,13 @@ export function StatsPage() {
           {leagueSubTab === 'knockout' && isKnockoutCapableLeague(leagueId) && !viewingArchive ? (
             // Independent of useLeagueStats — KnockoutBracketView fetches
             // its own data via useKnockoutMatches, so it's never gated
-            // behind the standings/leaders loading/error state below.
+            // behind the standings/leaders loading/error state below. Stays
+            // valid while viewingCurrentRaw too — the bracket reads live
+            // synced matches, unrelated to which standings season is shown.
             <KnockoutBracketView leagueId={leagueId!} />
           ) : effectiveLoading ? (
             <PageLoader />
-          ) : (!viewingArchive && error) || (effectiveStandings.length === 0 && !effectiveLeaders) ? (
+          ) : (!viewingArchive && !viewingCurrentRaw && error) || (effectiveStandings.length === 0 && !effectiveLeaders) ? (
             <EmptyState icon="📊" title={t('statsNoData')} description="" />
           ) : (
             <>
@@ -223,11 +261,12 @@ export function StatsPage() {
                 <StandingsTable
                   rows={effectiveStandings}
                   leagueId={leagueId!}
-                  homeAwaySplits={viewingArchive ? null : data?.homeAwaySplits}
-                  rankChanges={viewingArchive ? null : data?.rankChanges}
+                  homeAwaySplits={viewingArchive || viewingCurrentRaw ? null : data?.homeAwaySplits}
+                  rankChanges={viewingArchive || viewingCurrentRaw ? null : data?.rankChanges}
                   season={effectiveSeason}
-                  isFallbackSeason={!viewingArchive && data?.isFallbackSeason}
+                  isFallbackSeason={!viewingArchive && !viewingCurrentRaw && data?.isFallbackSeason}
                   viewingArchivedSeason={viewingArchive}
+                  viewingUnstartedCurrentSeason={viewingCurrentRaw && !currentRawData?.hasStarted}
                 />
               )}
 
