@@ -257,7 +257,12 @@ function parseHomeAwaySplits(children: Record<string, unknown>[]): HomeAwaySplit
   return { home, away };
 }
 
-async function fetchStandings(slug: string, season: number): Promise<{ rows: StandingsRow[]; homeAwaySplits: HomeAwaySplits | null }> {
+// Exported — V7 Sprint 56 archive follow-up: `seasonArchive.ts` reuses this
+// exact function (never a second, independently-written ESPN standings
+// fetch) to snapshot a just-completed season's final table. Same
+// "extract/export on the second real consumer" precedent this codebase
+// already applies elsewhere.
+export async function fetchStandings(slug: string, season: number): Promise<{ rows: StandingsRow[]; homeAwaySplits: HomeAwaySplits | null }> {
   // Hotfix — this endpoint previously had NO season param at all, while its
   // sibling fetchLeaders() call (below) always has, using the exact same
   // currentSeason() value. Reported live: Stats still showed last season's
@@ -361,7 +366,8 @@ function combineDisciplineLists(yellow: LeaderRow[], red: LeaderRow[]): LeaderRo
   return combined.slice(0, 10).map((row, idx) => ({ ...row, rank: idx + 1 }));
 }
 
-async function fetchLeaders(slug: string, season: number): Promise<LeagueLeaders | null> {
+// Exported for the same reason as fetchStandings() above.
+export async function fetchLeaders(slug: string, season: number): Promise<LeagueLeaders | null> {
   const url = `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${slug}/statistics?season=${season}`;
   try {
     const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
@@ -405,7 +411,12 @@ async function fetchLeaders(slug: string, season: number): Promise<LeagueLeaders
   }
 }
 
-function currentSeason(): number {
+// Exported — `seasonArchive.ts` derives "the most recently completed
+// season" as `currentSeason() - 1`, the EXACT value getLeagueStats()'s own
+// fallback path above already treats as "the most recent table ESPN has
+// fully populated." Reusing this one function is what guarantees the two
+// never drift into disagreeing about which season just ended.
+export function currentSeason(): number {
   // ESPN labels a European season by its start year (e.g. 2025-26 = 2025).
   // Season starts ~August; before that we're still in the previous season.
   const now = new Date();

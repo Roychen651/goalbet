@@ -126,6 +126,25 @@ export interface LeagueNewsResponse {
   articles: NewsArticle[];
 }
 
+// V7 Sprint 56 follow-up — The Season Archive.
+export interface ArchivedSeasonSummary {
+  season: number;
+  archivedAt: string;
+}
+
+export interface ArchivedSeasonsListResponse {
+  leagueId: number;
+  seasons: ArchivedSeasonSummary[];
+}
+
+export interface ArchivedSeasonData {
+  leagueId: number;
+  season: number;
+  archivedAt: string;
+  standings: StandingsRow[];
+  leaders: LeagueLeaders | null;
+}
+
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? '';
 
 // V4 Sprint 27 Commit 4 — every statistics query on the Stats -> Leagues tab
@@ -197,6 +216,47 @@ export function useLeagueNews(leagueId: number | null, enabled: boolean) {
     enabled: enabled && leagueId != null && !!BACKEND_URL,
     staleTime: STATS_STALE_TIME_MS,
     gcTime: STATS_GC_TIME_MS,
+  });
+
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error ? (query.error as Error).message : null,
+  };
+}
+
+// V7 Sprint 56 follow-up — The Season Archive. A long staleTime is genuinely
+// correct here (not just a caching nicety): once a season is archived, its
+// data is frozen — an archived table/leaders list literally never changes
+// again, unlike the live 15-min staleTime shared above, which exists to
+// balance freshness against ESPN load. 24h re-validates roughly once a
+// session at most while still catching a same-day re-deploy of this feature.
+const ARCHIVE_STALE_TIME_MS = 24 * 60 * 60 * 1000;
+
+export function useArchivedSeasonsList(leagueId: number | null) {
+  const query = useQuery<ArchivedSeasonsListResponse | null>({
+    queryKey: ['leagueSeasonArchiveList', leagueId],
+    queryFn: ({ signal }) => fetchJson<ArchivedSeasonsListResponse>(`/api/stats/${leagueId}/seasons`, signal),
+    enabled: leagueId != null && !!BACKEND_URL,
+    staleTime: ARCHIVE_STALE_TIME_MS,
+    gcTime: ARCHIVE_STALE_TIME_MS,
+  });
+
+  return {
+    seasons: query.data?.seasons ?? [],
+    loading: query.isLoading,
+  };
+}
+
+// `enabled` only turns true once a real past season is actually selected —
+// never prefetched for every season in the list.
+export function useArchivedSeasonStats(leagueId: number | null, season: number | null) {
+  const query = useQuery<ArchivedSeasonData | null>({
+    queryKey: ['leagueSeasonArchiveData', leagueId, season],
+    queryFn: ({ signal }) => fetchJson<ArchivedSeasonData>(`/api/stats/${leagueId}/archive/${season}`, signal),
+    enabled: leagueId != null && season != null && !!BACKEND_URL,
+    staleTime: ARCHIVE_STALE_TIME_MS,
+    gcTime: ARCHIVE_STALE_TIME_MS,
   });
 
   return {
