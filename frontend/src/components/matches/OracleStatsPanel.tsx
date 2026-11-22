@@ -1,6 +1,7 @@
 import { useLangStore } from '../../stores/langStore';
 import { tTeam } from '../../lib/dictionaries/teamsHe';
 import { cn } from '../../lib/utils';
+import { InfoTip } from '../ui/InfoTip';
 import { OracleDial } from './OracleDial';
 import { AIScoutCard } from '../ui/AIScoutCard';
 import type { Match, OracleTeamForm } from '../../lib/supabase';
@@ -108,7 +109,10 @@ export function OracleStatsPanel({ match }: OracleStatsPanelProps) {
     <div className="mt-2 px-3 py-2.5 rounded-xl border border-white/6 bg-white/[0.02]">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[9px] uppercase tracking-widest text-white/30">{t('oracleTitle')}</p>
-        <p className="text-[9px] text-white/20">{t('oracleSubtitle')}</p>
+        <div className="flex items-center">
+          <p className="text-[9px] text-white/20">{t('oracleSubtitle')}</p>
+          <InfoTip text={t('oracleExplainerTip')} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
