@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { fetchMatchKeyEvents } from '../services/espn';
+import { matchEventsLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -8,7 +9,7 @@ const router = Router();
  * Fetches key events (goals, cards, subs) from ESPN for a given match.
  * Public endpoint — no auth required.
  */
-router.get('/events', async (req: Request, res: Response) => {
+router.get('/events', matchEventsLimiter, async (req: Request, res: Response) => {
   const { external_id, league_id } = req.query;
 
   if (!external_id || !league_id) {

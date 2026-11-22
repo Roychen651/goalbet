@@ -52,11 +52,11 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
           exit={{ y: 60, opacity: 0, scale: 0.97 }}
           transition={{ type: 'spring', stiffness: 260, damping: 28 }}
           onClick={e => e.stopPropagation()}
-          className="w-full sm:max-w-lg bg-surface dark:bg-[#0c1610] border border-border dark:border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col"
+          className="w-full sm:max-w-lg bg-surface border border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col"
           style={{ maxHeight: 'min(88vh, calc(100svh - 1rem))' }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border dark:border-white/8 shrink-0">
+          <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/8 shrink-0">
             <div>
               <h2 className="font-bebas text-xl tracking-widest text-foreground">
                 {isHe ? 'מדיניות ותנאים' : 'Policy & Terms'}
@@ -67,7 +67,7 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-black/10 dark:bg-white/8 flex items-center justify-center text-text-muted hover:text-foreground hover:bg-black/15 dark:hover:bg-white/15 transition-colors"
+              className="w-8 h-8 rounded-full bg-white/8 border border-white/12 flex items-center justify-center text-text-muted hover:text-foreground hover:bg-white/15 transition-colors"
             >
               ✕
             </button>
@@ -81,7 +81,7 @@ export function PolicyModal({ onClose }: PolicyModalProps) {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05, type: 'spring', stiffness: 200, damping: 24 }}
-                className="flex gap-3 p-3 rounded-xl bg-black/5 dark:bg-white/4 border border-black/8 dark:border-white/8"
+                className="flex gap-3 p-3 rounded-xl bg-white/4 border border-white/8"
               >
                 <span className="text-xl shrink-0 mt-0.5">{s.icon}</span>
                 <div>

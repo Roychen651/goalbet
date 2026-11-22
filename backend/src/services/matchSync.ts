@@ -59,14 +59,17 @@ async function upsertMatches(matches: DBMatchWithClock[]): Promise<{ inserted: n
     .select('id, external_id');
 
   if (error) {
-    // TEMP DEBUG: surface the exact PostgREST error (schema/constraint issues
-    // were a suspected cause of "events fetched but nothing in the DB").
-    logger.error(`[matchSync][debug] Upsert FAILED for ${rows.length} rows: ${error.message} | details=${error.details ?? '-'} | hint=${error.hint ?? '-'}`);
+    logger.error(`[matchSync] Upsert FAILED for ${rows.length} rows: ${error.message} | details=${error.details ?? '-'} | hint=${error.hint ?? '-'}`);
     throw error;
   }
 
-  // TEMP DEBUG: rows sent vs rows the DB acknowledged.
-  logger.info(`[matchSync][debug] upsert ok: sent=${rows.length} acknowledged=${data?.length ?? 0}`);
+  // Full-app audit, Nov 2026 — was logger.info, firing on EVERY upsert
+  // (success or failure). Post the ESPN single-day-loop fix, syncLeague()
+  // calls this far more often relative to its own cost (one upsert per
+  // day's worth of events, not one per whole range) — demoted to debug
+  // (hidden by default, available when actually diagnosing a sync issue)
+  // rather than flooding production logs on every routine success.
+  logger.debug(`[matchSync] upsert ok: sent=${rows.length} acknowledged=${data?.length ?? 0}`);
   const idsByExternalId = new Map((data ?? []).map(r => [r.external_id as string, r.id as string]));
   return { inserted: data?.length ?? 0, updated: 0, idsByExternalId };
 }

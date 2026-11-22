@@ -384,6 +384,30 @@ function _computeBreakdown(
     results.push({ key: 'ou', label: 'Over/Under', pts: 3, earned });
   }
 
+  // Full-app audit, Nov 2026 — parlay bonus display. Mirrors
+  // pointsEngine.ts's own ROUND(linkedBaseSum * 0.25 * (k-1)) formula
+  // exactly (the bonus only ever fires when every linked tier is
+  // independently correct — found missing from this breakdown during a
+  // full-app audit: every real consumer (MatchCard, PredictionForm,
+  // ProfilePage) renders the prediction's own points_earned total — which
+  // already includes this bonus — directly above this itemized tier list,
+  // so a winning parlay's per-tier sum silently fell short of the banner
+  // total with zero line explaining the gap. Same backend-mirroring shape
+  // already established by the 'knockout' block immediately below.
+  if (prediction.is_parlay && prediction.parlay_linked_tiers && prediction.parlay_linked_tiers.length >= 2) {
+    const PARLAY_TIER_PTS: Record<string, number> = { result: 3, score: 7, corners: 4, btts: 2, ou: 3 };
+    const linkedTiers = prediction.parlay_linked_tiers;
+    const earnedByKey = new Map(results.map(r => [r.key, r.earned]));
+    const allLinkedCorrect = linkedTiers.every(key => earnedByKey.get(key) === true);
+    if (allLinkedCorrect) {
+      const linkedBaseSum = linkedTiers.reduce((sum, key) => sum + (PARLAY_TIER_PTS[key] ?? 0), 0);
+      const bonus = Math.round(linkedBaseSum * 0.25 * (linkedTiers.length - 1));
+      if (bonus > 0) {
+        results.push({ key: 'parlay', label: 'Parlay Bonus', pts: bonus, earned: true });
+      }
+    }
+  }
+
   // V6 Sprint 48 — knockout round-depth bonus. Only shown when the match
   // actually classifies as a knockout round AND the user made a result
   // pick at all (predicted_outcome set, or implied via an exact score) —

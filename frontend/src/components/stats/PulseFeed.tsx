@@ -64,7 +64,7 @@ function NewsCard({ article, lang, t }: { article: NewsArticle; lang: 'en' | 'he
       {showImage ? (
         <img
           src={article.imageUrl!}
-          alt=""
+          alt={article.headline}
           width={56}
           height={56}
           loading="lazy"
