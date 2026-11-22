@@ -41,16 +41,47 @@ function isRetryable(error: AxiosError): boolean {
   return status === 429 || (status >= 500 && status < 600);
 }
 
+// Temporary diagnostic — Nov 2026: every ESPN call started returning 400
+// after ~4 months of this backend being dormant, and every existing catch
+// site only ever logged `err.message` ("Request failed with status code
+// 400"), never the actual response body/headers ESPN sent back. Logs the
+// real body (truncated) + a few block/rate-limit-relevant headers exactly
+// once per failed request, right before it's rejected to the caller —
+// never on a successful retry, never twice for the same attempt.
+function logEspnFailureDetail(error: AxiosError): void {
+  const status = error.response?.status ?? 'network';
+  const url = error.config?.url ?? 'unknown-url';
+  const headers = error.response?.headers ?? {};
+  const interestingHeaders = {
+    server: headers['server'],
+    'cf-ray': headers['cf-ray'],
+    'cf-mitigated': headers['cf-mitigated'],
+    'content-type': headers['content-type'],
+    'retry-after': headers['retry-after'],
+    'x-envoy-ratelimited': headers['x-envoy-ratelimited'],
+  };
+  let bodyPreview = '';
+  try {
+    const raw = typeof error.response?.data === 'string' ? error.response.data : JSON.stringify(error.response?.data ?? '');
+    bodyPreview = raw.slice(0, 500);
+  } catch {
+    bodyPreview = '[unstringifiable body]';
+  }
+  logger.error(`[ESPN][diagnostic] ${status} on ${url} — headers=${JSON.stringify(interestingHeaders)} body=${bodyPreview}`);
+}
+
 type RetryableConfig = InternalAxiosRequestConfig & { __retryCount?: number };
 
 espnAxios.interceptors.response.use(undefined, async (error: AxiosError) => {
   const config = error.config as RetryableConfig | undefined;
   if (!config || !isRetryable(error)) {
+    logEspnFailureDetail(error);
     return Promise.reject(error);
   }
 
   config.__retryCount = (config.__retryCount ?? 0) + 1;
   if (config.__retryCount > MAX_RETRIES) {
+    logEspnFailureDetail(error);
     return Promise.reject(error);
   }
 
