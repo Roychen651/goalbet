@@ -5,6 +5,7 @@
 
 import { logger } from '../lib/logger';
 import { espnGet } from '../lib/espnHttp';
+import { processBatched } from '../lib/batch';
 import { DBMatch } from './sportsdb';
 import { FALLBACK_LEAGUE_MAP, refreshLeagueRegistry } from './leagueRegistry';
 
@@ -869,6 +870,35 @@ async function fetchOneScoreboardWindow(
   }
 }
 
+// V7 — Nov 2026, live incident. ESPN's `dates=FROM-TO` RANGE query format
+// started returning a hard `{"code":400,"message":"Failed to get events
+// endpoint."}` for EVERY league on this host, confirmed two independent
+// ways: (1) this backend's own Render logs showing the identical error for
+// every single league slug, every poll cycle, after ~4 months of this app
+// being dormant; (2) the user pasting the EXACT same scoreboard URL
+// directly into their own browser (zero involvement of our server or IP)
+// and getting the byte-identical error back. That rules out an IP-specific
+// block or a request-shape regression on our side — this is a genuine,
+// global ESPN-side format change. Independent community reports (multiple
+// unrelated open-source projects, across soccer/NFL/NBA/NHL/MLB, dated
+// around September 2026 onward) corroborate it precisely: the multi-day
+// RANGE form now 400s with this exact message on every sport this host
+// serves, while a SINGLE calendar day (`dates=YYYYMMDD`, no dash) still
+// returns 200. No source reports an intermediate chunk size (e.g. a 7-day
+// range) still working — the only CONFIRMED-safe granularity is one
+// calendar day per request, so that's what this function now does: it
+// never again requests a range, only ever a single day at a time.
+function generateDailyDateStrings(from: Date, to: Date): string[] {
+  const days: string[] = [];
+  const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  while (cursor.getTime() <= end.getTime()) {
+    days.push(formatDate(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
 export async function fetchLeagueMatches(
   leagueId: number,
   daysBack = 7,
@@ -883,59 +913,49 @@ export async function fetchLeagueMatches(
   const now = new Date();
   const from = new Date(now.getTime() - daysBack * 86_400_000);
   const to = new Date(now.getTime() + daysAhead * 86_400_000);
-  const dateRange = `${formatDate(from)}-${formatDate(to)}`;
+  const days = generateDailyDateStrings(from, to);
 
   // World Cup 2026 has exactly 104 total matches (72 group + 16 R32 + 8 R16
   // + 4 QF + 2 SF + 1 third-place + 1 final — confirmed against
-  // lib/worldCup2026.ts's own match labels, which run 1-104). With
-  // daysBack=45/daysAhead=90 for league 4480, once the tournament reaches
-  // its later rounds the date-range query genuinely spans all ~102-104
-  // scheduled events. `limit=100` silently truncated ESPN's response at
-  // exactly 100 — the LAST couple of chronologically-latest events (the
-  // 3rd-place match and the Final) never appeared in `data.events` at all,
-  // on every single sync, forever, once the total crossed 100. This was a
-  // real, live bug: a user confirmed ESPN's own data already had the real
-  // qualified teams while our synced rows stayed stuck on ESPN's original
-  // bracket-slot placeholder names ("S1"/"S2") — a forced re-sync didn't
-  // help, because the truncation happens identically on every request, not
-  // a one-time staleness gap. 250 gives real headroom over any single
-  // league's real match count (World Cup is the largest by far) with
-  // negligible payload cost.
-  const baseUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=250&dates=${dateRange}`;
-
-  // Hotfix v2 — European qualifier/playoff-round fixtures missing from the
-  // UPCOMING feed for UCL/UEL/UECL. v1 (seasontype=1 on the main slug) was
-  // deployed and a real user confirmed qualifying matches ARE being played
-  // right now yet still didn't appear — proving that theory wrong, not
-  // just unconfirmed. This adds an explicit, ADDITIONAL request against
-  // each competition's own separate ESPN qualifying-league slug (see
-  // QUALIFYING_SLUG_MAP above) — strictly additive, never replacing the
-  // existing main-slug request. Any event both requests happen to return
-  // (unlikely here, since these are genuinely distinct ESPN league
-  // entities, but still handled) is deduped below by ESPN's own event id,
-  // matching the DB's own upsert-by-external_id key (matchSync.ts). The
-  // `[ESPN][qualifiers]` log line gives real visibility into match counts
-  // on the next live sync cycle.
-  const requests: { url: string; slug: string }[] = [{ url: baseUrl, slug }];
+  // lib/worldCup2026.ts's own match labels, which run 1-104). `limit=250`
+  // (not ESPN's own default of 100) still matters per-day: a busy group-
+  // stage matchday can have several simultaneous kickoffs across multiple
+  // leagues sharing one slug's response, and 250 gives real headroom with
+  // negligible payload cost — kept unchanged from the range-query era.
+  //
+  // Hotfix v2 (pre-existing, unrelated to the range→day-loop change above)
+  // — European qualifier/playoff-round fixtures missing from the UPCOMING
+  // feed for UCL/UEL/UECL. ESPN models qualifying as its own SEPARATE
+  // league slug (QUALIFYING_SLUG_MAP), queried ADDITIVELY alongside the
+  // main slug, never replacing it. Both slugs now go through the identical
+  // per-day loop below.
   const qualSlug = QUALIFYING_SLUG_MAP[leagueId];
-  if (qualSlug) {
-    requests.push({
-      url: `https://site.api.espn.com/apis/site/v2/sports/soccer/${qualSlug}/scoreboard?limit=250&dates=${dateRange}`,
-      slug: qualSlug,
+  const slugsToFetch = qualSlug ? [slug, qualSlug] : [slug];
+
+  // Deliberately conservative throttling, not just processBatched()'s bare
+  // defaults left as an afterthought: this specific unofficial endpoint has
+  // already been IP-blocked by ESPN once before (independently confirmed,
+  // Oct 2026), and this change multiplies real request volume a LOT for
+  // the wide fixture-sync window (up to ~135 days for World Cup, vs. 1
+  // request before). processBatched's existing batchSize=5/gap=500ms
+  // defaults (already tuned for exactly this endpoint — see concurrencyLimiter.ts)
+  // keep the per-second request RATE this process generates unchanged from
+  // before this fix — we're not bursting harder, only running the same
+  // gentle cadence for longer to cover the same calendar span one day at a
+  // time instead of one range. Every call still funnels through the same
+  // process-wide espnLimiter regardless of what's passed here.
+  const byExternalId = new Map<string, DBMatchWithClock>();
+  for (const oneSlug of slugsToFetch) {
+    await processBatched(days, async (day) => {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${oneSlug}/scoreboard?limit=250&dates=${day}`;
+      const parsed = await fetchOneScoreboardWindow(url, oneSlug, leagueId, day);
+      for (const m of parsed) byExternalId.set(m.external_id, m);
     });
   }
 
-  const byExternalId = new Map<string, DBMatchWithClock>();
-  for (const { url: oneUrl, slug: oneSlug } of requests) {
-    const parsed = await fetchOneScoreboardWindow(oneUrl, oneSlug, leagueId, dateRange);
-    for (const m of parsed) byExternalId.set(m.external_id, m);
-  }
-
   const matches = Array.from(byExternalId.values());
-  if (requests.length > 1) {
-    logger.info(
-      `[ESPN][qualifiers] league=${leagueId} main=${slug} qual=${qualSlug}: merged ${requests.length} requests → ${matches.length} unique matches (range=${dateRange})`,
-    );
-  }
+  logger.info(
+    `[ESPN] league=${leagueId} slug=${slug}${qualSlug ? `+${qualSlug}` : ''}: scanned ${days.length} day(s) × ${slugsToFetch.length} slug(s) → ${matches.length} unique matches`,
+  );
   return matches;
 }

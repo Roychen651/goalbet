@@ -10,6 +10,7 @@
 
 import { logger } from '../lib/logger';
 import { espnGet } from '../lib/espnHttp';
+import { processBatched } from '../lib/batch';
 import { LEAGUE_ESPN_MAP } from './espn';
 
 export interface StandingsRow {
@@ -748,12 +749,35 @@ export async function getTeamForm(leagueId: number, teamId: string): Promise<Tea
 
   const to = new Date();
   const from = new Date(to.getTime() - 60 * 86_400_000); // 60-day lookback — enough for ≥5 played matches even for continental teams with sparser fixture lists
-  const dateRange = `${formatEspnDate(from)}-${formatEspnDate(to)}`;
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=200&dates=${dateRange}`;
 
   try {
-    const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
-    const events = (data?.events as Record<string, unknown>[] | undefined) ?? [];
+    // V7 — Nov 2026, same live incident as espn.ts's fetchLeagueMatches():
+    // ESPN's dates=FROM-TO range form now 400s globally
+    // ({"code":400,"message":"Failed to get events endpoint."}), confirmed
+    // both from this app's own logs and independently from the reporting
+    // user's own browser hitting the identical URL directly. Single-day
+    // (dates=YYYYMMDD) is the only confirmed-still-working granularity —
+    // see that file's header comment for the full incident writeup. This
+    // is a lazy, on-demand, 15-min-cached fetch (only fires once a
+    // standings row is actually expanded), so the ~10s worst-case latency
+    // of 60 batched single-day requests is acceptable here — it's not a
+    // hot/frequent polling path.
+    const days: string[] = [];
+    const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+    while (cursor.getTime() <= end.getTime()) {
+      days.push(formatEspnDate(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    const eventsById = new Map<string, Record<string, unknown>>();
+    await processBatched(days, async (day) => {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=200&dates=${day}`;
+      const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+      const dayEvents = (data?.events as Record<string, unknown>[] | undefined) ?? [];
+      for (const ev of dayEvents) eventsById.set(String(ev.id ?? ''), ev);
+    });
+    const events = Array.from(eventsById.values());
 
     const teamMatches: TeamFormMatch[] = [];
     for (const event of events) {
