@@ -170,7 +170,7 @@ export function HomePage() {
           transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.3 }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.93 }}
-          className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent-green/10 border-2 border-accent-green/40 text-accent-green text-xs font-semibold hover:bg-accent-green/20 hover:border-accent-green/70 hover:shadow-[0_0_16px_rgba(0,255,135,0.25)] transition-colors duration-200"
+          className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent-green/10 border-2 border-accent-green/40 text-accent-green text-xs font-semibold hover:bg-accent-green/20 hover:border-accent-green/70 hover:shadow-[0_0_16px_rgba(var(--color-live-glow-rgb), 0.25)] transition-colors duration-200"
           title="How scoring works"
         >
           <span className="text-sm leading-none">🏆</span>
@@ -247,7 +247,7 @@ export function HomePage() {
                     <motion.div
                       layoutId="activeTabPill"
                       transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                      className="absolute inset-0 rounded-full bg-accent-green shadow-[0_0_12px_rgba(0,255,135,0.35)]"
+                      className="absolute inset-0 rounded-full bg-accent-green shadow-[0_0_12px_rgba(var(--color-live-glow-rgb), 0.35)]"
                     />
                   )}
                   <span className="relative z-10">{tab.label}</span>

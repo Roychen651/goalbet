@@ -25,6 +25,21 @@
   --color-accent-secondary: #4988C4; /* Steel Blue */
   --color-accent-orange: #FF3366;
   --color-accent-orange-rgb: 255, 51, 102;
+  /* Full-app audit, Nov 2026 — a raw rgba(0,255,135,...) literal was
+     repeated across 14 files as the de facto "this is live/active right
+     now" glow (match-live dots, duel/notification pulses, auth-flow
+     accents), never tokenized, totally distinct from
+     --color-accent-green's ice-blue BRAND identity above. Promoted here
+     in place — same value, zero visual change — so a future rebrand of
+     either one can never accidentally touch the other. Deliberately the
+     SAME triple in both :root and html.light: no existing override ever
+     re-tinted this color for light mode, so there's no real light-mode
+     value to invent. NOT the World Cup Tri-Host Aurora's Mexico blob
+     (.wc-aurora-blob.mexico / .wc-brutalist-fill below) — that's a
+     coincidentally-identical hex (#00FF87) for an unrelated reason
+     (Mexico's host-nation color), explicitly its own theme-locked system
+     per this file's WC section — never merge the two. */
+  --color-live-glow-rgb: 0, 255, 135;
   --color-text-primary: #FFFFFF;
   --color-text-muted: rgba(189, 232, 245, 0.60); /* Muted Ice Blue */
   --color-border-subtle: rgba(73, 136, 196, 0.20); /* Crystal glass */
@@ -49,6 +64,27 @@
   --card-hover-border: rgba(189, 232, 245, 0.35);
   /* match card border glow hover */
   --card-hover-glow: 0 0 0 1px rgba(189, 232, 245, 0.30), 0 0 18px rgba(73, 136, 196, 0.28);
+
+  /* Full-app audit, Nov 2026 — index of every scoped color-token family
+     below (and --color-live-glow-rgb above), one real meaning per line, so
+     a future sprint can check "does an existing family already cover
+     this" in seconds instead of re-deriving the whole exclusion chain
+     each one's own comment already walks through. Compiled by reading
+     every family's actual comment in this file, not guessed from names.
+       --color-live-glow-rgb   this specific match/duel/notification is LIVE right now
+       --arena-*               predictor performance (win-ratio), diverging
+       --risk-*                how much of a balance one bet stakes
+       --streak-*              per-group streak LENGTH, 3 fixed tiers
+       --bento-volt/-purple-rgb Profile Bento card identities (volt/purple)
+       --oracle-*              historical occurrence frequency, diverging
+       --parlay-*              chained-bet payoff intensity, diverging
+       --battle-*              fixed 2-side identity (challenger/defender)
+       --epoch-*               6 fixed "What's New" era accent hues
+       --arena-division-*      cross-platform ranking division, 4 fixed tiers
+       --spotlight-*           real recent match action (goal in last 60s)
+       --glass-glare           theme-neutral physical light reflection
+       --sim-*                 Monte Carlo simulated-probability, sequential
+  */
 
   /* Sprint 15 — Bento Arena diverging scale (OKLCH). Independent hue anchors
      from --color-accent-green/orange on purpose: those two tokens swap hue
@@ -235,6 +271,7 @@ html.light {
   --color-accent-secondary: #4988C4;
   --color-accent-orange: #c94a1a;
   --color-accent-orange-rgb: 201, 74, 26;
+  --color-live-glow-rgb: 0, 255, 135; /* same triple as dark — see :root's comment */
   --color-text-primary: #0A1733;
   --color-text-muted: #4988C4;
   --color-border-subtle: rgba(15, 40, 84, 0.08);

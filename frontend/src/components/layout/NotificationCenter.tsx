@@ -143,7 +143,7 @@ function NotifRow({ notif, t, onRead, onDismiss, onCta }: {
           {/* Unread dot */}
           <div className="mt-1.5 shrink-0 w-2">
             {!notif.is_read && (
-              <span className="block w-2 h-2 rounded-full bg-accent-green shadow-[0_0_6px_rgba(0,255,135,0.7)]" />
+              <span className="block w-2 h-2 rounded-full bg-accent-green shadow-[0_0_6px_rgba(var(--color-live-glow-rgb), 0.7)]" />
             )}
           </div>
 

@@ -147,7 +147,7 @@ export function MatchFeed({
             {hasBothSections && (
               <>
                 <div className="flex items-center gap-2 mb-3 px-1">
-                  <span className="w-2 h-2 rounded-full bg-accent-green shrink-0 shadow-[0_0_6px_rgba(0,255,135,0.8)] animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-accent-green shrink-0 shadow-[0_0_6px_rgba(var(--color-live-glow-rgb), 0.8)] animate-pulse" />
                   <span className="text-accent-green text-[11px] uppercase tracking-[0.16em] font-bold">
                     {t('liveNow')}
                   </span>

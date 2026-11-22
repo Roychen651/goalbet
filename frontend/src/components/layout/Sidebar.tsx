@@ -99,7 +99,7 @@ export function Sidebar() {
             🔔
             {unreadCount > 0 && (
               <span className="absolute -top-1 -end-1 w-2.5 h-2.5 rounded-full bg-accent-green
-                               shadow-[0_0_6px_rgba(0,255,135,0.7)] animate-pulse" />
+                               shadow-[0_0_6px_rgba(var(--color-live-glow-rgb), 0.7)] animate-pulse" />
             )}
           </span>
           <span>{t('notifications')}</span>

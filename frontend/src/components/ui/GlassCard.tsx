@@ -78,8 +78,8 @@ export function GlassCard({
     'card-base',
     variant === 'elevated' && 'card-elevated', // shadow now lives in .card-elevated (single source of truth, theme-aware)
     variant === 'live' && [
-      'border-accent-green/30 bg-[rgba(0,255,135,0.04)]',
-      'shadow-[0_0_30px_rgba(0,255,135,0.08),inset_0_1px_0_rgba(0,255,135,0.08)]',
+      'border-accent-green/30 bg-[rgba(var(--color-live-glow-rgb), 0.04)]',
+      'shadow-[0_0_30px_rgba(var(--color-live-glow-rgb), 0.08),inset_0_1px_0_rgba(var(--color-live-glow-rgb), 0.08)]',
     ],
     variant === 'live-predicted' && [
       'border-blue-400/35 bg-[rgba(96,165,250,0.05)]',

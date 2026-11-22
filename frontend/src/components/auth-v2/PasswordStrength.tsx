@@ -12,7 +12,7 @@ const STRENGTH_META: Record<StrengthLevel, { bars: number; color: string; label:
   weak:         { bars: 1, color: 'bg-red-500',        label: 'Weak',        glow: '0 0 8px rgba(239,68,68,0.5)' },
   fair:         { bars: 2, color: 'bg-amber-400',      label: 'Fair',        glow: '0 0 8px rgba(251,191,36,0.5)' },
   strong:       { bars: 3, color: 'bg-lime-400',       label: 'Strong',      glow: '0 0 8px rgba(163,230,53,0.5)' },
-  'very-strong':{ bars: 4, color: 'bg-accent-green',   label: 'Very strong', glow: '0 0 10px rgba(0,255,135,0.6)' },
+  'very-strong':{ bars: 4, color: 'bg-accent-green',   label: 'Very strong', glow: '0 0 10px rgba(var(--color-live-glow-rgb), 0.6)' },
 };
 
 // ─── Requirement rows ─────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ export function PasswordStrength({ password }: { password: string }) {
                   >
                     <motion.path
                       d="M 2 5 L 4.2 7.2 L 8 3"
-                      stroke="rgba(0,255,135,1)"
+                      stroke="rgba(var(--color-live-glow-rgb), 1)"
                       strokeWidth="1.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"

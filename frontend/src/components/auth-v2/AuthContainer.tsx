@@ -182,7 +182,7 @@ function PrimaryButton({
       className={cn(
         'relative flex items-center justify-center w-full py-3 rounded-xl text-sm font-bold transition-all duration-200',
         'bg-accent-green text-bg-base',
-        'shadow-[0_0_0_0_rgba(0,255,135,0)] hover:shadow-[0_0_18px_rgba(0,255,135,0.35)]',
+        'shadow-[0_0_0_0_rgba(var(--color-live-glow-rgb), 0)] hover:shadow-[0_0_18px_rgba(var(--color-live-glow-rgb), 0.35)]',
         'disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none',
       )}
     >
@@ -995,7 +995,7 @@ function SuccessView() {
           {/* Glowing background circle */}
           <motion.circle
             cx="50" cy="50" r="44"
-            fill="rgba(0,255,135,0.06)"
+            fill="rgba(var(--color-live-glow-rgb), 0.06)"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 260, damping: 22 }}
@@ -1003,7 +1003,7 @@ function SuccessView() {
           {/* Border circle — draws itself */}
           <motion.circle
             cx="50" cy="50" r="44"
-            stroke="rgba(0,255,135,0.3)"
+            stroke="rgba(var(--color-live-glow-rgb), 0.3)"
             strokeWidth="1.5"
             pathLength="1"
             initial={{ pathLength: 0, opacity: 0 }}
@@ -1013,7 +1013,7 @@ function SuccessView() {
           {/* Solid accent ring — draws itself slightly delayed */}
           <motion.circle
             cx="50" cy="50" r="38"
-            stroke="rgba(0,255,135,0.15)"
+            stroke="rgba(var(--color-live-glow-rgb), 0.15)"
             strokeWidth="1"
             pathLength="1"
             initial={{ pathLength: 0 }}
@@ -1023,7 +1023,7 @@ function SuccessView() {
           {/* Checkmark — draws itself after circle */}
           <motion.path
             d="M 28 50 L 44 66 L 72 34"
-            stroke="#00ff87"
+            stroke="rgb(var(--color-live-glow-rgb))"
             strokeWidth="5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -1041,7 +1041,7 @@ function SuccessView() {
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1.4, opacity: 0 }}
           transition={{ duration: 0.6, delay: 0.7, ease: 'easeOut' }}
-          style={{ background: 'radial-gradient(circle, rgba(0,255,135,0.25) 0%, transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(var(--color-live-glow-rgb), 0.25) 0%, transparent 70%)' }}
         />
       </div>
 
@@ -1071,7 +1071,7 @@ function SuccessView() {
           initial={{ width: '0%' }}
           animate={{ width: '100%' }}
           transition={{ duration: 1.8, delay: 0.5, ease: 'easeInOut' }}
-          style={{ boxShadow: '0 0 8px rgba(0,255,135,0.6)' }}
+          style={{ boxShadow: '0 0 8px rgba(var(--color-live-glow-rgb), 0.6)' }}
         />
       </motion.div>
     </div>
@@ -1111,7 +1111,7 @@ export function AuthContainer() {
         {/* ── Ambient orbs (match LoginPage atmosphere) ── */}
         <div
           className="absolute -top-32 -start-32 w-[600px] h-[600px] rounded-full pointer-events-none animate-orb-drift"
-          style={{ background: 'radial-gradient(circle, rgba(0,255,135,0.11) 0%, transparent 70%)', filter: 'blur(40px)' }}
+          style={{ background: 'radial-gradient(circle, rgba(var(--color-live-glow-rgb), 0.11) 0%, transparent 70%)', filter: 'blur(40px)' }}
         />
         <div
           className="absolute -bottom-40 -end-20 w-[700px] h-[700px] rounded-full pointer-events-none animate-orb-drift-rev"
@@ -1148,7 +1148,7 @@ export function AuthContainer() {
               <span className="font-bebas text-3xl tracking-widest text-white" aria-hidden>GOAL</span>
               <span
                 className="font-bebas text-3xl tracking-widest text-accent-green"
-                style={{ textShadow: '0 0 20px rgba(0,255,135,0.4)' }}
+                style={{ textShadow: '0 0 20px rgba(var(--color-live-glow-rgb), 0.4)' }}
                 aria-hidden
               >
                 BET
