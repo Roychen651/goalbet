@@ -298,7 +298,7 @@ export function ReAuthModal({
                   whileHover={{ scale: (!emailOk || !pw || loading) ? 1 : 1.02 }}
                   whileTap={{ scale: (!emailOk || !pw || loading) ? 1 : 0.97 }}
                   className="flex items-center justify-center w-full py-3 rounded-xl bg-accent-green text-bg-base text-sm font-bold
-                             hover:shadow-[0_0_16px_rgba(0,255,135,0.35)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                             hover:shadow-[0_0_16px_rgba(var(--color-live-glow-rgb), 0.35)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? <div className="w-4 h-4 rounded-full border-2 border-bg-base/30 border-t-bg-base animate-spin" /> : 'Sign In'}
                 </motion.button>

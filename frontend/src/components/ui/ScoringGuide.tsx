@@ -103,7 +103,7 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
           {/* Ambient gradient */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-64 h-32 rounded-full"
-              style={{ background: 'radial-gradient(ellipse, rgba(0,255,135,0.08) 0%, transparent 70%)', filter: 'blur(20px)' }} />
+              style={{ background: 'radial-gradient(ellipse, rgba(var(--color-live-glow-rgb), 0.08) 0%, transparent 70%)', filter: 'blur(20px)' }} />
           </div>
 
           {/* Mobile drag handle */}

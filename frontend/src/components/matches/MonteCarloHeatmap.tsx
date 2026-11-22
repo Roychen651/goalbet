@@ -5,6 +5,7 @@ import { interpolateSimulation } from '../../lib/oklch';
 import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
 import { cn } from '../../lib/utils';
+import { InfoTip } from '../ui/InfoTip';
 import type { Match } from '../../lib/supabase';
 import type { ScoreProbability } from '../../workers/monteCarloWorker';
 
@@ -90,7 +91,10 @@ export function MonteCarloHeatmap({ match, onSelectScore }: MonteCarloHeatmapPro
     <div className="mt-2 px-3 py-2.5 rounded-xl border border-white/6 bg-white/[0.02]">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[9px] uppercase tracking-widest text-white/30">{t('monteCarloTitle')}</p>
-        <p className="text-[9px] text-white/20">{t('monteCarloSubtitle')}</p>
+        <div className="flex items-center">
+          <p className="text-[9px] text-white/20">{t('monteCarloSubtitle')}</p>
+          <InfoTip text={t('monteCarloExplainerTip')} />
+        </div>
       </div>
 
       <AnimatePresence mode="wait">

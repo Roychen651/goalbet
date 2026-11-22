@@ -1392,7 +1392,7 @@ function TeamBlock({ name, haloKey, badge, score, isWinner, isLeading, right, re
             loading="lazy"
             className={cn(
               'w-9 h-9 transition-all duration-200',
-              highlight && 'drop-shadow-[0_0_8px_rgba(0,255,135,0.5)] scale-105',
+              highlight && 'drop-shadow-[0_0_8px_rgba(var(--color-live-glow-rgb), 0.5)] scale-105',
             )}
           />
         </div>

@@ -268,6 +268,10 @@ function FaqCard({ isHe }: { isHe: boolean }) {
     { icon: '🏆', title: 'מקסימום נקודות', desc: '19 נקודות למשחק בודד — כל 5 השלבים במלואם, כולל בונוס התוצאה המדויקת.' },
     { icon: '👥', title: 'קופה משותפת', desc: 'בקצה מסך הניחוש תוכלו לפתוח קופה משותפת עם הניחוש שבחרתם. כל חבר קבוצה יכול לתרום מטבעות — אם הניחוש יוצא נכון, הזכייה מתחלקת בין כל התורמים לפי אחוז התרומה שלהם.' },
     { icon: '⚔️', title: 'קרב קבוצות', desc: 'בהגדרות אפשר לאתגר קבוצה יריבה עם קוד ההזמנה שלה, לתקופה של סוף שבוע או שבוע. הניצחון נקבע לפי ממוצע 5 הניחושים הכי טובים של כל קבוצה באותה תקופה.' },
+    { icon: '🔮', title: 'אורקל וסימולטור תוצאות', desc: 'האורקל מציג את צורת המשחק האמיתית של כל קבוצה ב-10 המשחקים האחרונים. סימולטור התוצאות מריץ 50,000 סימולציות להערכת התוצאות הסופיות הסבירות ביותר. שניהם הערכות, לא הבטחות.' },
+    { icon: '⚔️', title: 'דו-קרב חי', desc: 'אתגרו את הקבוצה להתערבות 1 על 1 במשחק חי. המנצח/ת לוקח/ת את שני ההימורים — נקבע לפי שינוי התוצאה בכ-10 הדקות שאחרי נעילת הדו-קרב. שוויון מחזיר את ההימור לשני הצדדים.' },
+    { icon: '🔁', title: 'שכפול ניחוש', desc: 'אפשר לשכפל ניחוש שחבר כבר נעל, בלחיצה אחת מהלוקר רום. זה עולה אותם מטבעות כמו ניחוש עצמאי — ואם זוכה, הבוחר/ת המקורי/ת מקבל/ת גם רויאלטי קטן, בנוסף לנקודות המלאות שלך.' },
+    { icon: '🏆', title: 'מסלול נוקאאוט ועונות קודמות', desc: 'עבור ליגת האלופות, ליגת אירופה וליגת הכנפרנס: סטטיסטיקות ← ליגות ← בחרו תחרות ← לשונית נוקאאוט. לצפייה בעונה שהסתיימה: סטטיסטיקות ← ליגות ← תפריט בחירת העונה.' },
   ] : [
     { icon: '🟢', title: 'Live updates', desc: 'Live matches refresh every 30 seconds, pulled directly from ESPN.' },
     { icon: '⚽', title: 'Extra time & penalties', desc: 'Predictions always use the 90-minute score only. Goals in extra time and penalty shootouts never count toward points.' },
@@ -278,6 +282,10 @@ function FaqCard({ isHe }: { isHe: boolean }) {
     { icon: '🏆', title: 'Maximum points', desc: '19 points on a single match — all 5 tiers correct, including the exact-score stacking bonus.' },
     { icon: '👥', title: 'Shared Pools', desc: 'From the prediction sheet, start a Shared Pool with your picked tiers. Any group member can contribute coins — if the pick is fully correct, the winnings split among all contributors by their share of the total stake.' },
     { icon: '⚔️', title: 'Group Battles', desc: "From Settings, challenge a rival group using their invite code, over a weekend or a full week. The winner is whichever group's top 5 point-scoring predictions in that window average higher." },
+    { icon: '🔮', title: 'Oracle & Score Simulator', desc: "The Oracle shows each team's real last-10-match form. The Score Simulator runs 50,000 simulations to estimate the most likely final scores. Both are estimates, not guarantees." },
+    { icon: '⚔️', title: 'Live Duels', desc: "Challenge the group to a 1v1 bet on a live match. Winner takes both stakes — decided by the score change in the ~10 minutes after the duel locks. A tie refunds both sides." },
+    { icon: '🔁', title: 'Tailing a prediction', desc: "Copy a friend's already-locked pick from the Locker Room with one tap. It costs the same coins as predicting it yourself — if it wins, the original picker earns a small royalty too, on top of your own full points." },
+    { icon: '🏆', title: 'Knockout bracket & past seasons', desc: 'For Champions League, Europa League and Conference League: open Stats → Leagues → pick the competition → Knockout tab. To see a past completed season: Stats → Leagues → the season dropdown.' },
   ];
 
   return (

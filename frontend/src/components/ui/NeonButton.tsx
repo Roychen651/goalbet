@@ -35,7 +35,7 @@ export function NeonButton({
         // Variants
         variant === 'green' && [
           'bg-accent-green text-bg-base',
-          'hover:brightness-110 hover:shadow-[0_0_25px_rgba(0,255,135,0.5)] hover:scale-[1.02]',
+          'hover:brightness-110 hover:shadow-[0_0_25px_rgba(var(--color-live-glow-rgb), 0.5)] hover:scale-[1.02]',
           'active:scale-[0.98] active:brightness-95',
         ],
         variant === 'orange' && [

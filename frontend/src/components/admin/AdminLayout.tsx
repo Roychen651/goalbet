@@ -23,7 +23,7 @@ export function AdminLayout() {
         <div className="px-5 py-6">
           <div className="flex items-baseline gap-1.5">
             <span className="font-bebas text-2xl tracking-widest text-white">GOAL</span>
-            <span className="font-bebas text-2xl tracking-widest text-accent-green" style={{ textShadow: '0 0 20px rgba(0,255,135,0.4)' }}>BET</span>
+            <span className="font-bebas text-2xl tracking-widest text-accent-green" style={{ textShadow: '0 0 20px rgba(var(--color-live-glow-rgb), 0.4)' }}>BET</span>
           </div>
           <div className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-red-500/15 px-2 py-0.5">
             <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />

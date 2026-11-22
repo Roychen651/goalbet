@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Swords, X } from 'lucide-react';
 import { CoinIcon } from '../ui/CoinIcon';
+import { InfoTip } from '../ui/InfoTip';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useGroupStore } from '../../stores/groupStore';
@@ -204,7 +205,10 @@ export function LiveDuelDrawer({ matchId, homeTeam, awayTeam, onClose }: LiveDue
             <Swords size={18} className="text-blue-300 shrink-0" />
             <div className="min-w-0">
               <h2 className="font-bebas text-2xl tracking-wider text-white">{t('duelTitle')}</h2>
-              <p className="text-white/45 text-xs truncate">{t('duelSubtitle')}</p>
+              <div className="flex items-center">
+                <p className="text-white/45 text-xs truncate">{t('duelSubtitle')}</p>
+                <InfoTip text={t('duelExplainerTip')} />
+              </div>
             </div>
             <button type="button" onClick={onClose} className="ms-auto p-1.5 rounded-full hover:bg-white/8 shrink-0">
               <X size={16} className="text-white/50" />

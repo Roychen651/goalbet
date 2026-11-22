@@ -10,6 +10,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useGroupEvents, type GroupEvent } from '../../hooks/useGroupEvents';
 import { CosmeticAvatar } from '../ui/CosmeticAvatar';
 import { EmptyState } from '../ui/EmptyState';
+import { InfoTip } from '../ui/InfoTip';
 import { cn, timeAgo } from '../../lib/utils';
 import { CoinIcon } from '../ui/CoinIcon';
 import { tg, type TranslationKey } from '../../lib/i18n';
@@ -482,19 +483,22 @@ function TailButton({ event, t }: { event: GroupEvent; t: (k: TranslationKey) =>
   if (isOwn || !sourcePredictionId || !stillOpen || tailed) return null;
 
   return (
-    <button
-      type="button"
-      onClick={tail}
-      disabled={submitting}
-      className={cn(
-        'inline-flex items-center gap-1.5 mt-0.5 px-2.5 py-1 rounded-lg',
-        'text-xs font-semibold border border-blue-400/30 text-blue-300 bg-blue-400/10',
-        'transition-all active:scale-95 disabled:opacity-50',
-      )}
-    >
-      <Repeat2 size={13} />
-      {t('tailButtonLabel')}
-    </button>
+    <span className="inline-flex items-center gap-1 mt-0.5">
+      <button
+        type="button"
+        onClick={tail}
+        disabled={submitting}
+        className={cn(
+          'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg',
+          'text-xs font-semibold border border-blue-400/30 text-blue-300 bg-blue-400/10',
+          'transition-all active:scale-95 disabled:opacity-50',
+        )}
+      >
+        <Repeat2 size={13} />
+        {t('tailButtonLabel')}
+      </button>
+      <InfoTip text={t('tailExplainerTip')} />
+    </span>
   );
 }
 
