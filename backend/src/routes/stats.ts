@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getLeagueStats, getTeamForm, getCurrentSeasonRaw } from '../services/stats';
 import { getLeagueNews } from '../services/leagueNews';
 import { listArchivedSeasons, getArchivedSeason } from '../services/seasonArchive';
+import { teamFormLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.get('/:leagueId', async (req: Request, res: Response) => {
 
 // V4 Sprint 27 — Interactive Team Sheets. Lazy: only ever called when a
 // standings row is actually expanded on the frontend, never prefetched/batched.
-router.get('/:leagueId/team/:teamId/form', async (req: Request, res: Response) => {
+router.get('/:leagueId/team/:teamId/form', teamFormLimiter, async (req: Request, res: Response) => {
   const leagueId = parseInt(req.params.leagueId, 10);
   const teamId = req.params.teamId;
   if (!Number.isFinite(leagueId) || !teamId) {

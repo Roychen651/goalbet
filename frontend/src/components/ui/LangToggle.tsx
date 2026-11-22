@@ -22,6 +22,7 @@ export function LangToggle({ className, compact = false }: LangToggleProps) {
         className
       )}
       title={lang === 'en' ? 'Switch to Hebrew' : 'עבור לאנגלית'}
+      aria-label={lang === 'en' ? 'Switch to Hebrew' : 'עבור לאנגלית'}
     >
       {/* Text label, not a flag emoji — flag glyph metrics/rendering are
           inconsistent across platforms (some even render a bare two-letter

@@ -8,6 +8,23 @@ import { syncAuth } from '../middleware/syncAuth';
 
 const router = Router();
 
+// Full-app audit, Nov 2026 — a module-level re-entrancy guard for the
+// `all:true` path specifically. This route is PUBLIC and only bounded by
+// matchesSyncLimiter's 10-req/min-per-IP budget — nothing previously
+// stopped a second `{all:true}` call from starting a SECOND full fan-out
+// across every mapped league while the first was still running. Both
+// calls' individual ESPN requests already serialize safely through the
+// single process-wide espnLimiter (concurrencyLimiter.ts), so this was
+// never a true concurrency-burst risk — but it WAS a real elevated total
+// request-volume risk: two overlapping ~270s runs mean roughly 2x the
+// total ESPN calls in the same calendar window, which is exactly the kind
+// of pattern that already got this exact endpoint IP-blocked once before
+// (independently confirmed, Oct 2026). A second call while one is already
+// in flight is now a cheap, immediate no-op instead of a second expensive
+// operation — this never affects a legitimate single admin click, which
+// is this route's only real documented use of `all:true` (§19).
+let forceSyncAllInFlight = false;
+
 // ── Handlers (shared by the public browser routes and the internal cron routes) ──
 //   body: { leagueIds?: number[] }  → sync only those leagues
 //   body: { all: true }             → force-sync EVERY ESPN-mapped league,
@@ -19,16 +36,35 @@ async function syncMatchesHandler(req: Request, res: Response): Promise<void> {
   try {
     let results;
     if (all) {
-      const mapped = Object.keys(LEAGUE_ESPN_MAP).map(Number);
-      logger.info(`[sync] FORCE sync triggered for ALL ${mapped.length} mapped leagues`);
-      results = [];
-      for (const id of mapped) {
-        results.push(await syncLeague(id));
-        await new Promise(r => setTimeout(r, 300));
+      if (forceSyncAllInFlight) {
+        logger.warn('[sync] FORCE sync already in progress — rejecting overlapping request');
+        res.status(409).json({ success: false, error: 'A full force-sync is already running' });
+        return;
+      }
+      forceSyncAllInFlight = true;
+      try {
+        const mapped = Object.keys(LEAGUE_ESPN_MAP).map(Number);
+        logger.info(`[sync] FORCE sync triggered for ALL ${mapped.length} mapped leagues`);
+        results = [];
+        for (const id of mapped) {
+          results.push(await syncLeague(id));
+          await new Promise(r => setTimeout(r, 300));
+        }
+      } finally {
+        forceSyncAllInFlight = false;
       }
     } else if (leagueIds && leagueIds.length > 0) {
-      logger.info(`[sync] Manual sync triggered for leagues: ${leagueIds.join(', ')}`);
-      results = await Promise.all(leagueIds.map(id => syncLeague(id)));
+      // Full-app audit, Nov 2026 — dedupe + cap. No legitimate caller
+      // (AppShell, useMatchSync, admin force-sync) ever sends more than a
+      // handful of real, unique league IDs; there are only ~15 mapped
+      // leagues total. Without this, a body like
+      // {"leagueIds":[4328,4328,...×500]} could fire hundreds of fully
+      // parallel syncLeague() calls on this unauthenticated route — each
+      // one now a ~17-25s ESPN day-loop post this session's own fix,
+      // instead of the single cheap range call it used to be.
+      const uniqueLeagueIds = [...new Set(leagueIds)].slice(0, 20);
+      logger.info(`[sync] Manual sync triggered for leagues: ${uniqueLeagueIds.join(', ')}`);
+      results = await Promise.all(uniqueLeagueIds.map(id => syncLeague(id)));
     } else {
       logger.info('[sync] Manual sync triggered for all active leagues');
       results = await syncAllActiveLeagues();
