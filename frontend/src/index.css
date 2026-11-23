@@ -212,7 +212,13 @@
   --arena-division-bronze: oklch(58% 0.10 40);
   --arena-division-silver: oklch(82% 0.02 230);
   --arena-division-gold: oklch(80% 0.16 95);
-  --arena-division-diamond: oklch(88% 0.09 190);
+  /* Full-app audit, Nov 2026 — hue moved 190 (cyan, only ~40° from
+     Silver's 230 blue-gray) to 320 (genuine violet/magenta, ~90° from
+     Silver) and chroma raised to match Gold's own vividness (0.16) at
+     this lightness — the two previously failed CVD separation against
+     each other at a glance. Never reuse 305/340 (--parlay-*) or 280
+     (--epoch-analytics) exactly; 320 sits clear of both. */
+  --arena-division-diamond: oklch(85% 0.13 320);
 
   /* V6 Sprint 50 — Hero Matchday Spotlight ambient mesh. A seventh,
      deliberately distinct two-stop scale: not --arena-cold/hot
@@ -350,7 +356,9 @@ html.light {
   --arena-division-bronze: oklch(42% 0.09 40);
   --arena-division-silver: oklch(55% 0.02 230);
   --arena-division-gold: oklch(58% 0.15 95);
-  --arena-division-diamond: oklch(55% 0.10 190);
+  /* Full-app audit, Nov 2026 — same hue/chroma correction as :root above
+     (190 -> 320, chroma raised to match Gold's vividness). */
+  --arena-division-diamond: oklch(55% 0.16 320);
 
   /* V6 Sprint 50 — Hero spotlight mesh, light surface variant. Same hue
      anchors (155 calm / 355 intense) as dark, darkened + more saturated

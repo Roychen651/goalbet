@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { syncAllActiveLeagues, syncLeague } from '../services/matchSync';
+import { syncAllActiveLeagues, syncLeague, SyncResult } from '../services/matchSync';
 import { LEAGUE_ESPN_MAP } from '../services/espn';
 import { checkAndUpdateScores } from '../services/scoreUpdater';
 import { logger } from '../lib/logger';
 import { matchesSyncLimiter, scoresSyncLimiter } from '../middleware/rateLimiter';
 import { syncAuth } from '../middleware/syncAuth';
+import { processBatched } from '../lib/batch';
 
 const router = Router();
 
@@ -64,7 +65,20 @@ async function syncMatchesHandler(req: Request, res: Response): Promise<void> {
       // instead of the single cheap range call it used to be.
       const uniqueLeagueIds = [...new Set(leagueIds)].slice(0, 20);
       logger.info(`[sync] Manual sync triggered for leagues: ${uniqueLeagueIds.join(', ')}`);
-      results = await Promise.all(uniqueLeagueIds.map(id => syncLeague(id)));
+      // Full-app audit, Nov 2026 — bounded via processBatched() (lib/batch.ts,
+      // §43), the same primitive syncAllActiveLeagues()/backfillTeamStats.ts
+      // already use, instead of a raw Promise.all that fanned out up to 20
+      // fully-parallel syncLeague() calls at once on this unauthenticated
+      // route. Keeps this route's aggregate ESPN load bounded consistently
+      // with every other bulk-sync path in this codebase (batchSize=5,
+      // gapMs=500 defaults — the process-wide espnLimiter still caps the
+      // true in-flight ceiling regardless, but this keeps the burst shape
+      // consistent too, not just safe).
+      const leagueResults: SyncResult[] = [];
+      await processBatched(uniqueLeagueIds, async (id) => {
+        leagueResults.push(await syncLeague(id));
+      });
+      results = leagueResults;
     } else {
       logger.info('[sync] Manual sync triggered for all active leagues');
       results = await syncAllActiveLeagues();
