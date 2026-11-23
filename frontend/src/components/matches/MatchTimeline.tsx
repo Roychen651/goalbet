@@ -212,11 +212,19 @@ export function MatchTimeline({ match }: { match: Match }) {
   if (match.status !== 'FT') return null;
   // Hide toggle for leagues with no ESPN coverage
   if (!LEAGUE_ESPN_SLUG[match.league_id]) return null;
-  // Hide entirely once we know there are no events (e.g. small-nation internationals)
-  if (events !== null && events.length === 0 && !loading) return null;
+  // NOTE: this component used to `return null` entirely once a fetch came
+  // back with zero events — intended for genuinely event-less matches (small-
+  // nation internationals), but since the fetch is lazy (only runs on open),
+  // that early-return could only ever fire AFTER the user had just tapped
+  // the toggle open — making the whole row, toggle included, vanish the
+  // instant they tapped it. Reported live as a real bug (clicking the
+  // chevron makes the section disappear). Fixed: once opened, always show
+  // SOMETHING — the event list, a loading skeleton, or an honest "no data"
+  // message — never nothing. The toggle itself is never hidden again once
+  // it has been shown once.
 
   const hasEvents = events !== null && events.length > 0;
-  const isEmpty   = false; // never shown — we return null above when empty
+  const isEmpty   = events !== null && events.length === 0 && !loading;
 
   // Compute running goal scores for score pins
   const goalsUpTo = (upToPeriod: number, inclusive = true) => {
@@ -307,7 +315,7 @@ export function MatchTimeline({ match }: { match: Match }) {
 
               {isEmpty && (
                 <p className="text-center text-[11px] text-white/20 py-4">
-                  No event data available
+                  {t('noTimelineDataAvailable')}
                 </p>
               )}
 
