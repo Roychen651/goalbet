@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Minus, Plus, Link2, Users, Trophy } from 'lucide-react';
+import { Minus, Plus, Link2, Users, Trophy, Share2 } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Match, Prediction, supabase } from '../../lib/supabase';
 import { NeonButton } from '../ui/NeonButton';
 import { CoinIcon } from '../ui/CoinIcon';
 import { AIScoutCard } from '../ui/AIScoutCard';
+import { drawPredictionShareCard, shareRecapCard } from '../../lib/shareCard';
 import { OracleStatsPanel } from './OracleStatsPanel';
 import { MonteCarloHeatmap } from './MonteCarloHeatmap';
 import { ParlaySlipDrawer } from './ParlaySlipDrawer';
@@ -153,6 +154,13 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   // mounted once in AppShell) is what covers "do I still have something
   // waiting to sync" across the whole app, not this per-form banner.
   const [offlineQueued, setOfflineQueued] = useState(false);
+  // New engagement features — "Share a Pick". Self-only (see shareCard.ts's
+  // own header comment on why this needs none of §62 Blind Tail's
+  // server-side-only transmission machinery): drawn entirely from this
+  // component's own local state, the exact row the owning user's client
+  // already legitimately has — never a second fetch, never another user's
+  // row.
+  const [sharingPick, setSharingPick] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   // V6 Sprint 50 — anchors celebrateAt() to the real submit button so the
   // particle burst originates from where the user actually tapped, not a
@@ -289,7 +297,7 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   // payout should also compound the parlay bonus (scaling the whole
   // group's payout, not just one bettor's) is a real, un-reasoned-through
   // interaction — out of scope for this hotfix.
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { activeGroupId } = useGroupStore();
   const { addToast } = useUIStore();
   const [poolSubmitting, setPoolSubmitting] = useState(false);
@@ -409,6 +417,45 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
       // already rules out elsewhere (§33).
       celebrateAt(submitBtnWrapRef.current);
       setSaved(true);
+    }
+  };
+
+  // New engagement features — "Share a Pick". Self-only by construction
+  // (see the PredictionShareCardData comment in lib/shareCard.ts): this
+  // reads nothing but this component's own local state — the same values
+  // handleSubmit above just sent — so there is no server round-trip and no
+  // way to ever draw another user's prediction. Reuses shareRecapCard()'s
+  // existing 3-tier share/clipboard/download fallback verbatim.
+  const handleSharePick = async () => {
+    if (!profile) return;
+    setSharingPick(true);
+    try {
+      const canvas = drawPredictionShareCard({
+        homeTeam: lang === 'he' ? tTeam(match.home_team) : match.home_team,
+        awayTeam: lang === 'he' ? tTeam(match.away_team) : match.away_team,
+        predictedOutcome: outcome,
+        predictedHomeScore: homeScore !== '' ? parseInt(homeScore) : null,
+        predictedAwayScore: awayScore !== '' ? parseInt(awayScore) : null,
+        kickoffTime: match.kickoff_time,
+        username: profile.username,
+        lang,
+      });
+      const homeT = lang === 'he' ? tTeam(match.home_team) : match.home_team;
+      const awayT = lang === 'he' ? tTeam(match.away_team) : match.away_team;
+      const shareText = lang === 'he'
+        ? `הניחוש שלי: ${homeT} נגד ${awayT} ב-GoalBet ⚽ — goalbet.io`
+        : `My pick: ${homeT} vs ${awayT} on GoalBet ⚽ — goalbet.io`;
+
+      const result = await shareRecapCard(canvas, shareText, 'GoalBet');
+      if (result === 'shared-file' || result === 'shared-text') {
+        addToast(t('sharePickSharedToast'), 'success');
+      } else if (result === 'copied') {
+        addToast(t('sharePickCopiedToast'), 'success');
+      } else if (result === 'downloaded') {
+        addToast(t('sharePickDownloadedToast'), 'success');
+      }
+    } finally {
+      setSharingPick(false);
     }
   };
 
@@ -713,6 +760,24 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
                 {saving ? '···' : offlineQueued ? `🔒 ${t('offlineVaultTitle')}` : saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
               </NeonButton>
             </div>
+
+            {/* Share a Pick — only once there's a real saved outcome/score to
+                show, and only here (the single, least-cluttered entry point
+                for a user's OWN pending pick — never a second copy of this
+                button elsewhere). Same whileTap elastic spring as
+                ShareableRecapCard's own share button — no new sensory
+                feedback invented for this. */}
+            {saved && !offlineQueued && (outcome !== null || homeScore !== '') && (
+              <motion.button
+                onClick={handleSharePick}
+                disabled={sharingPick}
+                whileTap={sharingPick ? undefined : { scale: 0.95, rotate: -0.5, transition: { type: 'spring', stiffness: 500, damping: 15 } }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/80 font-semibold text-xs disabled:opacity-50"
+              >
+                <Share2 size={14} />
+                {sharingPick ? '···' : t('sharePickButton')}
+              </motion.button>
+            )}
 
             {/* V5 Sprint 36 Hotfix — glass "Start a Shared Pool" entry point.
                 Independent of the individual submit above (own RPC, own

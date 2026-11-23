@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { syncAllActiveLeagues } from '../services/matchSync';
 import { checkAndUpdateScores } from '../services/scoreUpdater';
-import { sendMatchReminders } from '../services/pushSender';
+import { sendMatchReminders, sendMatchOfTheWeekPush } from '../services/pushSender';
 import { runProvocateurBatch } from '../services/aiProvocateur';
 import { runCommissionerBriefBatch } from '../services/aiCommissioner';
 import { sendStreakExpiryWarnings } from '../services/streakGuardian';
@@ -360,6 +360,15 @@ export function startScheduler(): void {
   // matching §28's daily-bonus and §63's weekly-promotion precedent
   // exactly. No-op without a Groq key.
   setInterval(guarded('Commissioner weekly brief batch', async () => { await runCommissionerBriefBatch(); }), 30 * 60_000);
+
+  // Match-of-the-week push — new engagement feature. Same frequent-sweep,
+  // never-a-fixed-weekly-cron DST-safe pattern as the Commissioner brief
+  // directly above (and §28/§63 before it) — re-derives "the current week"
+  // from arena_current_week_start() on every tick, dedup'd via
+  // groups.match_of_week_pushed_at (migration 073). Safely a no-op until
+  // that migration is manually confirmed — see sendMatchOfTheWeekPush()'s
+  // own header comment.
+  setInterval(guarded('Match-of-the-week push', async () => { await sendMatchOfTheWeekPush(); }), 30 * 60_000);
 
   // Corners stat-capability refresh — daily, 30 min after the midnight sync
   // so that day's newly-resolved matches have already landed. This signal
