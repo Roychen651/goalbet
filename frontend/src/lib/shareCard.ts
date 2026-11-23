@@ -160,6 +160,150 @@ export function drawRecapCard(data: RecapCardData): HTMLCanvasElement {
   return canvas;
 }
 
+// ─── New engagement features — "Share a Pick" (self-only, pre-kickoff) ────
+//
+// Privacy boundary (re-read before touching this): predictions are hidden
+// from OTHER group members pre-kickoff under migration 037's RLS wall
+// (§27/§14). This card draws ONLY from the current user's own already-
+// fetched prediction row (PredictionForm's own local state, sourced from
+// usePredictions.ts's optimistic cache) — never a server round-trip that
+// could leak a different user's pick, and never rendered for anyone but
+// the row's own owner. There is no cross-user transmission at all here
+// (unlike §62's Blind Tail, which has to pass a prediction *id* through a
+// server-side RPC specifically to avoid exposing a value client-side —
+// this feature never needs that machinery because it's self-only by
+// construction: the data never leaves the owning user's own browser until
+// THEY tap share).
+
+export interface PredictionShareCardData {
+  homeTeam: string;
+  awayTeam: string;
+  /** Localized team names (tTeam()) are resolved by the caller — this file
+   *  has no i18n dependency of its own, matching drawRecapCard's shape. */
+  predictedOutcome: 'H' | 'D' | 'A' | null;
+  predictedHomeScore: number | null;
+  predictedAwayScore: number | null;
+  kickoffTime: string;
+  username: string;
+  lang: 'en' | 'he';
+}
+
+/**
+ * Draws a single-pick share card — same Canvas-primitive philosophy as
+ * drawRecapCard() (no screenshot library, colors resolved live via
+ * getComputedStyle so the PNG matches the active theme, explicit RTL via
+ * ctx.direction + right-anchored layout). Deliberately a SEPARATE function,
+ * not a drawRecapCard() variant — the two cards show structurally different
+ * data (a season rank vs. a single match pick) and keeping them separate
+ * avoids a single function growing a pile of "if this field is set, else
+ * that one" branches.
+ */
+export function drawPredictionShareCard(data: PredictionShareCardData): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = CARD_W;
+  canvas.height = CARD_H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  const isHe = data.lang === 'he';
+  ctx.direction = isHe ? 'rtl' : 'ltr';
+  ctx.textAlign = 'center';
+
+  const bgBase = cssVar('--color-bg-base', '#0a1733');
+  const accent = cssVar('--color-accent-green', '#BDE8F5');
+  const textPrimary = cssVar('--color-text-primary', '#FFFFFF');
+  const borderBright = cssVar('--color-border-bright', 'rgba(189,232,245,0.40)');
+
+  const bgGrad = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
+  bgGrad.addColorStop(0, bgBase);
+  bgGrad.addColorStop(1, shade(bgBase, -14));
+  ctx.fillStyle = bgGrad;
+  roundRect(ctx, 0, 0, CARD_W, CARD_H, 48);
+  ctx.fill();
+
+  const bloom = ctx.createRadialGradient(CARD_W / 2, 420, 0, CARD_W / 2, 420, 480);
+  bloom.addColorStop(0, withAlpha(accent, 0.18));
+  bloom.addColorStop(1, withAlpha(accent, 0));
+  ctx.fillStyle = bloom;
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+
+  ctx.strokeStyle = borderBright;
+  ctx.lineWidth = 3;
+  roundRect(ctx, 6, 6, CARD_W - 12, CARD_H - 12, 44);
+  ctx.stroke();
+
+  const cx = CARD_W / 2;
+
+  // Wordmark + "my pick" eyebrow
+  ctx.fillStyle = accent;
+  ctx.font = '700 40px sans-serif';
+  ctx.fillText('GoalBet ⚽', cx, 120);
+
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = textPrimary;
+  ctx.font = '600 30px sans-serif';
+  ctx.fillText(isHe ? `הניחוש של ${data.username}` : `${data.username}'s pick`, cx, 175);
+  ctx.globalAlpha = 1;
+
+  // Teams — "Home vs Away" as two stacked lines so a long name never
+  // overflows the fixed 1080px card width.
+  ctx.fillStyle = textPrimary;
+  ctx.font = '700 58px sans-serif';
+  ctx.fillText(data.homeTeam, cx, 320);
+  ctx.globalAlpha = 0.5;
+  ctx.font = '600 32px sans-serif';
+  ctx.fillText(isHe ? 'מול' : 'vs', cx, 375);
+  ctx.globalAlpha = 1;
+  ctx.font = '700 58px sans-serif';
+  ctx.fillText(data.awayTeam, cx, 445);
+
+  // The pick itself — the hero element, exactly like the recap card's rank.
+  const hasScore = data.predictedHomeScore !== null && data.predictedAwayScore !== null;
+  if (hasScore) {
+    ctx.fillStyle = accent;
+    ctx.font = '800 220px sans-serif';
+    ctx.fillText(`${data.predictedHomeScore}–${data.predictedAwayScore}`, cx, 760);
+  } else if (data.predictedOutcome) {
+    const outcomeText =
+      data.predictedOutcome === 'H' ? data.homeTeam
+      : data.predictedOutcome === 'A' ? data.awayTeam
+      : (isHe ? 'שוויון' : 'Draw');
+    ctx.fillStyle = accent;
+    ctx.font = '800 100px sans-serif';
+    // A team name can run long — clamp the font progressively rather than
+    // letting it overflow the card's fixed width (Canvas has no text-wrap).
+    let fontSize = 100;
+    while (ctx.measureText(outcomeText).width > CARD_W - 160 && fontSize > 48) {
+      fontSize -= 6;
+      ctx.font = `800 ${fontSize}px sans-serif`;
+    }
+    ctx.fillText(outcomeText, cx, 740);
+  }
+
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = textPrimary;
+  ctx.font = '500 34px sans-serif';
+  ctx.fillText(isHe ? 'הניחוש שלי' : 'MY PREDICTION', cx, hasScore ? 900 : 830);
+  ctx.globalAlpha = 1;
+
+  // Kickoff time footer
+  const kickoff = new Date(data.kickoffTime);
+  const kickoffLabel = kickoff.toLocaleString(isHe ? 'he-IL' : 'en-US', {
+    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
+  ctx.globalAlpha = 0.45;
+  ctx.font = '500 30px sans-serif';
+  ctx.fillText(kickoffLabel, cx, 1110);
+  ctx.globalAlpha = 1;
+
+  ctx.globalAlpha = 0.4;
+  ctx.font = '500 28px sans-serif';
+  ctx.fillText('goalbet.io', cx, CARD_H - 70);
+  ctx.globalAlpha = 1;
+
+  return canvas;
+}
+
 export type ShareOutcome = 'shared-file' | 'shared-text' | 'copied' | 'downloaded' | 'cancelled';
 
 /**
