@@ -378,8 +378,13 @@ export function MatchRosters({ match }: { match: Match }) {
 
   // Hide for leagues without ESPN coverage
   if (!LEAGUE_ESPN_SLUG[match.league_id]) return null;
-  // Hide once we know there are no rosters
-  if (rosters !== null && rosters.length === 0 && !loading) return null;
+  // NOTE: this used to `return null` entirely (toggle included) once a fetch
+  // came back with zero rosters — but the fetch is lazy (only runs on open),
+  // so that could only ever fire right after the user tapped the toggle,
+  // making the whole row vanish the instant they tapped it. Reported live as
+  // a real bug, same shape as MatchTimeline.tsx's identical pattern — see its
+  // own comment. Fixed the same way: once opened, always show something.
+  const isEmptyRosters = rosters !== null && rosters.length === 0 && !loading;
 
   return (
     <div className="mt-3 border-t border-white/5 pt-3">
@@ -423,6 +428,12 @@ export function MatchRosters({ match }: { match: Match }) {
           >
             <div className="pt-3 pb-2 px-1">
               {loading && <RosterSkeleton />}
+
+              {isEmptyRosters && (
+                <p className="text-center text-[11px] text-white/20 py-4">
+                  {t('noLineupDataAvailable')}
+                </p>
+              )}
 
               {rosters && rosters.length >= 2 && !loading && (
                 <>
