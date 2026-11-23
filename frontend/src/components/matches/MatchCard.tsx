@@ -424,7 +424,13 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
   const isRTL = lang === 'he';
   const meshHomeSide = isRTL ? 'right' : 'left';
   const meshAwaySide = isRTL ? 'left' : 'right';
-  const meshBackground = `radial-gradient(circle at ${meshHomeSide} 50%, ${teamHaloColor(match.home_team, 0.12)} 0%, transparent 60%), radial-gradient(circle at ${meshAwaySide} 50%, ${teamHaloColor(match.away_team, 0.12)} 0%, transparent 60%)`;
+  // Full-app audit, Nov 2026 — "Purge Generic AI Design": NS/FT cards are
+  // the majority of any feed and are meant to read clean/scannable, so
+  // their mesh halves the live ceiling (0.12 -> 0.06). Live cards keep the
+  // full 0.12 — they're allowed more visual energy, this is a hierarchy
+  // fix between live/non-live, never a blanket dimming of the live state.
+  const meshAlpha = isInProgress ? 0.12 : 0.06;
+  const meshBackground = `radial-gradient(circle at ${meshHomeSide} 50%, ${teamHaloColor(match.home_team, meshAlpha)} 0%, transparent 60%), radial-gradient(circle at ${meshAwaySide} 50%, ${teamHaloColor(match.away_team, meshAlpha)} 0%, transparent 60%)`;
 
   return (
     <div ref={cardRef}>

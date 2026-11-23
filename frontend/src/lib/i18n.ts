@@ -773,6 +773,13 @@ export const translations = {
     aiScoutLabel: 'AI Scout',
     aiScoutPreMatchTitle: 'Scout Insight',
     aiScoutPostMatchTitle: 'Match Recap',
+    // Full-app audit, Nov 2026 — "Purge Generic AI Design": AIScoutCard's
+    // rotating conic border + gradient-text label is replaced with a
+    // crisp broadcast-style mono tag for non-live pre/post insights
+    // (rotating borders are now reserved for genuinely live elements —
+    // HTAnalystCard during HT, MomentumBanner while a question is open).
+    aiScoutBroadcastPre: 'SCOUT // PRE-MATCH',
+    aiScoutBroadcastPost: 'SCOUT // POST-MATCH',
 
     // V7 Sprint 51 — AI Commissioner + Voice Radio
     commissionerRadioLabel: 'Commissioner Radio',
@@ -1814,6 +1821,8 @@ export const translations = {
     aiScoutLabel: 'סייר AI',
     aiScoutPreMatchTitle: 'תובנת הסייר',
     aiScoutPostMatchTitle: 'סיכום המשחק',
+    aiScoutBroadcastPre: 'סקאוט // לפני המשחק',
+    aiScoutBroadcastPost: 'סקאוט // אחרי המשחק',
 
     // V7 Sprint 51 — קומישנר AI + רדיו קולי
     commissionerRadioLabel: 'רדיו הקומישנר',
