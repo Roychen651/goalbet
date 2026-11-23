@@ -1883,7 +1883,7 @@ function BracketTreeCard({ match, round, t }: {
       {/* Home slot */}
       <div className="flex items-center gap-1.5 px-2 py-[5px] min-w-0">
         <span className={cn('w-[5px] h-[5px] rounded-full shrink-0', tone.dot)} />
-        <span className="font-barlow font-bold text-[11px] uppercase tracking-tight text-white/95 leading-none truncate">
+        <span className="font-barlow font-bold text-[11px] uppercase text-white/95 leading-none truncate">
           {slot1.primary}
         </span>
         {slot1.hint && (
@@ -1895,7 +1895,7 @@ function BracketTreeCard({ match, round, t }: {
       {/* Away slot */}
       <div className="flex items-center gap-1.5 px-2 py-[5px] min-w-0">
         <span className={cn('w-[5px] h-[5px] rounded-full shrink-0', tone.dot)} />
-        <span className="font-barlow font-bold text-[11px] uppercase tracking-tight text-white/95 leading-none truncate">
+        <span className="font-barlow font-bold text-[11px] uppercase text-white/95 leading-none truncate">
           {slot2.primary}
         </span>
         {slot2.hint && (
@@ -2025,7 +2025,7 @@ function BracketSlot({ label, tone }: {
     <div className="flex items-center gap-2 min-w-0 py-0.5">
       <span className={cn('w-2 h-2 rounded-full shrink-0', tone.dot)} aria-hidden />
       <span
-        className="font-barlow font-bold text-[13.5px] uppercase tracking-tight text-white/95 leading-tight whitespace-nowrap"
+        className="font-barlow font-bold text-[13.5px] uppercase text-white/95 leading-tight whitespace-nowrap"
         title={slot.hint ? `${slot.primary} (${slot.hint})` : slot.primary}
       >
         {slot.primary}
