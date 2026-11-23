@@ -3,6 +3,8 @@
 Authoritative reference for Claude when working in this repository.
 Read this before touching any file. Everything here reflects the live codebase.
 
+**Standing workflow note — end-of-sprint summary.** When a sprint/execution phase genuinely wraps (PR(s) merged, migration confirmed or explicitly flagged as pending), send the user a short, concentrated, pleasant-to-read summary in chat — not a wall of PR titles or a dump of technical detail — covering: what actually changed (plain language, user-facing framing where possible), and what to look for / check differently in the app as a result. Keep it brief. This is separate from the detailed CLAUDE.md section written for the historical record — the chat summary is for the user, the CLAUDE.md section is for future Claude sessions.
+
 ---
 
 ## Table of Contents
