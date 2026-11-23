@@ -56,14 +56,26 @@ async function fetchRosters(externalId: string, leagueId: number): Promise<TeamR
   const eventId = externalId.replace(/^espn_/, '');
   if (!eventId || !/^\d+$/.test(eventId)) return [];
 
+  // Live QA, Nov 2026 — same diagnostic-logging fix as lib/espnEvents.ts's
+  // fetchEspnEvents() for the identical "silently returns [] in production
+  // for a mainstream, already-played match" report — see that file's own
+  // comment for why. This sandbox cannot reach espn.com to reproduce the
+  // real cause directly, so every failure path now logs it instead of
+  // degrading to the same silent empty result either way.
   try {
     const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
     const res = await fetch(url);
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.warn('[fetchRosters] ESPN responded', res.status, res.statusText, 'for', url);
+      return [];
+    }
     const data = await res.json() as Record<string, unknown>;
 
     const rosters = (data?.rosters as Record<string, unknown>[]) ?? [];
-    if (rosters.length < 2) return [];
+    if (rosters.length < 2) {
+      console.warn('[fetchRosters] response OK but rosters array has', rosters.length, 'entries (need >=2) — keys:', Object.keys(data ?? {}));
+      return [];
+    }
 
     const result: TeamRoster[] = [];
 
@@ -133,7 +145,8 @@ async function fetchRosters(externalId: string, leagueId: number): Promise<TeamR
     }
 
     return result;
-  } catch {
+  } catch (err) {
+    console.warn('[fetchRosters] fetch() threw (network/CORS?) for externalId', externalId, err);
     return [];
   }
 }

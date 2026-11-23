@@ -20,15 +20,43 @@ export interface MatchEvent {
 
 export async function fetchEspnEvents(externalId: string, leagueId: number): Promise<MatchEvent[]> {
   const slug = LEAGUE_ESPN_SLUG[leagueId];
-  if (!slug) return [];
+  if (!slug) {
+    console.warn('[fetchEspnEvents] no ESPN slug for league', leagueId);
+    return [];
+  }
 
   const eventId = externalId.replace(/^espn_/, '');
-  if (!eventId || !/^\d+$/.test(eventId)) return [];
+  if (!eventId || !/^\d+$/.test(eventId)) {
+    console.warn('[fetchEspnEvents] invalid externalId, cannot derive numeric eventId:', externalId);
+    return [];
+  }
 
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/summary?event=${eventId}`;
-  const res = await fetch(url);
-  if (!res.ok) return [];
+  // Live QA, Nov 2026 — this fetch was silently returning [] in production
+  // for mainstream, already-played matches that should have real ESPN
+  // coverage (the UI used to hide the whole section on empty, masking
+  // this entirely — fixed to show an honest "no data" message instead,
+  // which is what surfaced this as a real, distinct problem worth
+  // diagnosing). Every failure path now logs its actual cause (non-ok
+  // status, a thrown network/CORS error, or an unexpected JSON shape)
+  // instead of degrading silently to the exact same empty result either
+  // way — needed because this sandbox cannot reach espn.com at all to
+  // reproduce the real failure directly.
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (err) {
+    console.warn('[fetchEspnEvents] fetch() threw (network/CORS?) for', url, err);
+    return [];
+  }
+  if (!res.ok) {
+    console.warn('[fetchEspnEvents] ESPN responded', res.status, res.statusText, 'for', url);
+    return [];
+  }
   const data = await res.json();
+  if (!data?.keyEvents) {
+    console.warn('[fetchEspnEvents] response OK but no keyEvents field — unexpected shape?', Object.keys(data ?? {}));
+  }
 
   // Identify which team is home/away from the header
   const comp = data?.header?.competitions?.[0];
