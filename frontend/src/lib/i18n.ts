@@ -68,6 +68,11 @@ export const translations = {
     cornersOver11: '≥ 11',
     bothTeamsToScore: 'Both Teams to Score',
     totalGoals: 'Total Goals',
+    // Visual De-cluttering Phase 3 — PredictionForm's Quick Pick / All
+    // Tiers (5) disclosure toggle. Pure UI visibility, zero effect on the
+    // submit_prediction payload shape.
+    quickPickLabel: 'Quick Pick',
+    allTiersLabel: 'All Tiers (5)',
     lockInPrediction: 'Lock In Prediction',
     updatePrediction: 'Update Prediction',
     predictionSaved: '✓ Prediction Saved — Update',
@@ -1130,6 +1135,8 @@ export const translations = {
     cornersOver11: '≥ 11',
     bothTeamsToScore: 'שער לשני הצדדים (BTTS)',
     totalGoals: 'סה"כ שערים',
+    quickPickLabel: 'בחירה מהירה',
+    allTiersLabel: 'כל השכבות (5)',
     lockInPrediction: 'נעל ניחוש',
     updatePrediction: 'עדכן ניחוש',
     predictionSaved: '✓ ננעל — לחץ לעדכון',

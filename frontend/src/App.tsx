@@ -2,9 +2,9 @@ import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import Lenis from 'lenis';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { queryClient } from './lib/queryClient';
+import { queryClient, queryPersister } from './lib/queryClient';
 import { supabase } from './lib/supabase';
 import { useAuthStore } from './stores/authStore';
 import { useGroupStore } from './stores/groupStore';
@@ -177,7 +177,28 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    // Visual De-cluttering Phase 3 — PersistQueryClientProvider is a drop-in
+    // superset of QueryClientProvider (same client prop, same context), so
+    // every existing useQuery call site in this app needs zero changes.
+    // persistOptions.dehydrateOptions filters OUT any query whose own
+    // staleTime isn't Infinity — this app's few long-but-finite-staleTime
+    // queries (useLeagueStats etc., 15min) are left to TanStack's normal
+    // in-memory refetch-on-mount behavior; only the genuinely
+    // "freshness comes from Realtime, never a timer" queries (useMatches,
+    // staleTime: Infinity) are worth restoring instantly from a cold
+    // reload, since those are the ones with nothing else to show otherwise.
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: queryPersister,
+        maxAge: 24 * 60 * 60 * 1000,
+        dehydrateOptions: {
+          shouldDehydrateQuery: (query) =>
+            query.state.data !== undefined &&
+            (query.options as { staleTime?: number }).staleTime === Infinity,
+        },
+      }}
+    >
       <BrowserRouter>
         <AppInitializer>
         {/* V5 Sprint 35 — mounted once, inside AppInitializer (so `user`
@@ -229,6 +250,6 @@ export default function App() {
         </AppInitializer>
       </BrowserRouter>
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
