@@ -344,6 +344,14 @@ export const translations = {
     redCardsStat: 'Red Cards',
     commentary: 'Commentary',
     lineups: 'Lineups',
+    // Visual De-cluttering Phase 2 — MatchCard's Overview|Lineups|Stats
+    // sub-tab switcher + Crowd Sentiment bar + the live provisional-points
+    // honesty qualifier.
+    matchTabOverview: 'Overview',
+    matchTabStats: 'Stats',
+    crowdSentimentLabel: 'Group picks',
+    livePtsPreviewLabel: 'Live',
+    livePtsPreviewTooltip: 'Provisional — final points are awarded after full time',
     formation: 'Formation',
     startingXI: 'Starting XI',
     substitutes: 'Substitutes',
@@ -1398,6 +1406,11 @@ export const translations = {
     redCardsStat: 'כרטיסים אדומים',
     commentary: 'פרשנות',
     lineups: 'הרכבים',
+    matchTabOverview: 'סקירה',
+    matchTabStats: 'סטטיסטיקה',
+    crowdSentimentLabel: 'ניחושי הקבוצה',
+    livePtsPreviewLabel: 'חי',
+    livePtsPreviewTooltip: 'זמני — הניקוד הסופי יוענק בסוף המשחק',
     formation: 'מערך',
     startingXI: 'הרכב פתיחה',
     substitutes: 'מחליפים',

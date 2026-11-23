@@ -9,10 +9,20 @@ import { LIVE_STATUSES, FINISHED_STATUSES } from '../../lib/constants';
 import { useLangStore } from '../../stores/langStore';
 import { useUIStore } from '../../stores/uiStore';
 
+// Visual De-cluttering Phase 2 — predicted_outcome added for the Crowd
+// Sentiment bar (one shared type, not two independently-drifting inline
+// object literals as this file had before).
+export type PredictorEntry = {
+  user_id: string;
+  username: string;
+  avatar_url: string | null;
+  predicted_outcome: string | null;
+};
+
 interface MatchFeedProps {
   matches: Match[];
   predictions: Map<string, Prediction>;
-  predictorsByMatch?: Map<string, { user_id: string; username: string; avatar_url: string | null }[]>;
+  predictorsByMatch?: Map<string, PredictorEntry[]>;
   loading: boolean;
   activeTab: 'all' | 'upcoming' | 'live' | 'completed';
   /** V4 Sprint 23 — match id from a notification's "View Match" deep link
@@ -219,7 +229,7 @@ function MatchCardItem({
   match: Match;
   index: number;
   predictions: Map<string, Prediction>;
-  predictorsByMatch?: Map<string, { user_id: string; username: string; avatar_url: string | null }[]>;
+  predictorsByMatch?: Map<string, PredictorEntry[]>;
   autoFocus?: boolean;
 }) {
   const cardProps = {

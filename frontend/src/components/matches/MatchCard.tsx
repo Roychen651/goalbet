@@ -291,7 +291,10 @@ async function fetchEspnMatchInfo(externalId: string, leagueId: number): Promise
 interface MatchCardProps {
   match: Match;
   prediction?: Prediction;
-  predictors?: { user_id: string; avatar_url: string | null; username: string }[];
+  // Visual De-cluttering Phase 2 — predicted_outcome threaded through for
+  // the Crowd Sentiment bar (see useGroupMatchPredictions.ts's own privacy
+  // note — RLS already hides another member's whole row pre-kickoff).
+  predictors?: { user_id: string; avatar_url: string | null; username: string; predicted_outcome: string | null }[];
   /** V4 Sprint 23 — set when this card is the target of a notification's
    *  "View Match" deep link (?focus=<match_id>). Expands the card and
    *  scrolls it into view once, on mount only — never re-triggers on a
@@ -516,12 +519,24 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
               const tiers = calcLiveBreakdown(prediction, match);
               const livePts = tiers ? tiers.filter(r => r.earned && !r.pending).reduce((s, r) => s + r.pts, 0) : 0;
               return livePts > 0 ? (
+                // Visual De-cluttering Phase 2 — a real, read-only preview
+                // was already correctly computed here client-side before
+                // this pass; it just never said "preview" anywhere, so it
+                // could be misread as an already-confirmed award. Kept
+                // deliberately BLUE, not green — green already means
+                // "genuinely final/resolved" two branches up in this same
+                // file (rule 4.14: real points only ever land server-side
+                // at FT resolution); reusing it here would blur that
+                // honest distinction, not just restyle a badge. The fix is
+                // the explicit "LIVE" qualifier + tooltip, not a new color.
                 <motion.span
                   key={livePts}
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
+                  title={t('livePtsPreviewTooltip')}
                   className="flex items-center gap-1 bg-blue-500/12 border border-blue-500/25 rounded-full px-2 py-0.5 text-blue-400 text-xs font-bold"
                 >
+                  <span className="text-[8px] font-mono uppercase tracking-wider opacity-70">{t('livePtsPreviewLabel')}</span>
                   +{livePts} {t('pts')}
                 </motion.span>
               ) : (
@@ -750,69 +765,15 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
           />
         </div>
 
-        {/* Win Probability — compact single-row bar */}
-        {espnInfo?.predictor && (
-          <div className="mt-2.5 px-0.5 relative">
-            <div className="flex items-center gap-1.5">
-              <div className="flex flex-col items-start shrink-0">
-                <span className="font-display text-[11px] font-bold text-accent-green tabular-nums leading-none">
-                  {espnInfo.predictor.homeWinPct}%
-                </span>
-                <span className="text-[9px] text-text-muted/50 font-display leading-none truncate max-w-[55px]">
-                  {(lang === 'he' ? tTeam(match.home_team) : match.home_team).split(' ').slice(-1)[0]}
-                </span>
-              </div>
-              <div className="flex-1">
-                <div className="flex h-[5px] rounded-full overflow-hidden">
-                  <div className="h-full bg-accent-green rounded-s-full" style={{ width: `${espnInfo.predictor.homeWinPct}%` }} />
-                  <div className="h-full bg-white/10" style={{ width: `${espnInfo.predictor.drawPct}%` }} />
-                  <div className="h-full bg-accent-orange rounded-e-full" style={{ width: `${espnInfo.predictor.awayWinPct}%` }} />
-                </div>
-              </div>
-              <div className="flex flex-col items-end shrink-0">
-                <span className="font-display text-[11px] font-bold text-accent-orange tabular-nums leading-none">
-                  {espnInfo.predictor.awayWinPct}%
-                </span>
-                <span className="text-[9px] text-text-muted/50 font-display leading-none truncate max-w-[55px]">
-                  {(lang === 'he' ? tTeam(match.away_team) : match.away_team).split(' ').slice(-1)[0]}
-                </span>
-              </div>
-            </div>
-            {espnInfo.predictor.drawPct > 0 && (
-              <p className="absolute left-0 right-0 text-center text-[9px] text-text-muted/45 font-display uppercase tracking-wide leading-none mt-0.5">
-                {t('draw')} {espnInfo.predictor.drawPct}%
-              </p>
-            )}
-            {espnInfo.predictor.drawPct > 0 && <div className="h-3" />}
-          </div>
-        )}
-
-        {/* Predictors row — who has predicted */}
-        {predictors.length > 0 && !isFinished && (
-          <div className="flex items-center gap-1.5 mt-2.5">
-            <div className="flex -space-x-1.5">
-              {predictors.slice(0, 5).map(p => (
-                <div
-                  key={p.user_id}
-                  className="rounded-full border border-bg-base shrink-0 overflow-hidden"
-                  title={p.username}
-                >
-                  <Avatar
-                    src={p.user_id === user?.id ? (profile?.avatar_url ?? p.avatar_url) : p.avatar_url}
-                    name={p.username}
-                    size="sm"
-                  />
-                </div>
-              ))}
-              {predictors.length > 5 && (
-                <div className="w-5 h-5 rounded-full border border-bg-base bg-white/10 flex items-center justify-center text-[8px] text-white/50">
-                  +{predictors.length - 5}
-                </div>
-              )}
-            </div>
-            <span className="text-white/30 text-[10px]">{t('predicted')}</span>
-          </div>
-        )}
+        {/* Visual De-cluttering Phase 2 — "Declutter the collapsed state":
+            the Win Probability bar and the Predictors avatar row both used
+            to render here, inside the collapsed card header, every time —
+            real extra visual load on the single highest-traffic surface in
+            the app. Both moved into the expanded body (see below), right
+            after the chevron toggle opens it; the collapsed state now shows
+            only league header, teams+badges, score/kickoff, the user's own
+            prediction pill, and this chevron — matching the brief's own
+            explicit list verbatim. */}
 
         {/* Expand chevron */}
         <div className="flex justify-center mt-2">
@@ -852,6 +813,73 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                 <>
                   {/* ET/PEN result block — shown for ALL finished AET/PEN cards */}
                   {isFinished && <ETSummaryBlock match={match} />}
+
+                  {/* Visual De-cluttering Phase 2 — Win Probability bar +
+                      Predictors avatar row, moved here from the collapsed
+                      header (they're real context worth seeing, just not
+                      on every single feed scroll). Logic/gating byte-for-
+                      byte unchanged from before the move. */}
+                  {espnInfo?.predictor && (
+                    <div className="mb-3 px-0.5 relative">
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex flex-col items-start shrink-0">
+                          <span className="font-display text-[11px] font-bold text-accent-green tabular-nums leading-none">
+                            {espnInfo.predictor.homeWinPct}%
+                          </span>
+                          <span className="text-[9px] text-text-muted/50 font-display leading-none truncate max-w-[55px]">
+                            {(lang === 'he' ? tTeam(match.home_team) : match.home_team).split(' ').slice(-1)[0]}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex h-[5px] rounded-full overflow-hidden">
+                            <div className="h-full bg-accent-green rounded-s-full" style={{ width: `${espnInfo.predictor.homeWinPct}%` }} />
+                            <div className="h-full bg-white/10" style={{ width: `${espnInfo.predictor.drawPct}%` }} />
+                            <div className="h-full bg-accent-orange rounded-e-full" style={{ width: `${espnInfo.predictor.awayWinPct}%` }} />
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="font-display text-[11px] font-bold text-accent-orange tabular-nums leading-none">
+                            {espnInfo.predictor.awayWinPct}%
+                          </span>
+                          <span className="text-[9px] text-text-muted/50 font-display leading-none truncate max-w-[55px]">
+                            {(lang === 'he' ? tTeam(match.away_team) : match.away_team).split(' ').slice(-1)[0]}
+                          </span>
+                        </div>
+                      </div>
+                      {espnInfo.predictor.drawPct > 0 && (
+                        <p className="absolute left-0 right-0 text-center text-[9px] text-text-muted/45 font-display uppercase tracking-wide leading-none mt-0.5">
+                          {t('draw')} {espnInfo.predictor.drawPct}%
+                        </p>
+                      )}
+                      {espnInfo.predictor.drawPct > 0 && <div className="h-3" />}
+                    </div>
+                  )}
+                  {predictors.length > 0 && !isFinished && (
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <div className="flex -space-x-1.5">
+                        {predictors.slice(0, 5).map(p => (
+                          <div
+                            key={p.user_id}
+                            className="rounded-full border border-bg-base shrink-0 overflow-hidden"
+                            title={p.username}
+                          >
+                            <Avatar
+                              src={p.user_id === user?.id ? (profile?.avatar_url ?? p.avatar_url) : p.avatar_url}
+                              name={p.username}
+                              size="sm"
+                            />
+                          </div>
+                        ))}
+                        {predictors.length > 5 && (
+                          <div className="w-5 h-5 rounded-full border border-bg-base bg-white/10 flex items-center justify-center text-[8px] text-white/50">
+                            +{predictors.length - 5}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-white/30 text-[10px]">{t('predicted')}</span>
+                    </div>
+                  )}
+
                   {/* AI Scout pre-match insight — NS only, first thing users see */}
                   {match.status === 'NS' && ((lang === 'he' && match.ai_pre_match_insight_he) || match.ai_pre_match_insight) && (
                     <div className="mb-3">
@@ -862,7 +890,8 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                       />
                     </div>
                   )}
-                  {/* HT Broadcast Ticker — live tactical read at half time */}
+                  {/* HT Broadcast Ticker — live-critical, always visible
+                      regardless of which sub-tab (if any) is selected below. */}
                   {match.status === 'HT' && ((lang === 'he' && match.ai_ht_insight_he) || match.ai_ht_insight) && (
                     <div className="mb-3">
                       <HTAnalystCard
@@ -870,7 +899,11 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                       />
                     </div>
                   )}
-                  {/* Tactical intel — form, H2H, venue (NS upcoming only) */}
+                  {/* Tactical intel — form, H2H, venue (NS upcoming only).
+                      Stays flat (no sub-tab switcher) for NS matches — this
+                      is the only real "section" pre-kickoff, so a 3-way
+                      tab control with two dead tabs would be worse UX, not
+                      better. */}
                   {!isFinished && !isLive && !isAET && espnInfo && (
                     <TacticalIntelSection
                       info={espnInfo}
@@ -878,7 +911,10 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                       awayName={lang === 'he' ? tTeam(match.away_team) : match.away_team}
                     />
                   )}
-                  {/* Prediction: locked view inline, or button to open modal */}
+
+                  {/* Prediction: locked view inline, or button to open
+                      modal — the primary action, always visible regardless
+                      of sub-tab, never hidden behind a browsable tab. */}
                   {isMatchLocked(match.kickoff_time) || match.status !== 'NS' ? (
                     <LockedPrediction match={match} prediction={prediction} resolved={prediction?.is_resolved ?? false} />
                   ) : (
@@ -898,8 +934,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                   {isFinished && prediction?.is_resolved && (prediction?.coins_bet ?? 0) > 0 && (
                     <MatchCoinSummary coinsBet={prediction.coins_bet ?? 0} pointsEarned={prediction.points_earned ?? 0} />
                   )}
-                  {/* Match Center — Stats, Timeline, Rosters (Live + FT) */}
-                  {(isFinished || isLive) && <MatchStats match={match} />}
+
                   {/* Match Pressure Graph (Sprint 32) and Attack Event
                       Pulse (Sprint 19) were removed on live user feedback
                       — real report: "unnecessary, clutters the card, I
@@ -912,18 +947,19 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                       design rationale, kept for the record. */}
                   {/* V5 Sprint 39 — "The Live Lobby": broadcast-only,
                       never-persisted floating reactions + a 3-line ticker.
-                      See CLAUDE.md §53. */}
+                      Time-critical, always visible — never inside the
+                      sub-tab switcher below. See CLAUDE.md §53. */}
                   {isLive && <LiveLobby matchId={match.id} />}
                   {/* V6 Sprint 44 — AI-narrated live commentary, one line
                       per resolved key event (goal/card/sub). Hidden until
-                      real entries exist. */}
+                      real entries exist. Time-critical, always visible. */}
                   {isLive && <LiveCommentaryFeed entries={match.live_commentary ?? []} />}
                   {/* V6 Sprint 47 Commit 3 — Live Duels entry point. Opens
                       the global-store-driven drawer (uiStore.ts's
                       activeDuelMatchId, rendered once at HomePage.tsx's
                       level — never nested here, so its fixed inset-0
                       overlay is never a descendant of this card's own
-                      transformed ancestor). */}
+                      transformed ancestor). Time-critical, always visible. */}
                   {isLive && (
                     <button
                       type="button"
@@ -934,8 +970,21 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                       {t('duelChallengeButton')}
                     </button>
                   )}
-                  {isFinished && <MatchTimeline match={match} />}
-                  {(isFinished || isLive) && <MatchRosters match={match} />}
+
+                  {/* Visual De-cluttering Phase 2 — "Segmented sub-tabs":
+                      the long vertical stack of MatchStats/MatchTimeline/
+                      MatchRosters is replaced with an Overview|Lineups|Stats
+                      switcher, reusing the exact layoutId shared-pill-morph
+                      technique already proven for HomePage's own Segmented
+                      Snapper/LeagueLeaders' sub-nav/StatsPage's tab bar — a
+                      new, unique layoutId string ("matchCardSubTabPill") so
+                      it never cross-matches any of those existing instances.
+                      Only rendered once a match is live or finished — an NS
+                      match has nothing real to put in Lineups/Stats yet, so
+                      a tab control there would just show two dead tabs. */}
+                  {(isLive || isFinished) && (
+                    <MatchSubTabs match={match} predictors={predictors} />
+                  )}
                 </>
               )}
             </div>
@@ -1070,6 +1119,112 @@ function ETSummaryBlock({ match }: { match: Match }) {
             </span>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── MatchSubTabs — Visual De-cluttering Phase 2 ──────────────────────────────
+// Overview | Lineups | Stats, replacing the long vertical stack this card's
+// expanded body used to be. Only mounted when isLive || isFinished (see the
+// call site) — an NS match has nothing real to put in Lineups/Stats yet.
+type MatchSubTab = 'overview' | 'lineups' | 'stats';
+
+function MatchSubTabs({
+  match,
+  predictors,
+}: {
+  match: Match;
+  predictors: { user_id: string; avatar_url: string | null; username: string; predicted_outcome: string | null }[];
+}) {
+  const { t } = useLangStore();
+  const [tab, setTab] = useState<MatchSubTab>('overview');
+  const isFinishedNow = FINISHED_STATUSES.includes(match.status);
+
+  const tabs: { key: MatchSubTab; label: string }[] = [
+    { key: 'overview', label: t('matchTabOverview') },
+    { key: 'lineups', label: t('lineups') },
+    { key: 'stats', label: t('matchTabStats') },
+  ];
+
+  return (
+    <div className="mt-2">
+      <div className="flex gap-1 p-0.5 rounded-xl bg-white/4 border border-white/8 mb-3">
+        {tabs.map(tb => (
+          <button
+            key={tb.key}
+            type="button"
+            onClick={() => setTab(tb.key)}
+            className="relative flex-1 min-w-0 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+          >
+            {tab === tb.key && (
+              <motion.span
+                layoutId="matchCardSubTabPill"
+                className="absolute inset-0 rounded-lg bg-white/10"
+                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+              />
+            )}
+            <span className={cn('relative z-10 block truncate', tab === tb.key ? 'text-white' : 'text-white/45')}>
+              {tb.label}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {tab === 'overview' && <CrowdSentimentBar match={match} predictors={predictors} />}
+      {tab === 'lineups' && <MatchRosters match={match} />}
+      {tab === 'stats' && (
+        <div className="space-y-2">
+          <MatchStats match={match} />
+          {isFinishedNow && <MatchTimeline match={match} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CrowdSentimentBar — Visual De-cluttering Phase 2 ─────────────────────────
+// Minimal horizontal Home/Draw/Away % split, sourced from
+// useGroupMatchPredictions.ts's already-fetched group predictions for this
+// match — zero new query. Gated strictly on match.status !== 'NS' at the
+// call site (isLive || isFinished already guarantees this, since neither
+// implies 'NS') as a second, belt-and-suspenders check on top of migration
+// 037's own server-side RLS enforcement — never relying on RLS alone for a
+// privacy-sensitive UI decision. Every segment is direct-labeled with its
+// real percentage — color is never the only signal (dataviz skill).
+function CrowdSentimentBar({
+  match,
+  predictors,
+}: {
+  match: Match;
+  predictors: { user_id: string; avatar_url: string | null; username: string; predicted_outcome: string | null }[];
+}) {
+  const { t } = useLangStore();
+  if (match.status === 'NS') return null; // hard privacy gate — never render pre-kickoff
+
+  const withOutcome = predictors.filter(p => p.predicted_outcome === 'H' || p.predicted_outcome === 'D' || p.predicted_outcome === 'A');
+  if (withOutcome.length === 0) return null; // hidden until real data exists
+
+  const total = withOutcome.length;
+  const homeCount = withOutcome.filter(p => p.predicted_outcome === 'H').length;
+  const drawCount = withOutcome.filter(p => p.predicted_outcome === 'D').length;
+  const awayCount = withOutcome.filter(p => p.predicted_outcome === 'A').length;
+  const homePct = Math.round((homeCount / total) * 100);
+  const drawPct = Math.round((drawCount / total) * 100);
+  const awayPct = Math.max(0, 100 - homePct - drawPct); // remainder, keeps the three segments summing to exactly 100
+
+  return (
+    <div className="px-0.5">
+      <p className="text-white/30 text-[10px] uppercase tracking-wider mb-1.5">{t('crowdSentimentLabel')}</p>
+      <div className="flex h-[6px] rounded-full overflow-hidden">
+        <div className="h-full bg-accent-green rounded-s-full" style={{ width: `${homePct}%` }} />
+        <div className="h-full bg-white/15" style={{ width: `${drawPct}%` }} />
+        <div className="h-full bg-accent-orange rounded-e-full" style={{ width: `${awayPct}%` }} />
+      </div>
+      <div className="flex items-center justify-between mt-1 text-[10px] font-mono tabular-nums text-white/50">
+        <span>{t('home')} {homePct}%</span>
+        <span>{t('draw')} {drawPct}%</span>
+        <span>{t('away')} {awayPct}%</span>
       </div>
     </div>
   );
