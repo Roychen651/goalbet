@@ -806,7 +806,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
           >
             <div className="px-3 pb-3 border-t border-white/5 pt-3">
               {isFinished && !hasPrediction ? (
-                <MatchActualStats match={match} />
+                <MatchActualStats match={match} predictors={predictors} />
               ) : prediction?.is_resolved && isInProgress ? (
                 <ResolvedETPanel prediction={prediction} match={match} />
               ) : (
@@ -1230,7 +1230,24 @@ function CrowdSentimentBar({
   );
 }
 
-function MatchActualStats({ match }: { match: Match }) {
+// Visual De-cluttering follow-up (live QA report, Nov 2026) — this branch
+// (a finished match the current user did NOT predict on) was a real,
+// separate code path the Phase 2 redesign never reached: it rendered its
+// own flat MatchStats+MatchTimeline+MatchRosters stack instead of the new
+// Overview|Lineups|Stats switcher, so anyone browsing Results for a match
+// they hadn't bet on saw the pre-redesign UI with none of Phase 1/2's
+// work — exactly what was reported as "no visible upgrade," and exactly
+// where the disappearing-toggle bug was hit. Fixed below: the quick BTTS/
+// Goals/Corners facts strip stays (it's genuinely useful and exists
+// nowhere else), but the stacked trio is replaced with the same
+// <MatchSubTabs> every other finished/live card already uses.
+function MatchActualStats({
+  match,
+  predictors,
+}: {
+  match: Match;
+  predictors: { user_id: string; avatar_url: string | null; username: string; predicted_outcome: string | null }[];
+}) {
   const { t } = useLangStore();
   if (match.home_score === null || match.away_score === null) return null;
 
@@ -1250,22 +1267,35 @@ function MatchActualStats({ match }: { match: Match }) {
       {/* ET / Penalty summary — reuses shared block */}
       <ETSummaryBlock match={match} />
 
-      <p className="text-white/30 text-[10px] uppercase tracking-wider mb-1">{t('matchStats')}</p>
+      <p className="text-white/30 text-[10px] font-barlow uppercase tracking-widest mb-1.5">{t('matchStats')}</p>
+      {/* Typography fix (live QA report) — label and value used to share
+          the exact same text-xs size, distinguished only by weight/opacity;
+          the value now gets real size+weight contrast so it reads as data,
+          not a second label. */}
+      {/* `dir="ltr"` on the value span for the two rows whose value mixes
+          digits/symbols with a short Latin label (e.g. "3 (O2.5)",
+          "9 — ≤9") — the Hebrew `over25`/`under25` strings are themselves
+          Latin abbreviations ("O2.5"), so under an RTL ancestor the whole
+          compound string gets reordered into garbage by the browser's bidi
+          algorithm without an explicit pin. Live-caught via Hebrew-mode
+          screenshot during this same QA pass — the exact bidi bug class
+          already documented for Monte Carlo score labels and the knockout
+          bracket's penalty-shootout suffix; BTTS's value is a plain
+          translated word (no digits), so it's left unpinned on purpose. */}
       {[
-        { label: t('btts'), value: btts ? t('yes') : t('no'), positive: btts },
-        { label: t('goals'), value: `${totalGoals} (${isOver ? t('over25') : t('under25')})`, positive: isOver },
-        ...(cornersBucket ? [{ label: t('corners'), value: `${cornersTotal} — ${cornersBucket}`, positive: true }] : []),
+        { label: t('btts'), value: btts ? t('yes') : t('no'), ltr: false },
+        { label: t('goals'), value: `${totalGoals} (${isOver ? t('over25') : t('under25')})`, ltr: true },
+        ...(cornersBucket ? [{ label: t('corners'), value: `${cornersTotal} — ${cornersBucket}`, ltr: true }] : []),
       ].map(s => (
-        <div key={s.label} className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs bg-white/3 border border-white/5">
-          <span className="text-white/40">{s.label}</span>
-          <span className="text-white/70 font-semibold">{s.value}</span>
+        <div key={s.label} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/3 border border-white/5">
+          <span className="text-[11px] font-barlow uppercase tracking-wide text-white/40">{s.label}</span>
+          <span className="text-sm font-mono font-bold tabular-nums text-white/85" dir={s.ltr ? 'ltr' : undefined}>{s.value}</span>
         </div>
       ))}
 
-      {/* Match Center — Stats, Timeline, Rosters */}
-      <MatchStats match={match} />
-      <MatchTimeline match={match} />
-      <MatchRosters match={match} />
+      {/* Match Center — same Overview|Lineups|Stats switcher every other
+          finished/live card uses (see the function comment above). */}
+      <MatchSubTabs match={match} predictors={predictors} />
     </div>
   );
 }
