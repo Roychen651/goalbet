@@ -98,7 +98,11 @@
   --arena-mid: oklch(55% 0.015 240);
   --arena-hot: oklch(65% 0.22 13);
   --arena-glow: oklch(78% 0.11 218 / 0.35);
-  --arena-grain-opacity: 0.035;
+  /* Full-app audit, Nov 2026 — "Purge Generic AI Design" pass: halved from
+     0.035 so .glass-grain reads as a quiet texture under typography
+     instead of competing with it. Same custom-property name, zero
+     consumer changes needed. */
+  --arena-grain-opacity: 0.0175;
 
   /* Sprint 20 — Risk Meter two-stop scale (OKLCH). Deliberately a separate
      token pair from --arena-cold/hot: arena's scale means "performance"
@@ -305,7 +309,8 @@ html.light {
   --arena-mid: oklch(62% 0.015 240);
   --arena-hot: oklch(56% 0.20 13);
   --arena-glow: oklch(55% 0.14 218 / 0.22);
-  --arena-grain-opacity: 0.05;
+  /* Full-app audit, Nov 2026 — halved from 0.05, same reasoning as :root. */
+  --arena-grain-opacity: 0.025;
 
   /* Sprint 20 — Risk Meter, light surface variant. Same hue anchors (85
      gold / 20 warning) as dark, darker + more saturated for contrast on
@@ -435,7 +440,9 @@ body::after {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(189, 232, 245, 0.10) 1px, transparent 1px);
+  /* Full-app audit, Nov 2026 — halved from 0.10 so the matrix sits as a
+     faint depth cue rather than visible static noise under typography. */
+  background-image: radial-gradient(rgba(189, 232, 245, 0.05) 1px, transparent 1px);
   background-size: 24px 24px;
   mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
@@ -774,7 +781,8 @@ html.light body::before {
 }
 
 html.light body::after {
-  background-image: radial-gradient(rgba(15, 40, 84, 0.05) 1px, transparent 1px);
+  /* Full-app audit, Nov 2026 — halved from 0.05, same reasoning as dark. */
+  background-image: radial-gradient(rgba(15, 40, 84, 0.025) 1px, transparent 1px);
   mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
 }

@@ -33,9 +33,14 @@ export function NeonButton({
         size === 'md' && 'px-5 py-2.5 text-sm',
         size === 'lg' && 'px-7 py-3.5 text-base',
         // Variants
+        // Full-app audit, Nov 2026 — "Unified Button & Icon System": glow
+        // intensity halved (0.5 -> 0.25 alpha, 25px -> 16px) to match the
+        // orange variant's already-modest --glow-orange token below,
+        // instead of this one variant alone carrying a visibly hotter
+        // glow than every other primary button in the app.
         variant === 'green' && [
           'bg-accent-green text-bg-base',
-          'hover:brightness-110 hover:shadow-[0_0_25px_rgba(var(--color-live-glow-rgb), 0.5)] hover:scale-[1.02]',
+          'hover:brightness-110 hover:shadow-[0_0_16px_rgba(var(--color-live-glow-rgb),0.25)] hover:scale-[1.02]',
           'active:scale-[0.98] active:brightness-95',
         ],
         variant === 'orange' && [

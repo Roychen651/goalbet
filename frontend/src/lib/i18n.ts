@@ -68,6 +68,11 @@ export const translations = {
     cornersOver11: '≥ 11',
     bothTeamsToScore: 'Both Teams to Score',
     totalGoals: 'Total Goals',
+    // Visual De-cluttering Phase 3 — PredictionForm's Quick Pick / All
+    // Tiers (5) disclosure toggle. Pure UI visibility, zero effect on the
+    // submit_prediction payload shape.
+    quickPickLabel: 'Quick Pick',
+    allTiersLabel: 'All Tiers (5)',
     lockInPrediction: 'Lock In Prediction',
     updatePrediction: 'Update Prediction',
     predictionSaved: '✓ Prediction Saved — Update',
@@ -344,6 +349,14 @@ export const translations = {
     redCardsStat: 'Red Cards',
     commentary: 'Commentary',
     lineups: 'Lineups',
+    // Visual De-cluttering Phase 2 — MatchCard's Overview|Lineups|Stats
+    // sub-tab switcher + Crowd Sentiment bar + the live provisional-points
+    // honesty qualifier.
+    matchTabOverview: 'Overview',
+    matchTabStats: 'Stats',
+    crowdSentimentLabel: 'Group picks',
+    livePtsPreviewLabel: 'Live',
+    livePtsPreviewTooltip: 'Provisional — final points are awarded after full time',
     formation: 'Formation',
     startingXI: 'Starting XI',
     substitutes: 'Substitutes',
@@ -773,6 +786,13 @@ export const translations = {
     aiScoutLabel: 'AI Scout',
     aiScoutPreMatchTitle: 'Scout Insight',
     aiScoutPostMatchTitle: 'Match Recap',
+    // Full-app audit, Nov 2026 — "Purge Generic AI Design": AIScoutCard's
+    // rotating conic border + gradient-text label is replaced with a
+    // crisp broadcast-style mono tag for non-live pre/post insights
+    // (rotating borders are now reserved for genuinely live elements —
+    // HTAnalystCard during HT, MomentumBanner while a question is open).
+    aiScoutBroadcastPre: 'SCOUT // PRE-MATCH',
+    aiScoutBroadcastPost: 'SCOUT // POST-MATCH',
 
     // V7 Sprint 51 — AI Commissioner + Voice Radio
     commissionerRadioLabel: 'Commissioner Radio',
@@ -1115,6 +1135,8 @@ export const translations = {
     cornersOver11: '≥ 11',
     bothTeamsToScore: 'שער לשני הצדדים (BTTS)',
     totalGoals: 'סה"כ שערים',
+    quickPickLabel: 'בחירה מהירה',
+    allTiersLabel: 'כל השכבות (5)',
     lockInPrediction: 'נעל ניחוש',
     updatePrediction: 'עדכן ניחוש',
     predictionSaved: '✓ ננעל — לחץ לעדכון',
@@ -1391,6 +1413,11 @@ export const translations = {
     redCardsStat: 'כרטיסים אדומים',
     commentary: 'פרשנות',
     lineups: 'הרכבים',
+    matchTabOverview: 'סקירה',
+    matchTabStats: 'סטטיסטיקה',
+    crowdSentimentLabel: 'ניחושי הקבוצה',
+    livePtsPreviewLabel: 'חי',
+    livePtsPreviewTooltip: 'זמני — הניקוד הסופי יוענק בסוף המשחק',
     formation: 'מערך',
     startingXI: 'הרכב פתיחה',
     substitutes: 'מחליפים',
@@ -1814,6 +1841,8 @@ export const translations = {
     aiScoutLabel: 'סייר AI',
     aiScoutPreMatchTitle: 'תובנת הסייר',
     aiScoutPostMatchTitle: 'סיכום המשחק',
+    aiScoutBroadcastPre: 'סקאוט // לפני המשחק',
+    aiScoutBroadcastPost: 'סקאוט // אחרי המשחק',
 
     // V7 Sprint 51 — קומישנר AI + רדיו קולי
     commissionerRadioLabel: 'רדיו הקומישנר',

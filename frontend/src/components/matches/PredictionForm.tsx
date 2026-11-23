@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Minus, Plus, Link2, Users, Trophy, Share2 } from 'lucide-react';
+import { Minus, Plus, Link2, Users, Trophy, Share2, ChevronDown } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Match, Prediction, supabase } from '../../lib/supabase';
 import { NeonButton } from '../ui/NeonButton';
@@ -141,6 +141,18 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
   const [cornersValue, setCornersValue] = useState<'under9' | 'ten' | 'over11' | null>(existingPrediction?.predicted_corners ?? null);
   const [btts, setBtts] = useState<boolean | null>(existingPrediction?.predicted_btts ?? null);
   const [overUnder, setOverUnder] = useState<'over' | 'under' | null>(existingPrediction?.predicted_over_under ?? null);
+  // Visual De-cluttering Phase 3 — "Quick Pick" vs "All Tiers (5)". A pure
+  // UI-disclosure toggle: every tier's own state (cornersValue/btts/
+  // overUnder above) is completely unaffected by whether it's currently
+  // shown — submit_prediction's payload is built from those state values
+  // regardless, never from this toggle. Defaults collapsed (Quick Pick)
+  // UNLESS the user already has a value in one of the secondary tiers
+  // (editing an existing prediction, or came back after using "All
+  // Tiers") — a lazy initializer so an existing pick is never hidden on
+  // open.
+  const [showAllTiers, setShowAllTiers] = useState(
+    () => cornersValue !== null || btts !== null || overUnder !== null
+  );
   const [saved, setSaved] = useState(!!existingPrediction);
   // V7 Sprint 54 — "Stadium Vault". True for exactly this component
   // instance's lifetime, the moment a submit was queued offline
@@ -612,7 +624,17 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         <InfoTip text={t('parlayHintDetail')} />
       </div>
 
-      {tiers.map((tier, i) => (
+      {/* Visual De-cluttering Phase 3 — "Quick Pick" always shows Result +
+          Score, exactly the two highest-signal tiers; Corners/BTTS/Over-
+          Under collapse behind the toggle below, defaulting collapsed for
+          a genuinely new pick (see showAllTiers' own lazy initializer).
+          This is purely which TierRow/InlineBoolTier elements render —
+          tiers.slice(0, 2) vs. the full tiers array below — every state
+          setter (setCornersValue/setBtts/setOverUnder) and TIER_COLORS[i]
+          index are completely unchanged, so the submit_prediction payload
+          this component eventually builds is byte-for-byte identical
+          regardless of which tiers were ever shown on screen. */}
+      {tiers.slice(0, 2).map((tier, i) => (
         <motion.div
           key={tier.key}
           initial={{ opacity: 0, y: 8 }}
@@ -637,43 +659,92 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
         </motion.div>
       ))}
 
-      {/* BTTS + O/U as compact single-line rows */}
-      <LockedTier locked={!!isNewUser}>
-        <InlineBoolTier
-          label={t('bothTeamsToScore')}
-          pts={POINTS.TIER5_BTTS}
-          active={btts !== null}
-          color={TIER_COLORS[tiers.length]}
-          value={btts}
-          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setBtts(v); setSaved(false); setOfflineQueued(false); }}
-          yesLabel={t('yes')}
-          noLabel={t('no')}
-          impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
-          delay={tiers.length * 0.05}
-          linkKey="btts"
-          linked={linkedTiers.has('btts')}
-          canLink={tierActive.btts}
-          onToggleLink={toggleLink}
-        />
-      </LockedTier>
-      <LockedTier locked={!!isNewUser}>
-        <InlineBoolTier
-          label={t('totalGoals')}
-          pts={POINTS.TIER6_OVER_UNDER}
-          active={overUnder !== null}
-          color={TIER_COLORS[tiers.length + 1]}
-          value={overUnder === null ? null : overUnder === 'over'}
-          onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); setOfflineQueued(false); }}
-          yesLabel="O 2.5"
-          noLabel="U 2.5"
-          impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
-          delay={(tiers.length + 1) * 0.05}
-          linkKey="ou"
-          linked={linkedTiers.has('ou')}
-          canLink={tierActive.ou}
-          onToggleLink={toggleLink}
-        />
-      </LockedTier>
+      <button
+        type="button"
+        onClick={() => { haptic('selection'); playSound('toggle_click'); setShowAllTiers(v => !v); }}
+        className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold text-white/45 hover:text-white/70 hover:bg-white/4 transition-colors"
+      >
+        <ChevronDown size={12} strokeWidth={2.5} className={cn('transition-transform duration-200', showAllTiers && 'rotate-180')} />
+        {showAllTiers ? t('quickPickLabel') : t('allTiersLabel')}
+      </button>
+
+      <AnimatePresence initial={false}>
+        {showAllTiers && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+            className="overflow-hidden space-y-1.5"
+          >
+            {tiers.slice(2).map((tier, j) => {
+              const i = j + 2;
+              return (
+                <motion.div
+                  key={tier.key}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: j * 0.05, type: 'spring', stiffness: 200, damping: 24 }}
+                >
+                  <TierRow
+                    label={tier.label}
+                    pts={tier.pts}
+                    ptsNote={tier.ptsNote}
+                    active={tier.active}
+                    color={TIER_COLORS[i]}
+                    disabled={tier.disabled}
+                    disabledTooltip={tier.disabled ? t('cornersUnsupportedTooltip') : undefined}
+                    linkKey={tier.parlayKey}
+                    linked={linkedTiers.has(tier.parlayKey)}
+                    canLink={tierActive[tier.parlayKey]}
+                    onToggleLink={toggleLink}
+                  >
+                    <LockedTier locked={!!isNewUser && tier.key !== 'tier1'}>{tier.content}</LockedTier>
+                  </TierRow>
+                </motion.div>
+              );
+            })}
+
+            {/* BTTS + O/U as compact single-line rows */}
+            <LockedTier locked={!!isNewUser}>
+              <InlineBoolTier
+                label={t('bothTeamsToScore')}
+                pts={POINTS.TIER5_BTTS}
+                active={btts !== null}
+                color={TIER_COLORS[tiers.length]}
+                value={btts}
+                onChange={(v) => { haptic('selection'); playSound('toggle_click'); setBtts(v); setSaved(false); setOfflineQueued(false); }}
+                yesLabel={t('yes')}
+                noLabel={t('no')}
+                impossibleValue={hasExactScore && scoreDerivedBTTS !== null ? !scoreDerivedBTTS : undefined}
+                delay={0}
+                linkKey="btts"
+                linked={linkedTiers.has('btts')}
+                canLink={tierActive.btts}
+                onToggleLink={toggleLink}
+              />
+            </LockedTier>
+            <LockedTier locked={!!isNewUser}>
+              <InlineBoolTier
+                label={t('totalGoals')}
+                pts={POINTS.TIER6_OVER_UNDER}
+                active={overUnder !== null}
+                color={TIER_COLORS[tiers.length + 1]}
+                value={overUnder === null ? null : overUnder === 'over'}
+                onChange={(v) => { haptic('selection'); playSound('toggle_click'); setOverUnder(v === null ? null : v ? 'over' : 'under'); setSaved(false); setOfflineQueued(false); }}
+                yesLabel="O 2.5"
+                noLabel="U 2.5"
+                impossibleValue={hasExactScore && scoreDerivedOU !== null ? scoreDerivedOU === 'under' : undefined}
+                delay={0.05}
+                linkKey="ou"
+                linked={linkedTiers.has('ou')}
+                canLink={tierActive.ou}
+                onToggleLink={toggleLink}
+              />
+            </LockedTier>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ParlaySlipDrawer linkedTiers={linkedTiers} tierPoints={PARLAY_TIER_BASE_POINTS} onUnlink={toggleLink} />
 
