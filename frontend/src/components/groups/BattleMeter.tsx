@@ -24,6 +24,7 @@ import { haptic } from '../../lib/haptics';
 import { playSound } from '../../lib/sensoryAudio';
 import { GlassCard } from '../ui/GlassCard';
 import { InfoTip } from '../ui/InfoTip';
+import { ChallengeGroupModal } from './ChallengeGroupModal';
 import { useRealtimeSubscription, useRealtimeReconnect } from '../providers/RealtimeProvider';
 
 interface Battle {
@@ -37,7 +38,18 @@ interface Battle {
   defender: { name: string } | null;
 }
 
-export function BattleMeter() {
+interface BattleMeterProps {
+  // V7 — GroupActivityPanel consolidation (Locker Room widget grouping, same
+  // shape as SyndicatePoolCard's own bare/onHasContent props). When `bare`
+  // is set, the idle "no battle yet" CTA below is suppressed — the parent
+  // panel owns the single combined idle state in that case. Standalone
+  // usage (bare unset) keeps the full idle CTA, since BattleMeter can still
+  // be mounted on its own elsewhere in the future.
+  bare?: boolean;
+  onHasContent?: (has: boolean) => void;
+}
+
+export function BattleMeter({ bare, onHasContent }: BattleMeterProps = {}) {
   const { activeGroupId } = useGroupStore();
   const { t, lang } = useLangStore();
   const { addToast } = useUIStore();
@@ -46,6 +58,7 @@ export function BattleMeter() {
   const [battle, setBattle] = useState<Battle | null>(null);
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState(false);
+  const [challengeModalOpen, setChallengeModalOpen] = useState(false);
 
   const fetchBattle = useCallback(async () => {
     if (!activeGroupId) { setBattle(null); setLoading(false); return; }
@@ -71,6 +84,10 @@ export function BattleMeter() {
   }, [activeGroupId]);
 
   useEffect(() => { fetchBattle(); }, [fetchBattle]);
+
+  useEffect(() => {
+    if (!loading) onHasContent?.(!!battle);
+  }, [loading, battle, onHasContent]);
 
   useRealtimeSubscription('group_battles', () => fetchBattle());
   useRealtimeReconnect(() => fetchBattle());
@@ -100,7 +117,39 @@ export function BattleMeter() {
     }
   }, [battle, responding, addToast, t, fetchBattle]);
 
-  if (loading || !battle) return null;
+  if (loading) return null;
+
+  if (!battle) {
+    if (bare) return null; // the combined panel owns the idle state when nested
+    return (
+      <>
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring' as const, stiffness: 260, damping: 24 }}
+          className="mb-4"
+          dir={isHe ? 'rtl' : 'ltr'}
+        >
+          <GlassCard variant="default" contentClassName="flex items-center gap-3" className="p-3">
+            <div className="w-8 h-8 rounded-xl bg-[color:var(--battle-challenger)]/15 flex items-center justify-center shrink-0">
+              <Swords size={16} style={{ color: 'var(--battle-challenger)' }} />
+            </div>
+            <p className="flex-1 text-xs text-text-muted">{t('battleNoneActive')}</p>
+            <button
+              type="button"
+              onClick={() => { haptic('selection'); setChallengeModalOpen(true); }}
+              className="shrink-0 h-8 px-3 rounded-lg text-xs font-semibold bg-[color:var(--battle-challenger)]/15 text-[color:var(--battle-challenger)] active:scale-95 transition-transform"
+            >
+              {t('battleChallengeCta')}
+            </button>
+          </GlassCard>
+        </motion.div>
+        {challengeModalOpen && (
+          <ChallengeGroupModal onClose={() => setChallengeModalOpen(false)} />
+        )}
+      </>
+    );
+  }
 
   const isDefender = battle.defender_group_id === activeGroupId;
   const isPending = battle.status === 'pending';
@@ -114,7 +163,7 @@ export function BattleMeter() {
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring' as const, stiffness: 260, damping: 24 }}
-      className="mb-4"
+      className={bare ? '' : 'mb-4'}
       dir={isHe ? 'rtl' : 'ltr'}
     >
       <GlassCard variant="elevated" grain edgeGradient contentClassName="flex flex-col gap-3" className="p-4">

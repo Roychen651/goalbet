@@ -12,6 +12,7 @@ import { useLangStore } from '../stores/langStore';
 import { useThemeStore } from '../stores/themeStore';
 import { useMatchSync } from '../hooks/useMatchSync';
 import { GlassCard } from '../components/ui/GlassCard';
+import { DisclosureSection } from '../components/ui/DisclosureSection';
 import { PushToggle } from '../components/ui/PushToggle';
 import { TiltModeToggle } from '../components/ui/TiltModeToggle';
 import { NeonButton } from '../components/ui/NeonButton';
@@ -95,93 +96,6 @@ function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: s
       <Icon size={14} className="text-accent-green/60" />
       <h2 className="text-text-muted text-xs uppercase tracking-wider font-semibold">{title}</h2>
     </div>
-  );
-}
-
-// ── Disclosure Section (Progressive Disclosure) ─────────────────────────────
-//
-// A container-level counterpart to the confirm-flow disclosures already
-// throughout this file (Reset Scores/Delete Group's own AnimatePresence
-// height reveals, Change Password's reveal-on-tap). Those already disclose
-// at the ACTION level; this discloses at the SECTION level — the whole
-// card starts collapsed, so a rare/high-stakes group of settings (the
-// classic "Danger Zone" pattern from Stripe/GitHub/Linear settings pages)
-// doesn't cost every visitor permanent screen real estate and cognitive
-// load for something the overwhelming majority of visits never touch.
-//
-// Reuses the exact same AnimatePresence height:0->auto shape already
-// proven jank-free four times over in this exact file — no new animation
-// primitive, just a new place to apply it. The chevron rotates open/closed
-// rather than swapping icons or mirroring by language — an expand
-// indicator's job is "reveals downward," a direction-agnostic rotation,
-// not a "points forward in reading direction" navigational icon (the
-// literal RTL-icon-mirroring rule doesn't apply to this specific job).
-function DisclosureSection({
-  icon: Icon,
-  title,
-  hint,
-  accent = 'green',
-  defaultOpen = false,
-  children,
-}: {
-  icon: React.ElementType;
-  title: string;
-  hint?: string;
-  accent?: 'green' | 'orange';
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  const isOrange = accent === 'orange';
-
-  return (
-    <GlassCard className={cn('p-4', isOrange && 'border-accent-orange/15')}>
-      <button
-        onClick={() => {
-          haptic('selection');
-          playSound('toggle_click');
-          setOpen(o => !o);
-        }}
-        className="w-full flex items-center justify-between gap-3"
-        aria-expanded={open}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={cn(
-            'w-8 h-8 rounded-xl border flex items-center justify-center shrink-0',
-            isOrange ? 'bg-accent-orange/10 border-accent-orange/20' : 'bg-accent-green/10 border-accent-green/20',
-          )}>
-            <Icon size={15} className={isOrange ? 'text-accent-orange' : 'text-accent-green'} />
-          </div>
-          <div className="text-start min-w-0">
-            <p className="text-text-primary text-sm font-medium">{title}</p>
-            {hint && !open && <p className="text-text-muted text-xs mt-0.5 truncate">{hint}</p>}
-          </div>
-        </div>
-        <motion.div
-          animate={{ rotate: open ? 90 : 0 }}
-          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-          className="shrink-0"
-        >
-          <ChevronRight size={16} className="text-text-muted" />
-        </motion.div>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden"
-          >
-            <div className={cn('pt-4 mt-4 border-t space-y-4', isOrange ? 'border-accent-orange/15' : 'border-white/8')}>
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </GlassCard>
   );
 }
 
