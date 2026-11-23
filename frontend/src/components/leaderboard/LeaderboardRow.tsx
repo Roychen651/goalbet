@@ -278,6 +278,7 @@ export function LeaderboardRow({ entry, isCurrentUser, type, periodStat, onClick
           <button
             onClick={(e) => { e.stopPropagation(); haptic('selection'); onToggleExpand(); }}
             aria-label={t('leaderboardExpandRow')}
+            title={t('leaderboardScoutHint')}
             aria-expanded={!!expanded}
             className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-text-muted hover:text-white hover:bg-white/8 transition-colors"
           >

@@ -2,8 +2,7 @@ import { motion } from 'framer-motion';
 import { useLangStore } from '../stores/langStore';
 import { ActivityFeed } from '../components/groups/ActivityFeed';
 import { MomentumBanner } from '../components/groups/MomentumBanner';
-import { SyndicatePoolCard } from '../components/groups/SyndicatePoolCard';
-import { BattleMeter } from '../components/groups/BattleMeter';
+import { GroupActivityPanel } from '../components/groups/GroupActivityPanel';
 import { VoiceRadioPlayer } from '../components/groups/VoiceRadioPlayer';
 import { useGroupEvents } from '../hooks/useGroupEvents';
 
@@ -51,8 +50,7 @@ export function LockerRoomPage() {
         />
       )}
       <MomentumBanner />
-      <BattleMeter />
-      <SyndicatePoolCard />
+      <GroupActivityPanel />
 
       {/* Feed */}
       <ActivityFeed />

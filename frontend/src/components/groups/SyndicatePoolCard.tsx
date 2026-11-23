@@ -115,7 +115,18 @@ function computeMaxPoints(target: TargetPrediction): number {
   return pts;
 }
 
-export function SyndicatePoolCard() {
+interface SyndicatePoolCardProps {
+  // V7 — GroupActivityPanel consolidation (Locker Room widget grouping).
+  // `bare` drops the standalone outer mb-4 spacing so the panel controls it
+  // once for the whole combined region, never functional behavior.
+  // `onHasContent` fires once per real fetch resolution (never during
+  // loading) so the panel can decide its own collapsed-vs-expanded layout
+  // without duplicating this component's own Supabase query.
+  bare?: boolean;
+  onHasContent?: (has: boolean) => void;
+}
+
+export function SyndicatePoolCard({ bare, onHasContent }: SyndicatePoolCardProps = {}) {
   const { user } = useAuthStore();
   const { activeGroupId } = useGroupStore();
   const { t, lang } = useLangStore();
@@ -169,6 +180,10 @@ export function SyndicatePoolCard() {
   }, [activeGroupId, user?.id]);
 
   useEffect(() => { fetchPool(); }, [fetchPool]);
+
+  useEffect(() => {
+    if (!loading) onHasContent?.(!!pool);
+  }, [loading, pool, onHasContent]);
 
   // V5 Sprint 36 Hotfix — payload content is ignored (matches the
   // established idiom every other Realtime-migrated hook in this codebase
@@ -236,7 +251,7 @@ export function SyndicatePoolCard() {
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring' as const, stiffness: 260, damping: 24 }}
-      className="mb-4"
+      className={bare ? '' : 'mb-4'}
       dir={isHe ? 'rtl' : 'ltr'}
     >
       <GlassCard variant="elevated" grain edgeGradient contentClassName="flex flex-col gap-3" className="p-4">

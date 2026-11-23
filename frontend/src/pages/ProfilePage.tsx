@@ -1,7 +1,7 @@
 import { TranslationKey } from '../lib/i18n';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Share2, Sparkles } from 'lucide-react';
+import { Share2, Sparkles, BarChart3 } from 'lucide-react';
 import { streakTierColor } from '../lib/oklch';
 import { tTeam } from '../lib/dictionaries/teamsHe';
 import { useAuthStore } from '../stores/authStore';
@@ -11,6 +11,7 @@ import { useCoinsStore } from '../stores/coinsStore';
 import { supabase, Prediction, Match } from '../lib/supabase';
 import { CosmeticAvatar } from '../components/ui/CosmeticAvatar';
 import { GlassCard } from '../components/ui/GlassCard';
+import { DisclosureSection } from '../components/ui/DisclosureSection';
 import { NeonButton } from '../components/ui/NeonButton';
 import { PageLoader } from '../components/ui/LoadingSpinner';
 import { MatchStatusBadge } from '../components/matches/MatchStatusBadge';
@@ -650,8 +651,26 @@ export function ProfilePage() {
       </motion.div>
       )}
 
-      {/* ── Personal Analytics ────────────────────────────────────────────── */}
+      {/* ── Deep Stats (Progressive Disclosure) ──────────────────────────────
+          V7 full-app audit, Sprint C widget consolidation — Personal
+          Analytics (Best Tier/Score Precision/Recent Form), the Risk
+          Profile radar, and the Prediction Heatmap Grid used to stack as 3
+          separate always-rendered sections below the main bento, on top of
+          PredictorArchetypeBadge/ProfileBentoV2/TrophyCabinet above — a real
+          "widget overload" finding from the full audit. User's own answer:
+          consolidate and collapse. Reuses DisclosureSection (extracted from
+          SettingsPage.tsx's own Danger Zone, the identical container-level
+          collapse this page is now the second real consumer of) rather than
+          inventing a second collapse mechanism. Every inner section keeps
+          its own exact pre-existing gating (`hasAnalytics`,
+          `dayActivity.length`) — only the outer `!loading` wrapper moved to
+          the disclosure itself; no data fetch/subscription changed. */}
       {!loading && (
+        <DisclosureSection
+          icon={BarChart3}
+          title={t('profileDeepStatsTitle')}
+          hint={t('profileDeepStatsHint')}
+        >
         <motion.div
           initial="hidden"
           animate="show"
@@ -810,29 +829,30 @@ export function ProfilePage() {
             </div>
           )}
         </motion.div>
-      )}
 
-      {/* ── Risk Profile radar ────────────────────────────────────────────── */}
-      {!loading && hasAnalytics && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 100, damping: 18, delay: 0.1 }}>
-          <GlassCard variant="elevated" className="p-4">
-            <div className="flex items-center justify-center gap-1.5 mb-1">
-              <span className="font-bebas text-lg tracking-wider text-white">{t('radarTitle')}</span>
-              <InfoTip text={t('radarInfoTip')} />
-            </div>
-            <RiskRadarChart axes={radarAxes} />
-          </GlassCard>
-        </motion.div>
-      )}
+        {/* ── Risk Profile radar ──────────────────────────────────────────── */}
+        {hasAnalytics && (
+          <motion.div className="mt-3" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 100, damping: 18, delay: 0.1 }}>
+            <GlassCard variant="elevated" className="p-4">
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <span className="font-bebas text-lg tracking-wider text-white">{t('radarTitle')}</span>
+                <InfoTip text={t('radarInfoTip')} />
+              </div>
+              <RiskRadarChart axes={radarAxes} />
+            </GlassCard>
+          </motion.div>
+        )}
 
-      {/* ── Prediction Heatmap Grid ──────────────────────────────────────── */}
-      {!loading && hasAnalytics && dayActivity.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 100, damping: 18, delay: 0.12 }}>
-          <GlassCard variant="elevated" className="p-4">
-            <span className="font-bebas text-lg tracking-wider text-white block text-center mb-2">{t('heatmapGridTitle')}</span>
-            <PredictionHeatmapGrid days={dayActivity} windowDays={84} />
-          </GlassCard>
-        </motion.div>
+        {/* ── Prediction Heatmap Grid ────────────────────────────────────── */}
+        {hasAnalytics && dayActivity.length > 0 && (
+          <motion.div className="mt-3" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 100, damping: 18, delay: 0.12 }}>
+            <GlassCard variant="elevated" className="p-4">
+              <span className="font-bebas text-lg tracking-wider text-white block text-center mb-2">{t('heatmapGridTitle')}</span>
+              <PredictionHeatmapGrid days={dayActivity} windowDays={84} />
+            </GlassCard>
+          </motion.div>
+        )}
+        </DisclosureSection>
       )}
 
       {/* ── Trophy Cabinet ────────────────────────────────────────────────── */}
