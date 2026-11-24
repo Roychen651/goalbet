@@ -22,6 +22,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { isEmailValid, isPasswordValid, mapAuthError } from '../../lib/authSchema';
 import { PasswordStrength } from './PasswordStrength';
 import { useLangStore } from '../../stores/langStore';
+import { withAuthTimeout } from '../../lib/asyncTimeout';
 
 type ReAuthView = 'main' | 'password' | 'set-password';
 
@@ -56,10 +57,23 @@ export function ReAuthModal({
   const handleGoogle = async () => {
     setLoading(true);
     setError(null);
+    // Same gap as the login page's Google button (useAuthV2.ts,
+    // handleGoogleSignIn) — signInWithGoogle() only protects against its
+    // own promise never settling. If it settles cleanly it triggers a
+    // top-level redirect as a side effect, and nothing recovers `loading`
+    // if that redirect never actually starts. A bounded fallback watchdog
+    // closes the gap here too — this modal appears mid-session on ANY
+    // protected page, so a stuck Google button here is even easier to miss
+    // than one on the login page.
+    const redirectWatchdog = setTimeout(() => {
+      setLoading(false);
+      setError(t('googleRedirectFailed'));
+    }, 6000);
     try {
       await signInWithGoogle();
       // redirect handles the rest — onSuccess called by App's useEffect on user change
     } catch (err) {
+      clearTimeout(redirectWatchdog);
       setError(err instanceof Error ? err.message : 'Google sign-in failed');
       setLoading(false);
     }
@@ -70,7 +84,9 @@ export function ReAuthModal({
     setLoading(true);
     setError(null);
     try {
-      const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pw });
+      const { error: err } = await withAuthTimeout(
+        supabase.auth.signInWithPassword({ email: email.trim(), password: pw }),
+      );
       if (err) { setError(mapAuthError(err.message)); return; }
       onSuccess();
     } finally {
@@ -83,7 +99,7 @@ export function ReAuthModal({
     setLoading(true);
     setError(null);
     try {
-      const { error: err } = await supabase.auth.updateUser({ password: newPw });
+      const { error: err } = await withAuthTimeout(supabase.auth.updateUser({ password: newPw }));
       if (err) { setError(mapAuthError(err.message)); return; }
       onSuccess();
     } finally {

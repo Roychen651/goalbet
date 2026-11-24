@@ -138,7 +138,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (data) set({ profile: data });
   },
   signOut: async () => {
-    await supabase.auth.signOut();
+    // Same "never let a Supabase auth call hang unbounded" discipline as
+    // every other call in this file — a stuck sign-out leaves the user
+    // trapped mid-action with no recovery. This one function is the single
+    // source every sign-out button in the app funnels through (ReAuthModal's
+    // "Sign out fully", SettingsPage, ProfilePage, and App.tsx's own
+    // session-expiry redirect), so fixing it here covers all of them.
+    // Clear local state regardless of whether the server call itself
+    // succeeded or timed out — same "fail toward logged out" philosophy as
+    // init()'s own catch block above.
+    await withAuthTimeout(supabase.auth.signOut());
     set({ user: null, session: null, profile: null });
   },
 

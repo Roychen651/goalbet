@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase, Group } from '../lib/supabase';
 import { useCoinsStore } from './coinsStore';
+import { withAuthTimeout } from '../lib/asyncTimeout';
 
 interface GroupState {
   groups: Group[];
@@ -73,7 +74,13 @@ export const useGroupStore = create<GroupState>()(
       },
 
       createGroup: async (name, activeLeagues) => {
-        const { data: { user } } = await supabase.auth.getUser();
+        // Unguarded supabase.auth.* calls hang forever on a slow/unresponsive
+        // auth service — same discipline as every other call in this
+        // codebase (asyncTimeout.ts). A timed-out call here correctly throws
+        // "Not authenticated" below rather than leaving "Create Group"
+        // stuck spinning indefinitely.
+        const { data } = await withAuthTimeout(supabase.auth.getUser());
+        const user = data?.user ?? null;
         if (!user) throw new Error('Not authenticated');
 
         // Ensure profile row exists before inserting group (FK constraint: groups.created_by → profiles.id)
@@ -140,7 +147,9 @@ export const useGroupStore = create<GroupState>()(
 
       joinGroup: async (inviteCode, userId) => {
         // Ensure profile exists for new users (trigger may have failed on first login)
-        const { data: { user } } = await supabase.auth.getUser();
+        // Timeout-guarded — same reasoning as createGroup() above.
+        const { data } = await withAuthTimeout(supabase.auth.getUser());
+        const user = data?.user ?? null;
         if (user) {
           const { error: profileCheckErr } = await supabase
             .from('profiles')
