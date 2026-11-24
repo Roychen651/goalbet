@@ -163,7 +163,7 @@ export function KnockoutBracketView({ leagueId, season, isCurrentSeason = true }
     // implying the tournament simply hasn't happened yet.
     return (
       <EmptyState
-        icon="🏆"
+        icon={<Trophy size={40} strokeWidth={1.5} />}
         title={t((isCurrentSeason ? 'bracketNoDataTitle' : 'bracketNoDataTitleArchived') as TranslationKey)}
         description={t((isCurrentSeason ? 'bracketNoDataDescription' : 'bracketNoDataDescriptionArchived') as TranslationKey)}
       />

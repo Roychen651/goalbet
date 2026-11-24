@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { Trophy, Link2, Lock, X } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
 
 interface ScoringGuideProps {
@@ -119,9 +120,9 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
                   <motion.span
                     animate={{ rotate: [0, -8, 8, 0] }}
                     transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-                    className="text-2xl"
+                    className="text-accent-green"
                   >
-                    🏆
+                    <Trophy size={22} strokeWidth={1.75} />
                   </motion.span>
                   <h2 className="font-bebas text-2xl tracking-wider text-white">
                     {isHe ? 'מערכת הניקוד' : 'Scoring System'}
@@ -133,9 +134,10 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-white/8 border border-white/12 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/15 transition-all text-sm shrink-0 mt-0.5"
+                aria-label={isHe ? 'סגור' : 'Close'}
+                className="w-8 h-8 rounded-full bg-white/8 border border-white/12 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/15 transition-all shrink-0 mt-0.5"
               >
-                ✕
+                <X size={16} strokeWidth={1.75} />
               </button>
             </div>
           </div>
@@ -195,7 +197,7 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
               "what does this do" — same card language as the ET note below. */}
           <div className="mx-4 mb-3 px-3.5 py-2.5 rounded-xl bg-purple-500/6 border border-purple-500/20">
             <p className="text-purple-300 text-xs font-semibold mb-1 flex items-center gap-1">
-              <span>🔗</span>
+              <Link2 size={13} strokeWidth={2} />
               <span>{isHe ? 'שילובים' : 'Parlays'}</span>
             </p>
             <p className="text-white/60 text-[11px] leading-snug">
@@ -218,7 +220,7 @@ export function ScoringGuide({ onClose }: ScoringGuideProps) {
           {/* Footer */}
           <div className="px-4 py-3 border-t border-white/8 flex items-center justify-between bg-white/[0.02]">
             <div className="flex items-center gap-1.5 text-xs text-white/40">
-              <span>🔒</span>
+              <Lock size={12} strokeWidth={1.75} />
               <span>{isHe ? 'ננעל 15 דק׳ לפני הקיקאוף' : 'Locks 15 min before kickoff'}</span>
             </div>
             <div className="flex items-center gap-1 text-xs">

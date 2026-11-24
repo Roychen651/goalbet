@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, LayoutGroup } from 'framer-motion';
+import { Trophy } from 'lucide-react';
 import { LeaderboardEntryWithProfile } from '../../lib/supabase';
 import { LeaderboardRow } from './LeaderboardRow';
 import { GlassCard } from '../ui/GlassCard';
@@ -44,7 +45,7 @@ export function LeaderboardTable({ entries, loading, currentUserId, type, onUser
 
   if (loading) return <PageLoader />;
   if (entries.length === 0) {
-    return <EmptyState icon="🏆" title={t('noLeaderboardData')} description={t('noLeaderboardDesc')} />;
+    return <EmptyState icon={<Trophy size={40} strokeWidth={1.5} />} title={t('noLeaderboardData')} description={t('noLeaderboardDesc')} />;
   }
 
   return (

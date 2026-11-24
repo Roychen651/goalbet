@@ -16,6 +16,7 @@
  */
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { isEmailValid, isPasswordValid, mapAuthError } from '../../lib/authSchema';
@@ -140,7 +141,9 @@ export function ReAuthModal({
             >
               {/* Header */}
               <div className="flex items-start gap-3">
-                <div className="text-3xl leading-none">🔒</div>
+                <div className="w-9 h-9 rounded-xl bg-amber-500/12 border border-amber-500/20 flex items-center justify-center shrink-0">
+                  <Lock size={18} strokeWidth={1.75} className="text-amber-400" />
+                </div>
                 <div>
                   <h3 className="font-bebas text-2xl tracking-wider text-white leading-tight">
                     Session Ended

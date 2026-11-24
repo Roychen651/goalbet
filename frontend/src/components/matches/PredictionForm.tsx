@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Minus, Plus, Link2, Users, Trophy, Share2, ChevronDown } from 'lucide-react';
+import { Minus, Plus, Link2, Users, Trophy, Share2, ChevronDown, Lock } from 'lucide-react';
 import NumberFlow from '@number-flow/react';
 import { Match, Prediction, supabase } from '../../lib/supabase';
 import { NeonButton } from '../ui/NeonButton';
@@ -106,7 +106,7 @@ function LockedTier({ locked = true, children }: { locked?: boolean; children: R
         {children}
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl bg-black/25 backdrop-blur-[3px]">
-        <span className="text-2xl leading-none" aria-hidden>🔒</span>
+        <Lock size={22} strokeWidth={1.5} className="text-white/85" aria-hidden />
         <span className="px-4 text-center text-[11px] font-semibold leading-snug text-white/85">
           {t('unlockTierHint')}
         </span>
@@ -767,12 +767,12 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
             {offlineQueued ? (
               <div className="px-3 py-2.5 rounded-xl bg-accent-green/6 border border-accent-green/20 flex items-start gap-2.5">
                 <motion.span
-                  className="text-lg leading-none shrink-0"
+                  className="shrink-0 text-accent-green"
                   aria-hidden="true"
                   animate={prefersReducedMotion ? { opacity: 0.85 } : { opacity: [0.5, 1, 0.5] }}
                   transition={prefersReducedMotion ? undefined : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  🔒
+                  <Lock size={18} strokeWidth={1.75} />
                 </motion.span>
                 <div className="min-w-0">
                   <p className="text-accent-green text-xs font-bold font-headline uppercase tracking-wide">
@@ -828,7 +828,11 @@ export const PredictionForm = memo(function PredictionForm({ match, existingPred
                 disabled={insufficientCoins || saving}
                 className="w-full"
               >
-                {saving ? '···' : offlineQueued ? `🔒 ${t('offlineVaultTitle')}` : saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
+                {saving ? '···' : offlineQueued ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Lock size={14} strokeWidth={1.75} /> {t('offlineVaultTitle')}
+                  </span>
+                ) : saved ? `✓ ${t('predictionSaved')}` : t('lockInPrediction')}
               </NeonButton>
             </div>
 
@@ -911,7 +915,9 @@ function ChainLinkToggle({
         !canLink
           ? 'opacity-25 cursor-not-allowed bg-white/3 border-white/6 text-text-muted'
           : linked
-            ? cn('border-current text-current bg-current/15', color.pts)
+            // Fill bumped 15% -> 22% — same "solid tactile surface, not a
+            // hollow tint" fix applied to the tier chips below.
+            ? cn('border-current text-current bg-current/22', color.pts)
             : 'bg-white/4 border-white/10 text-text-muted hover:bg-white/8 hover:text-text-primary',
       )}
     >
@@ -948,12 +954,21 @@ function TierRow({
   const { t } = useLangStore();
   return (
     <div className={cn(
-      'rounded-xl border p-2.5 transition-all duration-200',
+      // Visual cleanup (live QA) — this card previously carried its OWN
+      // 1px border on top of a tonal background, and its children
+      // (OutcomePicker/ScorePicker's own chips) carry their own borders
+      // too — a real "box inside a box" around FULL TIME RESULT/EXACT
+      // SCORE, reported live. Fix: drop this outer border entirely and
+      // let the tonal background shift alone signal active/inactive/
+      // disabled — the inner chips still carry their own distinct
+      // (already-fixed) fill, so the row still reads as a clear group
+      // without a redundant outline wrapping it.
+      'rounded-xl p-2.5 transition-all duration-200',
       disabled
-        ? 'bg-white/2 border-white/6 opacity-60'
+        ? 'bg-white/2 opacity-60'
         : active
-          ? 'bg-white/5 border-white/12 tier-row-active'
-          : 'bg-white/2 border-white/6 tier-row-inactive',
+          ? 'bg-white/5 tier-row-active'
+          : 'bg-white/2 tier-row-inactive',
     )}>
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
@@ -1009,8 +1024,10 @@ function InlineBoolTier({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay ?? 0, type: 'spring', stiffness: 200, damping: 24 }}
       className={cn(
-        'flex items-center gap-2 px-2.5 py-2 rounded-xl border transition-all duration-200',
-        active ? 'bg-white/5 border-white/12 tier-row-active' : 'bg-white/2 border-white/6 tier-row-inactive',
+        // Same outer-border removal as TierRow above — one tonal card, no
+        // redundant outline around the BTTS/O-U row.
+        'flex items-center gap-2 px-2.5 py-2 rounded-xl transition-all duration-200',
+        active ? 'bg-white/5 tier-row-active' : 'bg-white/2 tier-row-inactive',
       )}
     >
       <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', color.dot)} />
@@ -1038,7 +1055,7 @@ function InlineBoolTier({
               className={cn(
                 'px-2.5 py-1 rounded-xl text-[11px] font-display font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border whitespace-nowrap active:scale-95',
                 isSelected && !isImpossible
-                  ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
+                  ? cn('border-current text-current bg-current/22 -translate-y-px', color.pts, color.emboss)
                   : isImpossible
                   ? 'opacity-25 cursor-not-allowed bg-white/3 border-white/5 text-text-muted'
                   : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:text-text-primary', DEBOSS_SHADOW),
@@ -1085,7 +1102,7 @@ function OutcomePicker({
           className={cn(
             'py-1.5 rounded-xl transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border active:scale-95',
             value === val
-              ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
+              ? cn('border-current text-current bg-current/22 -translate-y-px', color.pts, color.emboss)
               : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW),
             lockedByScore && value !== val && 'opacity-40 cursor-not-allowed',
           )}
@@ -1114,7 +1131,14 @@ function ScorePicker({
   onHomeChange: (v: string) => void; onAwayChange: (v: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    // Visual cleanup (live QA) — was `flex items-center gap-2` with each
+    // ScoreStepper itself `flex-1`, which only looked grouped because of
+    // the box-in-box border this pass removed. Without that border, two
+    // `flex-1` halves stretched the +/- pairs apart from the center dash
+    // with no visual anchor. Centering the whole row (ScoreStepper no
+    // longer flex-1 — see below) keeps the two steppers reading as one
+    // compact, connected unit instead of two disconnected floating groups.
+    <div className="flex items-center justify-center gap-3">
       <ScoreStepper value={homeValue} onChange={onHomeChange} />
       <span className="text-text-muted text-base font-display font-bold shrink-0">—</span>
       <ScoreStepper value={awayValue} onChange={onAwayChange} />
@@ -1150,8 +1174,14 @@ function ScoreStepper({ value, onChange }: { value: string; onChange: (v: string
   const btnEnabled = cn('bg-white/4 border-white/8 text-text-primary hover:bg-yellow-400/10 hover:border-yellow-400/40', DEBOSS_SHADOW);
   const btnDisabled = 'bg-white/2 border-white/5 text-text-muted/30 cursor-not-allowed';
 
+  // No outer border/bg here — this group already sits inside TierRow's own
+  // (now border-less) tonal card, so a second bordered box around the +/-
+  // pair would just be the exact "box inside a box" this pass is removing.
+  // The two buttons' own fills already group it visually. Also dropped
+  // `flex-1` (was stretching this to half of ScorePicker's row once the
+  // border stopped visually containing it — see ScorePicker's own comment).
   return (
-    <div className="flex-1 flex items-center justify-center gap-1.5 py-1 rounded-lg border border-border-subtle bg-transparent">
+    <div className="flex items-center justify-center gap-1.5 py-1">
       <button
         type="button"
         aria-label="decrement"
@@ -1228,7 +1258,7 @@ function BoolPicker({
             className={cn(
               'py-1.5 rounded-xl text-xs font-semibold transition-all duration-[250ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] border relative active:scale-95',
               isSelected && !isImpossible
-                ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
+                ? cn('border-current text-current bg-current/22 -translate-y-px', color.pts, color.emboss)
                 : isImpossible
                 ? 'opacity-30 cursor-not-allowed bg-white/3 border-white/5 text-text-muted line-through'
                 : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW),
@@ -1487,7 +1517,7 @@ function CornersPicker({
             disabled
               ? cn('bg-white/2 border-white/6 text-text-muted/50 cursor-not-allowed', DEBOSS_SHADOW)
               : cn('active:scale-95', value === val
-                  ? cn('border-current text-current bg-current/10 -translate-y-px', color.pts, color.emboss)
+                  ? cn('border-current text-current bg-current/22 -translate-y-px', color.pts, color.emboss)
                   : cn('bg-white/4 border-white/8 text-text-muted hover:bg-white/8 hover:border-white/15 hover:text-text-primary', DEBOSS_SHADOW)),
           )}
         >

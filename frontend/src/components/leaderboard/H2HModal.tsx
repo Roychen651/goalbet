@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
+import { Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Avatar } from '../ui/Avatar';
 import { useLangStore } from '../../stores/langStore';
@@ -166,7 +167,7 @@ function PredCell({
 
       {locked ? (
         <span className="text-white/30 text-xs flex items-center gap-1">
-          🔒 <span>{t('h2hLocked')}</span>
+          <Lock size={11} strokeWidth={1.75} /> <span>{t('h2hLocked')}</span>
         </span>
       ) : !pred || !pred.predicted_outcome ? (
         <span className="text-white/20 text-xs">—</span>

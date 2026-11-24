@@ -1,6 +1,24 @@
 import { useState } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { X, Trophy, Search, Users, Pencil, Layers, Wallet, Radio, ChevronDown } from 'lucide-react';
+import { X, Trophy, Search, Users, Pencil, Layers, Wallet, Radio, ChevronDown, Lock, Swords, Ruler, Sparkles, Copy, Timer } from 'lucide-react';
+
+// Visual cleanup (live QA) — the FAQ list's own `icon` field (below) is
+// still keyed by the original emoji string, deliberately unchanged across
+// all 24 EN+HE entries to avoid hand-retyping every row — this map is the
+// ONLY place that translates a category's emoji key into the real
+// lucide-react icon rendered on screen.
+const FAQ_ICON_MAP: Record<string, typeof Trophy> = {
+  '🟢': Radio,
+  '⚽': Timer,
+  '⚔️': Swords,
+  '📐': Ruler,
+  '🔒': Lock,
+  '✏️': Pencil,
+  '🏆': Trophy,
+  '👥': Users,
+  '🔮': Sparkles,
+  '🔁': Copy,
+};
 import { useLangStore } from '../../stores/langStore';
 import { cn } from '../../lib/utils';
 import { GlassCard } from './GlassCard';
@@ -309,7 +327,10 @@ function FaqCard({ isHe }: { isHe: boolean }) {
                   className="w-full flex items-center gap-2 py-1.5 text-start"
                   aria-expanded={isOpen}
                 >
-                  <span className="text-sm shrink-0 leading-none">{item.icon}</span>
+                  {(() => {
+                    const Icon = FAQ_ICON_MAP[item.icon] ?? Trophy;
+                    return <Icon size={14} strokeWidth={1.75} className="shrink-0 text-text-muted" />;
+                  })()}
                   <span className="flex-1 min-w-0 text-white text-xs font-medium truncate">{item.title}</span>
                   <motion.span
                     animate={{ rotate: isOpen ? 180 : 0 }}
@@ -390,6 +411,7 @@ export function HelpGuideModal({ onClose }: Props) {
           </div>
           <button
             onClick={onClose}
+            aria-label={isHe ? 'סגור' : 'Close'}
             className="p-2 rounded-xl text-text-muted hover:text-white hover:bg-white/8 transition-all"
           >
             <X size={18} />

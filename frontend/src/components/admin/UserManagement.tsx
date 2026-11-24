@@ -1,7 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Pencil, KeyRound, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { CoinIcon } from '../ui/CoinIcon';
 import { DangerModal } from './DangerModal';
 
 interface AdminUser {
@@ -220,10 +222,10 @@ export function UserManagement() {
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center justify-center gap-1.5">
-                        <ActionBtn onClick={() => { setModal({ type: 'editName', user }); setEditName(user.username ?? ''); }} label="✏️" title="Edit name" />
-                        <ActionBtn onClick={() => openCoins(user)} label="🪙" title="Manage coins" />
-                        <ActionBtn onClick={() => handleResetPassword(user)} label="🔑" title="Reset password" />
-                        <ActionBtn onClick={() => setModal({ type: 'delete', user })} label="🗑" title="Delete user" danger />
+                        <ActionBtn onClick={() => { setModal({ type: 'editName', user }); setEditName(user.username ?? ''); }} icon={<Pencil size={14} strokeWidth={1.75} />} title="Edit name" />
+                        <ActionBtn onClick={() => openCoins(user)} icon={<CoinIcon size={14} />} title="Manage coins" />
+                        <ActionBtn onClick={() => handleResetPassword(user)} icon={<KeyRound size={14} strokeWidth={1.75} />} title="Reset password" />
+                        <ActionBtn onClick={() => setModal({ type: 'delete', user })} icon={<Trash2 size={14} strokeWidth={1.75} />} title="Delete user" danger />
                       </div>
                     </td>
                   </motion.tr>
@@ -331,15 +333,16 @@ export function UserManagement() {
   );
 }
 
-function ActionBtn({ onClick, label, title, danger = false }: { onClick: () => void; label: string; title: string; danger?: boolean }) {
+function ActionBtn({ onClick, icon, title, danger = false }: { onClick: () => void; icon: React.ReactNode; title: string; danger?: boolean }) {
   return (
     <button
       onClick={onClick}
       title={title}
-      className={`rounded-lg p-1.5 text-sm transition-all
+      aria-label={title}
+      className={`rounded-lg p-1.5 transition-all
         ${danger ? 'text-white/25 hover:bg-red-500/15 hover:text-red-400' : 'text-white/30 hover:bg-white/8 hover:text-white'}`}
     >
-      {label}
+      {icon}
     </button>
   );
 }

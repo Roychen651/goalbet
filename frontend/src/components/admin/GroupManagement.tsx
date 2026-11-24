@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
+import { CoinIcon } from '../ui/CoinIcon';
 import { DangerModal } from './DangerModal';
 
 interface AdminGroup {
@@ -237,8 +238,8 @@ export function GroupManagement() {
                       <div className="text-sm font-medium text-white">{m.username ?? <span className="text-white/30 italic">no username</span>}</div>
                       <div className="text-xs text-white/30">{m.email ?? '—'}</div>
                     </div>
-                    <span className="rounded-md bg-yellow-500/10 px-2 py-0.5 text-xs font-mono text-yellow-400">
-                      {m.coins.toLocaleString()} 🪙
+                    <span className="flex items-center gap-1 rounded-md bg-yellow-500/10 px-2 py-0.5 text-xs font-mono text-yellow-400">
+                      {m.coins.toLocaleString()} <CoinIcon size={12} />
                     </span>
                   </div>
                 ))}
