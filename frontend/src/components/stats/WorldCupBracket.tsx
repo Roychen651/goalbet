@@ -1404,10 +1404,10 @@ function RoundPill({ label, tone }: { label: string; tone: 'cool' | 'warm' | 'wa
       className={cn(
         'rounded-full border px-2.5 py-0.5 leading-none text-[10px] font-bold uppercase tracking-[0.14em] font-barlow whitespace-nowrap shrink-0',
         toneMap[tone],
-        isHot && 'drop-shadow-[0_0_6px_rgba(255,201,74,0.4)]',
+        isHot && 'drop-shadow-[0_0_6px_rgba(255,201,74,0.4)] inline-flex items-center gap-1',
       )}
     >
-      {isHot && '🏆 '}{label}
+      {isHot && <Trophy size={10} strokeWidth={2} />}{label}
     </span>
   );
 }

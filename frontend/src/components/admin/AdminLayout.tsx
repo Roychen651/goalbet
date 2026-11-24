@@ -1,14 +1,20 @@
 import { Suspense } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { LayoutDashboard, Users, Shield, ArrowLeft } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SEO } from '../seo/SEO';
 import { PageLoader } from '../ui/LoadingSpinner';
 
+// Visual cleanup (live QA) — this console's own nav used raw emoji glyphs
+// (⬡👥🏆) as icons, inconsistent with the rest of the app's lucide-react
+// icon system. "Groups" deliberately gets Shield, not Trophy — managing
+// groups is an administrative action, not a competitive-achievement one;
+// Trophy is reserved elsewhere in the app for actual standings/prestige.
 const NAV = [
-  { to: '/admin',        label: 'Dashboard', icon: '⬡', exact: true },
-  { to: '/admin/users',  label: 'Users',     icon: '👥', exact: false },
-  { to: '/admin/groups', label: 'Groups',    icon: '🏆', exact: false },
+  { to: '/admin',        label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { to: '/admin/users',  label: 'Users',     icon: Users,           exact: false },
+  { to: '/admin/groups', label: 'Groups',    icon: Shield,          exact: false },
 ];
 
 export function AdminLayout() {
@@ -33,7 +39,7 @@ export function AdminLayout() {
 
         {/* Nav */}
         <nav className="flex-1 space-y-1 px-3 py-2">
-          {NAV.map(({ to, label, icon, exact }) => (
+          {NAV.map(({ to, label, icon: Icon, exact }) => (
             <NavLink
               key={to}
               to={to}
@@ -45,7 +51,7 @@ export function AdminLayout() {
                   : 'text-white/50 hover:bg-white/5 hover:text-white',
               )}
             >
-              <span className="text-base">{icon}</span>
+              <Icon size={16} strokeWidth={1.75} />
               {label}
             </NavLink>
           ))}
@@ -58,7 +64,7 @@ export function AdminLayout() {
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/30
                        transition-all hover:bg-white/5 hover:text-white/60"
           >
-            <span>←</span> Back to App
+            <ArrowLeft size={14} strokeWidth={1.75} /> Back to App
           </button>
         </div>
       </aside>
@@ -66,7 +72,9 @@ export function AdminLayout() {
       {/* ── Mobile top bar ───────────────────────────────────────── */}
       <div className="fixed inset-x-0 top-0 z-20 flex items-center gap-3 border-b border-white/[0.06]
                       bg-[#060a07]/90 px-4 py-3 backdrop-blur-xl sm:hidden">
-        <button onClick={() => navigate('/')} className="text-white/40 hover:text-white transition-colors">←</button>
+        <button onClick={() => navigate('/')} className="text-white/40 hover:text-white transition-colors">
+          <ArrowLeft size={16} strokeWidth={1.75} />
+        </button>
         <span className="font-bebas text-lg tracking-widest text-white">GOALBET</span>
         <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-red-400">Admin</span>
         <div className="ms-auto flex items-center gap-1">

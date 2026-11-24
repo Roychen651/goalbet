@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Link2, Swords } from 'lucide-react';
+import { ChevronDown, Link2, Swords, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Match, Prediction } from '../../lib/supabase';
 import { GlassCard } from '../ui/GlassCard';
@@ -704,7 +704,7 @@ function MatchCardCore({ match, prediction, predictors = [], autoFocus = false }
                 {/* Lock countdown */}
                 {!isLive && !isAET && !isFinished && !isPastKickoffNS && lockCountdown && (
                   <span className="text-orange-400/70 text-[9px] font-display flex items-center gap-0.5">
-                    <span>🔒</span>
+                    <Lock size={9} strokeWidth={2} />
                     <span>{lockCountdown}</span>
                   </span>
                 )}
@@ -1579,10 +1579,14 @@ function TeamBlock({ name, haloKey, badge, score, isWinner, isLeading, right, re
             src={badge}
             name={name}
             hashSeed={haloKey ?? name}
-            size={36}
+            size={40}
             loading="lazy"
             className={cn(
-              'w-9 h-9 transition-all duration-200',
+              // Visual cleanup (live QA) — bumped 36px -> 40px for a touch
+              // more presence; 80px column width leaves 20px clearance each
+              // side, so this stays layout-safe (verified via Playwright at
+              // 320/390/1280px before shipping).
+              'w-10 h-10 transition-all duration-200',
               highlight && 'drop-shadow-[0_0_8px_rgba(var(--color-live-glow-rgb), 0.5)] scale-105',
             )}
           />

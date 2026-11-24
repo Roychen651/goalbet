@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Swords, Trophy, BarChart3, MessageCircle, User, Settings, HelpCircle, Sparkles, CloudOff } from 'lucide-react';
+import { Swords, Trophy, BarChart3, MessageCircle, User, Settings, HelpCircle, Sparkles, CloudOff, Bell } from 'lucide-react';
 import { ROUTES } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { useGroupStore } from '../../stores/groupStore';
@@ -95,8 +95,8 @@ export function Sidebar() {
           )}
           aria-label="Open notifications"
         >
-          <span className="relative text-base">
-            🔔
+          <span className="relative flex items-center">
+            <Bell size={16} strokeWidth={1.75} />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -end-1 w-2.5 h-2.5 rounded-full bg-accent-green
                                shadow-[0_0_6px_rgba(var(--color-live-glow-rgb), 0.7)] animate-pulse" />
