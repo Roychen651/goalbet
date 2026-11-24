@@ -55,6 +55,32 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    // Live-reported, Nov 2026: "Continue with Google" never actually
+    // redirected on iOS Safari — the button correctly showed the new
+    // timeout-watchdog error (asyncTimeout.ts) instead of hanging forever,
+    // but the underlying redirect genuinely never fired. Root-caused by
+    // reading the installed @supabase/auth-js source directly, not
+    // guessed: the default flowType ('pkce') makes _handleProviderSignIn()
+    // `await` a real, I/O-bound `crypto.subtle.digest()` call (building
+    // the PKCE code_challenge) BEFORE it calls window.location.assign() —
+    // see _getUrlForProvider() in node_modules/@supabase/auth-js. That's a
+    // genuine async boundary between the tap and the redirect, and Safari
+    // (especially iOS Safari) can silently refuse a cross-origin top-level
+    // navigation once it decides it's no longer "directly" tied to the
+    // original user gesture — exactly what the screenshot showed: the
+    // GoalBet page never actually left, so window.location.assign() was
+    // either never reached or was reached but ignored.
+    // 'implicit' builds the whole redirect URL synchronously (no PKCE
+    // code-challenge step), closing that gap. Nothing in this codebase
+    // depends on PKCE specifically (no exchangeCodeForSession/code_verifier
+    // usage anywhere — grepped before making this change) — getSession()
+    // on AuthCallbackPage.tsx reads the resulting session the same way
+    // either way, since the SDK's own detectSessionInUrl handles both flow
+    // shapes transparently. Tradeoff, stated plainly: PKCE is the more
+    // modern/recommended OAuth flow (protects against authorization-code
+    // interception); implicit is older but still fully Supabase-supported
+    // and, unlike PKCE here, actually completes the sign-in.
+    flowType: 'implicit',
   },
   realtime: {
     params: {

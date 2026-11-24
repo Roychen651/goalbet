@@ -24,6 +24,7 @@ import { isPasswordValid } from '../lib/authSchema';
 import { FOOTBALL_LEAGUES } from '../lib/constants';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
+import { withAuthTimeout } from '../lib/asyncTimeout';
 import type { TranslationKey } from '../lib/i18n';
 import { haptic } from '../lib/haptics';
 import { playSound } from '../lib/sensoryAudio';
@@ -216,7 +217,11 @@ export function SettingsPage() {
     setChangingPassword(true);
     setPasswordError('');
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      // Timeout-guarded — same "never let a Supabase auth call hang
+      // unbounded" discipline as every other auth call in this codebase
+      // (asyncTimeout.ts); `finally` below already clears `changingPassword`
+      // on any outcome, so this just guarantees it actually gets the chance to.
+      const { error } = await withAuthTimeout(supabase.auth.updateUser({ password: newPassword }));
       if (error) throw error;
       addToast(t('toastPasswordUpdated'), 'success');
       setShowChangePassword(false);
