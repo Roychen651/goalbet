@@ -834,6 +834,29 @@ html.light .glass-hover:hover {
   }
 }
 
+/* Sticky tab bar and date header — dark mode (the default theme).
+   Live-reported, Nov 2026: these two elements are `position: sticky` with
+   no background of their own in JSX (only positioning/z-index Tailwind
+   classes) — a light-mode override for them already existed below, but
+   the dark-mode BASE rule was never written, so in the app's actual
+   default theme the sticky tab bar and date headers were fully
+   transparent, letting whichever match card had scrolled underneath show
+   straight through — a confusing double-exposure look, not a rendering
+   glitch. Same opacity/blur shape as the light-mode rule, dark-navy tint
+   (#0a1733 → rgb(10,23,51), --color-bg-base) instead of frost. */
+.match-tabs-sticky {
+  background: rgba(10, 23, 51, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(73, 136, 196, 0.20);
+}
+
+.match-date-header {
+  background: rgba(10, 23, 51, 0.90);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
 /* Sticky tab bar and date header in light mode */
 html.light .match-tabs-sticky {
   background: rgba(240, 245, 242, 0.94) !important;
