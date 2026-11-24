@@ -4,7 +4,20 @@ import {
   Flame, Radio, TrendingUp, Target, Fingerprint, CalendarDays, Trophy, Copy, Crosshair, Globe, Award,
 } from 'lucide-react';
 import { useLangStore } from '../../stores/langStore';
-import { EPOCH_ERAS, type EpochFeature } from '../../lib/whatsNewContent';
+import { EPOCH_ERAS, type EpochEraId, type EpochFeature } from '../../lib/whatsNewContent';
+
+// Visual cleanup (live QA) — this sheet's era headers rendered a raw emoji
+// glyph (era.emoji) as the section icon; mapped to a real lucide icon per
+// era instead, reusing icons already imported for this exact file's
+// FEATURE_ICONS map (no new imports needed).
+const ERA_ICONS: Record<EpochEraId, typeof Sparkles> = {
+  experience: Sparkles,
+  analytics: BrainCircuit,
+  social: Swords,
+  broadcast: Radio,
+  identity: Fingerprint,
+  global: Globe,
+};
 
 // V5 Sprint 38 — "The Epoch Showcase". A big scrollable informational sheet,
 // structurally the same job as HelpGuideModal/CoinGuide (rule 4.13's
@@ -149,13 +162,16 @@ export function WhatsNewModal({ onClose }: Props) {
 
         {/* Sticky header */}
         <div className="flex items-center justify-between px-5 pt-3 pb-4 border-b border-white/8 shrink-0 sticky top-0 z-10" style={{ background: 'var(--color-tooltip-bg)' }}>
-          <div>
-            <h2 className="font-bebas text-xl tracking-wider text-white">
-              {isHe ? '✨ מה חדש ב-GoalBet' : '✨ The GoalBet Epoch'}
-            </h2>
-            <p className="text-text-muted text-xs mt-0.5">
-              {isHe ? 'כל מה שבנינו, במקום אחד' : 'Everything we built, in one place'}
-            </p>
+          <div className="flex items-center gap-2.5">
+            <Sparkles size={18} strokeWidth={1.75} className="text-accent-green shrink-0" />
+            <div>
+              <h2 className="font-bebas text-xl tracking-wider text-white">
+                {isHe ? 'מה חדש ב-GoalBet' : 'The GoalBet Epoch'}
+              </h2>
+              <p className="text-text-muted text-xs mt-0.5">
+                {isHe ? 'כל מה שבנינו, במקום אחד' : 'Everything we built, in one place'}
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -168,14 +184,24 @@ export function WhatsNewModal({ onClose }: Props) {
 
         {/* Scrollable body */}
         <div className="overflow-y-auto px-5 py-2" onPointerDown={e => e.stopPropagation()}>
-          {EPOCH_ERAS.map(era => (
+          {EPOCH_ERAS.map(era => {
+            const EraIcon = ERA_ICONS[era.id];
+            return (
             <section key={era.id} className="py-3">
               {/* Per-era sticky header */}
               <div
                 className="sticky top-0 z-[5] -mx-5 px-5 py-2 mb-1 flex items-center gap-2"
                 style={{ background: 'var(--color-tooltip-bg)' }}
               >
-                <span className="text-xl leading-none">{era.emoji}</span>
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                  style={{
+                    background: `color-mix(in oklch, var(${era.colorToken}) 16%, var(--color-bg-card))`,
+                    color: `var(${era.colorToken})`,
+                  }}
+                >
+                  <EraIcon size={14} strokeWidth={1.75} />
+                </div>
                 <div>
                   <h3 className="text-white text-base font-extrabold leading-tight" style={{ color: `var(${era.colorToken})` }}>
                     {isHe ? era.titleHe : era.title}
@@ -195,7 +221,8 @@ export function WhatsNewModal({ onClose }: Props) {
                 ))}
               </motion.div>
             </section>
-          ))}
+            );
+          })}
         </div>
 
         {/* Footer CTA */}
@@ -204,7 +231,7 @@ export function WhatsNewModal({ onClose }: Props) {
             onClick={onClose}
             className="w-full py-3 rounded-xl font-bold text-sm bg-accent-green/15 border border-accent-green/30 text-accent-green hover:bg-accent-green/22 active:scale-[0.98] transition-all"
           >
-            {isHe ? 'הבנתי, קדימה! 🚀' : "Got it, let's go! 🚀"}
+            {isHe ? 'הבנתי' : 'Got it'}
           </button>
         </div>
       </motion.div>

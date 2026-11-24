@@ -95,16 +95,20 @@ export const EPOCH_ERAS: EpochEra[] = [
     features: [
       {
         icon: 'zap',
-        title: 'Tactile Everything',
-        titleHe: 'מרגישים כל לחיצה',
+        // Visual cleanup (live QA) — these two titles were flagged directly
+        // as marketing-buzzword copy ("Tactile Everything", "A Leaderboard
+        // That Breathes"). Rewritten to name the actual, concrete change
+        // instead of a feeling about it.
+        title: 'Real Haptics & Sound',
+        titleHe: 'רטט וצליל אמיתיים',
         desc: 'Real haptics and sound on every tap — placing a bet finally feels like locking something in.',
         descHe: 'רטט וצליל אמיתיים על כל לחיצה — סוף סוף הימור מרגיש כמו החלטה אמיתית.',
         date: '2026-07-14',
       },
       {
         icon: 'sparkles',
-        title: 'A Leaderboard That Breathes',
-        titleHe: 'טבלה שנושמת',
+        title: 'Animated Rank Changes',
+        titleHe: 'שינויי דירוג מונפשים',
         desc: 'Rank changes morph and slide instead of jumping, with a real gold halo for whoever sits at #1.',
         descHe: 'שינויי דירוג מחליקים במקום לקפוץ, עם הילת זהב אמיתית למי שבמקום הראשון.',
         date: '2026-07-15',
