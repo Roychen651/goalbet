@@ -4,7 +4,13 @@
  * Extracts `boxscore.teams[].statistics` from ESPN summary.
  * Each stat row: [Home Value] [Comparative Bar] [Away Value]
  * Winning side tinted accent-green/ice-blue; losing side muted glass.
- * Gracefully hidden when no boxscore data is available.
+ *
+ * The section is only hidden BEFORE any fetch when there's no ESPN mapping
+ * for this league at all (knowable with zero network call). Once the user
+ * opens it and the fetch genuinely comes back empty, the disclosure stays
+ * open and shows an honest "no stats available" message — same convention
+ * as MatchRosters/MatchTimeline for the identical case — rather than the
+ * whole section (including the button the user just tapped) vanishing.
  */
 
 import { useState, useEffect } from 'react';
@@ -157,18 +163,27 @@ export function MatchStats({ match }: { match: Match }) {
 
   const hasSummary = !!postMatchSummary && match.status === 'FT';
   const hasEspn = !!LEAGUE_ESPN_SLUG[match.league_id];
-  const noStatsAvailable = hasEspn && stats !== null && stats.length === 0 && !loading;
+  // Only knowable once the user has actually opened the panel and the fetch
+  // has resolved — before that, `stats` is still `null` and this is false.
+  const noStatsAvailable = stats !== null && stats.length === 0 && !loading;
 
-  // Hide entirely only when there's neither a summary nor usable ESPN stats.
+  // Hide entirely only when there's neither a summary nor any ESPN mapping
+  // to even try — that's knowable with zero network call. Live-reported,
+  // Nov 2026: this used to ALSO hide once `noStatsAvailable` became true,
+  // which happens AFTER the user taps the button to open it — the whole
+  // section, including the button they just tapped, would vanish out from
+  // under their cursor instead of showing an honest "no data" message the
+  // way MatchRosters/MatchTimeline both already do for the identical case.
+  // The trigger button must stay — only the content inside the disclosure
+  // changes between skeleton / stat bars / an honest empty state.
   if (!hasSummary && !hasEspn) return null;
-  if (!hasSummary && noStatsAvailable) return null;
 
   return (
     <div className="mt-3 border-t border-white/5 pt-3 space-y-3">
       {hasSummary && (
         <AIScoutCard title="aiScoutPostMatchTitle" text={postMatchSummary} tone="post" />
       )}
-      {hasEspn && !noStatsAvailable && (
+      {hasEspn && (
       <>
       <button
         onClick={() => setOpen(p => !p)}
@@ -205,6 +220,11 @@ export function MatchStats({ match }: { match: Match }) {
           >
             <div className="pt-3 pb-2 px-1 space-y-3">
               {loading && <StatsSkeleton />}
+              {noStatsAvailable && (
+                <p className="text-center text-xs text-text-muted/50 py-2">
+                  {t('noMatchStatsAvailable')}
+                </p>
+              )}
               {stats && stats.length > 0 && !loading && (
                 <motion.div
                   initial="hidden"

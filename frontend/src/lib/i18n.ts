@@ -321,6 +321,7 @@ export const translations = {
     matchTimeline: 'Match Timeline',
     noTimelineDataAvailable: 'No timeline data available for this match',
     noLineupDataAvailable: 'No lineup data available for this match',
+    noMatchStatsAvailable: 'No match stats available for this match',
     lockedAt90: 'Locked at 90′',
 
     // Coin summary labels
@@ -1388,6 +1389,7 @@ export const translations = {
     matchTimeline: 'ציר זמן',
     noTimelineDataAvailable: 'אין נתוני ציר זמן זמינים למשחק זה',
     noLineupDataAvailable: 'אין נתוני הרכב זמינים למשחק זה',
+    noMatchStatsAvailable: 'אין נתוני משחק זמינים למשחק זה',
     lockedAt90: 'נעול ב-90′',
 
     // Coin summary labels
