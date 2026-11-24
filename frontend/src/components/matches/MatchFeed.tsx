@@ -41,10 +41,19 @@ function dateKey(kickoffTime: string): string {
   return kickoffTime.slice(0, 10);
 }
 
-// Human-readable date label — respects app language
+// Human-readable date label — respects app language.
+// Live-reported, Nov 2026: a match's label omitted the year entirely, so a
+// result from a DIFFERENT calendar year (this app has archived past-season
+// data, CLAUDE.md §72, and results can span a season's calendar-year
+// boundary) read as nonsensical — a real "Wednesday, December 9" from a
+// prior season looked like it was weeks in the future relative to today,
+// when it was really just missing a year to disambiguate it. Always
+// including the year (never conditionally, e.g. "only if different from
+// this year") is the simplest fix that can never be wrong for an app that
+// genuinely spans multiple seasons/years.
 function dateLabel(kickoffTime: string, lang: 'en' | 'he'): string {
   return new Date(kickoffTime).toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
 }
 
