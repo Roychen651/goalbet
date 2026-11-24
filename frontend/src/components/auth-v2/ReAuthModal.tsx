@@ -65,12 +65,23 @@ export function ReAuthModal({
     // closes the gap here too — this modal appears mid-session on ANY
     // protected page, so a stuck Google button here is even easier to miss
     // than one on the login page.
+    // Same diagnostic-plus-manual-retry shape as useAuthV2.ts's
+    // handleGoogleSignIn, kept in sync deliberately — see its own comment
+    // for why a third blind guess isn't the right move here.
+    let computedUrl: string | undefined;
     const redirectWatchdog = setTimeout(() => {
+      if (computedUrl) {
+        try { window.location.href = computedUrl; } catch { /* fall through */ }
+      }
       setLoading(false);
-      setError(t('googleRedirectFailed'));
+      setError(
+        computedUrl
+          ? `${t('googleRedirectFailed')} [${computedUrl}]`
+          : t('googleRedirectFailed'),
+      );
     }, 6000);
     try {
-      await signInWithGoogle();
+      computedUrl = await signInWithGoogle();
       // redirect handles the rest — onSuccess called by App's useEffect on user change
     } catch (err) {
       clearTimeout(redirectWatchdog);

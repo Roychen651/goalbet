@@ -267,12 +267,33 @@ export function useAuthV2(): UseAuthV2Return {
   const handleGoogleSignIn = useCallback(async () => {
     setLoading(true);
     setError(null);
+    // Captured once signInWithGoogle() resolves cleanly (see authStore.ts) —
+    // the exact address the SDK was about to send the browser to. Read by
+    // the watchdog below; `let`, not state, since it's only ever consumed
+    // from inside a timer callback closing over this same function call.
+    let computedUrl: string | undefined;
     const redirectWatchdog = setTimeout(() => {
+      // Two independent prior fixes (a shorter watchdog, then switching
+      // flowType pkce→implicit) left the identical symptom — the SDK
+      // resolves with no error, but window.location.assign() either never
+      // fires or is ignored. One more real attempt, now genuinely
+      // decoupled from whatever blocked the SDK's own internal call: if
+      // THAT succeeds, the page navigates away before any of the lines
+      // below are even perceived. If it doesn't, show the exact computed
+      // URL so the next report is hard evidence (a malformed address, a
+      // wrong project ref) instead of a fourth blind guess.
+      if (computedUrl) {
+        try { window.location.href = computedUrl; } catch { /* fall through to the error below */ }
+      }
       setLoading(false);
-      setError(t('googleRedirectFailed'));
+      setError(
+        computedUrl
+          ? `${t('googleRedirectFailed')} [${computedUrl}]`
+          : t('googleRedirectFailed'),
+      );
     }, 6000);
     try {
-      await signInWithGoogle();
+      computedUrl = await signInWithGoogle();
       // Resolved without throwing — a redirect should already be under way.
       // Leave the watchdog armed: if navigation genuinely happens, this
       // component unmounts and the timer is harmless; if it doesn't, the
