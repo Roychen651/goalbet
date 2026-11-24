@@ -246,16 +246,43 @@ export function useAuthV2(): UseAuthV2Return {
   }, [email, navigateTo]);
 
   // ── Google sign-in ─────────────────────────────────────────────────────────
+  // Live-reported, Nov 2026: both the email button and this one got stuck
+  // spinning forever with no error and no recovery short of a hard refresh.
+  // Root cause: signInWithGoogle() (authStore.ts) is already timeout-guarded
+  // against its OWN promise hanging (rejectOnTimeout, fixed July 2026) — but
+  // that only covers "the call never settles." If it settles successfully
+  // (Supabase built the OAuth URL fine) it triggers a top-level browser
+  // redirect to Google as a side effect and this component is expected to
+  // unmount before anything below matters. That assumption can fail for
+  // reasons entirely outside this app's control — a popup/redirect blocker,
+  // a stale Google OAuth client config, a webview that disallows the
+  // redirect — and when it does, the promise never rejects either, so
+  // `loading` was left permanently true with zero recovery path (the exact
+  // "never let a UI state hang unbounded" violation this codebase already
+  // enforces everywhere else, §21). A bounded fallback watchdog closes the
+  // gap: if we're still on this page a few seconds after the call resolved
+  // cleanly, the redirect clearly isn't happening, so recover the UI instead
+  // of leaving it stuck. In the normal case the page has already navigated
+  // away long before this fires, making it a harmless no-op.
   const handleGoogleSignIn = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const redirectWatchdog = setTimeout(() => {
+      setLoading(false);
+      setError(t('googleRedirectFailed'));
+    }, 6000);
     try {
-      await signInWithGoogle(); // redirects — setLoading(false) never runs
+      await signInWithGoogle();
+      // Resolved without throwing — a redirect should already be under way.
+      // Leave the watchdog armed: if navigation genuinely happens, this
+      // component unmounts and the timer is harmless; if it doesn't, the
+      // watchdog above recovers the UI instead of leaving it stuck forever.
     } catch (err) {
+      clearTimeout(redirectWatchdog);
       setError(err instanceof Error ? err.message : t('googleSignInFailed'));
       setLoading(false);
     }
-  }, [signInWithGoogle]);
+  }, [signInWithGoogle, t]);
 
   // ── Set / update password ─────────────────────────────────────────────────
   // Used by both the password-recovery flow and the Google→password merge flow.

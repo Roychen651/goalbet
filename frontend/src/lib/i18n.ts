@@ -592,6 +592,7 @@ export const translations = {
     hidePassword: 'Hide password',
     moreInfo: 'More info',
     googleSignInFailed: 'Google sign-in failed. Try again.',
+    googleRedirectFailed: "Couldn't open Google sign-in. Check your browser's pop-up/redirect settings and try again.",
     inviteCodePlaceholder: 'AB12CD34',
 
     // Cold-start UX (Pillar 1)
@@ -1649,6 +1650,7 @@ export const translations = {
     hidePassword: 'הסתר סיסמה',
     moreInfo: 'מידע נוסף',
     googleSignInFailed: 'כניסה עם Google נכשלה. נסה שוב.',
+    googleRedirectFailed: 'לא הצלחנו לפתוח את מסך הכניסה של Google. בדוק את הגדרות חלונות קופצים/הפניות בדפדפן וניסה שוב.',
     inviteCodePlaceholder: 'AB12CD34',
 
     // Cold-start UX (Pillar 1)
