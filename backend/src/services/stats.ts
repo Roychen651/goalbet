@@ -10,7 +10,6 @@
 
 import { logger } from '../lib/logger';
 import { espnGet } from '../lib/espnHttp';
-import { processBatched } from '../lib/batch';
 import { LEAGUE_ESPN_MAP } from './espn';
 
 export interface StandingsRow {
@@ -748,7 +747,7 @@ export async function getTeamForm(leagueId: number, teamId: string): Promise<Tea
   if (hit && hit.expiresAt > now) return hit.data;
 
   const to = new Date();
-  const from = new Date(to.getTime() - 60 * 86_400_000); // 60-day lookback — enough for ≥5 played matches even for continental teams with sparser fixture lists
+  const from = new Date(to.getTime() - 60 * 86_400_000); // 60-day lookback ceiling — enough for ≥5 played matches even for continental teams with sparser fixture lists
 
   try {
     // V7 — Nov 2026, same live incident as espn.ts's fetchLeagueMatches():
@@ -757,26 +756,76 @@ export async function getTeamForm(leagueId: number, teamId: string): Promise<Tea
     // both from this app's own logs and independently from the reporting
     // user's own browser hitting the identical URL directly. Single-day
     // (dates=YYYYMMDD) is the only confirmed-still-working granularity —
-    // see that file's header comment for the full incident writeup. This
-    // is a lazy, on-demand, 15-min-cached fetch (only fires once a
-    // standings row is actually expanded), so the ~10s worst-case latency
-    // of 60 batched single-day requests is acceptable here — it's not a
-    // hot/frequent polling path.
+    // see that file's header comment for the full incident writeup.
+    //
+    // Live-reported, Nov 2026 — this is a lazy, on-demand fetch, but the
+    // original implementation always walked the FULL 60-day window, oldest
+    // day first, before ever checking whether 5 matches had already been
+    // found — a fixed ~13 batches x (request latency + 500ms gap) ≈ 10-13s
+    // on every single expand, every single time, worst case AND typical
+    // case alike (no early exit existed). Under any ESPN-side rate-limiting
+    // from the same incident above, espnGet's own retry/backoff can push
+    // that past a minute. A real production screenshot showed exactly the
+    // symptom this produces: the Form Guide stuck on its loading skeleton
+    // (5 gray pulsing circles, easily mistaken for "5 empty circles with no
+    // W/D/L") and every data-dependent Team Stats tile stuck on its "—"
+    // placeholder, while the one tile computed from data already on hand
+    // (Goals/Match, from the standings row) rendered fine.
+    //
+    // Fix: scan newest-day-first (a team's LAST 5 matches are far more
+    // likely found scanning backward from today than forward from 60 days
+    // ago) and stop as soon as 5 of the TARGET team's own finished matches
+    // have been found — never fetching the remaining days at all. A
+    // top-flight team playing roughly weekly typically resolves in 2-3
+    // batches (10-15 requests) instead of all 13 (61 requests), a real,
+    // large latency cut on the common path. The full 60-day ceiling is
+    // still walked as a fallback for a genuinely sparse-fixture team, so
+    // coverage is unchanged — only the typical-case latency is.
     const days: string[] = [];
-    const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-    const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-    while (cursor.getTime() <= end.getTime()) {
+    const cursor = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+    const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    while (cursor.getTime() >= start.getTime()) {
       days.push(formatEspnDate(cursor));
-      cursor.setDate(cursor.getDate() + 1);
+      cursor.setDate(cursor.getDate() - 1);
     }
 
+    const TARGET_MATCH_COUNT = 5;
+    const BATCH_SIZE = 5;
+    const BATCH_GAP_MS = 500;
     const eventsById = new Map<string, Record<string, unknown>>();
-    await processBatched(days, async (day) => {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=200&dates=${day}`;
-      const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
-      const dayEvents = (data?.events as Record<string, unknown>[] | undefined) ?? [];
-      for (const ev of dayEvents) eventsById.set(String(ev.id ?? ''), ev);
-    });
+
+    // Tracks how many of the TARGET team's own FINISHED matches have been
+    // seen so far — must mirror the real filtering loop below exactly
+    // (state === 'post' AND the team is a competitor), or an upcoming/live
+    // fixture for the team on "today" could trip the early exit one match
+    // short of 5 real finished ones.
+    const countTargetTeamMatches = (): number => {
+      let count = 0;
+      for (const event of eventsById.values()) {
+        const comp = (event.competitions as Record<string, unknown>[] | undefined)?.[0];
+        if (!comp) continue;
+        const statusType = (comp.status as Record<string, unknown> | undefined)?.type as Record<string, unknown> | undefined;
+        if (((statusType?.state as string | undefined) ?? 'pre') !== 'post') continue;
+        const competitors = (comp.competitors as Record<string, unknown>[] | undefined) ?? [];
+        const involvesTarget = competitors.some(c => String((c.team as Record<string, unknown>)?.id ?? '') === teamId);
+        if (involvesTarget) count++;
+      }
+      return count;
+    };
+
+    for (let i = 0; i < days.length; i += BATCH_SIZE) {
+      const batch = days.slice(i, i + BATCH_SIZE);
+      await Promise.allSettled(batch.map(async (day) => {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?limit=200&dates=${day}`;
+        const data = await espnGet<any>(url, { timeout: 10_000, headers: { 'User-Agent': 'GoalBet/1.0' } });
+        const dayEvents = (data?.events as Record<string, unknown>[] | undefined) ?? [];
+        for (const ev of dayEvents) eventsById.set(String(ev.id ?? ''), ev);
+      }));
+      if (countTargetTeamMatches() >= TARGET_MATCH_COUNT) break; // early exit — common case
+      if (i + BATCH_SIZE < days.length) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_GAP_MS));
+      }
+    }
     const events = Array.from(eventsById.values());
 
     const teamMatches: TeamFormMatch[] = [];
@@ -830,6 +879,12 @@ export async function getTeamForm(leagueId: number, teamId: string): Promise<Tea
 
     teamMatches.sort((a, b) => (a.date < b.date ? 1 : -1)); // newest-first
     const last5 = teamMatches.slice(0, 5);
+    // Live QA, Nov 2026 — real evidence for the next time this looks "stuck
+    // empty" in production, instead of guessing again: how many of the
+    // 60-day ceiling's days actually had to be fetched before either the
+    // early-exit fired or the ceiling was hit, and how many real matches
+    // came out of it.
+    logger.debug(`[stats] team form ${teamId} (${slug}): scanned ${eventsById.size} events across the window, found ${teamMatches.length} finished matches, returning last ${last5.length}`);
 
     const cornersValues = last5.map(m => m.corners).filter((v): v is number => v !== null);
     const cardsValues = last5.map(m => m.cards).filter((v): v is number => v !== null);
