@@ -51,3 +51,14 @@ export const matchEventsLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// /api/auth/account-status reveals whether an email has a password set —
+// a real, if minimal, email-enumeration signal (see migration 074's own
+// comment). A tight, dedicated budget on top of the global limiter keeps a
+// single IP from being able to sweep a meaningful address list even slowly.
+export const accountStatusLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});

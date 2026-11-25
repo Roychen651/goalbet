@@ -9,6 +9,13 @@
  * Placed inside AuthGuard (App.tsx) so it only mounts on protected routes.
  * Only active when FEATURE_FLAGS.AUTH_V2 === true.
  *
+ * Google sign-in removed entirely, Nov 2026 — see useAuthV2.ts's header
+ * comment for why. A legacy account that originally signed in via Google
+ * has no password set — a failed password attempt here is checked against
+ * the same backend lookup AuthContainer uses and, if it's one of those
+ * accounts, silently routed into a one-time email code instead of a
+ * dead-end "wrong password" error.
+ *
  * Props:
  *   onSuccess   — called after successful re-auth; clears the overlay
  *   onSignOut   — called when user explicitly chooses "Sign out fully"; caller
@@ -20,22 +27,12 @@ import { Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { isEmailValid, isPasswordValid, mapAuthError } from '../../lib/authSchema';
+import { checkAccountAuthMethod } from '../../lib/accountLookup';
 import { PasswordStrength } from './PasswordStrength';
 import { useLangStore } from '../../stores/langStore';
 import { withAuthTimeout } from '../../lib/asyncTimeout';
 
-type ReAuthView = 'main' | 'password' | 'set-password';
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-    </svg>
-  );
-}
+type ReAuthView = 'main' | 'password' | 'migrate-otp' | 'set-password';
 
 export function ReAuthModal({
   onSuccess,
@@ -47,48 +44,13 @@ export function ReAuthModal({
   const [reAuthView, setReAuthView] = useState<ReAuthView>('main');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { signInWithGoogle, signOut } = useAuthStore();
-
-  const handleGoogle = async () => {
-    setLoading(true);
-    setError(null);
-    // Same gap as the login page's Google button (useAuthV2.ts,
-    // handleGoogleSignIn) — signInWithGoogle() only protects against its
-    // own promise never settling. If it settles cleanly it triggers a
-    // top-level redirect as a side effect, and nothing recovers `loading`
-    // if that redirect never actually starts. A bounded fallback watchdog
-    // closes the gap here too — this modal appears mid-session on ANY
-    // protected page, so a stuck Google button here is even easier to miss
-    // than one on the login page.
-    // Same diagnostic-plus-manual-retry shape as useAuthV2.ts's
-    // handleGoogleSignIn, kept in sync deliberately — see its own comment
-    // for why a third blind guess isn't the right move here.
-    let computedUrl: string | undefined;
-    const redirectWatchdog = setTimeout(() => {
-      if (computedUrl) {
-        try { window.location.href = computedUrl; } catch { /* fall through */ }
-      }
-      setLoading(false);
-      setError(
-        computedUrl
-          ? `${t('googleRedirectFailed')} [${computedUrl}]`
-          : t('googleRedirectFailed'),
-      );
-    }, 6000);
-    try {
-      computedUrl = await signInWithGoogle();
-      // redirect handles the rest — onSuccess called by App's useEffect on user change
-    } catch (err) {
-      clearTimeout(redirectWatchdog);
-      setError(err instanceof Error ? err.message : 'Google sign-in failed');
-      setLoading(false);
-    }
-  };
+  const { signOut } = useAuthStore();
 
   const handlePasswordSignIn = async () => {
     if (!isEmailValid(email) || !pw) return;
@@ -98,8 +60,40 @@ export function ReAuthModal({
       const { error: err } = await withAuthTimeout(
         supabase.auth.signInWithPassword({ email: email.trim(), password: pw }),
       );
-      if (err) { setError(mapAuthError(err.message)); return; }
+      if (err) {
+        // "Invalid login credentials" covers both a wrong password and a
+        // legacy account that never had one (see useAuthV2.ts's handleSignIn
+        // for the full reasoning — identical shape here).
+        const status = await checkAccountAuthMethod(email.trim());
+        if (status.exists && !status.hasPassword) {
+          const { error: otpErr } = await withAuthTimeout(
+            supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false } }),
+          );
+          if (otpErr) { setError(mapAuthError(otpErr.message)); return; }
+          setReAuthView('migrate-otp');
+          setError(null);
+          return;
+        }
+        setError(mapAuthError(err.message));
+        return;
+      }
       onSuccess();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyMigrationOtp = async () => {
+    if (!/^\d{4,8}$/.test(otpCode.trim())) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: err } = await withAuthTimeout(
+        supabase.auth.verifyOtp({ email: email.trim(), token: otpCode.trim(), type: 'email' }),
+      );
+      if (err) { setError(mapAuthError(err.message)); return; }
+      setReAuthView('set-password');
+      setError(null);
     } finally {
       setLoading(false);
     }
@@ -202,20 +196,6 @@ export function ReAuthModal({
 
               {/* Actions */}
               <div className="space-y-2.5">
-                {/* Google */}
-                <motion.button
-                  type="button"
-                  onClick={handleGoogle}
-                  disabled={loading}
-                  whileHover={{ scale: loading ? 1 : 1.02 }}
-                  whileTap={{ scale: loading ? 1 : 0.97 }}
-                  className="flex items-center justify-center gap-2.5 w-full py-3 rounded-xl bg-white text-gray-900 text-sm font-semibold
-                             hover:bg-gray-50 transition-colors disabled:opacity-50 shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
-                >
-                  {loading ? <div className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-gray-800 animate-spin" /> : <GoogleIcon />}
-                  Continue with Google
-                </motion.button>
-
                 {/* Email / Password */}
                 <motion.button
                   type="button"
@@ -331,6 +311,62 @@ export function ReAuthModal({
                              hover:shadow-[0_0_16px_rgba(var(--color-live-glow-rgb), 0.35)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? <div className="w-4 h-4 rounded-full border-2 border-bg-base/30 border-t-bg-base animate-spin" /> : 'Sign In'}
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+
+          {reAuthView === 'migrate-otp' && (
+            <motion.div
+              key="migrate-otp"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-4"
+            >
+              <div>
+                <h3 className="font-bebas text-2xl tracking-wider text-white">{t('migrateVerifyTitle')}</h3>
+                <p className="text-white/45 text-sm mt-0.5">
+                  {t('migrateVerifySubtitle').replace('{0}', email)}
+                </p>
+              </div>
+
+              <div className="space-y-2.5">
+                <input
+                  type="text"
+                  placeholder={t('otpCodePlaceholder')}
+                  value={otpCode}
+                  onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  onKeyDown={e => e.key === 'Enter' && handleVerifyMigrationOtp()}
+                  autoFocus
+                  className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 outline-none
+                             bg-white/[0.06] border border-white/[0.09] focus:border-accent-green/50 focus:bg-white/[0.09] transition-all"
+                />
+
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-xs"
+                    >
+                      {error}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <motion.button
+                  type="button"
+                  onClick={handleVerifyMigrationOtp}
+                  disabled={!/^\d{4,8}$/.test(otpCode.trim()) || loading}
+                  whileHover={{ scale: (!/^\d{4,8}$/.test(otpCode.trim()) || loading) ? 1 : 1.02 }}
+                  whileTap={{ scale: (!/^\d{4,8}$/.test(otpCode.trim()) || loading) ? 1 : 0.97 }}
+                  className="flex items-center justify-center w-full py-3 rounded-xl bg-accent-green text-bg-base text-sm font-bold
+                             hover:shadow-[0_0_16px_rgba(var(--color-live-glow-rgb), 0.35)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? <div className="w-4 h-4 rounded-full border-2 border-bg-base/30 border-t-bg-base animate-spin" /> : t('verifyCodeBtn')}
                 </motion.button>
               </div>
             </motion.div>

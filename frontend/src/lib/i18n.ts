@@ -203,6 +203,9 @@ export const translations = {
     otpCodePlaceholder: '6-digit code',
     verifyCodeBtn: 'Verify & sign in',
     resendMagicLink: 'Resend the email',
+    migrateVerifyTitle: "Let's verify it's you",
+    migrateVerifySubtitle: "This account doesn't have a password set yet. We've emailed a one-time code to {0} — enter it below and you'll set a password next.",
+    accountAlreadyExistsSignIn: 'You already have an account with this email — sign in instead.',
     unlockTierHint: 'Make your first prediction to unlock',
     cornersUnsupportedTooltip: 'This stat isn\'t tracked for this match',
     parlayChainToggle: 'Chain to Parlay',
@@ -592,8 +595,6 @@ export const translations = {
     showPassword: 'Show password',
     hidePassword: 'Hide password',
     moreInfo: 'More info',
-    googleSignInFailed: 'Google sign-in failed. Try again.',
-    googleRedirectFailed: "Couldn't open Google sign-in. Check your browser's pop-up/redirect settings and try again.",
     inviteCodePlaceholder: 'AB12CD34',
 
     // Cold-start UX (Pillar 1)
@@ -1271,6 +1272,9 @@ export const translations = {
     otpCodePlaceholder: 'קוד בן 6 ספרות',
     verifyCodeBtn: 'אימות והתחברות',
     resendMagicLink: 'שליחת המייל מחדש',
+    migrateVerifyTitle: 'בואו נוודא שזה אתם',
+    migrateVerifySubtitle: 'לחשבון הזה עדיין אין סיסמה. שלחנו קוד חד-פעמי אל {0} — הזינו אותו למטה, ובשלב הבא תקבעו סיסמה.',
+    accountAlreadyExistsSignIn: 'כבר יש לכם חשבון עם המייל הזה — התחברו במקום זאת.',
     unlockTierHint: 'נחשו את המשחק הראשון כדי לפתוח',
     cornersUnsupportedTooltip: 'סטטיסטיקה זו אינה נתמכת במשחק הזה',
     parlayChainToggle: 'שרשור לשילוב',
@@ -1651,8 +1655,6 @@ export const translations = {
     showPassword: 'הצג סיסמה',
     hidePassword: 'הסתר סיסמה',
     moreInfo: 'מידע נוסף',
-    googleSignInFailed: 'כניסה עם Google נכשלה. נסה שוב.',
-    googleRedirectFailed: 'לא הצלחנו לפתוח את מסך הכניסה של Google. בדוק את הגדרות חלונות קופצים/הפניות בדפדפן וניסה שוב.',
     inviteCodePlaceholder: 'AB12CD34',
 
     // Cold-start UX (Pillar 1)

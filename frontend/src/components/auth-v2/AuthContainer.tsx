@@ -1,19 +1,26 @@
 /**
  * AuthContainer — The auth-v2 UI masterpiece.
  *
- * A single floating glassmorphism card that morphs between 8 views using
+ * A single floating glassmorphism card that morphs between 7 views using
  * spring-physics Framer Motion transitions. Directional slide animations
  * mimic the feel of navigating a native mobile flow.
  *
- * Views: email → signin | signup → oauth-merge | forgot → check-email
- *        set-password (password recovery) → success
+ * Views: email → signin | signup → forgot → check-email
+ *        otp-sent (passwordless OR migration code) → set-password → success
+ *
+ * Google sign-in removed entirely, Nov 2026 — see useAuthV2.ts's header
+ * comment for why. Every legacy account that was created via Google now
+ * migrates in-place the first time it tries to sign in: a failed password
+ * attempt (there never was one) is silently routed into the exact same
+ * one-time-code screen passwordless sign-in already uses, then straight to
+ * "set a password" — no separate "merge your identity" screen needed.
  *
  * This file is entirely self-contained:
  *   - All view sub-components defined inline (easy to delete the folder)
  *   - No global state written (auth state lives in authStore via useAuthV2)
  *   - Redirect after login: LoginPage's existing useEffect on authStore.user
  */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, MotionConfig, useReducedMotion } from 'framer-motion';
 import { useAuthV2 } from '../../hooks/useAuthV2';
 import { PasswordStrength } from './PasswordStrength';
@@ -49,58 +56,6 @@ const slideVariants = {
 };
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-    </svg>
-  );
-}
-
-function AuthDivider({ label = 'or' }: { label?: string }) {
-  return (
-    <div className="flex items-center gap-3 my-1">
-      <div className="flex-1 h-px bg-white/8" />
-      <span className="text-white/25 text-xs font-medium">{label}</span>
-      <div className="flex-1 h-px bg-white/8" />
-    </div>
-  );
-}
-
-function GoogleButton({
-  onClick,
-  loading,
-  label = 'Continue with Google',
-}: {
-  onClick: () => void;
-  loading: boolean;
-  label?: string;
-}) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      disabled={loading}
-      aria-label={label}
-      whileHover={{ scale: loading ? 1 : 1.02 }}
-      whileTap={{ scale: loading ? 1 : 0.97 }}
-      className="flex items-center justify-center gap-2.5 w-full py-3 rounded-xl bg-white text-gray-900 text-sm font-semibold
-                 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                 shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
-    >
-      {loading ? (
-        <div className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-gray-800 animate-spin" />
-      ) : (
-        <GoogleIcon />
-      )}
-      <span>{label}</span>
-    </motion.button>
-  );
-}
 
 function AuthInput({
   type = 'text',
@@ -245,7 +200,6 @@ function EmailView({
   setEmail,
   onSendMagicLink,
   onContinue,
-  onGoogle,
   loading,
   error,
 }: {
@@ -253,7 +207,6 @@ function EmailView({
   setEmail: (v: string) => void;
   onSendMagicLink: () => void;
   onContinue: () => void;
-  onGoogle: () => void;
   loading: boolean;
   error: string | null;
 }) {
@@ -278,15 +231,11 @@ function EmailView({
           hasError={!!error}
         />
         <AnimatePresence>{error && <ErrorBanner message={error} />}</AnimatePresence>
-        {/* Passwordless-first: the magic link is the prominent primary action. */}
+        {/* Passwordless-first: the one-time code is the prominent primary action. */}
         <PrimaryButton onClick={onSendMagicLink} loading={loading} disabled={!valid}>
           ✉️ {t('magicLinkButton')}
         </PrimaryButton>
       </div>
-
-      <AuthDivider />
-
-      <GoogleButton onClick={onGoogle} loading={loading} />
 
       {/* Password path preserved, demoted to a secondary link (rule: fallback must exist). */}
       <button
@@ -304,10 +253,11 @@ function EmailView({
   );
 }
 
-// ─── VIEW: OTP sent (passwordless) ────────────────────────────────────────────
+// ─── VIEW: OTP sent (passwordless sign-in OR migration verification) ──────────
 
 function OtpSentView({
   email,
+  intent,
   onVerify,
   onResend,
   onBack,
@@ -315,6 +265,7 @@ function OtpSentView({
   error,
 }: {
   email: string;
+  intent: 'signin' | 'migrate';
   onVerify: (code: string) => void;
   onResend: () => void;
   onBack: () => void;
@@ -323,14 +274,18 @@ function OtpSentView({
 }) {
   const { t } = useLangStore();
   const [code, setCode] = useState('');
-  const valid = /^\d{6}$/.test(code.trim());
+  const valid = /^\d{4,8}$/.test(code.trim());
 
   return (
     <div className="space-y-4">
       <BackButton onClick={onBack} />
       <div>
-        <h2 className="font-bebas text-3xl tracking-wider text-white mb-1">{t('otpSentTitle')}</h2>
-        <p className="text-white/45 text-sm">{t('otpSentSubtitle').replace('{0}', email)}</p>
+        <h2 className="font-bebas text-3xl tracking-wider text-white mb-1">
+          {intent === 'migrate' ? t('migrateVerifyTitle') : t('otpSentTitle')}
+        </h2>
+        <p className="text-white/45 text-sm">
+          {(intent === 'migrate' ? t('migrateVerifySubtitle') : t('otpSentSubtitle')).replace('{0}', email)}
+        </p>
       </div>
 
       <div className="space-y-3">
@@ -338,7 +293,7 @@ function OtpSentView({
           type="text"
           placeholder={t('otpCodePlaceholder')}
           value={code}
-          onChange={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
+          onChange={(v) => setCode(v.replace(/\D/g, '').slice(0, 8))}
           onEnter={valid ? () => onVerify(code) : undefined}
           autoFocus
           hasError={!!error}
@@ -367,7 +322,6 @@ function SignInView({
   onSignIn,
   onForgot,
   onSignUp,
-  onGoogle,
   onBack,
   loading,
   error,
@@ -376,7 +330,6 @@ function SignInView({
   onSignIn: (pw: string) => void;
   onForgot: () => void;
   onSignUp: () => void;
-  onGoogle: () => void;
   onBack: () => void;
   loading: boolean;
   error: string | null;
@@ -384,8 +337,6 @@ function SignInView({
   const [pw, setPw] = useState('');
   const [show, setShow] = useState(false);
   const { t } = useLangStore();
-  // If error mentions Google, highlight the Google button
-  const isGoogleHint = error?.toLowerCase().includes('google') ?? false;
 
   return (
     <div className="space-y-4">
@@ -427,18 +378,7 @@ function SignInView({
           }
         />
 
-        <AnimatePresence>
-          {error && (
-            <div className="space-y-2">
-              <ErrorBanner message={error} />
-              {isGoogleHint && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  <GoogleButton onClick={onGoogle} loading={loading} label="Try Google instead" />
-                </motion.div>
-              )}
-            </div>
-          )}
-        </AnimatePresence>
+        <AnimatePresence>{error && <ErrorBanner message={error} />}</AnimatePresence>
 
         <div className="flex justify-end">
           <button
@@ -454,13 +394,6 @@ function SignInView({
           Sign In
         </PrimaryButton>
       </div>
-
-      {!isGoogleHint && (
-        <>
-          <AuthDivider />
-          <GoogleButton onClick={onGoogle} loading={loading} />
-        </>
-      )}
 
       <p className="text-center text-white/30 text-xs">
         No account?{' '}
@@ -481,14 +414,12 @@ function SignInView({
 function SignUpView({
   email,
   onSignUp,
-  onGoogle,
   onBack,
   loading,
   error,
 }: {
   email: string;
   onSignUp: (username: string, pw: string) => void;
-  onGoogle: () => void;
   onBack: () => void;
   loading: boolean;
   error: string | null;
@@ -606,88 +537,6 @@ function SignUpView({
           Create Account
         </PrimaryButton>
       </div>
-
-      <AuthDivider />
-      <GoogleButton onClick={onGoogle} loading={loading} />
-    </div>
-  );
-}
-
-// ─── VIEW: OAuth identity merge ───────────────────────────────────────────────
-
-function OAuthMergeView({
-  email,
-  onGoogle,
-  onSetPassword,
-  onBack,
-  loading,
-  error,
-}: {
-  email: string;
-  onGoogle: () => void;
-  onSetPassword: () => void;
-  onBack: () => void;
-  loading: boolean;
-  error: string | null;
-}) {
-  return (
-    <div className="space-y-5">
-      <BackButton onClick={onBack} />
-
-      {/* Identity merge illustration */}
-      <div className="flex flex-col items-center text-center gap-3 py-2">
-        <motion.div
-          className="relative w-16 h-16"
-          initial={{ scale: 0, rotate: -20 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        >
-          {/* Glow ring */}
-          <div className="absolute inset-0 rounded-full bg-accent-green/10 animate-pulse" />
-          {/* Google icon centered */}
-          <div className="absolute inset-0 flex items-center justify-center rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
-            <GoogleIcon />
-          </div>
-          {/* Checkmark badge */}
-          <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-accent-green flex items-center justify-center border-2 border-bg-base">
-            <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
-              <path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="text-bg-base"/>
-            </svg>
-          </div>
-        </motion.div>
-
-        <div>
-          <h2 className="font-bebas text-2xl tracking-wider text-white leading-tight">
-            You usually sign in<br />with Google
-          </h2>
-          <p className="text-white/45 text-sm mt-1.5 leading-relaxed max-w-[260px]">
-            This email is linked to a Google account. Use Google to sign in instantly.
-          </p>
-        </div>
-
-        <EmailChip email={email} />
-      </div>
-
-      <div className="space-y-3">
-        <AnimatePresence>{error && <ErrorBanner message={error} />}</AnimatePresence>
-        <GoogleButton onClick={onGoogle} loading={loading} label="Continue with Google" />
-      </div>
-
-      <AuthDivider label="or" />
-
-      <div className="text-center">
-        <button
-          type="button"
-          onClick={onSetPassword}
-          disabled={loading}
-          className="text-white/35 hover:text-white/65 text-xs transition-colors underline underline-offset-2 disabled:opacity-50"
-        >
-          Set a password for this account instead
-        </button>
-        <p className="text-white/20 text-[10px] mt-1.5 leading-relaxed">
-          We'll send a setup link to {email}
-        </p>
-      </div>
     </div>
   );
 }
@@ -753,7 +602,7 @@ function CheckEmailView({
   loading,
 }: {
   email: string;
-  context: 'signup' | 'reset' | 'google-set-password';
+  context: 'signup' | 'reset';
   onResend: () => void;
   onBack: () => void;
   loading: boolean;
@@ -777,12 +626,6 @@ function CheckEmailView({
       heading: 'Recovery link sent',
       sub: 'If your email is in our system, a link was sent to',
       action: 'Resend link',
-    },
-    'google-set-password': {
-      icon: '📮',
-      heading: 'Setup link sent',
-      sub: 'A password setup link was sent to',
-      action: 'Resend',
     },
   }[context];
 
@@ -860,7 +703,7 @@ function CheckEmailView({
   );
 }
 
-// ─── VIEW: Set password (recovery + Google merge) ─────────────────────────────
+// ─── VIEW: Set password (recovery + migration from no-password accounts) ──────
 
 function SetPasswordView({
   onSetPassword,
@@ -1083,17 +926,17 @@ function SuccessView() {
 export function AuthContainer() {
   const shouldReduceMotion = useReducedMotion();
   const {
-    view, direction, email, loading, error, checkEmailContext,
+    view, direction, email, loading, error, checkEmailContext, otpIntent,
     setEmail, navigateTo,
     handleContinue, handleSendMagicLink, handleVerifyOtp, handleSignIn, handleSignUp,
-    handleForgotPassword, handleGoogleSignIn,
-    handleSetPassword, handleSendGooglePasswordReset,
+    handleForgotPassword,
+    handleSetPassword,
     goBack,
   } = useAuthV2();
 
   // Helper: direct resend based on context
   const handleResend = () => {
-    if (checkEmailContext === 'reset' || checkEmailContext === 'google-set-password') {
+    if (checkEmailContext === 'reset') {
       handleForgotPassword();
     } else {
       handleSignUp('', ''); // re-triggers the signUp RPC which re-sends confirmation
@@ -1192,7 +1035,6 @@ export function AuthContainer() {
                     setEmail={setEmail}
                     onSendMagicLink={handleSendMagicLink}
                     onContinue={handleContinue}
-                    onGoogle={handleGoogleSignIn}
                     loading={loading}
                     error={error}
                   />
@@ -1200,6 +1042,7 @@ export function AuthContainer() {
                 {view === 'otp-sent' && (
                   <OtpSentView
                     email={email}
+                    intent={otpIntent}
                     onVerify={handleVerifyOtp}
                     onResend={handleSendMagicLink}
                     onBack={() => navigateTo('email', -1)}
@@ -1213,7 +1056,6 @@ export function AuthContainer() {
                     onSignIn={handleSignIn}
                     onForgot={() => navigateTo('forgot', 1)}
                     onSignUp={() => navigateTo('signup', 1)}
-                    onGoogle={handleGoogleSignIn}
                     onBack={goBack}
                     loading={loading}
                     error={error}
@@ -1223,17 +1065,6 @@ export function AuthContainer() {
                   <SignUpView
                     email={email}
                     onSignUp={handleSignUp}
-                    onGoogle={handleGoogleSignIn}
-                    onBack={goBack}
-                    loading={loading}
-                    error={error}
-                  />
-                )}
-                {view === 'oauth-merge' && (
-                  <OAuthMergeView
-                    email={email}
-                    onGoogle={handleGoogleSignIn}
-                    onSetPassword={handleSendGooglePasswordReset}
                     onBack={goBack}
                     loading={loading}
                     error={error}
