@@ -1,26 +1,47 @@
 /**
  * useAuthV2 — State machine for the auth-v2 flow.
  *
+ * Google sign-in removed entirely, Nov 2026 — three independent attempted
+ * fixes (a redirect watchdog, switching flowType pkce→implicit, a genuine
+ * manual-retry + diagnostic URL) all left the identical live-reported
+ * symptom: the browser never actually leaves the page. Without access to
+ * Google Cloud Console / Supabase's Auth dashboard from this environment,
+ * that's very likely a dashboard-level OAuth config issue this codebase
+ * cannot inspect or fix. Every auth path now runs entirely on Supabase's
+ * own email infrastructure — no third-party identity provider in the loop.
+ *
  * Views (AuthView):
- *   email        → single email field, "Continue" → optimistically goes to signin
- *   signin       → password entry; on "Invalid credentials" shows Google hint
- *   signup       → username + password; on "already registered" → oauth-merge
- *   oauth-merge  → "You usually sign in with Google" (identity collision screen)
- *   forgot       → password reset request (anti-enumeration: always shows success)
- *   check-email  → post-signup / post-reset confirmation state
- *   set-password → password update (entered via reset-link URL or Google→password merge)
- *   success      → animated checkmark before redirect
+ *   email          → single email field; passwordless OTP (primary) or
+ *                     "Use a password instead" (secondary) → signin
+ *   signin         → password entry; a failed attempt is checked against
+ *                     the backend account-status lookup — a legacy account
+ *                     with no password (there's no other way to have one
+ *                     after removing Google) is routed straight into the
+ *                     migration OTP flow instead of a dead-end error
+ *   signup         → username + password; "already registered" is the same
+ *                     lookup-and-branch: no password yet → migration flow,
+ *                     already has one → "sign in instead"
+ *   otp-sent       → shared view for BOTH passwordless sign-in codes and
+ *                     migration-verification codes (`otpIntent` decides
+ *                     where a verified code leads next)
+ *   forgot         → password reset request (anti-enumeration: always
+ *                     shows success)
+ *   check-email    → post-signup / post-reset confirmation state
+ *   set-password   → password creation/update (reset-link URL, OR right
+ *                     after a migration OTP verifies)
+ *   success        → animated checkmark before redirect
  *
  * This hook is deliberately self-contained:
  *   - Lives only in AuthContainer (not persisted, not global)
- *   - Redirect after login is handled by LoginPage's existing useEffect on authStore.user
+ *   - Redirect after login is handled by LoginPage's existing useEffect on
+ *     authStore.user
  *   - PASSWORD_RECOVERY flow: reset link redirects to /login?type=recovery
  *     → this hook detects it on mount and jumps to set-password view
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../stores/authStore';
 import { mapAuthError } from '../lib/authSchema';
+import { checkAccountAuthMethod } from '../lib/accountLookup';
 import { useLangStore } from '../stores/langStore';
 import { withAuthTimeout } from '../lib/asyncTimeout';
 
@@ -28,14 +49,16 @@ export type AuthView =
   | 'email'
   | 'signin'
   | 'signup'
-  | 'oauth-merge'
   | 'forgot'
   | 'check-email'
   | 'set-password'
-  | 'otp-sent'      // passwordless: magic link + 6-digit code emailed, awaiting code entry
+  | 'otp-sent'      // shared: passwordless sign-in code AND migration code
   | 'success';
 
-export type CheckEmailContext = 'signup' | 'reset' | 'google-set-password';
+export type CheckEmailContext = 'signup' | 'reset';
+// Which action an otp-sent/verify cycle is actually for — decides where a
+// successful verifyOtp() navigates to next.
+export type OtpIntent = 'signin' | 'migrate';
 
 export interface UseAuthV2Return {
   // State
@@ -45,6 +68,7 @@ export interface UseAuthV2Return {
   loading: boolean;
   error: string | null;
   checkEmailContext: CheckEmailContext;
+  otpIntent: OtpIntent;
   // Actions
   setEmail: (v: string) => void;
   navigateTo: (v: AuthView, dir?: 1 | -1) => void;
@@ -54,9 +78,7 @@ export interface UseAuthV2Return {
   handleSignIn: (password: string) => Promise<void>;
   handleSignUp: (username: string, password: string) => Promise<void>;
   handleForgotPassword: () => Promise<void>;
-  handleGoogleSignIn: () => Promise<void>;
   handleSetPassword: (password: string) => Promise<void>;
-  handleSendGooglePasswordReset: () => Promise<void>;
   clearError: () => void;
   goBack: () => void;
 }
@@ -68,7 +90,7 @@ export function useAuthV2(): UseAuthV2Return {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkEmailContext, setCheckEmailContext] = useState<CheckEmailContext>('signup');
-  const { signInWithGoogle } = useAuthStore();
+  const [otpIntent, setOtpIntent] = useState<OtpIntent>('signin');
   const { t } = useLangStore();
 
   // ── Password recovery URL detection ───────────────────────────────────────
@@ -115,9 +137,11 @@ export function useAuthV2(): UseAuthV2Return {
   }, [email, navigateTo]);
 
   // ── Passwordless: send magic link + email OTP ─────────────────────────────
-  // signInWithOtp emails BOTH a magic link and a 6-digit code. The user can
-  // click the link (→ /auth/callback → onAuthStateChange) OR type the code
-  // here. shouldCreateUser:true makes this double as passwordless sign-up.
+  // signInWithOtp emails BOTH a magic link and a numeric one-time code
+  // (Supabase's own default length — see CLAUDE.md's note on this). The
+  // user can click the link (→ /auth/callback → onAuthStateChange) OR type
+  // the code here. shouldCreateUser:true makes this double as passwordless
+  // sign-up.
   const handleSendMagicLink = useCallback(async () => {
     if (!email.trim()) return;
     setLoading(true);
@@ -134,13 +158,43 @@ export function useAuthV2(): UseAuthV2Return {
         setError(mapAuthError(err.message));
         return;
       }
+      setOtpIntent('signin');
       navigateTo('otp-sent', 1);
     } finally {
       setLoading(false);
     }
   }, [email, navigateTo]);
 
-  // ── Passwordless: verify the 6-digit code typed in-app ────────────────────
+  // ── Migration: send a verification code to an account that exists but
+  // has no password yet (every account from before Google was removed had
+  // no other way to authenticate). Reuses the exact same Supabase-native
+  // one-time code mechanism as passwordless sign-in — shouldCreateUser:false
+  // since this path only ever runs after we've already confirmed the
+  // account exists.
+  const handleSendMigrationCode = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: err } = await withAuthTimeout(supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: { shouldCreateUser: false },
+      }));
+      if (err) {
+        setError(mapAuthError(err.message));
+        return;
+      }
+      setOtpIntent('migrate');
+      navigateTo('otp-sent', 1);
+    } finally {
+      setLoading(false);
+    }
+  }, [email, navigateTo]);
+
+  // ── Verify the code typed in-app ───────────────────────────────────────────
+  // Shared by both intents: a plain passwordless sign-in lands the user at
+  // success (they're done); a migration verification has just authenticated
+  // them for the first time via code instead of a password they never had —
+  // send them straight to set-password so that gap is closed immediately.
   const handleVerifyOtp = useCallback(async (code: string) => {
     setLoading(true);
     setError(null);
@@ -154,12 +208,11 @@ export function useAuthV2(): UseAuthV2Return {
         setError(mapAuthError(err.message));
         return;
       }
-      // onAuthStateChange handles the redirect via LoginPage's useEffect
-      navigateTo('success', 1);
+      navigateTo(otpIntent === 'migrate' ? 'set-password' : 'success', 1);
     } finally {
       setLoading(false);
     }
-  }, [email, navigateTo]);
+  }, [email, otpIntent, navigateTo]);
 
   // ── Sign in with password ─────────────────────────────────────────────────
   const handleSignIn = useCallback(async (password: string) => {
@@ -171,9 +224,18 @@ export function useAuthV2(): UseAuthV2Return {
         password,
       }));
       if (err) {
-        // "Invalid login credentials" can mean: wrong password OR Google-only account.
-        // We cannot distinguish these without a server-side email lookup, so we show
-        // a helpful error message + offer Google as an alternative.
+        // "Invalid login credentials" covers two real cases: a wrong
+        // password, or a legacy account that never had one set (every
+        // account created before Google's removal). The backend lookup is
+        // the only way to tell them apart — it fails safe toward "has a
+        // password" (see accountLookup.ts), so an outage here just falls
+        // through to today's ordinary "wrong password" message, never the
+        // reverse.
+        const status = await checkAccountAuthMethod(email.trim());
+        if (status.exists && !status.hasPassword) {
+          await handleSendMigrationCode();
+          return;
+        }
         setError(mapAuthError(err.message));
         return;
       }
@@ -182,7 +244,7 @@ export function useAuthV2(): UseAuthV2Return {
     } finally {
       setLoading(false);
     }
-  }, [email, navigateTo]);
+  }, [email, navigateTo, handleSendMigrationCode]);
 
   // ── Sign up with email + password ─────────────────────────────────────────
   const handleSignUp = useCallback(async (username: string, password: string) => {
@@ -202,14 +264,23 @@ export function useAuthV2(): UseAuthV2Return {
         },
       }));
       if (err) {
-        // "User already registered" (status 422) = email exists in Supabase Auth.
-        // This is the definitive identity-collision signal → show OAuth merge screen.
-        if (
+        // "User already registered" (status 422) = email exists in Supabase
+        // Auth. Same lookup-and-branch as a failed sign-in: no password yet
+        // (a legacy account) → straight into the migration flow; already
+        // has one → tell them to sign in instead of leaving a confusing
+        // "already registered" error sitting on the sign-up form.
+        const isCollision =
           err.message.toLowerCase().includes('already registered') ||
           err.message.toLowerCase().includes('user already') ||
-          (err as { status?: number }).status === 422
-        ) {
-          navigateTo('oauth-merge', 1);
+          (err as { status?: number }).status === 422;
+        if (isCollision) {
+          const status = await checkAccountAuthMethod(email.trim());
+          if (status.exists && !status.hasPassword) {
+            await handleSendMigrationCode();
+            return;
+          }
+          navigateTo('signin', 1);
+          setError(t('accountAlreadyExistsSignIn'));
           return;
         }
         setError(mapAuthError(err.message));
@@ -223,7 +294,7 @@ export function useAuthV2(): UseAuthV2Return {
     } finally {
       setLoading(false);
     }
-  }, [email, navigateTo]);
+  }, [email, navigateTo, handleSendMigrationCode, t]);
 
   // ── Forgot password ───────────────────────────────────────────────────────
   // Anti-enumeration: ALWAYS show the success state, whether or not the email
@@ -245,69 +316,10 @@ export function useAuthV2(): UseAuthV2Return {
     }
   }, [email, navigateTo]);
 
-  // ── Google sign-in ─────────────────────────────────────────────────────────
-  // Live-reported, Nov 2026: both the email button and this one got stuck
-  // spinning forever with no error and no recovery short of a hard refresh.
-  // Root cause: signInWithGoogle() (authStore.ts) is already timeout-guarded
-  // against its OWN promise hanging (rejectOnTimeout, fixed July 2026) — but
-  // that only covers "the call never settles." If it settles successfully
-  // (Supabase built the OAuth URL fine) it triggers a top-level browser
-  // redirect to Google as a side effect and this component is expected to
-  // unmount before anything below matters. That assumption can fail for
-  // reasons entirely outside this app's control — a popup/redirect blocker,
-  // a stale Google OAuth client config, a webview that disallows the
-  // redirect — and when it does, the promise never rejects either, so
-  // `loading` was left permanently true with zero recovery path (the exact
-  // "never let a UI state hang unbounded" violation this codebase already
-  // enforces everywhere else, §21). A bounded fallback watchdog closes the
-  // gap: if we're still on this page a few seconds after the call resolved
-  // cleanly, the redirect clearly isn't happening, so recover the UI instead
-  // of leaving it stuck. In the normal case the page has already navigated
-  // away long before this fires, making it a harmless no-op.
-  const handleGoogleSignIn = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    // Captured once signInWithGoogle() resolves cleanly (see authStore.ts) —
-    // the exact address the SDK was about to send the browser to. Read by
-    // the watchdog below; `let`, not state, since it's only ever consumed
-    // from inside a timer callback closing over this same function call.
-    let computedUrl: string | undefined;
-    const redirectWatchdog = setTimeout(() => {
-      // Two independent prior fixes (a shorter watchdog, then switching
-      // flowType pkce→implicit) left the identical symptom — the SDK
-      // resolves with no error, but window.location.assign() either never
-      // fires or is ignored. One more real attempt, now genuinely
-      // decoupled from whatever blocked the SDK's own internal call: if
-      // THAT succeeds, the page navigates away before any of the lines
-      // below are even perceived. If it doesn't, show the exact computed
-      // URL so the next report is hard evidence (a malformed address, a
-      // wrong project ref) instead of a fourth blind guess.
-      if (computedUrl) {
-        try { window.location.href = computedUrl; } catch { /* fall through to the error below */ }
-      }
-      setLoading(false);
-      setError(
-        computedUrl
-          ? `${t('googleRedirectFailed')} [${computedUrl}]`
-          : t('googleRedirectFailed'),
-      );
-    }, 6000);
-    try {
-      computedUrl = await signInWithGoogle();
-      // Resolved without throwing — a redirect should already be under way.
-      // Leave the watchdog armed: if navigation genuinely happens, this
-      // component unmounts and the timer is harmless; if it doesn't, the
-      // watchdog above recovers the UI instead of leaving it stuck forever.
-    } catch (err) {
-      clearTimeout(redirectWatchdog);
-      setError(err instanceof Error ? err.message : t('googleSignInFailed'));
-      setLoading(false);
-    }
-  }, [signInWithGoogle, t]);
-
   // ── Set / update password ─────────────────────────────────────────────────
-  // Used by both the password-recovery flow and the Google→password merge flow.
-  // The user must already have a valid session (recovery or authenticated).
+  // Used by both the password-recovery flow and right after a migration
+  // OTP verifies. The user must already have a valid session (recovery or
+  // freshly-authenticated-via-code).
   const handleSetPassword = useCallback(async (password: string) => {
     setLoading(true);
     setError(null);
@@ -323,25 +335,6 @@ export function useAuthV2(): UseAuthV2Return {
     }
   }, [navigateTo]);
 
-  // ── Google-account "Set a password" flow ──────────────────────────────────
-  // Called from the OAuthMerge view when user wants a password for their Google account.
-  // Sends a password reset email to the Google-linked address.
-  const handleSendGooglePasswordReset = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await withAuthTimeout(supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/login?type=recovery`,
-      }));
-    } catch {
-      // Swallowed — show success regardless
-    } finally {
-      setLoading(false);
-      setCheckEmailContext('google-set-password');
-      navigateTo('check-email', 1);
-    }
-  }, [email, navigateTo]);
-
   return {
     view,
     direction,
@@ -349,6 +342,7 @@ export function useAuthV2(): UseAuthV2Return {
     loading,
     error,
     checkEmailContext,
+    otpIntent,
     setEmail,
     navigateTo,
     handleContinue,
@@ -357,9 +351,7 @@ export function useAuthV2(): UseAuthV2Return {
     handleSignIn,
     handleSignUp,
     handleForgotPassword,
-    handleGoogleSignIn,
     handleSetPassword,
-    handleSendGooglePasswordReset,
     clearError,
     goBack,
   };

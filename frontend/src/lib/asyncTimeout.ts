@@ -34,10 +34,10 @@ export function withAuthTimeout<T extends { error: unknown }>(
 }
 
 /**
- * For calls using throw-on-error semantics (authStore.signInWithGoogle)
- * rather than a {data,error} return shape. Rejects with a real Error
- * after `ms` if the underlying promise hasn't settled, so an existing
- * try/catch at the call site handles it exactly like any other failure.
+ * For calls using throw-on-error semantics rather than a {data,error}
+ * return shape. Rejects with a real Error after `ms` if the underlying
+ * promise hasn't settled, so an existing try/catch at the call site
+ * handles it exactly like any other failure.
  */
 export function rejectOnTimeout<T>(promise: Promise<T>, ms: number = DEFAULT_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
-import { withAuthTimeout, rejectOnTimeout } from '../lib/asyncTimeout';
+import { withAuthTimeout } from '../lib/asyncTimeout';
 
 interface AuthState {
   user: User | null;
@@ -9,10 +9,6 @@ interface AuthState {
   profile: Profile | null;
   loading: boolean;
   initialized: boolean;
-  // Returns the OAuth URL the SDK computed on a clean (no-error) resolution
-  // — see the function body below for why this is now surfaced rather than
-  // discarded.
-  signInWithGoogle: () => Promise<string | undefined>;
   signOut: () => Promise<void>;
   fetchProfile: () => Promise<void>;
   updateAvatar: (avatarUrl: string) => Promise<void>;
@@ -75,40 +71,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     );
 
     return () => subscription.unsubscribe();
-  },
-
-  signInWithGoogle: async () => {
-    // rejectOnTimeout, not withAuthTimeout — this method already uses
-    // throw-on-error semantics (useAuthV2.handleGoogleSignIn already has
-    // a real try/catch around this exact call), so a rejection after 10s
-    // is caught there the same way any other failure already is, instead
-    // of leaving the button spinning forever with no recovery path.
-    //
-    // Live-reported, Nov 2026: two independent attempted fixes (a redirect
-    // watchdog, then switching flowType pkce→implicit) both left the exact
-    // same symptom — signInWithOAuth() resolves with NO error, yet the
-    // browser never actually leaves this page. Since this sandbox has no
-    // outbound network to Supabase/Google to reproduce the real redirect
-    // live, guessing a third blind fix isn't the responsible move. Instead:
-    // the computed `data.url` (the exact address the SDK was about to send
-    // the browser to) is now returned to the caller so the UI can surface
-    // it directly on screen if the redirect still doesn't happen — turning
-    // the next report into hard, actionable evidence (a malformed URL, a
-    // wrong project ref, a missing redirect param) instead of another guess.
-    const { data, error } = await rejectOnTimeout(
-      supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
-      }),
-    );
-    if (error) throw error;
-    return data?.url;
   },
 
   updateAvatar: async (avatarUrl: string) => {
@@ -174,7 +136,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // A logged-in user with a stuck fetchProfile() is stuck in a
     // different but equally real way (session exists, profile stays null
     // forever — every page that gates on `profile` hangs). Same timeout
-    // discipline as getSession()/signInWithGoogle() above; a genuine
+    // discipline as getSession()/signOut() above; a genuine
     // failure/timeout here just means the profile stays null and the
     // (already-idempotent, safe-to-retry) fetch can be attempted again
     // later — never an infinite await.
